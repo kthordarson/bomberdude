@@ -46,9 +46,9 @@ class Game_Data():
         self.blocks = pg.sprite.Group()
         for k in range(GRID_X):
             for j in range(GRID_Y):
-                if self.game_map[k][j] == 0:
+                if self.game_map[k][j] == 0:   # 0 = solid block
                     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkseagreen')))
-                if self.game_map[k][j] == 30:
+                if self.game_map[k][j] == 30:  # 39 = bomb crater
                     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray32')))
             
 def place_player(game_map):
@@ -63,13 +63,13 @@ def place_player(game_map):
             return (x*BLOCKSIZE,y*BLOCKSIZE)
 
 class Game():
-    def __init__(self):
+    def __init__(self, screen):
         # self.width = GRID_X * BLOCKSIZE
         # self.height = GRID_Y * BLOCKSIZE
         # self.FPS = 30
         self.mainClock = pg.time.Clock()
         self.dt = self.mainClock.tick(FPS) / 100
-        self.screen = SCREEN  # pg.display.set_mode((self.width, self.height),0,32)
+        self.screen = screen  # pg.display.set_mode((self.width, self.height),0,32)
         self.bg_color = pg.Color('gray12')
         self.running = True
         pg.init()
@@ -77,7 +77,7 @@ class Game():
 
         self.players = pg.sprite.Group()
         player_pos = place_player(self.game_data.game_map)
-        self.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=SCREEN)
+        self.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=self.screen)
         self.players.add(self.player1)
         self.font = pg.font.SysFont('calibri', 33, True)
     def run(self):
@@ -130,12 +130,12 @@ class Game():
         for bomb in self.game_data.bombs:
             # print(f'bombs on map {len(self.bombs)}')
             if bomb.time_left <= 0: 
-                print(f'bx dt {bomb.dt:.2f} tl {bomb.time_left} {bomb.bomber_id} gridpos {bomb.gridpos} griddata: {self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]]}')
                 self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 30  # set grid location where bomb was placed to 30 when it explodes
                 bomb.exploding = True  # bomb explotion 'animation'
                 # bomb.kill() # remove bomb from sprite group
                 # self.game_data.bombs.remove(bomb)
             if bomb.done:
+                print(f'bx dt {bomb.dt:.2f} tl {bomb.time_left} {bomb.bomber_id} gridpos {bomb.gridpos} griddata: {self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]]}')
                 self.player1.bombs_left += 1  # update bombs_left for player1
                 bomb.kill()
 
@@ -144,15 +144,15 @@ class Game():
 
 
     def draw(self):
-        SCREEN.fill(self.bg_color)
+        self.screen.fill(self.bg_color)
         self.game_data.draw_map()
 
-        self.game_data.blocks.draw(SCREEN)
-        self.game_data.bombs.draw(SCREEN)
+        self.game_data.blocks.draw(self.screen)
+        self.game_data.bombs.draw(self.screen)
         for bomb in self.game_data.bombs:
             if bomb.exploding:
-                bomb.draw_expl(SCREEN)
-        self.players.draw(SCREEN)
+                bomb.draw_expl()
+        self.players.draw(self.screen)
         text = self.font.render(f'x {self.player1.rect.x} y {self.player1.rect.y}', 1, (255,255,255))
         self.screen.blit(text, (10,10))
         pg.display.flip()
@@ -160,5 +160,5 @@ class Game():
 
 if __name__ == '__main__':
     main_game = Game
-    SCREEN = pg.display.set_mode((GRID_X * BLOCKSIZE, GRID_Y * BLOCKSIZE),0,32)
-    main_game().run()
+    screen = pg.display.set_mode((GRID_X * BLOCKSIZE, GRID_Y * BLOCKSIZE),0,32)
+    main_game(screen=screen).run()
