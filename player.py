@@ -23,9 +23,12 @@ class BlockBomb(pg.sprite.Sprite):
         # self.rect.center = (50,50)
         self.rect.x = self.x
         self.rect.y = self.y
-        self.bomb_timer = 200
+        self.bomb_timer = 100
         self.time_left = 3
         self.exploding = False
+        self.exp_steps = 5
+        self.exp_radius = 2
+        self.done = False
 
     def update(self):
         self.dt = pg.time.get_ticks() / FPS
@@ -33,11 +36,22 @@ class BlockBomb(pg.sprite.Sprite):
             # print(f'bomb expl {self.bomb_timer} dt {self.dt:.2f} pos {self.rect.x} {self.rect.y} bid {self.bomber_id}')
             self.time_left = 0 
             # self.kill()
-            self.exploding = True
-        if self.exploding:
-            pg.draw.circle(self.screen, (255,255,255), (self.rect.x, self.rect.y), 20,2)
+            # self.exploding = True
+#        if self.exploding:
+#            self.explode_animation()
+            # pg.draw.circle(self.screen, (255,255,255), (self.rect.x, self.rect.y), 20,2)
             # pg.draw.circle(SCREEN, (255,255,255), (100,100), 100,2)
+            # self.exploding = False
+    def draw_expl(self, screen):
+        pg.draw.circle(screen, (255,255,255), (self.rect.x, self.rect.y), self.exp_radius,2)
+        # pg.draw.circle(screen, (255,255,255), (250, 250), 100,2)
+        self.exp_radius += 3
+        self.exp_steps -= 1
+        print(f'bomb anim {self.exp_steps} r {self.exp_radius} pos {self.rect.x} {self.rect.y}')
+        if self.exp_steps <= 0:
             self.exploding = False
+            print(f'b expl finish')
+            self.done = True
 
 class Player(pg.sprite.Sprite):
     def __init__(self, x, y, player_id, screen):
@@ -56,6 +70,7 @@ class Player(pg.sprite.Sprite):
         self.change_y = 0
         self.bombs_left = 3
         self.player_id = player_id
+        
 
     def drop_bomb(self, game_data):
         x = self.rect.x // BLOCKSIZE
@@ -82,19 +97,24 @@ class Player(pg.sprite.Sprite):
         # Did this update cause us to hit a wall?
         block_hit_list = pg.sprite.spritecollide(self, blocks, False)
         for block in block_hit_list:
+            # print(f'blcol {block.block_color}')
             # If we are moving right, set our right side to the left side of the item we hit
-            if self.change_x > 0:
+            if self.change_x > 0 and block.block_color == (143, 188, 143, 255):
                 self.rect.right = block.rect.left
             else:
                 # Otherwise if we are moving left, do the opposite.
-                self.rect.left = block.rect.right 
+                if block.block_color == (143, 188, 143, 255):
+                    self.rect.left = block.rect.right 
         # Move up/down
         self.rect.y += self.change_y
         # Check and see if we hit anything
         block_hit_list = pg.sprite.spritecollide(self, blocks, False)
         for block in block_hit_list: 
             # Reset our position based on the top/bottom of the object.
-            if self.change_y > 0:
+            if self.change_y > 0 and block.block_color == (143, 188, 143, 255):
                 self.rect.bottom = block.rect.top
             else:
-                self.rect.top = block.rect.bottom
+                if block.block_color == (143, 188, 143, 255):
+                    self.rect.top = block.rect.bottom
+        # text = self.font.render(f'x {self.rect.x} y {self.rect.y}', 1, (255,255,255))
+        # self.screen.blit(text, (10,10))

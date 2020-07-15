@@ -29,10 +29,12 @@ class Game_Data():
         # super().__init__()
         # make a random grid map
         # self.screen = SCREEN
+        # make a random map
         self.game_map = [[random.randint(0,10) for k in range(GRID_Y)] for j in range(GRID_X)]
+
         self.bombs = pg.sprite.Group()
         self.blocks = pg.sprite.Group()
-        # set edges to solid blocks
+        # set edges to solid blocks, 0 = solid block
         for x in range(GRID_X):
             self.game_map[x][0] = 0
             self.game_map[x][GRID_Y-1] = 0
@@ -46,6 +48,8 @@ class Game_Data():
             for j in range(GRID_Y):
                 if self.game_map[k][j] == 0:
                     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkseagreen')))
+                if self.game_map[k][j] == 30:
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray32')))
             
 def place_player(game_map):
     # place player somewhere where there is no block
@@ -53,8 +57,9 @@ def place_player(game_map):
     while not placed:
         x = random.randint(1,GRID_X-1)
         y = random.randint(1,GRID_Y-1)
-        if game_map[x][y] == 0:
+        if game_map[x][y] > 0:
             placed = True
+            print(f'player placed x:{x} y:{y} screen x:{x*BLOCKSIZE} y:{y*BLOCKSIZE} ')
             return (x*BLOCKSIZE,y*BLOCKSIZE)
 
 class Game():
@@ -64,28 +69,24 @@ class Game():
         # self.FPS = 30
         self.mainClock = pg.time.Clock()
         self.dt = self.mainClock.tick(FPS) / 100
-        # self.screen = SCREEN  # pg.display.set_mode((self.width, self.height),0,32)
+        self.screen = SCREEN  # pg.display.set_mode((self.width, self.height),0,32)
         self.bg_color = pg.Color('gray12')
         self.running = True
-        # self.width, self.height = pg.display.get_surface().get_size()
         pg.init()
         self.game_data = Game_Data()
-        # self.game_items = pg.sprite.Group()
-        # game_items stores map and bombs.....
-        # self.game_items.add(self.game_map)
 
         self.players = pg.sprite.Group()
         player_pos = place_player(self.game_data.game_map)
         self.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=SCREEN)
         self.players.add(self.player1)
-
+        self.font = pg.font.SysFont('calibri', 33, True)
     def run(self):
         # self.draw_map()
         while self.running:
             #self.draw_map_with_bombs()
-            self.handle_events()
-            self.main_logic()
-            self.draw()
+            self.handle_events()  # keyboard input stuff
+            self.main_logic()     # update game_data, bombs and player stuff
+            self.draw()           # draw
 
     def handle_events(self):
         for event in pg.event.get():
@@ -129,25 +130,31 @@ class Game():
         for bomb in self.game_data.bombs:
             # print(f'bombs on map {len(self.bombs)}')
             if bomb.time_left <= 0: 
-                print(f'bx dt {bomb.dt:.2f} tl {bomb.time_left} {bomb.bomber_id} gridpos {bomb.gridpos}')
-                # self.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 0  # set grid location where bomb was placed to 0 when it explodes
+                print(f'bx dt {bomb.dt:.2f} tl {bomb.time_left} {bomb.bomber_id} gridpos {bomb.gridpos} griddata: {self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]]}')
+                self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 30  # set grid location where bomb was placed to 30 when it explodes
                 bomb.exploding = True  # bomb explotion 'animation'
-                bomb.kill()
+                # bomb.kill() # remove bomb from sprite group
                 # self.game_data.bombs.remove(bomb)
+            if bomb.done:
                 self.player1.bombs_left += 1  # update bombs_left for player1
+                bomb.kill()
 
-    def draw(self):
-        # d_time = self.mainClock.tick(60) / 1000
-        SCREEN.fill(self.bg_color)
-        self.game_data.draw_map()
-        # self.game_data.update()
         self.game_data.bombs.update()
         self.players.update(self.game_data.blocks)
 
+
+    def draw(self):
+        SCREEN.fill(self.bg_color)
+        self.game_data.draw_map()
+
         self.game_data.blocks.draw(SCREEN)
         self.game_data.bombs.draw(SCREEN)
-        
+        for bomb in self.game_data.bombs:
+            if bomb.exploding:
+                bomb.draw_expl(SCREEN)
         self.players.draw(SCREEN)
+        text = self.font.render(f'x {self.player1.rect.x} y {self.player1.rect.y}', 1, (255,255,255))
+        self.screen.blit(text, (10,10))
         pg.display.flip()
         
 
