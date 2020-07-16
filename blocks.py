@@ -67,7 +67,7 @@ class Powerup_Block(pg.sprite.Sprite):
         pass
 
 class BlockBomb(pg.sprite.Sprite):
-    def __init__(self, x, y, bomber_id, block_color, screen):
+    def __init__(self, x, y, bomber_id, block_color, screen, bomb_power):
         super().__init__()
         self.screen = screen
         self.screen_pos = (x * BLOCKSIZE, y * BLOCKSIZE)
@@ -92,8 +92,8 @@ class BlockBomb(pg.sprite.Sprite):
         self.exp_steps = 20
         self.exp_radius = 4
         self.done = False
-        self.flame_len = 2
-        self.flame_power = 2
+        self.flame_len = bomb_power
+        self.flame_power = bomb_power
 
     def update(self):
         self.dt = pg.time.get_ticks() / FPS

@@ -33,7 +33,7 @@ class Player(pg.sprite.Sprite):
         y = self.rect.y // BLOCKSIZE
         if 1 <= game_data.game_map[x][y] < 30 and self.bombs_left > 0:  # only place bombs on free tiles
             game_data.game_map[x][y] = self.player_id
-            bomb = BlockBomb(self.rect.centerx, self.rect.centery, 33, pg.Color('red'), self.screen)
+            bomb = BlockBomb(x=self.rect.centerx, y=self.rect.centery, bomber_id=self.player_id, block_color=pg.Color('red'), screen=self.screen, bomb_power=self.bomb_power)
             game_data.bombs.add(bomb)
             self.bombs_left -= 1
             print(f'drop gridpos {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
@@ -80,10 +80,13 @@ class Player(pg.sprite.Sprite):
         for powerup in powerup_hits:
             print(f'powerup {powerup.powerup_type}')
             if powerup.powerup_type[0] == 'addbomb':
-                self.max_bombs += 1
+                if self.max_bombs <= 10:
+                    self.max_bombs += 1
+                    self.bombs_left += 1
             if powerup.powerup_type[0] == 'bombpower':
                 self.bomb_power += 1
             if powerup.powerup_type[0] == 'speedup':
-                self.speed += 1
+                if self.speed <= 10:
+                    self.speed += 1
             powerup.kill()
             

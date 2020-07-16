@@ -68,7 +68,7 @@ class Game():
         self.bg_color = pg.Color('gray12')
         self.running = True
         pg.init()
-        self.font = pg.font.SysFont('calibri', 33, True)
+        self.font = pg.font.SysFont('calibri', 15, True)
 
     def game_init(self):
         self.game_data = Game_Data(screen=self.screen)
@@ -172,8 +172,10 @@ class Game():
                 self.game_data.game_map = bomb.explode(self.game_data.game_map)
                 self.game_data.place_blocks()
         self.players.draw(self.screen)
-        text = self.font.render(f'x {self.player1.rect.x} y {self.player1.rect.y}', 1, (255,255,255))
-        self.screen.blit(text, (10,10))
+        player_pos = self.font.render(f'x:{self.player1.rect.x} y:{self.player1.rect.y}', 1, [255,255,255], [10,10,10])
+        self.screen.blit(player_pos, (10,10))
+        player_info = self.font.render(f'mb {self.player1.max_bombs} bl {self.player1.bombs_left} bp {self.player1.bomb_power} sp {self.player1.speed}', 1, [255,255,255], [10,10,10])
+        self.screen.blit(player_info, (10,25))
         pg.display.flip()
         
 
