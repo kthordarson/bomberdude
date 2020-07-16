@@ -4,38 +4,9 @@ from pygame.colordict import THECOLORS as colordict
 import random
 from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS
 from player import Player as Player
-from player import Powerup_Block as Powerup_Block
+from blocks import Block, Powerup_Block, BlockBomb
 # colors
 # C:\python\lib\site-packages\pygame\colordict.py
-
-
-class Block(pg.sprite.Sprite):
-    def __init__(self, x, y, block_color, screen, solid, permanent=False):
-        super().__init__()
-        self.screen = screen
-        self.x = x
-        self.y = y
-        self.pos = (self.x, self.y)
-        self.block_color = block_color
-        self.image = pg.Surface((BLOCKSIZE,BLOCKSIZE))
-        pg.draw.rect(self.image, (0,0,0), [self.x, self.y, BLOCKSIZE,BLOCKSIZE])
-        self.rect = self.image.get_rect()
-        self.image.fill(self.block_color, self.rect)
-        # self.rect.center = (50,50)
-        self.rect.x = self.x
-        self.rect.y = self.y
-        self.solid = solid
-        
-
-    def draw_outlines(self):
-        # pg.draw.rect(self.screen, (0,0,0), [self.x, self.y, BLOCKSIZE,BLOCKSIZE])
-        pg.draw.line(self.screen, (55,55,55), (self.x, self.y), (self.x + BLOCKSIZE, self.y))
-        pg.draw.line(self.screen, (55,55,55), (self.x, self.y), (self.x, self.y + BLOCKSIZE))
-        pg.draw.line(self.screen, (55,55,55), (self.x + BLOCKSIZE, self.y), (self.x + BLOCKSIZE, self.y + BLOCKSIZE))
-        pg.draw.line(self.screen, (55,55,55), (self.x + BLOCKSIZE, self.y + BLOCKSIZE), (self.x, self.y + BLOCKSIZE))
-        # pg.draw.circle(self.screen, (255,255,255), (self.x, self.y), 300)
-        # print(f'dddd')
-
 
 class Game_Data():
     def __init__(self, screen):
@@ -61,14 +32,15 @@ class Game_Data():
         # self.powerblocks = pg.sprite.Group()
         for k in range(GRID_X):
             for j in range(GRID_Y):
-                if self.game_map[k][j] == 0:   # 0 = 
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False))
+                if self.game_map[k][j] == 0:   # 0
+                    pass
+                    # self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False))
                 if self.game_map[k][j] == 1:   # 1 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkslategray1'), screen=self.screen, solid=True, permanent=True))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('orangered4'), screen=self.screen, solid=True, permanent=True))
                 if self.game_map[k][j] == 2:   # 2 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkorange3'), screen=self.screen, solid=True))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('grey39'), screen=self.screen, solid=True))
                 if self.game_map[k][j] == 3:   # 3 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray80'), screen=self.screen, solid=True))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray26'), screen=self.screen, solid=True))
                 if self.game_map[k][j] == 9:   # 9 = blasted block
                     powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen)
                     self.powerblocks.add(powerblock)
@@ -96,16 +68,18 @@ class Game():
         self.bg_color = pg.Color('gray12')
         self.running = True
         pg.init()
+        self.font = pg.font.SysFont('calibri', 33, True)
 
+    def game_init(self):
         self.game_data = Game_Data(screen=self.screen)
         self.players = pg.sprite.Group()
         player_pos = place_player(self.game_data.game_map)
         self.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=self.screen)
         self.players.add(self.player1)
 
-        self.font = pg.font.SysFont('calibri', 33, True)
     def run(self):
         # self.draw_map()
+        self.game_init()
         self.game_data.place_blocks()
         while self.running:
             self.dt = self.mainClock.tick(FPS)
@@ -126,6 +100,9 @@ class Game():
                     pass
                 if event.key == pg.K_d:
                     pass
+                if event.key == pg.K_r:
+                    self.game_init()
+                    self.run()
                 if event.key == pg.K_DOWN:
                     self.player1.changespeed(0,self.player1.speed)
                 if event.key == pg.K_UP:
@@ -203,4 +180,5 @@ class Game():
 if __name__ == '__main__':
     main_game = Game
     screen = pg.display.set_mode((GRID_X * BLOCKSIZE, GRID_Y * BLOCKSIZE),0,32)
+    # main_game(screen=screen).game_init()
     main_game(screen=screen).run()
