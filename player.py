@@ -31,14 +31,14 @@ class Player(pg.sprite.Sprite):
     def drop_bomb(self, game_data):
         x = self.rect.x // BLOCKSIZE
         y = self.rect.y // BLOCKSIZE
-        if 1 <= game_data.game_map[x][y] < 30 and self.bombs_left > 0:  # only place bombs on free tiles
+        if 0 <= game_data.game_map[x][y] < 30 and self.bombs_left > 0:  # only place bombs on free tiles
             game_data.game_map[x][y] = self.player_id
             bomb = BlockBomb(x=self.rect.centerx, y=self.rect.centery, bomber_id=self.player_id, block_color=pg.Color('red'), screen=self.screen, bomb_power=self.bomb_power)
             game_data.bombs.add(bomb)
             self.bombs_left -= 1
-            print(f'drop gridpos {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
+            print(f'drop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
         elif self.bombs_left <= 0:
-            print(f'nodrop {x} {y} {game_data.game_map[x][y]} no bombs left {self.bombs_left}  mb {self.max_bombs}')
+            print(f'nodrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
         else:
             print(f'nodrop {x} {y} {game_data.game_map[x][y]} cannot drop bomb')
         return game_data

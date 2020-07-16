@@ -94,6 +94,7 @@ class BlockBomb(pg.sprite.Sprite):
         self.done = False
         self.flame_len = bomb_power
         self.flame_power = bomb_power
+        self.flame_width = 2
 
     def update(self):
         self.dt = pg.time.get_ticks() / FPS
@@ -106,12 +107,13 @@ class BlockBomb(pg.sprite.Sprite):
         return game_map
 
     def explode(self, game_map):
+        # todo fix length of flame, should stop at first hit/obsticle
         # cetner explotion
         pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
         # flame from top
         start_pos = self.rect.midtop
         end_pos = (start_pos[0], start_pos[1] - self.flame_len)
-        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
+        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=self.flame_width)
         x = end_pos[0] // BLOCKSIZE
         y = end_pos[1] // BLOCKSIZE
         try:
@@ -122,7 +124,7 @@ class BlockBomb(pg.sprite.Sprite):
         # flame from bottom
         start_pos = self.rect.midbottom
         end_pos = (start_pos[0], start_pos[1] + self.flame_len)
-        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
+        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=self.flame_width)
         x = end_pos[0] // BLOCKSIZE
         y = end_pos[1] // BLOCKSIZE
         try:
@@ -134,7 +136,7 @@ class BlockBomb(pg.sprite.Sprite):
         # flame from rightside
         start_pos = self.rect.midright
         end_pos = (start_pos[0] + self.flame_len, start_pos[1])
-        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
+        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=self.flame_width)
         # flame from leftside
         x = end_pos[0] // BLOCKSIZE
         y = end_pos[1] // BLOCKSIZE
@@ -145,7 +147,7 @@ class BlockBomb(pg.sprite.Sprite):
             pass
         start_pos = self.rect.midleft
         end_pos = (start_pos[0] - self.flame_len, start_pos[1])
-        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
+        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=self.flame_width)
         x = end_pos[0] // BLOCKSIZE
         y = end_pos[1] // BLOCKSIZE
         try:

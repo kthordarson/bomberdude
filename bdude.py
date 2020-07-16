@@ -14,7 +14,7 @@ class Game_Data():
         # make a random grid map
         self.screen = screen
         # make a random map
-        self.game_map = [[random.randint(0,8) for k in range(GRID_Y)] for j in range(GRID_X)]
+        self.game_map = [[random.randint(2,8) for k in range(GRID_Y)] for j in range(GRID_X)]
 
         self.bombs = pg.sprite.Group()
         self.blocks = pg.sprite.Group()
@@ -46,16 +46,6 @@ class Game_Data():
                     self.powerblocks.add(powerblock)
                     self.game_map[k][j] = powerblock.powerup_type[1]
             
-def place_player(game_map):
-    # place player somewhere where there is no block
-    placed = False
-    while not placed:
-        x = random.randint(1,GRID_X-1)
-        y = random.randint(1,GRID_Y-1)
-        if game_map[x][y] > 3:
-            placed = True
-            print(f'player placed x:{x} y:{y} screen x:{x*BLOCKSIZE} y:{y*BLOCKSIZE} ')
-            return (x*BLOCKSIZE,y*BLOCKSIZE)
 
 class Game():
     def __init__(self, screen):
@@ -70,10 +60,27 @@ class Game():
         pg.init()
         self.font = pg.font.SysFont('calibri', 15, True)
 
+    def place_player(self):
+        # place player somewhere where there is no block
+        placed = False
+        while not placed:
+            x = random.randint(1,GRID_X-1)
+            y = random.randint(1,GRID_Y-1)
+            if self.game_data.game_map[x][y] > 3:
+                self.game_data.game_map[x-1][y-1] = 0
+                self.game_data.game_map[x-1][y] = 0
+                self.game_data.game_map[x][y] = 0
+                self.game_data.game_map[x+1][y] = 0
+                self.game_data.game_map[x][y+1] = 0
+                self.game_data.game_map[x+1][y+1] = 0
+                placed = True
+                print(f'player placed x:{x} y:{y} screen x:{x*BLOCKSIZE} y:{y*BLOCKSIZE} ')
+                return (x*BLOCKSIZE,y*BLOCKSIZE)
+
     def game_init(self):
         self.game_data = Game_Data(screen=self.screen)
         self.players = pg.sprite.Group()
-        player_pos = place_player(self.game_data.game_map)
+        player_pos = self.place_player()
         self.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=self.screen)
         self.players.add(self.player1)
 
