@@ -10,7 +10,7 @@ from player import Powerup_Block as Powerup_Block
 
 
 class Block(pg.sprite.Sprite):
-    def __init__(self, x, y, block_color, screen, solid):
+    def __init__(self, x, y, block_color, screen, solid, permanent=False):
         super().__init__()
         self.screen = screen
         self.x = x
@@ -50,51 +50,29 @@ class Game_Data():
         self.powerblocks = pg.sprite.Group()
         # set edges to solid blocks, 0 = solid block
         for x in range(GRID_X):
-            self.game_map[x][0] = 0
-            self.game_map[x][GRID_Y-1] = 0
+            self.game_map[x][0] = 1
+            self.game_map[x][GRID_Y-1] = 1
         for y in range(GRID_Y):
-            self.game_map[0][y] = 0
-            self.game_map[GRID_X-1][y] = 0
+            self.game_map[0][y] = 1
+            self.game_map[GRID_X-1][y] = 1
 
-    def draw_map(self):
+    def place_blocks(self):
         self.blocks = pg.sprite.Group()
+        # self.powerblocks = pg.sprite.Group()
         for k in range(GRID_X):
             for j in range(GRID_Y):
-                if self.game_map[k][j] == 0:   # 0 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkseagreen'), screen=self.screen, solid=True))
-                if self.game_map[k][j] == 1:   # 0 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkslategray1'), screen=self.screen, solid=True))
-                if self.game_map[k][j] == 2:   # 0 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkslategray2'), screen=self.screen, solid=True))
-                if self.game_map[k][j] == 3:   # 0 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkslategray3'), screen=self.screen, solid=True))
-                if self.game_map[k][j] == 9:   # 9 = blasted block, get powerup from block....
-                    powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen, solid=False)
+                if self.game_map[k][j] == 0:   # 0 = 
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False))
+                if self.game_map[k][j] == 1:   # 1 = solid block
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkslategray1'), screen=self.screen, solid=True, permanent=True))
+                if self.game_map[k][j] == 2:   # 2 = solid block
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkorange3'), screen=self.screen, solid=True))
+                if self.game_map[k][j] == 3:   # 3 = solid block
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray80'), screen=self.screen, solid=True))
+                if self.game_map[k][j] == 9:   # 9 = blasted block
+                    powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen)
                     self.powerblocks.add(powerblock)
-                    self.game_map[k][j] = powerblock.powerup[1]
-                    # print(f'power {k} {j} {self.game_map[k][j]} = {powerblock.powerup[1]}')
-                if self.game_map[k][j] == 10:   # 9 = blasted block, get powerup from block....
-                    powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen, solid=False)
-                    self.powerblocks.add(powerblock)
-                    self.game_map[k][j] = powerblock.powerup[1]
-                    # print(f'power {k} {j} {self.game_map[k][j]} = {powerblock.powerup[1]}')
-                if self.game_map[k][j] == 11:   # 9 = blasted block, get powerup from block....
-                    powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen, solid=False)
-                    self.powerblocks.add(powerblock)
-                    self.game_map[k][j] = powerblock.powerup[1]
-                    # print(f'power {k} {j} {self.game_map[k][j]} = {powerblock.powerup[1]}')
-                if self.game_map[k][j] == 12:   # 9 = blasted block, get powerup from block....
-                    powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen, solid=False)
-                    self.powerblocks.add(powerblock)
-                    self.game_map[k][j] = powerblock.powerup[1]
-                    # print(f'power {k} {j} {self.game_map[k][j]} = {powerblock.powerup[1]}')
-                if self.game_map[k][j] == 13:   # 9 = blasted block, get powerup from block....
-                    powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen, solid=False)
-                    self.powerblocks.add(powerblock)
-                    self.game_map[k][j] = powerblock.powerup[1]
-                    # print(f'power {k} {j} {self.game_map[k][j]} = {powerblock.powerup[1]}')
-                if self.game_map[k][j] == 30:  # 39 = bomb crater
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray32'), screen=self.screen, solid=False))
+                    self.game_map[k][j] = powerblock.powerup_type[1]
             
 def place_player(game_map):
     # place player somewhere where there is no block
@@ -113,21 +91,24 @@ class Game():
         # self.height = GRID_Y * BLOCKSIZE
         # self.FPS = 30
         self.mainClock = pg.time.Clock()
-        self.dt = self.mainClock.tick(FPS) / 100
+        # self.dt = self.mainClock.tick(FPS) / 1000
         self.screen = screen  # pg.display.set_mode((self.width, self.height),0,32)
         self.bg_color = pg.Color('gray12')
         self.running = True
         pg.init()
-        self.game_data = Game_Data(screen=self.screen)
 
+        self.game_data = Game_Data(screen=self.screen)
         self.players = pg.sprite.Group()
         player_pos = place_player(self.game_data.game_map)
         self.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=self.screen)
         self.players.add(self.player1)
+
         self.font = pg.font.SysFont('calibri', 33, True)
     def run(self):
         # self.draw_map()
+        self.game_data.place_blocks()
         while self.running:
+            self.dt = self.mainClock.tick(FPS)
             #self.draw_map_with_bombs()
             self.handle_events()  # keyboard input stuff
             self.main_logic()     # update game_data, bombs and player stuff
@@ -146,26 +127,30 @@ class Game():
                 if event.key == pg.K_d:
                     pass
                 if event.key == pg.K_DOWN:
-                    self.player1.changespeed(0,1)
+                    self.player1.changespeed(0,self.player1.speed)
                 if event.key == pg.K_UP:
-                    self.player1.changespeed(0,-1)
+                    self.player1.changespeed(0,-self.player1.speed)
                 if event.key == pg.K_RIGHT:
-                    self.player1.changespeed(1,0)
+                    self.player1.changespeed(self.player1.speed,0)
                 if event.key == pg.K_LEFT:
-                    self.player1.changespeed(-1,0)
+                    self.player1.changespeed(-self.player1.speed,0)
             if event.type == pg.KEYUP:
                 if event.key == pg.K_a:
                     pass
                 if event.key == pg.K_d:
                     pass
                 if event.key == pg.K_DOWN:
-                    self.player1.changespeed(0,-1)
+                    self.player1.changespeed(0,0)
+                    self.player1.change_y = 0
                 if event.key == pg.K_UP:
-                    self.player1.changespeed(0,1)
+                    self.player1.changespeed(0,0)
+                    self.player1.change_y = 0
                 if event.key == pg.K_RIGHT:
-                    self.player1.changespeed(-1,0)
+                    self.player1.changespeed(0,0)
+                    self.player1.change_x = 0
                 if event.key == pg.K_LEFT:
-                    self.player1.changespeed(1,0)
+                    self.player1.changespeed(0,0)
+                    self.player1.change_x = 0
             if event.type == pg.MOUSEBUTTONDOWN:
                 pass
             if event.type == pg.QUIT:
@@ -180,29 +165,35 @@ class Game():
                 # bomb.kill() # remove bomb from sprite group
                 # self.game_data.bombs.remove(bomb)
             if bomb.done:
-                print(f'bx dt {bomb.dt:.2f} tl {bomb.time_left} {bomb.bomber_id} gridpos {bomb.gridpos} griddata: {self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]]}')
+                # print(f'bx dt {bomb.dt:.2f} tl {bomb.time_left} {bomb.bomber_id} gridpos {bomb.gridpos} griddata: {self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]]}')
                 self.player1.bombs_left += 1  # update bombs_left for player1
                 bomb.kill()
-
+        for powerblock in self.game_data.powerblocks:
+            if powerblock.timer <= 0:
+                self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
+                # powerblock.kill()
+                print(f'powerblock kill')
+        self.game_data.powerblocks.update()
         self.game_data.bombs.update()
-        self.players.update(self.game_data.blocks)
+        self.players.update(self.game_data)
 
 
     def draw(self):
         self.screen.fill(self.bg_color)
-        self.game_data.draw_map()
+        # self.game_data.draw_map()
 
         self.game_data.blocks.draw(self.screen)
         self.game_data.powerblocks.draw(self.screen)
-        for block in self.game_data.blocks:
-            block.draw_outlines()
-        for block in self.game_data.powerblocks:
-            block.draw_outlines()
+        # for block in self.game_data.blocks:
+        #     block.draw_outlines()
+        # for block in self.game_data.powerblocks:
+        #     block.draw_outlines()
         self.game_data.bombs.draw(self.screen)
         for bomb in self.game_data.bombs:
             if bomb.exploding:
                 # self.game_data.game_map = bomb.update_map(self.game_data.game_map)
                 self.game_data.game_map = bomb.explode(self.game_data.game_map)
+                self.game_data.place_blocks()
         self.players.draw(self.screen)
         text = self.font.render(f'x {self.player1.rect.x} y {self.player1.rect.y}', 1, (255,255,255))
         self.screen.blit(text, (10,10))

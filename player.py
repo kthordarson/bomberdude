@@ -5,11 +5,13 @@ import random
 from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS
 
 class Powerup_Block(pg.sprite.Sprite):
-    def __init__(self, x, y, screen, solid):
+    def __init__(self, x, y, screen):
         super().__init__()
         self.screen = screen
         self.x = x
         self.y = y
+        self.screen_pos = (x * BLOCKSIZE, y * BLOCKSIZE)
+        self.gridpos = (x // BLOCKSIZE,y // BLOCKSIZE)
         self.pos = (self.x, self.y)
         self.block_color = random.choice(list(colordict.items()))[1]   #block_color
         self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2))
@@ -21,8 +23,19 @@ class Powerup_Block(pg.sprite.Sprite):
         self.rect.centerx = self.x
         self.rect.centery = self.y
         self.solid = False
-        self.powerup = random.choice(list(POWERUPS.items()))
+        self.powerup_type = random.choice(list(POWERUPS.items()))
+        self.timer = 600
+        self.start_time = pg.time.get_ticks() / FPS
         # print(f'pb {self.rect.x} {self.rect.y} {self.powerup}')
+
+    def update(self):
+        self.dt = pg.time.get_ticks() / FPS
+        if self.dt - self.start_time >= self.timer:
+            # print(f'bomb expl {self.bomb_timer} - dt {self.dt:.2f} = {self.dt - self.start_time:.2f} pos {self.rect.x} {self.rect.y} bid {self.bomber_id}')
+            self.time_left = 0
+            self.kill()
+            #print(f'powerup dead dt {self.dt} start {self.start_time} timer {self.timer}')
+
     def draw_outlines(self):
         pass
         # pg.draw.rect(self.screen, (0,255,0), [self.rect.centerx, self.rect.centery, 2,2])
@@ -82,8 +95,11 @@ class BlockBomb(pg.sprite.Sprite):
         pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
         x = end_pos[0] // BLOCKSIZE
         y = end_pos[1] // BLOCKSIZE
-        if game_map[x][y] <= 3:
-            game_map[x][y] = 9
+        try:
+            if 1 <= game_map[x][y] <= 3:
+                game_map[x][y] = 9
+        except:
+            pass
         # flame from bottom
         start_pos = self.rect.midbottom
         end_pos = (start_pos[0], start_pos[1] + self.flame_len)
@@ -91,7 +107,7 @@ class BlockBomb(pg.sprite.Sprite):
         x = end_pos[0] // BLOCKSIZE
         y = end_pos[1] // BLOCKSIZE
         try:
-            if game_map[x][y] <= 3:
+            if 2 <= game_map[x][y] <= 3:
                 game_map[x][y] = 9
         except:
             pass
@@ -103,16 +119,21 @@ class BlockBomb(pg.sprite.Sprite):
         # flame from leftside
         x = end_pos[0] // BLOCKSIZE
         y = end_pos[1] // BLOCKSIZE
-        if game_map[x][y] <= 3:
-            game_map[x][y] = 9
+        try:
+            if 2 <= game_map[x][y] <= 3:
+                game_map[x][y] = 9
+        except:
+            pass
         start_pos = self.rect.midleft
         end_pos = (start_pos[0] - self.flame_len, start_pos[1])
         pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
         x = end_pos[0] // BLOCKSIZE
         y = end_pos[1] // BLOCKSIZE
-        if game_map[x][y] <= 3:
-            game_map[x][y] = 9
-
+        try:
+            if 2 <= game_map[x][y] <= 3:
+                game_map[x][y] = 9
+        except:
+            pass
         # pg.draw.circle(screen, (255,255,255), (250, 250), 100,2)
         self.exp_radius += self.flame_power // 2
         self.flame_len += self.flame_power
@@ -138,8 +159,12 @@ class Player(pg.sprite.Sprite):
         self.rect.y = self.y
         self.change_x = 0
         self.change_y = 0
-        self.bombs_left = 3
+        self.max_bombs = 3
+        self.bombs_left = self.max_bombs
+        self.bomb_power = 3
+        self.speed = 1
         self.player_id = player_id
+        self.clock = pg.time.Clock()
         
 
     def drop_bomb(self, game_data):
@@ -150,9 +175,9 @@ class Player(pg.sprite.Sprite):
             bomb = BlockBomb(self.rect.centerx, self.rect.centery, 33, pg.Color('red'), self.screen)
             game_data.bombs.add(bomb)
             self.bombs_left -= 1
-            print(f'drop gridpos {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left}')
+            print(f'drop gridpos {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
         elif self.bombs_left <= 0:
-            print(f'nodrop {x} {y} {game_data.game_map[x][y]} no bombs left {self.bombs_left}')
+            print(f'nodrop {x} {y} {game_data.game_map[x][y]} no bombs left {self.bombs_left}  mb {self.max_bombs}')
         else:
             print(f'nodrop {x} {y} {game_data.game_map[x][y]} cannot drop bomb')
         return game_data
@@ -161,11 +186,11 @@ class Player(pg.sprite.Sprite):
         self.change_x += x
         self.change_y += y
 
-    def update(self, blocks):
+    def update(self, game_data):
         # Move left/right
         self.rect.x += self.change_x 
         # Did this update cause us to hit a wall?
-        block_hit_list = pg.sprite.spritecollide(self, blocks, False)
+        block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
         for block in block_hit_list:
             # print(f'blcol {block.block_color}')
             # If we are moving right, set our right side to the left side of the item we hit
@@ -178,7 +203,7 @@ class Player(pg.sprite.Sprite):
         # Move up/down
         self.rect.y += self.change_y
         # Check and see if we hit anything
-        block_hit_list = pg.sprite.spritecollide(self, blocks, False)
+        block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
         for block in block_hit_list: 
             # Reset our position based on the top/bottom of the object.
             if self.change_y > 0 and block.solid:
@@ -188,3 +213,16 @@ class Player(pg.sprite.Sprite):
                     self.rect.top = block.rect.bottom
         # text = self.font.render(f'x {self.rect.x} y {self.rect.y}', 1, (255,255,255))
         # self.screen.blit(text, (10,10))
+
+        # pick up powerups...
+        powerup_hits = pg.sprite.spritecollide(self, game_data.powerblocks, False)
+        for powerup in powerup_hits:
+            print(f'powerup {powerup.powerup_type}')
+            if powerup.powerup_type[0] == 'addbomb':
+                self.max_bombs += 1
+            if powerup.powerup_type[0] == 'bombpower':
+                self.bomb_power += 1
+            if powerup.powerup_type[0] == 'speedup':
+                self.speed += 1
+            powerup.kill()
+            
