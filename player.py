@@ -22,7 +22,7 @@ class Player(pg.sprite.Sprite):
         self.change_y = 0
         self.max_bombs = 3
         self.bombs_left = self.max_bombs
-        self.bomb_power = 3
+        self.bomb_power = 1
         self.speed = 1
         self.player_id = player_id
         self.clock = pg.time.Clock()
@@ -80,13 +80,14 @@ class Player(pg.sprite.Sprite):
         for powerup in powerup_hits:
             print(f'powerup {powerup.powerup_type}')
             if powerup.powerup_type[0] == 'addbomb':
-                if self.max_bombs <= 10:
+                if self.max_bombs < 10:
                     self.max_bombs += 1
                     self.bombs_left += 1
             if powerup.powerup_type[0] == 'bombpower':
-                self.bomb_power += 1
+                if self.bomb_power < 10:
+                    self.bomb_power += 1
             if powerup.powerup_type[0] == 'speedup':
-                if self.speed <= 10:
+                if self.speed < 10:
                     self.speed += 1
             powerup.kill()
             

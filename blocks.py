@@ -3,6 +3,7 @@ from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
 from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS
+from globals import limit as limit
 
 class Block(pg.sprite.Sprite):
     def __init__(self, x, y, block_color, screen, solid, permanent=False):
@@ -95,7 +96,10 @@ class BlockBomb(pg.sprite.Sprite):
         self.flame_len = bomb_power
         self.flame_power = bomb_power
         self.flame_width = 2
-
+        self.expand_up = True
+        self.expand_down = True
+        self.expand_right = True
+        self.expand_left = True
     def update(self):
         self.dt = pg.time.get_ticks() / FPS
         if self.dt - self.start_time >= self.bomb_timer:
@@ -108,53 +112,59 @@ class BlockBomb(pg.sprite.Sprite):
 
     def explode(self, game_map):
         # todo fix length of flame, should stop at first hit/obsticle
+        
         # cetner explotion
         pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
+
         # flame from top
-        start_pos = self.rect.midtop
-        end_pos = (start_pos[0], start_pos[1] - self.flame_len)
-        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=self.flame_width)
-        x = end_pos[0] // BLOCKSIZE
-        y = end_pos[1] // BLOCKSIZE
-        try:
+        if self.expand_up:            
+            start_pos = self.rect.midtop
+            # end_pos = (start_pos[0], start_pos[1] - self.flame_len)
+            end_pos = (start_pos[0], limit((start_pos[1] - self.flame_len),1, (GRID_Y*BLOCKSIZE)-1))
+            pg.draw.line(self.screen, (0,0,255), self.rect.midtop, end_pos, width=self.flame_width*2)
+            x = end_pos[0] // BLOCKSIZE
+            y = end_pos[1] // BLOCKSIZE
             if 2 <= game_map[x][y] <= 3:
                 game_map[x][y] = 9
-        except:
-            pass
+                expand_up = False
+
         # flame from bottom
-        start_pos = self.rect.midbottom
-        end_pos = (start_pos[0], start_pos[1] + self.flame_len)
-        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=self.flame_width)
-        x = end_pos[0] // BLOCKSIZE
-        y = end_pos[1] // BLOCKSIZE
-        try:
+        if self.expand_down:
+            start_pos = self.rect.midbottom
+            # end_pos = (start_pos[0], start_pos[1] + self.flame_len)
+            end_pos = (start_pos[0], limit((start_pos[1] + self.flame_len),1, (GRID_Y*BLOCKSIZE)-1))
+            pg.draw.line(self.screen, (0,0,0), start_pos, end_pos, width=self.flame_width)
+            x = end_pos[0] // BLOCKSIZE
+            y = end_pos[1] // BLOCKSIZE
             if 2 <= game_map[x][y] <= 3:
                 game_map[x][y] = 9
-        except:
-            pass
-            # print(f'killed block {x} {y} {game_map[x][y]}')
+                self.expand_down = False
+                
+
         # flame from rightside
-        start_pos = self.rect.midright
-        end_pos = (start_pos[0] + self.flame_len, start_pos[1])
-        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=self.flame_width)
+        if self.expand_right:
+            start_pos = self.rect.midright
+            # end_pos = (start_pos[0] + self.flame_len, start_pos[1])
+            end_pos = (limit((start_pos[0] + self.flame_len), 1, (GRID_X*BLOCKSIZE)-1), start_pos[1])
+            pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=self.flame_width)
+            # flame from leftside
+            x = end_pos[0] // BLOCKSIZE
+            y = end_pos[1] // BLOCKSIZE
+            if 2 <= game_map[x][y] <= 3:
+                game_map[x][y] = 9
+                self.expand_right = False
+
         # flame from leftside
-        x = end_pos[0] // BLOCKSIZE
-        y = end_pos[1] // BLOCKSIZE
-        try:
+        if self.expand_left:
+            start_pos = self.rect.midleft
+            # end_pos = (start_pos[0] - self.flame_len, start_pos[1])
+            end_pos = (limit((start_pos[0] - self.flame_len),1, (GRID_X*BLOCKSIZE)-1), start_pos[1])
+            pg.draw.line(self.screen, (255,0,0), start_pos, end_pos, width=self.flame_width)
+            x = end_pos[0] // BLOCKSIZE
+            y = end_pos[1] // BLOCKSIZE
             if 2 <= game_map[x][y] <= 3:
                 game_map[x][y] = 9
-        except:
-            pass
-        start_pos = self.rect.midleft
-        end_pos = (start_pos[0] - self.flame_len, start_pos[1])
-        pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=self.flame_width)
-        x = end_pos[0] // BLOCKSIZE
-        y = end_pos[1] // BLOCKSIZE
-        try:
-            if 2 <= game_map[x][y] <= 3:
-                game_map[x][y] = 9
-        except:
-            pass
+                self.expand_left = False
         # pg.draw.circle(screen, (255,255,255), (250, 250), 100,2)
         self.exp_radius += self.flame_power // 2
         self.flame_len += self.flame_power

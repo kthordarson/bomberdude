@@ -3,6 +3,7 @@ from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
 from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS
+from globals import inside_circle as inside_circle
 from player import Player as Player
 from blocks import Block, Powerup_Block, BlockBomb
 # colors
@@ -41,6 +42,8 @@ class Game_Data():
                     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('grey39'), screen=self.screen, solid=True))
                 if self.game_map[k][j] == 3:   # 3 = solid block
                     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray26'), screen=self.screen, solid=True))
+                if self.game_map[k][j] == 4:   # 3 = solid block
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray31'), screen=self.screen, solid=True, permanent=True))
                 if self.game_map[k][j] == 9:   # 9 = blasted block
                     powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen)
                     self.powerblocks.add(powerblock)
@@ -67,12 +70,13 @@ class Game():
             x = random.randint(1,GRID_X-1)
             y = random.randint(1,GRID_Y-1)
             if self.game_data.game_map[x][y] > 3:
-                self.game_data.game_map[x-1][y-1] = 0
-                self.game_data.game_map[x-1][y] = 0
-                self.game_data.game_map[x][y] = 0
-                self.game_data.game_map[x+1][y] = 0
-                self.game_data.game_map[x][y+1] = 0
-                self.game_data.game_map[x+1][y+1] = 0
+                # make a clear radius around spawn point
+                for clear_bl in list(inside_circle(3,x,y)):
+                    try:
+                        if self.game_data.game_map[clear_bl[0]][clear_bl[1]] > 1:
+                            self.game_data.game_map[clear_bl[0]][clear_bl[1]] = 0
+                    except:
+                        pass
                 placed = True
                 print(f'player placed x:{x} y:{y} screen x:{x*BLOCKSIZE} y:{y*BLOCKSIZE} ')
                 return (x*BLOCKSIZE,y*BLOCKSIZE)
@@ -144,7 +148,7 @@ class Game():
         for bomb in self.game_data.bombs:
             # print(f'bombs on map {len(self.bombs)}')
             if bomb.time_left <= 0: 
-                self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 30  # set grid location where bomb was placed to 30 when it explodes
+                self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 29  # set grid location where bomb was placed to 30 when it explodes
                 bomb.exploding = True  # bomb explotion 'animation'
                 # bomb.kill() # remove bomb from sprite group
                 # self.game_data.bombs.remove(bomb)
