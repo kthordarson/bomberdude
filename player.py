@@ -2,7 +2,37 @@ import pygame as pg
 from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS
+
+class Powerup_Block(pg.sprite.Sprite):
+    def __init__(self, x, y, screen, solid):
+        super().__init__()
+        self.screen = screen
+        self.x = x
+        self.y = y
+        self.pos = (self.x, self.y)
+        self.block_color = random.choice(list(colordict.items()))[1]   #block_color
+        self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2))
+        self.radius = BLOCKSIZE // 2
+        pg.draw.circle(self.image, (255,0,0), (0,0), self.radius)
+        self.rect = self.image.get_rect()
+        self.image.fill(self.block_color, self.rect)
+        # self.rect.center = (50,50)
+        self.rect.centerx = self.x
+        self.rect.centery = self.y
+        self.solid = False
+        self.powerup = random.choice(list(POWERUPS.items()))
+        # print(f'pb {self.rect.x} {self.rect.y} {self.powerup}')
+    def draw_outlines(self):
+        pass
+        # pg.draw.rect(self.screen, (0,255,0), [self.rect.centerx, self.rect.centery, 2,2])
+        # pg.draw.line(self.screen, (5,25,55), (self.x, self.y), (self.x + BLOCKSIZE, self.y))
+        # pg.draw.line(self.screen, (5,25,55), (self.x, self.y), (self.x, self.y + BLOCKSIZE))
+        # pg.draw.line(self.screen, (5,25,55), (self.x + BLOCKSIZE, self.y), (self.x + BLOCKSIZE, self.y + BLOCKSIZE))
+        # pg.draw.line(self.screen, (5,25,55), (self.x + BLOCKSIZE, self.y + BLOCKSIZE), (self.x, self.y + BLOCKSIZE))
+        # pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.radius)
+        # print(f'dddd')
+
 
 class BlockBomb(pg.sprite.Sprite):
     def __init__(self, x, y, bomber_id, block_color, screen):
@@ -36,27 +66,52 @@ class BlockBomb(pg.sprite.Sprite):
     def update(self):
         self.dt = pg.time.get_ticks() / FPS
         if self.dt - self.start_time >= self.bomb_timer:
-            # print(f'bomb expl {self.bomb_timer} dt {self.dt:.2f} pos {self.rect.x} {self.rect.y} bid {self.bomber_id}')
+            # print(f'bomb expl {self.bomb_timer} - dt {self.dt:.2f} = {self.dt - self.start_time:.2f} pos {self.rect.x} {self.rect.y} bid {self.bomber_id}')
             self.time_left = 0
-    def draw_expl(self):
+
+    def update_map(self, game_map):
+        # do stuff with map after explotion...
+        return game_map
+
+    def explode(self, game_map):
         # cetner explotion
         pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
         # flame from top
         start_pos = self.rect.midtop
         end_pos = (start_pos[0], start_pos[1] - self.flame_len)
         pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
+        x = end_pos[0] // BLOCKSIZE
+        y = end_pos[1] // BLOCKSIZE
+        if game_map[x][y] <= 3:
+            game_map[x][y] = 9
         # flame from bottom
         start_pos = self.rect.midbottom
         end_pos = (start_pos[0], start_pos[1] + self.flame_len)
         pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
+        x = end_pos[0] // BLOCKSIZE
+        y = end_pos[1] // BLOCKSIZE
+        try:
+            if game_map[x][y] <= 3:
+                game_map[x][y] = 9
+        except:
+            pass
+            # print(f'killed block {x} {y} {game_map[x][y]}')
         # flame from rightside
         start_pos = self.rect.midright
         end_pos = (start_pos[0] + self.flame_len, start_pos[1])
         pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
         # flame from leftside
+        x = end_pos[0] // BLOCKSIZE
+        y = end_pos[1] // BLOCKSIZE
+        if game_map[x][y] <= 3:
+            game_map[x][y] = 9
         start_pos = self.rect.midleft
         end_pos = (start_pos[0] - self.flame_len, start_pos[1])
         pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
+        x = end_pos[0] // BLOCKSIZE
+        y = end_pos[1] // BLOCKSIZE
+        if game_map[x][y] <= 3:
+            game_map[x][y] = 9
 
         # pg.draw.circle(screen, (255,255,255), (250, 250), 100,2)
         self.exp_radius += self.flame_power // 2
@@ -66,6 +121,7 @@ class BlockBomb(pg.sprite.Sprite):
         if self.exp_steps <= 0:
             self.exploding = False
             self.done = True
+        return game_map
 
 class Player(pg.sprite.Sprite):
     def __init__(self, x, y, player_id, screen):
@@ -113,11 +169,11 @@ class Player(pg.sprite.Sprite):
         for block in block_hit_list:
             # print(f'blcol {block.block_color}')
             # If we are moving right, set our right side to the left side of the item we hit
-            if self.change_x > 0 and block.block_color == pg.Color('darkseagreen'):
+            if self.change_x > 0 and block.solid:
                 self.rect.right = block.rect.left
             else:
                 # Otherwise if we are moving left, do the opposite.
-                if block.block_color == pg.Color('darkseagreen'):
+                if block.solid:
                     self.rect.left = block.rect.right 
         # Move up/down
         self.rect.y += self.change_y
@@ -125,10 +181,10 @@ class Player(pg.sprite.Sprite):
         block_hit_list = pg.sprite.spritecollide(self, blocks, False)
         for block in block_hit_list: 
             # Reset our position based on the top/bottom of the object.
-            if self.change_y > 0 and block.block_color == pg.Color('darkseagreen'):
+            if self.change_y > 0 and block.solid:
                 self.rect.bottom = block.rect.top
             else:
-                if block.block_color == pg.Color('darkseagreen'):
+                if block.solid:
                     self.rect.top = block.rect.bottom
         # text = self.font.render(f'x {self.rect.x} y {self.rect.y}', 1, (255,255,255))
         # self.screen.blit(text, (10,10))
