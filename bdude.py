@@ -9,8 +9,9 @@ from player import Player as Player
 
 
 class Block(pg.sprite.Sprite):
-    def __init__(self, x, y, block_color):
+    def __init__(self, x, y, block_color, screen):
         super().__init__()
+        self.screen = screen
         self.x = x
         self.y = y
         self.pos = (self.x, self.y)
@@ -23,12 +24,21 @@ class Block(pg.sprite.Sprite):
         self.rect.x = self.x
         self.rect.y = self.y
 
+    def draw_outlines(self):
+        # pg.draw.rect(self.screen, (0,0,0), [self.x, self.y, BLOCKSIZE,BLOCKSIZE])
+        pg.draw.line(self.screen, (55,55,55), (self.x, self.y), (self.x + BLOCKSIZE, self.y))
+        pg.draw.line(self.screen, (55,55,55), (self.x, self.y), (self.x, self.y + BLOCKSIZE))
+        pg.draw.line(self.screen, (55,55,55), (self.x + BLOCKSIZE, self.y), (self.x + BLOCKSIZE, self.y + BLOCKSIZE))
+        pg.draw.line(self.screen, (55,55,55), (self.x + BLOCKSIZE, self.y + BLOCKSIZE), (self.x, self.y + BLOCKSIZE))
+        # pg.draw.circle(self.screen, (255,255,255), (self.x, self.y), 300)
+        # print(f'dddd')
+
 
 class Game_Data():
-    def __init__(self):
+    def __init__(self, screen):
         # super().__init__()
         # make a random grid map
-        # self.screen = SCREEN
+        self.screen = screen
         # make a random map
         self.game_map = [[random.randint(0,10) for k in range(GRID_Y)] for j in range(GRID_X)]
 
@@ -47,9 +57,11 @@ class Game_Data():
         for k in range(GRID_X):
             for j in range(GRID_Y):
                 if self.game_map[k][j] == 0:   # 0 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkseagreen')))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('darkseagreen'), screen=self.screen))
+                    # lines around blocks....
+                    # pg.draw.line(self.screen, (200,200,200), (k*BLOCKSIZE, j*BLOCKSIZE), (k*BLOCKSIZE + 5,j*BLOCKSIZE+5), width=2)
                 if self.game_map[k][j] == 30:  # 39 = bomb crater
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray32')))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray32'), screen=self.screen))
             
 def place_player(game_map):
     # place player somewhere where there is no block
@@ -73,7 +85,7 @@ class Game():
         self.bg_color = pg.Color('gray12')
         self.running = True
         pg.init()
-        self.game_data = Game_Data()
+        self.game_data = Game_Data(screen=self.screen)
 
         self.players = pg.sprite.Group()
         player_pos = place_player(self.game_data.game_map)
@@ -148,6 +160,8 @@ class Game():
         self.game_data.draw_map()
 
         self.game_data.blocks.draw(self.screen)
+        for block in self.game_data.blocks:
+            block.draw_outlines()
         self.game_data.bombs.draw(self.screen)
         for bomb in self.game_data.bombs:
             if bomb.exploding:

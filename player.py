@@ -27,11 +27,11 @@ class BlockBomb(pg.sprite.Sprite):
         self.bomb_timer = 100
         self.time_left = 3
         self.exploding = False
-        self.exp_steps = 10
-        self.exp_radius = 2
+        self.exp_steps = 20
+        self.exp_radius = 4
         self.done = False
-        self.flame_len = 5
-        self.flame_power = 3
+        self.flame_len = 2
+        self.flame_power = 2
 
     def update(self):
         self.dt = pg.time.get_ticks() / FPS
@@ -40,7 +40,7 @@ class BlockBomb(pg.sprite.Sprite):
             self.time_left = 0
     def draw_expl(self):
         # cetner explotion
-        pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,2)
+        pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
         # flame from top
         start_pos = self.rect.midtop
         end_pos = (start_pos[0], start_pos[1] - self.flame_len)
@@ -59,7 +59,7 @@ class BlockBomb(pg.sprite.Sprite):
         pg.draw.line(self.screen, (255,255,255), start_pos, end_pos, width=2)
 
         # pg.draw.circle(screen, (255,255,255), (250, 250), 100,2)
-        self.exp_radius += 1
+        self.exp_radius += self.flame_power // 2
         self.flame_len += self.flame_power
         self.exp_steps -= 1
         # print(f'bomb anim {self.exp_steps} r {self.exp_radius} pos {self.rect.x} {self.rect.y}')
