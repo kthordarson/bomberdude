@@ -65,7 +65,7 @@ class Game_Data():
             self.powerblocks.add(powerblock)
             self.game_map[item[0]][item[1]] = powerblock.powerup_type[1]
             # self.game_map[item[0]][item[1]] = 30
-            
+
 class Menu():
     def __init__(self, screen):
         self.screen = screen
@@ -73,17 +73,43 @@ class Menu():
         self.menu_pos = [100,100]
         self.selected_color = [255,255,255]
         self.inactive_color = [55,55,55]
-
+        self.menufont = pg.font.SysFont('calibri', 35, True)
         self.menuitems = []
-        self.menuitems.append(self.menufont.render('Start', 1, selected_color, [10,10,10]))
-        self.menuitems.append(self.menufont.render('Pause', 1, inactive_color, [10,10,10]))
-        self.menuitems.append(self.menufont.render('Restart', 1, inactive_color, [10,10,10]))
-        self.menuitems.append(self.menufont.render('Quit', 1, inactive_color, [10,10,10]))
+        self.menuitems.append('Start')
+        self.menuitems.append('Pause')
+        self.menuitems.append('Restart')
+        self.menuitems.append('Quit')
+        self.selected_item = 0
+        # self.menuitems.append(self.menufont.render('Start', 1, self.selected_color, [10,10,10]))
+        # self.menuitems.append(self.menufont.render('Pause', 1, self.inactive_color, [10,10,10]))
+        # self.menuitems.append(self.menufont.render('Restart', 1, self.inactive_color, [10,10,10]))
+        # self.menuitems.append(self.menufont.render('Quit', 1, self.inactive_color, [10,10,10]))
 
-    def draw_mainmenu(self):        
-        for item in self.menuitems:
-            self.screen.blit(item, self.menu_pos)
-            self.menu_pos[1] += 35
+    def draw_mainmenu(self):
+        global DEBUG
+        pos_y = self.menu_pos[1]
+        for item in enumerate(self.menuitems):
+            if item[0] == self.selected_item:
+                text_color = self.selected_color
+            else:
+                text_color = self.inactive_color
+            text = self.menufont.render(item[1], 1, text_color, [1,1,1])
+            self.screen.blit(text, (self.menu_pos[0], pos_y))
+            pos_y += self.menufont.get_height()
+            if DEBUG:
+                print(f'mm s:{self.selected_item} l:{len(self.menuitems)}')
+    def menu_up(self):
+        if self.selected_item > 0:
+            self.selected_item -= 1
+        else:
+            self.selected_item = len(self.menuitems)-1
+    def menu_down(self):
+        if self.selected_item < len(self.menuitems)-1:
+            self.selected_item += 1
+        else:
+            self.selected_item = 0
+
+            
 
 class Game():
     def __init__(self, screen):
@@ -97,7 +123,7 @@ class Game():
         self.running = True
         pg.init()
         self.font = pg.font.SysFont('calibri', 15, True)
-        self.menufont = pg.font.SysFont('calibri', 35, True)
+
         self.show_mainmenu = True
         self.paused = True
     def place_player(self):
@@ -124,11 +150,17 @@ class Game():
         if DEBUG:
             t1 = time.time()
             # print(f'game_init: start')
+
+        # data and classes for Game
         self.game_data = Game_Data(screen=self.screen)
+        # menus
+        self.game_menu = Menu(self.screen)
+        # players
         self.players = pg.sprite.Group()
         player_pos = self.place_player()
         self.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=self.screen)
         self.players.add(self.player1)
+
         if DEBUG:
             print(f'game_init: done time {time.time() - t1:.2f}')
 
@@ -166,30 +198,42 @@ class Game():
                     self.game_init()
                     self.run()
                 if event.key == pg.K_DOWN:
-                    self.player1.changespeed(0,self.player1.speed)
+                    if not self.paused:
+                        self.player1.changespeed(0,self.player1.speed)
+                    if self.show_mainmenu:
+                        self.game_menu.menu_down()
                 if event.key == pg.K_UP:
-                    self.player1.changespeed(0,-self.player1.speed)
+                    if not self.paused:
+                        self.player1.changespeed(0,-self.player1.speed)
+                    if self.show_mainmenu:
+                        self.game_menu.menu_up()
                 if event.key == pg.K_RIGHT:
-                    self.player1.changespeed(self.player1.speed,0)
+                    if not self.paused:
+                        self.player1.changespeed(self.player1.speed,0)
                 if event.key == pg.K_LEFT:
-                    self.player1.changespeed(-self.player1.speed,0)
+                    if not self.paused:
+                        self.player1.changespeed(-self.player1.speed,0)
             if event.type == pg.KEYUP:
                 if event.key == pg.K_a:
                     pass
                 if event.key == pg.K_d:
                     pass
                 if event.key == pg.K_DOWN:
-                    self.player1.changespeed(0,0)
-                    self.player1.change_y = 0
+                    if not self.paused:
+                        self.player1.changespeed(0,0)
+                        self.player1.change_y = 0
                 if event.key == pg.K_UP:
-                    self.player1.changespeed(0,0)
-                    self.player1.change_y = 0
+                    if not self.paused:
+                        self.player1.changespeed(0,0)
+                        self.player1.change_y = 0
                 if event.key == pg.K_RIGHT:
-                    self.player1.changespeed(0,0)
-                    self.player1.change_x = 0
+                    if not self.paused:
+                        self.player1.changespeed(0,0)
+                        self.player1.change_x = 0
                 if event.key == pg.K_LEFT:
-                    self.player1.changespeed(0,0)
-                    self.player1.change_x = 0
+                    if not self.paused:
+                        self.player1.changespeed(0,0)
+                        self.player1.change_x = 0
             if event.type == pg.MOUSEBUTTONDOWN:
                 pass
             if event.type == pg.QUIT:
@@ -197,7 +241,7 @@ class Game():
 
     def main_logic(self):
         for bomb in self.game_data.bombs:
-            if bomb.time_left <= 0: 
+            if bomb.time_left <= 0:
                 self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 29  # set grid location where bomb was placed to 30 when it explodes
                 bomb.exploding = True  # bomb explotion 'animation'
             if bomb.done:
@@ -231,7 +275,7 @@ class Game():
                 # self.game_data.place_blocks()
         self.players.draw(self.screen)
         if self.show_mainmenu:
-            self.mainmenu()
+            self.game_menu.draw_mainmenu()
         if DEBUG:
             player_pos = self.font.render(f'x:{self.player1.rect.x} y:{self.player1.rect.y}', 1, [255,255,255], [10,10,10])
             self.screen.blit(player_pos, (10,10))
@@ -240,7 +284,7 @@ class Game():
             for block in self.game_data.blocks:
                 block.draw_debug()
         pg.display.flip()
-        
+
 
 if __name__ == '__main__':
     main_game = Game
