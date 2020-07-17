@@ -9,6 +9,7 @@ POWERUPS = {
     'bombpower' : 11,
     'speedup'   : 12,
     'addbomb'   : 13,
+    'healthup'   : 14,
 }
 
 #def limit(num, minimum=1, maximum=255):

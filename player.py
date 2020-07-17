@@ -25,6 +25,8 @@ class Player(pg.sprite.Sprite):
         self.bomb_power = 1
         self.speed = 1
         self.player_id = player_id
+        self.health = 100
+        self.dead = False
         self.clock = pg.time.Clock()
         
 
@@ -50,7 +52,10 @@ class Player(pg.sprite.Sprite):
     def changespeed(self, x, y):
         self.change_x += x
         self.change_y += y
-
+    def take_damage(self, amount=25):
+        self.health -= amount
+        if self.health <= 0:
+            self.dead = True
     def update(self, game_data):
         # Move left/right
         self.rect.x += self.change_x 
@@ -93,5 +98,7 @@ class Player(pg.sprite.Sprite):
             if powerup.powerup_type[0] == 'speedup':
                 if self.speed < 10:
                     self.speed += 1
+            if powerup.powerup_type[0] == 'healthup':
+                    self.health += 10
             powerup.kill()
             

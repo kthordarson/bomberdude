@@ -44,11 +44,11 @@ class Game_Data():
                 if self.game_map[k][j] == 1:   # 1 = solid block
                     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('orangered4'), screen=self.screen, solid=True, permanent=True))
                 if self.game_map[k][j] == 2:   # 2 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('grey39'), screen=self.screen, solid=True))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('steelblue1'), screen=self.screen, solid=True, permanent=True))
                 if self.game_map[k][j] == 3:   # 3 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray26'), screen=self.screen, solid=True))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray26'), screen=self.screen, solid=True, permanent=False))
                 if self.game_map[k][j] == 4:   # 3 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray31'), screen=self.screen, solid=True, permanent=True))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray31'), screen=self.screen, solid=True, permanent=False))
 #                if self.game_map[k][j] == 9:   # 9 = blasted block
 #                    powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen)
 #                    self.powerblocks.add(powerblock)
@@ -211,6 +211,11 @@ class Game():
 
                 if event.key == pg.K_a:
                     pass
+                if event.key == pg.K_c:
+                    self.player1.bomb_power = 10
+                    self.player1.max_bombs = 10
+                    self.player1.bombs_left = 10
+                    self.player1.speed = 10
                 if event.key == pg.K_p:
                     self.paused^= True
                     self.show_mainmenu^= True
