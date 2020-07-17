@@ -36,11 +36,14 @@ class Player(pg.sprite.Sprite):
             bomb = BlockBomb(x=self.rect.centerx, y=self.rect.centery, bomber_id=self.player_id, block_color=pg.Color('red'), screen=self.screen, bomb_power=self.bomb_power)
             game_data.bombs.add(bomb)
             self.bombs_left -= 1
-            print(f'drop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
+            if DEBUG:
+                print(f'drop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
         elif self.bombs_left <= 0:
-            print(f'nodrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
+            if DEBUG:
+                print(f'nodrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
         else:
-            print(f'nodrop {x} {y} {game_data.game_map[x][y]} cannot drop bomb')
+            if DEBUG:
+                print(f'nodrop {x} {y} {game_data.game_map[x][y]} cannot drop bomb')
         return game_data
 
     def changespeed(self, x, y):
@@ -53,8 +56,7 @@ class Player(pg.sprite.Sprite):
         # Did this update cause us to hit a wall?
         block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
         for block in block_hit_list:
-            # print(f'blcol {block.block_color}')
-            # If we are moving right, set our right side to the left side of the item we hit
+           # If we are moving right, set our right side to the left side of the item we hit
             if self.change_x > 0 and block.solid:
                 self.rect.right = block.rect.left
             else:
@@ -78,7 +80,8 @@ class Player(pg.sprite.Sprite):
         # pick up powerups...
         powerup_hits = pg.sprite.spritecollide(self, game_data.powerblocks, False)
         for powerup in powerup_hits:
-            print(f'powerup {powerup.powerup_type}')
+            if DEBUG:
+                print(f'powerup {powerup.powerup_type}')
             if powerup.powerup_type[0] == 'addbomb':
                 if self.max_bombs < 10:
                     self.max_bombs += 1

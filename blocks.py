@@ -30,7 +30,6 @@ class Block(pg.sprite.Sprite):
         pg.draw.line(self.screen, (55,55,55), (self.x + BLOCKSIZE, self.y), (self.x + BLOCKSIZE, self.y + BLOCKSIZE))
         pg.draw.line(self.screen, (55,55,55), (self.x + BLOCKSIZE, self.y + BLOCKSIZE), (self.x, self.y + BLOCKSIZE))
         # pg.draw.circle(self.screen, (255,255,255), (self.x, self.y), 300)
-        # print(f'dddd')
 
 class Powerup_Block(pg.sprite.Sprite):
     def __init__(self, x, y, screen):
@@ -54,15 +53,12 @@ class Powerup_Block(pg.sprite.Sprite):
         self.powerup_type = random.choice(list(POWERUPS.items()))
         self.timer = 600
         self.start_time = pg.time.get_ticks() / FPS
-        # print(f'pb {self.rect.x} {self.rect.y} {self.powerup}')
 
     def update(self):
         self.dt = pg.time.get_ticks() / FPS
         if self.dt - self.start_time >= self.timer:
-            # print(f'bomb expl {self.bomb_timer} - dt {self.dt:.2f} = {self.dt - self.start_time:.2f} pos {self.rect.x} {self.rect.y} bid {self.bomber_id}')
             self.time_left = 0
             self.kill()
-            #print(f'powerup dead dt {self.dt} start {self.start_time} timer {self.timer}')
 
     def draw_outlines(self):
         pass
@@ -103,7 +99,6 @@ class BlockBomb(pg.sprite.Sprite):
     def update(self):
         self.dt = pg.time.get_ticks() / FPS
         if self.dt - self.start_time >= self.bomb_timer:
-            # print(f'bomb expl {self.bomb_timer} - dt {self.dt:.2f} = {self.dt - self.start_time:.2f} pos {self.rect.x} {self.rect.y} bid {self.bomber_id}')
             self.time_left = 0
 
     def update_map(self, game_map):
@@ -169,7 +164,6 @@ class BlockBomb(pg.sprite.Sprite):
         self.exp_radius += self.flame_power // 2
         self.flame_len += self.flame_power
         self.exp_steps -= 1
-        # print(f'bomb anim {self.exp_steps} r {self.exp_radius} pos {self.rect.x} {self.rect.y}')
         if self.exp_steps <= 0:
             self.exploding = False
             self.done = True

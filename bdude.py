@@ -78,7 +78,8 @@ class Game():
                     except:
                         pass
                 placed = True
-                print(f'player placed x:{x} y:{y} screen x:{x*BLOCKSIZE} y:{y*BLOCKSIZE} ')
+                if DEBUG:
+                    print(f'player placed x:{x} y:{y} screen x:{x*BLOCKSIZE} y:{y*BLOCKSIZE} ')
                 return (x*BLOCKSIZE,y*BLOCKSIZE)
 
     def game_init(self):
@@ -103,7 +104,6 @@ class Game():
         for event in pg.event.get():
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_SPACE:
-                    # print(f'space')
                     self.game_data = self.player1.drop_bomb(self.game_data)
                 if event.key == pg.K_ESCAPE:
                     self.running = False
@@ -146,21 +146,16 @@ class Game():
 
     def main_logic(self):
         for bomb in self.game_data.bombs:
-            # print(f'bombs on map {len(self.bombs)}')
             if bomb.time_left <= 0: 
                 self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 29  # set grid location where bomb was placed to 30 when it explodes
                 bomb.exploding = True  # bomb explotion 'animation'
-                # bomb.kill() # remove bomb from sprite group
-                # self.game_data.bombs.remove(bomb)
             if bomb.done:
-                # print(f'bx dt {bomb.dt:.2f} tl {bomb.time_left} {bomb.bomber_id} gridpos {bomb.gridpos} griddata: {self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]]}')
                 self.player1.bombs_left += 1  # update bombs_left for player1
                 bomb.kill()
         for powerblock in self.game_data.powerblocks:
             if powerblock.timer <= 0:
                 self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
                 # powerblock.kill()
-                print(f'powerblock kill')
         self.game_data.powerblocks.update()
         self.game_data.bombs.update()
         self.players.update(self.game_data)
@@ -183,10 +178,11 @@ class Game():
                 self.game_data.game_map = bomb.explode(self.game_data.game_map)
                 self.game_data.place_blocks()
         self.players.draw(self.screen)
-        player_pos = self.font.render(f'x:{self.player1.rect.x} y:{self.player1.rect.y}', 1, [255,255,255], [10,10,10])
-        self.screen.blit(player_pos, (10,10))
-        player_info = self.font.render(f'mb {self.player1.max_bombs} bl {self.player1.bombs_left} bp {self.player1.bomb_power} sp {self.player1.speed}', 1, [255,255,255], [10,10,10])
-        self.screen.blit(player_info, (10,25))
+        if DEBUG:
+            player_pos = self.font.render(f'x:{self.player1.rect.x} y:{self.player1.rect.y}', 1, [255,255,255], [10,10,10])
+            self.screen.blit(player_pos, (10,10))
+            player_info = self.font.render(f'mb {self.player1.max_bombs} bl {self.player1.bombs_left} bp {self.player1.bomb_power} sp {self.player1.speed}', 1, [255,255,255], [10,10,10])
+            self.screen.blit(player_info, (10,25))
         pg.display.flip()
         
 
