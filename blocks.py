@@ -181,7 +181,9 @@ class BlockBomb(pg.sprite.Sprite):
             pg.draw.line(self.screen, (0,0,255), self.rect.midtop, end_pos, width=self.flame_width)
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
-            if 2 <= game_map[x][y] >= 3:
+            if 0 <= game_map[x][y] <= 2:
+                self.expand_up = False
+            if game_map[x][y] >= 3:
                 destroyed_blocks.append((x,y))
                 self.expand_up = False
 
@@ -193,7 +195,9 @@ class BlockBomb(pg.sprite.Sprite):
             pg.draw.line(self.screen, (0,0,255), start_pos, end_pos, width=self.flame_width)
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
-            if 2 <= game_map[x][y] >= 3:
+            if 0 <= game_map[x][y] <= 2:
+                self.expand_down = False
+            if game_map[x][y] >= 3:
                 destroyed_blocks.append((x,y))
                 self.expand_down = False
                 
@@ -207,7 +211,9 @@ class BlockBomb(pg.sprite.Sprite):
             # flame from leftside
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
-            if 2 <= game_map[x][y] >= 3:
+            if 0 <= game_map[x][y] <= 2:
+                self.expand_right = False
+            if game_map[x][y] >= 3:
                 destroyed_blocks.append((x,y))
                 self.expand_right = False
 
@@ -219,7 +225,9 @@ class BlockBomb(pg.sprite.Sprite):
             pg.draw.line(self.screen, (0,0,255), start_pos, end_pos, width=self.flame_width)
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
-            if 2 <= game_map[x][y] >= 3:
+            if 0 <= game_map[x][y] <= 2:
+                self.expand_left = False
+            if game_map[x][y] >= 3:
                 destroyed_blocks.append((x,y))
                 self.expand_left = False
         # pg.draw.circle(screen, (255,255,255), (250, 250), 100,2)
