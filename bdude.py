@@ -6,7 +6,7 @@ import time
 from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS
 from globals import inside_circle as inside_circle
 from player import Player as Player
-from blocks import Block, Powerup_Block, BlockBomb
+from blocks import Block, Powerup_Block, BlockBomb, Block2
 # colors
 # C:\python\lib\site-packages\pygame\colordict.py
 
@@ -16,18 +16,29 @@ class Game_Data():
         # make a random grid map
         self.screen = screen
         # make a random map
-        self.game_map = [[random.randint(0,8) for k in range(GRID_Y)] for j in range(GRID_X)]
+        self.game_map = [[random.randint(0,9) for k in range(GRID_Y+1)] for j in range(GRID_X+1)]
 
         self.bombs = pg.sprite.Group()
         self.blocks = pg.sprite.Group()
         self.powerblocks = pg.sprite.Group()
         # set edges to solid blocks, 0 = solid block
-        for x in range(GRID_X):
+        for x in range(GRID_X+1):
             self.game_map[x][0] = 1
-            self.game_map[x][GRID_Y-1] = 1
-        for y in range(GRID_Y):
+            self.game_map[x][GRID_Y] = 1
+        for y in range(GRID_Y+1):
             self.game_map[0][y] = 1
-            self.game_map[GRID_X-1][y] = 1
+            self.game_map[GRID_X][y] = 1
+
+    def get_block(self, x, y):
+        # get block inf from grid
+        return self.game_map[x][y]
+
+    def kill_block(self, x, y):
+        # remove block at gridpos x,y
+        for block in self.blocks:
+            if block.gridpos[0] == x and block.gridpos[1] == y:
+                block.kill()
+                self.game_map[x][y] = 0
 
     def place_blocks(self):
         global DEBUG
@@ -36,27 +47,33 @@ class Game_Data():
             # print(f'place_blocks: start')
         self.blocks = pg.sprite.Group()
         # self.powerblocks = pg.sprite.Group()
-        for k in range(GRID_X):
-            for j in range(GRID_Y):
-                if self.game_map[k][j] == 0:   # 0
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False, block_type=0, permanent=False))
-                    # self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False))
-                if self.game_map[k][j] == 1:   # 1 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('orangered4'), screen=self.screen, solid=True, block_type=1, permanent=True))
-                if self.game_map[k][j] == 2:   # 2 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('steelblue1'), screen=self.screen, solid=True, block_type=2, permanent=True))
-                if self.game_map[k][j] == 3:   # 3 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray26'), screen=self.screen, solid=True, block_type=3, permanent=False))
-                if self.game_map[k][j] == 4:   # 3 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray31'), screen=self.screen, solid=True, block_type=4, permanent=False))
-                if self.game_map[k][j] == 5:
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen1'), screen=self.screen, solid=False, block_type=self.game_map[k][j], permanent=False))
-                if self.game_map[k][j] == 6:
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen2'), screen=self.screen, solid=False, block_type=self.game_map[k][j], permanent=False))
-                if self.game_map[k][j] == 7:
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen3'), screen=self.screen, solid=False, block_type=self.game_map[k][j], permanent=False))
-                if self.game_map[k][j] == 8:
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen4'), screen=self.screen, solid=False, block_type=self.game_map[k][j], permanent=False))
+        for k in range(0,GRID_X+1):
+            for j in range(0, GRID_Y+1):
+                block = Block2(k,j, screen=self.screen, block_type=self.game_map[k][j])
+                self.blocks.add(block)
+                # print(f'add block: {block.x} {block.y} {block.screen_pos} {block.gridpos} type: {self.game_map[k][j]} total blocks: {len(self.blocks)}')
+                # if self.game_map[k][j] == 0:   # 0
+                #     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False, block_type=0, permanent=False))
+                #     # self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False))
+                # elif self.game_map[k][j] == 1:   # 1 = solid block
+                #     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('orangered4'), screen=self.screen, solid=True, block_type=1, permanent=True))
+                # elif self.game_map[k][j] == 2:   # 2 = solid block
+                #     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('steelblue1'), screen=self.screen, solid=True, block_type=2, permanent=True))
+                # elif self.game_map[k][j] == 3:   # 3 = solid block
+                #     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray26'), screen=self.screen, solid=True, block_type=3, permanent=False))
+                # elif self.game_map[k][j] == 4:   # 3 = solid block
+                #     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray31'), screen=self.screen, solid=True, block_type=4, permanent=False))
+                # elif self.game_map[k][j] == 5:
+                #     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen1'), screen=self.screen, solid=True, block_type=self.game_map[k][j], permanent=False))
+                # elif self.game_map[k][j] == 6:
+                #     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen2'), screen=self.screen, solid=True, block_type=self.game_map[k][j], permanent=False))
+                # elif self.game_map[k][j] == 7:
+                #     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen3'), screen=self.screen, solid=True, block_type=self.game_map[k][j], permanent=False))
+                # elif self.game_map[k][j] == 8:
+                #     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen4'), screen=self.screen, solid=True, block_type=self.game_map[k][j], permanent=False))
+                # else: 
+                #     # self.game_map[k][j] == 8:
+                #     self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('yellow'), screen=self.screen, solid=False, block_type=99, permanent=False))
 #                if self.game_map[k][j] == 9:   # 9 = blasted block
 #                    powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen)
 #                    self.powerblocks.add(powerblock)
@@ -68,23 +85,30 @@ class Game_Data():
         global DEBUG
         for item in mapinfo:
             if DEBUG:
-                print(f'updatemap items: {len(mapinfo)} item: {item}')
-            powerblock = Powerup_Block(item[0]*BLOCKSIZE, item[1]*BLOCKSIZE, screen=self.screen)
-            self.powerblocks.add(powerblock)
-            self.game_map[item[0]][item[1]] = powerblock.powerup_type[1]
+                print(f'update_map items: {len(mapinfo)} item: {item}')
+            gridpos = [item[0], item[1]]
+            block_id = self.game_map[gridpos[0]][gridpos[1]]
+            if 3 <= block_id <= 9:
+                powerblock = Powerup_Block(gridpos[0], gridpos[1], screen=self.screen)
+                self.powerblocks.add(powerblock)
+                self.game_map[item[0]][item[1]] = powerblock.powerup_type[1]
+                self.kill_block(item[0], item[1])
+                if DEBUG:
+                    print(f'update_map: powerupdrop on {gridpos} bid {block_id} p {powerblock.powerup_type[1]} newbid: {self.game_map[item[0]][item[1]]}')
             # self.game_map[item[0]][item[1]] = 30
 
     def destroy_blocks(self, block_list):
-        global DEBUG
-        for block in block_list:
-            if DEBUG:
-                print(f'destroy_blocks: {len(block_list)} block: {block}')
-            # block.kill()
-            # newblock = Block(block[0]*BLOCKSIZE, block[1]*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False, block_type=0, permanent=False)
-            # self.blocks.add(newblock)
-            self.game_map[block[0]][block[1]] = 0
-            # self.game_map[item[0]][item[1]] = 30
-        # self.place_blocks()
+        pass
+        # global DEBUG
+        # for block in block_list:
+        #     if DEBUG:
+        #         print(f'destroy_blocks: {len(block_list)} block: {block}')
+        #     # block.kill()
+        #     # newblock = Block(block[0]*BLOCKSIZE, block[1]*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False, block_type=0, permanent=False)
+        #     # self.blocks.add(newblock)
+        #     self.game_map[block[0]][block[1]] = 0
+        #     # self.game_map[item[0]][item[1]] = 30
+        # # self.place_blocks()
 class Menu():
     def __init__(self, screen):
         self.screen = screen
@@ -151,20 +175,20 @@ class Game():
         # place player somewhere where there is no block
         placed = False
         while not placed:
-            x = random.randint(1,GRID_X-1)
-            y = random.randint(1,GRID_Y-1)
-            if self.game_data.game_map[x][y] > 3:
-                # make a clear radius around spawn point
-                for clear_bl in list(inside_circle(3,x,y)):
-                    try:
-                        if self.game_data.game_map[clear_bl[0]][clear_bl[1]] > 1:
-                            self.game_data.game_map[clear_bl[0]][clear_bl[1]] = 0
-                    except:
-                        print(f'exception in place_player {clear_bl}')
-                placed = True
-                if DEBUG:
-                    print(f'player placed x:{x} y:{y} screen x:{x*BLOCKSIZE} y:{y*BLOCKSIZE} ')
-                return (x*BLOCKSIZE,y*BLOCKSIZE)
+            x = 5 # random.randint(1,GRID_X-1)
+            y = 5 # random.randint(1,GRID_Y-1)
+            self.game_data.game_map[x][y] = 0
+            # make a clear radius around spawn point
+            for clear_bl in list(inside_circle(3,x,y)):
+                try:
+                    if self.game_data.game_map[clear_bl[0]][clear_bl[1]] > 1:
+                        self.game_data.game_map[clear_bl[0]][clear_bl[1]] = 0
+                except:
+                    print(f'exception in place_player {clear_bl}')
+            placed = True
+            if DEBUG:
+                print(f'player placed x:{x} y:{y} screen x:{x*BLOCKSIZE} y:{y*BLOCKSIZE} ')
+            return (x*BLOCKSIZE,y*BLOCKSIZE)
 
     def game_init(self):
         global DEBUG
@@ -324,7 +348,7 @@ class Game():
                 # self.game_data.game_map = bomb.update_map(self.game_data.game_map)
                 destroyed_blocks = bomb.explode(self.game_data.game_map)
                 self.game_data.update_map(destroyed_blocks)
-                self.game_data.destroy_blocks(destroyed_blocks)
+                # self.game_data.destroy_blocks(destroyed_blocks)
                 # self.game_data.place_blocks()
         self.players.draw(self.screen)
         if self.show_mainmenu:
@@ -342,6 +366,6 @@ class Game():
 
 if __name__ == '__main__':
     main_game = Game
-    screen = pg.display.set_mode((GRID_X * BLOCKSIZE, GRID_Y * BLOCKSIZE),0,32)
+    screen = pg.display.set_mode((GRID_X * BLOCKSIZE + 20 , GRID_Y * BLOCKSIZE + 20),0,32)
     # main_game(screen=screen).game_init()
     main_game(screen=screen).run()

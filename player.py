@@ -34,7 +34,7 @@ class Player(pg.sprite.Sprite):
         global DEBUG
         x = self.rect.x // BLOCKSIZE
         y = self.rect.y // BLOCKSIZE
-        if 0 <= game_data.game_map[x][y] < 30 and self.bombs_left > 0:  # only place bombs on free tiles
+        if game_data.game_map[x][y] == 0 and self.bombs_left > 0:  # only place bombs on free tiles
             game_data.game_map[x][y] = self.player_id
             bomb = BlockBomb(x=self.rect.centerx, y=self.rect.centery, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
             game_data.bombs.add(bomb)
