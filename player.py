@@ -29,6 +29,7 @@ class Player(pg.sprite.Sprite):
         
 
     def drop_bomb(self, game_data):
+        global DEBUG
         x = self.rect.x // BLOCKSIZE
         y = self.rect.y // BLOCKSIZE
         if 0 <= game_data.game_map[x][y] < 30 and self.bombs_left > 0:  # only place bombs on free tiles

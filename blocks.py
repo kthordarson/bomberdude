@@ -11,6 +11,8 @@ class Block(pg.sprite.Sprite):
         self.screen = screen
         self.x = x
         self.y = y
+        self.screen_pos = (x * BLOCKSIZE, y * BLOCKSIZE)
+        self.gridpos = (x // BLOCKSIZE,y // BLOCKSIZE)
         self.pos = (self.x, self.y)
         self.block_color = block_color
         self.image = pg.Surface((BLOCKSIZE,BLOCKSIZE))
@@ -21,7 +23,25 @@ class Block(pg.sprite.Sprite):
         self.rect.x = self.x
         self.rect.y = self.y
         self.solid = solid
-        
+        self.font = pg.font.SysFont('calibri', 7, True)
+        self.debugtext = self.font.render(f'x:{self.gridpos}', 1, [255,255,255], [10,10,10])
+
+
+    def draw_debug(self):
+        global DEBUG
+        if DEBUG:            
+            if self.y == 0:
+                debugtext = self.font.render(f'{self.gridpos[0]}', 1, [255,255,255], [10,10,10])
+                self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
+            if self.x == 0:
+                debugtext = self.font.render(f'{self.gridpos[1]}', 1, [255,255,255], [10,10,10])
+                self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
+
+    def update(self):
+        pass
+        # global DEBUG
+        # if DEBUG:
+        #     self.debugtext = self.font.render(f'x:{self.gridpos}', 1, [255,255,255], [10,10,10])
 
     def draw_outlines(self):
         # pg.draw.rect(self.screen, (0,0,0), [self.x, self.y, BLOCKSIZE,BLOCKSIZE])
@@ -81,8 +101,8 @@ class BlockBomb(pg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.image.fill(self.block_color, self.rect)
         # self.rect.center = (50,50)
-        self.rect.centerx = self.x
-        self.rect.centery = self.y
+        self.rect.x = self.x
+        self.rect.y = self.y
         self.bomb_timer = 100
         self.time_left = 3
         self.exploding = False
@@ -106,8 +126,9 @@ class BlockBomb(pg.sprite.Sprite):
         return game_map
 
     def explode(self, game_map):
-        # todo fix length of flame, should stop at first hit/obsticle
-        
+        # todo convert explosion flames to Sprites
+        # todo return only information about destroyed blocks (gridxy cords)
+        destroyed_blocks = []
         # cetner explotion
         pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
 
@@ -120,7 +141,8 @@ class BlockBomb(pg.sprite.Sprite):
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
             if 2 <= game_map[x][y] <= 3:
-                game_map[x][y] = 9
+                # game_map[x][y] = 9
+                destroyed_blocks.append((x,y))
                 expand_up = False
 
         # flame from bottom
@@ -132,7 +154,8 @@ class BlockBomb(pg.sprite.Sprite):
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
             if 2 <= game_map[x][y] <= 3:
-                game_map[x][y] = 9
+                # game_map[x][y] = 9
+                destroyed_blocks.append((x,y))
                 self.expand_down = False
                 
 
@@ -146,7 +169,8 @@ class BlockBomb(pg.sprite.Sprite):
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
             if 2 <= game_map[x][y] <= 3:
-                game_map[x][y] = 9
+                # game_map[x][y] = 9
+                destroyed_blocks.append((x,y))
                 self.expand_right = False
 
         # flame from leftside
@@ -158,13 +182,19 @@ class BlockBomb(pg.sprite.Sprite):
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
             if 2 <= game_map[x][y] <= 3:
-                game_map[x][y] = 9
+                # game_map[x][y] = 9
+                destroyed_blocks.append((x,y))
                 self.expand_left = False
         # pg.draw.circle(screen, (255,255,255), (250, 250), 100,2)
         self.exp_radius += self.flame_power // 2
         self.flame_len += self.flame_power
         self.exp_steps -= 1
+        if DEBUG:
+            if len(destroyed_blocks) >= 1:
+                print(f'bomb step {self.exp_steps} gp {self.gridpos} sp {self.screen_pos} db {len(destroyed_blocks)}')
         if self.exp_steps <= 0:
             self.exploding = False
             self.done = True
-        return game_map
+            if DEBUG:
+                print(f'bomb done gp {self.gridpos} sp {self.screen_pos}')
+        return destroyed_blocks
