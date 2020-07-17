@@ -39,6 +39,8 @@ class Game_Data():
             if block.gridpos[0] == x and block.gridpos[1] == y:
                 block.kill()
                 self.game_map[x][y] = 0
+                block = Block(x,y, screen=self.screen, block_type=0)
+                self.blocks.add(block)
 
     def place_blocks(self):
         global DEBUG

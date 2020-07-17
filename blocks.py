@@ -24,7 +24,11 @@ class Block(pg.sprite.Sprite):
             self.solid = True
             self.permanent = True
             self.block_color = pg.Color('orangered4')
-        elif 2 <= self.block_type < 9:
+        elif self.block_type == 2:
+            self.solid = True
+            self.permanent = True
+            self.block_color = pg.Color('orangered4')
+        elif 2 < self.block_type <= 9:
             self.solid = True
             self.permanent = False
             self.block_color = pg.Color('gray31')
@@ -40,7 +44,7 @@ class Block(pg.sprite.Sprite):
         self.rect.x = self.screen_pos[0]
         self.rect.y = self.screen_pos[1]
         # self.solid = solid
-        self.font = pg.font.SysFont('calibri', 7, True)
+        self.font = pg.font.SysFont('calibri', 10, True)
         if self.block_type == 0:
             self.bordercolor = (0,0,0)
         elif self.block_type == 1:
@@ -53,18 +57,18 @@ class Block(pg.sprite.Sprite):
     def draw_debug(self):
         global DEBUG
         if DEBUG:            
-            if self.y == 0:
-                debugtext = self.font.render(f'{self.gridpos[0]}', 1, [255,0,255], [10,10,10])
-                self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
-            if self.x == 0:
-                debugtext = self.font.render(f'{self.gridpos[1]}', 1, [255,0,255], [10,10,10])
-                self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
+            # if self.y == 0:
+            #     debugtext = self.font.render(f'{self.gridpos[0]}', 1, [255,0,255], [10,10,10])
+            #     self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
+            # if self.x == 0:
+            #     debugtext = self.font.render(f'{self.gridpos[1]}', 1, [255,0,255], [10,10,10])
+            #     self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
             #if self.permanent:
             #    debugtext = self.font.render(f'p', 1, [255,0,0], [10,10,10])
             #    self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
-            if 2 <= self.block_type <= 9:
-                debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [10,10,10])
-                self.screen.blit(debugtext, (self.rect.centerx, self.rect.centery))
+            # if 1 <= self.block_type <= 9:
+            debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [10,10,10])
+            self.screen.blit(debugtext, (self.rect.centerx, self.rect.centery))
 
     def update(self):
         pass            
@@ -177,9 +181,8 @@ class BlockBomb(pg.sprite.Sprite):
             pg.draw.line(self.screen, (0,0,255), self.rect.midtop, end_pos, width=self.flame_width)
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
-            if game_map[x][y] >= 2:
-                if game_map[x][y] >= 3:
-                    destroyed_blocks.append((x,y))
+            if 2 <= game_map[x][y] >= 3:
+                destroyed_blocks.append((x,y))
                 self.expand_up = False
 
         # flame from bottom
@@ -190,9 +193,8 @@ class BlockBomb(pg.sprite.Sprite):
             pg.draw.line(self.screen, (0,0,255), start_pos, end_pos, width=self.flame_width)
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
-            if game_map[x][y] >= 2:
-                if game_map[x][y] >= 3:
-                    destroyed_blocks.append((x,y))
+            if 2 <= game_map[x][y] >= 3:
+                destroyed_blocks.append((x,y))
                 self.expand_down = False
                 
 
@@ -205,9 +207,8 @@ class BlockBomb(pg.sprite.Sprite):
             # flame from leftside
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
-            if game_map[x][y] >= 2:
-                if game_map[x][y] >= 3:
-                    destroyed_blocks.append((x,y))
+            if 2 <= game_map[x][y] >= 3:
+                destroyed_blocks.append((x,y))
                 self.expand_right = False
 
         # flame from leftside
@@ -218,9 +219,8 @@ class BlockBomb(pg.sprite.Sprite):
             pg.draw.line(self.screen, (0,0,255), start_pos, end_pos, width=self.flame_width)
             x = end_pos[0] // BLOCKSIZE
             y = end_pos[1] // BLOCKSIZE
-            if game_map[x][y] >= 2:
-                if game_map[x][y] >= 3:
-                    destroyed_blocks.append((x,y))
+            if 2 <= game_map[x][y] >= 3:
+                destroyed_blocks.append((x,y))
                 self.expand_left = False
         # pg.draw.circle(screen, (255,255,255), (250, 250), 100,2)
         self.exp_radius += 1
