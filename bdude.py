@@ -96,8 +96,10 @@ class Menu():
             text = self.menufont.render(item[1], 1, text_color, [1,1,1])
             self.screen.blit(text, (self.menu_pos[0], pos_y))
             pos_y += self.menufont.get_height()
-            if DEBUG:
-                print(f'mm s:{self.selected_item} l:{len(self.menuitems)}')
+#            if DEBUG:
+#                print(f'mm s:{self.selected_item} l:{len(self.menuitems)}')
+    def get_selection(self):
+        return self.menuitems[self.selected_item]
     def menu_up(self):
         if self.selected_item > 0:
             self.selected_item -= 1
@@ -176,18 +178,42 @@ class Game():
                 self.main_logic()     # update game_data, bombs and player stuff
             self.draw()           # draw
 
+    def handle_menu(self, selection):
+        if selection == 'Quit':
+            self.running = False
+        if selection == 'Pause':
+            self.paused^= True
+            self.show_mainmenu^= True
+        if selection == 'Start':
+            self.paused^= True
+            self.show_mainmenu^= True
+        if selection == 'Restart':
+            self.paused^= True
+            self.show_mainmenu^= True
+            self.game_init()
+            self.run()
+
     def handle_events(self):
         for event in pg.event.get():
             if event.type == pg.KEYDOWN:
-                if event.key == pg.K_SPACE:
+                if event.key == pg.K_SPACE or event.key == pg.K_RETURN:
                     if not self.paused:
                         self.game_data = self.player1.drop_bomb(self.game_data)
+                    if self.show_mainmenu or self.paused:
+                        selection = self.game_menu.get_selection()
+                        self.handle_menu(selection)
                 if event.key == pg.K_ESCAPE:
-                    self.running = False
+                    if not self.paused:
+                        self.running = False
+                    else:
+                        self.paused^= True
+                        self.show_mainmenu^= True
+
                 if event.key == pg.K_a:
                     pass
                 if event.key == pg.K_p:
                     self.paused^= True
+                    self.show_mainmenu^= True
                 if event.key == pg.K_m:
                     self.show_mainmenu^= True
                     self.paused^= True
