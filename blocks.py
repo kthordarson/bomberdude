@@ -2,11 +2,11 @@ import pygame as pg
 from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE, BOMBSIZE
 from globals import limit as limit
 
 class Block(pg.sprite.Sprite):
-    def __init__(self, x, y, block_color, screen, solid, permanent=False):
+    def __init__(self, x, y, block_color, screen, solid, block_type=0, permanent=False):
         super().__init__()
         self.screen = screen
         self.x = x
@@ -24,21 +24,31 @@ class Block(pg.sprite.Sprite):
         self.rect.y = self.y
         self.solid = solid
         self.font = pg.font.SysFont('calibri', 7, True)
-        self.debugtext = self.font.render(f'x:{self.gridpos}', 1, [255,255,255], [10,10,10])
+        self.permanent = permanent
+        self.block_type = block_type
+        # self.debugtext = self.font.render(f'x:{self.gridpos}', 1, [255,255,255], [10,10,10])
 
 
     def draw_debug(self):
         global DEBUG
         if DEBUG:            
             if self.y == 0:
-                debugtext = self.font.render(f'{self.gridpos[0]}', 1, [255,255,255], [10,10,10])
+                debugtext = self.font.render(f'{self.gridpos[0]}', 1, [255,0,255], [10,10,10])
                 self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
             if self.x == 0:
-                debugtext = self.font.render(f'{self.gridpos[1]}', 1, [255,255,255], [10,10,10])
+                debugtext = self.font.render(f'{self.gridpos[1]}', 1, [255,0,255], [10,10,10])
                 self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
+            #if self.permanent:
+            #    debugtext = self.font.render(f'p', 1, [255,0,0], [10,10,10])
+            #    self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
+            if not self.solid:
+                debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [10,10,10])
+                self.screen.blit(debugtext, (self.rect.centerx, self.rect.centery))
 
     def update(self):
-        pass
+        if self.block_type == 0:
+            self.solid = False
+            self.permanent = False
         # global DEBUG
         # if DEBUG:
         #     self.debugtext = self.font.render(f'x:{self.gridpos}', 1, [255,255,255], [10,10,10])
@@ -89,15 +99,15 @@ class BlockBomb(pg.sprite.Sprite):
         self.screen = screen
         self.screen_pos = (x * BLOCKSIZE, y * BLOCKSIZE)
         self.gridpos = (x // BLOCKSIZE,y // BLOCKSIZE)
-        self.x = x  # + (BLOCKSIZE//2)
-        self.y = y  # + (BLOCKSIZE//2)
+        self.x = x  # + (BOMBSIZE//2)
+        self.y = y  # + (BOMBSIZE//2)
         self.bomber_id = bomber_id
         self.block_color = block_color
         self.start_time = pg.time.get_ticks() / FPS
         # self.pos = (self.x, self.y)
-        self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2))
+        self.image = pg.Surface((BOMBSIZE // 2,BOMBSIZE // 2))
         # todo fix exact placement on grid
-        pg.draw.rect(self.image, (0,0,0), [self.x, self.y, BLOCKSIZE // 2 ,BLOCKSIZE // 2])
+        pg.draw.rect(self.image, (0,0,0), [self.x, self.y, BOMBSIZE // 2 ,BOMBSIZE // 2])
         self.rect = self.image.get_rect()
         self.image.fill(self.block_color, self.rect)
         # self.rect.center = (50,50)
@@ -107,7 +117,7 @@ class BlockBomb(pg.sprite.Sprite):
         self.time_left = 3
         self.exploding = False
         self.exp_steps = 20
-        self.exp_radius = 4
+        self.exp_radius = 1
         self.done = False
         self.flame_len = bomb_power
         self.flame_power = bomb_power

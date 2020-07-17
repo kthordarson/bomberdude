@@ -1,5 +1,7 @@
 # global constants
 BLOCKSIZE = 15
+PLAYERSIZE = 14
+BOMBSIZE = 10
 GRID_X = 50
 GRID_Y = 50
 FPS = 30

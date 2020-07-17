@@ -2,7 +2,7 @@ import pygame as pg
 from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE, BOMBSIZE
 
 from blocks import Block, Powerup_Block, BlockBomb
 class Player(pg.sprite.Sprite):
@@ -12,8 +12,8 @@ class Player(pg.sprite.Sprite):
         self.x = x
         self.y = y
         self.pos = (self.x, self.y)
-        self.image = pg.Surface((BLOCKSIZE,BLOCKSIZE))
-        pg.draw.rect(self.image, (0,0,0), [self.x, self.y, BLOCKSIZE,BLOCKSIZE])
+        self.image = pg.Surface((PLAYERSIZE,PLAYERSIZE))
+        pg.draw.rect(self.image, (0,0,0), [self.x, self.y, PLAYERSIZE,PLAYERSIZE])
         self.rect = self.image.get_rect()
         self.image.fill((0,0,255), self.rect)
         self.rect.x = self.x
@@ -36,7 +36,7 @@ class Player(pg.sprite.Sprite):
         y = self.rect.y // BLOCKSIZE
         if 0 <= game_data.game_map[x][y] < 30 and self.bombs_left > 0:  # only place bombs on free tiles
             game_data.game_map[x][y] = self.player_id
-            bomb = BlockBomb(x=self.rect.centerx, y=self.rect.centery, bomber_id=self.player_id, block_color=pg.Color('red'), screen=self.screen, bomb_power=self.bomb_power)
+            bomb = BlockBomb(x=self.rect.centerx, y=self.rect.centery, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
             game_data.bombs.add(bomb)
             self.bombs_left -= 1
             if DEBUG:

@@ -16,7 +16,7 @@ class Game_Data():
         # make a random grid map
         self.screen = screen
         # make a random map
-        self.game_map = [[random.randint(2,8) for k in range(GRID_Y)] for j in range(GRID_X)]
+        self.game_map = [[random.randint(0,8) for k in range(GRID_Y)] for j in range(GRID_X)]
 
         self.bombs = pg.sprite.Group()
         self.blocks = pg.sprite.Group()
@@ -39,16 +39,24 @@ class Game_Data():
         for k in range(GRID_X):
             for j in range(GRID_Y):
                 if self.game_map[k][j] == 0:   # 0
-                    pass
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False, block_type=0, permanent=False))
                     # self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False))
                 if self.game_map[k][j] == 1:   # 1 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('orangered4'), screen=self.screen, solid=True, permanent=True))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('orangered4'), screen=self.screen, solid=True, block_type=1, permanent=True))
                 if self.game_map[k][j] == 2:   # 2 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('steelblue1'), screen=self.screen, solid=True, permanent=True))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('steelblue1'), screen=self.screen, solid=True, block_type=2, permanent=True))
                 if self.game_map[k][j] == 3:   # 3 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray26'), screen=self.screen, solid=True, permanent=False))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray26'), screen=self.screen, solid=True, block_type=3, permanent=False))
                 if self.game_map[k][j] == 4:   # 3 = solid block
-                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray31'), screen=self.screen, solid=True, permanent=False))
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('gray31'), screen=self.screen, solid=True, block_type=4, permanent=False))
+                if self.game_map[k][j] == 5:
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen1'), screen=self.screen, solid=False, block_type=self.game_map[k][j], permanent=False))
+                if self.game_map[k][j] == 6:
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen2'), screen=self.screen, solid=False, block_type=self.game_map[k][j], permanent=False))
+                if self.game_map[k][j] == 7:
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen3'), screen=self.screen, solid=False, block_type=self.game_map[k][j], permanent=False))
+                if self.game_map[k][j] == 8:
+                    self.blocks.add(Block(k*BLOCKSIZE, j*BLOCKSIZE, block_color=pg.Color('springgreen4'), screen=self.screen, solid=False, block_type=self.game_map[k][j], permanent=False))
 #                if self.game_map[k][j] == 9:   # 9 = blasted block
 #                    powerblock = Powerup_Block(k*BLOCKSIZE, j*BLOCKSIZE, screen=self.screen)
 #                    self.powerblocks.add(powerblock)
@@ -66,6 +74,17 @@ class Game_Data():
             self.game_map[item[0]][item[1]] = powerblock.powerup_type[1]
             # self.game_map[item[0]][item[1]] = 30
 
+    def destroy_blocks(self, block_list):
+        global DEBUG
+        for block in block_list:
+            if DEBUG:
+                print(f'destroy_blocks: {len(block_list)} block: {block}')
+            # block.kill()
+            # newblock = Block(block[0]*BLOCKSIZE, block[1]*BLOCKSIZE, block_color=pg.Color('black'), screen=self.screen, solid=False, block_type=0, permanent=False)
+            # self.blocks.add(newblock)
+            self.game_map[block[0]][block[1]] = 0
+            # self.game_map[item[0]][item[1]] = 30
+        # self.place_blocks()
 class Menu():
     def __init__(self, screen):
         self.screen = screen
@@ -276,12 +295,14 @@ class Game():
                 self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 29  # set grid location where bomb was placed to 30 when it explodes
                 bomb.exploding = True  # bomb explotion 'animation'
             if bomb.done:
+                self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 0
                 self.player1.bombs_left += 1  # update bombs_left for player1
                 bomb.kill()
         for powerblock in self.game_data.powerblocks:
             if powerblock.timer <= 0:
                 self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
                 # powerblock.kill()
+        self.game_data.blocks.update()
         self.game_data.powerblocks.update()
         self.game_data.bombs.update()
         self.players.update(self.game_data)
@@ -303,6 +324,7 @@ class Game():
                 # self.game_data.game_map = bomb.update_map(self.game_data.game_map)
                 destroyed_blocks = bomb.explode(self.game_data.game_map)
                 self.game_data.update_map(destroyed_blocks)
+                self.game_data.destroy_blocks(destroyed_blocks)
                 # self.game_data.place_blocks()
         self.players.draw(self.screen)
         if self.show_mainmenu:
@@ -314,6 +336,7 @@ class Game():
             self.screen.blit(player_info, (10,25))
             for block in self.game_data.blocks:
                 block.draw_debug()
+                block.draw_outlines()
         pg.display.flip()
 
 
