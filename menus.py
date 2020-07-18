@@ -13,8 +13,10 @@ class Info_panel():
     def add_panel_item(self, item):
         self.panelitems.append(item)
     def draw_panel(self, player1):
-        text = self.font.render(f'pos x:{player1.rect.x} y:{player1.rect.y} grid {player1.gridpos}', 1, [255,255,255], [10,10,10])
-        self.screen.blit(text, (self.x, self.y))
+        text1 = self.font.render(f'player pos x:{player1.rect.x} y:{player1.rect.y} grid {player1.gridpos}', 1, [255,255,255], [10,10,10])
+        text2 = self.font.render(f'player health: {player1.health} max bombs {player1.max_bombs} bombs left {player1.bombs_left} bomb power: {player1.bomb_power} speed: {player1.speed}', 1, [255,255,255], [10,10,10])
+        self.screen.blit(text1, (self.x, self.y))
+        self.screen.blit(text2, (self.x, self.y+text1.get_height()))
     def update(self, game_data):
         pass
 class Menu():

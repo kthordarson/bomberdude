@@ -167,7 +167,7 @@ class Powerup_Block(pg.sprite.Sprite):
         self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2), pg.SRCALPHA)
         self.radius = BLOCKSIZE // 2
         # pg.draw.circle(self.image, (255,0,0), (0,0), self.radius)
-        pg.draw.rect(self.image, (0,0,0), (self.screen_pos[0], self.screen_pos[1], BLOCKSIZE // 2 , BLOCKSIZE // 2))
+        pg.draw.rect(self.image, (0,0,0), (self.x, self.y, BLOCKSIZE // 2 , BLOCKSIZE // 2))
         self.rect = self.image.get_rect()
         self.image.fill(self.block_color, self.rect)
         # self.rect.center = (50,50)
@@ -175,14 +175,32 @@ class Powerup_Block(pg.sprite.Sprite):
         self.rect.centery = self.y + BLOCKSIZE // 2
         self.solid = False
         self.powerup_type = random.choice(list(POWERUPS.items()))
-        self.timer = 600
+        self.timer = 400
+        self.ending_soon = False
         self.start_time = pg.time.get_ticks() / FPS
+
+    def flash(self):
+        self.block_color = random.choice(list(colordict.items()))[1]   #block_color
+        self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2), pg.SRCALPHA)
+        pg.draw.rect(self.image, (0,0,0), (self.x, self.y, BLOCKSIZE // 2 , BLOCKSIZE // 2))
+        self.rect = self.image.get_rect()
+        self.image.fill(self.block_color, self.rect)
+        self.rect.centerx = self.x + BLOCKSIZE // 2
+        self.rect.centery = self.y + BLOCKSIZE // 2
 
     def update(self):
         self.dt = pg.time.get_ticks() / FPS
         if self.dt - self.start_time >= self.timer:
             self.time_left = 0
             self.kill()
+        if self.dt - self.start_time >= self.timer // 3:
+            self.ending_soon = True
+            # self.rect.centerx = self.x + BLOCKSIZE // 2
+            # self.rect.centery = self.y + BLOCKSIZE // 2
+            # self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2), pg.SRCALPHA)
+            # self.block_color = random.choice(list(colordict.items()))[1]   #block_color
+            # self.rect = self.image.get_rect()
+            # self.image.fill(self.block_color, self.rect)
 
     def draw_outlines(self):
         pass

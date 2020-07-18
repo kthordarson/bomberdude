@@ -268,6 +268,11 @@ class Game():
         for powerblock in self.game_data.powerblocks:
             if powerblock.timer <= 0:
                 powerblock.kill()
+            if powerblock.ending_soon:
+                # print(f'fffff')
+                # powerblock.block_color = random.choice(list(colordict.items()))[1]
+                # powerblock.image.fill(powerblock.block_color, powerblock.rect)
+                powerblock.flash()
                 # self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
                 # powerblock.kill()
         self.game_data.blocks.update()
