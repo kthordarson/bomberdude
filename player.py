@@ -39,7 +39,7 @@ class Player(pg.sprite.Sprite):
         # get grid pos of player
         x = self.gridpos[0]
         y = self.gridpos[1]
-        if self.bombs_left > 0:  # only place bombs if we have bombs...
+        if self.bombs_left > 0 and game_data.game_map[x][y] == 0:  # only place bombs if we have bombs... and on free spot...
             game_data.game_map[x][y] = self.player_id
             # create bomb at gridpos xy
             bomb = BlockBomb(x=x, y=y, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
