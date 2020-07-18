@@ -271,8 +271,20 @@ class Game():
                 for flame in bomb.flames:
                     flame.kill()
                 bomb.kill()
+
         for powerblock in self.game_data.powerblocks:
-            if powerblock.timer <= 0:
+            powerplayers = pg.sprite.spritecollide(powerblock, self.players, False)
+            # powerblock.time_left = 0
+            for player in powerplayers:
+                player.take_powerup(powerblock)
+            if powerblock.time_left <= 0:
+                if DEBUG:
+                    print(f'pb pos: {powerblock.gridpos[0]}, {powerblock.gridpos[1]} map: {self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]]}')
+                self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
+                newblock = Block(powerblock.gridpos[0], powerblock.gridpos[1], screen=self.screen, block_type=0) 
+                self.game_data.blocks.add(newblock)
+                if DEBUG:
+                    print(f'nb pos: {newblock.gridpos[0]}, {newblock.gridpos[1]} map: {self.game_data.game_map[newblock.gridpos[0]][newblock.gridpos[1]]}')
                 powerblock.kill()
             if powerblock.ending_soon:
                 powerblock.flash()

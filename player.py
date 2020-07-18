@@ -70,7 +70,7 @@ class Player(pg.sprite.Sprite):
     def update(self, game_data):
         # Move left/right
         self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
-        self.rect.x += self.change_x 
+        self.rect.centerx += self.change_x 
         # Did this update cause us to hit a wall?
         block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
         for block in block_hit_list:
@@ -82,7 +82,7 @@ class Player(pg.sprite.Sprite):
                 if block.solid:
                     self.rect.left = block.rect.right 
         # Move up/down
-        self.rect.y += self.change_y
+        self.rect.centery += self.change_y
         # Check and see if we hit anything
         block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
         for block in block_hit_list: 
@@ -92,23 +92,19 @@ class Player(pg.sprite.Sprite):
             else:
                 if block.solid:
                     self.rect.top = block.rect.bottom
-
+    def take_powerup(self, powerup):
         # pick up powerups...
-        powerup_hits = pg.sprite.spritecollide(self, game_data.powerblocks, False)
-        for powerup in powerup_hits:
-            #if DEBUG:
-            #    print(f'powerup {powerup.powerup_type}')
-            if powerup.powerup_type[0] == 'addbomb':
-                if self.max_bombs < 10:
-                    self.max_bombs += 1
-                    self.bombs_left += 1
-            if powerup.powerup_type[0] == 'bombpower':
-                if self.bomb_power < 10:
-                    self.bomb_power += 1
-            if powerup.powerup_type[0] == 'speedup':
-                if self.speed < 10:
-                    self.speed += 1
-            if powerup.powerup_type[0] == 'healthup':
-                    self.health += 10
-            powerup.kill()
+        print(f'take_powerup {powerup.powerup_type}')
+        if powerup.powerup_type[0] == 'addbomb':
+            if self.max_bombs < 10:
+                self.max_bombs += 1
+                self.bombs_left += 1
+        if powerup.powerup_type[0] == 'bombpower':
+            if self.bomb_power < 10:
+                self.bomb_power += 1
+        if powerup.powerup_type[0] == 'speedup':
+            if self.speed < 10:
+                self.speed += 1
+        if powerup.powerup_type[0] == 'healthup':
+                self.health += 10
             

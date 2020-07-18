@@ -137,11 +137,12 @@ class Block(pg.sprite.Sprite):
     def draw_id(self):
         global DEBUG, DEBUG_GRID
         if DEBUG:            
-            # debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [0,0,0])
-            debugtext = self.font.render(f'{self.gridpos[0]}', 1, [0,255,0], [0,0,0])
+            debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [0,0,0])
             self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))
-            debugtext = self.font.render(f':{self.gridpos[1]}', 1, [0,255,0], [0,0,0])
-            self.screen.blit(debugtext, (self.rect.x+8, self.rect.centery-3))
+            # debugtext = self.font.render(f'{self.gridpos[0]}', 1, [0,255,0], [0,0,0])
+            # self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))
+            # debugtext = self.font.render(f':{self.gridpos[1]}', 1, [0,255,0], [0,0,0])
+            # self.screen.blit(debugtext, (self.rect.x+8, self.rect.centery-3))
 
     def update(self):
         pass            
@@ -161,7 +162,7 @@ class Powerup_Block(pg.sprite.Sprite):
         self.x = x * BLOCKSIZE
         self.y = y * BLOCKSIZE
         self.screen_pos = (x * BLOCKSIZE, y * BLOCKSIZE)
-        self.gridpos = (x // BLOCKSIZE,y // BLOCKSIZE)
+        self.gridpos = (x, y)
         self.pos = (self.x, self.y)
         self.block_color = random.choice(list(colordict.items()))[1]   #block_color
         self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2), pg.SRCALPHA)
@@ -176,6 +177,7 @@ class Powerup_Block(pg.sprite.Sprite):
         self.solid = False
         self.powerup_type = random.choice(list(POWERUPS.items()))
         self.timer = 400
+        self.time_left = self.timer
         self.ending_soon = False
         self.start_time = pg.time.get_ticks() / FPS
 
@@ -192,7 +194,7 @@ class Powerup_Block(pg.sprite.Sprite):
         self.dt = pg.time.get_ticks() / FPS
         if self.dt - self.start_time >= self.timer:
             self.time_left = 0
-            self.kill()
+            # self.kill()
         if self.dt - self.start_time >= self.timer // 3:
             self.ending_soon = True
             # self.rect.centerx = self.x + BLOCKSIZE // 2
