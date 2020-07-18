@@ -240,7 +240,7 @@ class BlockBomb(pg.sprite.Sprite):
         self.exp_steps = 50
         self.exp_radius = 1
         self.done = False
-        self.flame_len = bomb_power
+        self.flame_len = 1
         self.flame_power = bomb_power
         self.flame_width = 10
         self.expand_up = True
@@ -259,10 +259,13 @@ class BlockBomb(pg.sprite.Sprite):
         # self.flames = [Bomb_Flame(self.x, self.y, self.screen) for k in range(4)]
 
     def update(self):
+        global DEBUG
         self.dt = pg.time.get_ticks() / FPS
         if self.dt - self.start_time >= self.bomb_timer:
             self.time_left = 0
             self.exploding = True
+            # if DEBUG:
+            #    print(f'bombtimer expired....')
     def update_map(self, game_map):
         # do stuff with map after explotion...
         return game_map
@@ -279,14 +282,16 @@ class BlockBomb(pg.sprite.Sprite):
         self.exp_radius += 1
         if self.exp_radius >= BLOCKSIZE:
             self.exp_radius = BLOCKSIZE
-        for flame in self.flames:            
-            flame.flame_length += self.flame_power
+        for flame in self.flames:
+            if flame.expand:
+                flame.flame_length += self.flame_power
         self.exp_steps -= 1
         if self.exp_steps <= 0:
             self.exploding = False
             self.done = True
             if DEBUG:
                 print(f'bomb done gp {self.gridpos} sp {self.x} {self.y}')
+                print(f'bombtime: {self.dt} - {self.start_time} >= {self.bomb_timer} {self.dt - self.start_time >= self.bomb_timer}')
                 for flame in self.flames:            
                     print(f'flames: {flame.dir} {flame.flame_length} {flame.l_up} {flame.l_dn} {flame.l_r} {flame.l_l} {flame.expand}')
             self.kill()
