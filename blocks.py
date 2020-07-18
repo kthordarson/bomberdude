@@ -5,6 +5,83 @@ import random
 from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE, BOMBSIZE, CHEAT
 from globals import limit as limit
 
+class Bomb_Flame(pg.sprite.Sprite):
+    def __init__(self, x, y, screen, dir, flame_length):
+        super().__init__()
+        self.screen = screen
+        self.x = x
+        self.y = y
+        self.dir = dir
+        self.flame_length = flame_length
+        self.color = pg.Color('red')
+        self.image = pg.Surface((2,2))
+        pg.draw.rect(self.image, (0,0,0), (self.x, self.y, 0, 0))
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.image.fill(self.color, self.rect)
+        self.max_length = 10
+        self.length = 1
+        self.l_up = 1
+        self.step_up = 1
+        self.l_dn = 1
+        self.step_down = 1
+        self.l_r = 1
+        self.step_right = 1
+        self.l_l = 1
+        self.step_left = 1
+        self.flame_adder = 1
+        self.expand = True
+
+    def update(self):
+        if self.dir == 'u' and self.flame_adder == 1 and self.l_up <= self.flame_length:
+            if self.expand:
+                self.l_up += self.flame_adder
+        elif self.dir == 'd' and self.flame_adder == 1 and self.l_dn <= self.flame_length:
+            if self.expand:
+                self.l_dn += self.flame_adder
+        elif self.dir == 'r' and self.flame_adder == 1 and self.l_r <= self.flame_length:
+            if self.expand:
+                self.l_r += self.flame_adder
+        elif self.dir == 'l' and self.flame_adder == 1 and self.l_l <= self.flame_length:
+            if self.expand:
+                self.l_l += self.flame_adder
+        else:
+            pass
+
+    def update_old(self):
+        if self.l_up <= 10 and self.dir == 'u':
+            self.l_up += self.flame_adder
+        elif self.l_dn <= 10 and self.dir == 'd':
+            self.l_dn += self.flame_adder
+        elif self.l_r <= 10 and self.dir == 'r':
+            self.l_r += self.flame_adder
+        elif self.l_l <= 10 and self.dir == 'l':
+            self.l_l += self.flame_adder
+        else:
+            pass
+
+    def set_adder(self, adder):
+        self.flame_adder = adder
+    
+    def stop_expander(self):
+        self.expand = False
+
+    def draw_flame(self):
+        if self.dir == 'u':
+            self.rect = pg.Rect(self.x, self.y-self.l_up, 2,2+self.l_up)
+            pg.draw.rect(self.screen, (255,0,0), self.rect,0)
+        if self.dir == 'd':
+            self.rect = pg.Rect(self.x, self.y+self.l_dn, 2,2+self.l_dn)
+            pg.draw.rect(self.screen, (255,0,0), self.rect,0)
+        if self.dir == 'r':
+            self.rect = pg.Rect(self.x+self.l_r, self.y, 2+self.l_r,2)
+            pg.draw.rect(self.screen, (255,0,0), self.rect,0)
+        if self.dir == 'l':
+            self.rect = pg.Rect(self.x-self.l_l, self.y, 2+self.l_l,2)
+            pg.draw.rect(self.screen, (255,0,0), self.rect,0)
+        return 0
+
 class Block(pg.sprite.Sprite):
     def __init__(self, x, y, screen, block_type):
         super().__init__()
@@ -20,22 +97,32 @@ class Block(pg.sprite.Sprite):
             self.solid = False
             self.permanent = False
             self.block_color = pg.Color('black')
+            self.bordercolor = (0,0,0)
         elif self.block_type == 1:
             self.solid = True
             self.permanent = True
             self.block_color = pg.Color('orangered4')
+            self.bordercolor = (0,255,0)
         elif self.block_type == 2:
             self.solid = True
             self.permanent = True
             self.block_color = pg.Color('orangered4')
+            self.bordercolor = (244,20,44)
         elif 2 < self.block_type <= 9:
             self.solid = True
             self.permanent = False
             self.block_color = pg.Color('gray31')
+            self.bordercolor = (44,0,44)
+        elif self.block_type == 99:
+            self.solid = False
+            self.permanent = False
+            self.block_color = pg.Color('black')
+            self.bordercolor = (4,123,44)
         else:
             self.solid = False
             self.permanent = False
             self.block_color = pg.Color('white')
+            self.bordercolor = (44,44,244)
         self.image = pg.Surface((BLOCKSIZE,BLOCKSIZE))
         pg.draw.rect(self.image, (0,0,0), (self.screen_pos[0], self.screen_pos[1], BLOCKSIZE, BLOCKSIZE))
         self.rect = self.image.get_rect()
@@ -45,14 +132,19 @@ class Block(pg.sprite.Sprite):
         self.rect.y = self.screen_pos[1]
         # self.solid = solid
         self.font = pg.font.SysFont('calibri', 10, True)
-        if self.block_type == 0:
-            self.bordercolor = (0,0,0)
-        elif self.block_type == 1:
-            self.bordercolor = (0,255,0)
-        else:
-            self.bordercolor = (44,44,244)
+            
         # self.debugtext = self.font.render(f'x:{self.gridpos}', 1, [255,255,255], [10,10,10])
 
+    # def block_bombed(self):
+    #     self.block_type = 0
+    #     self.solid = False
+    #     self.permanent = False
+    #     self.block_color = pg.Color('black')
+    #     self.bordercolor = (0,0,0)
+    #     self.image = pg.Surface((BLOCKSIZE,BLOCKSIZE))
+    #     pg.draw.rect(self.image, (0,0,0), (self.screen_pos[0], self.screen_pos[1], BLOCKSIZE, BLOCKSIZE))
+    #     self.rect = self.image.get_rect()
+    #     self.image.fill(self.block_color, self.rect)
 
     def draw_debug(self):
         global DEBUG
@@ -68,7 +160,7 @@ class Block(pg.sprite.Sprite):
             #    self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
             # if 1 <= self.block_type <= 9:
             debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [10,10,10])
-            self.screen.blit(debugtext, (self.rect.centerx, self.rect.centery))
+            self.screen.blit(debugtext, (self.rect.centerx, self.rect.centery-4))
 
     def update(self):
         pass            
@@ -100,12 +192,13 @@ class Powerup_Block(pg.sprite.Sprite):
         self.block_color = random.choice(list(colordict.items()))[1]   #block_color
         self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2))
         self.radius = BLOCKSIZE // 2
-        pg.draw.circle(self.image, (255,0,0), (0,0), self.radius)
+        # pg.draw.circle(self.image, (255,0,0), (0,0), self.radius)
+        pg.draw.rect(self.image, (0,0,0), (self.screen_pos[0], self.screen_pos[1], BLOCKSIZE // 2 , BLOCKSIZE // 2))
         self.rect = self.image.get_rect()
         self.image.fill(self.block_color, self.rect)
         # self.rect.center = (50,50)
-        self.rect.centerx = self.x
-        self.rect.centery = self.y
+        self.rect.centerx = self.x + BLOCKSIZE // 2
+        self.rect.centery = self.y + BLOCKSIZE // 2
         self.solid = False
         self.powerup_type = random.choice(list(POWERUPS.items()))
         self.timer = 600
@@ -144,7 +237,7 @@ class BlockBomb(pg.sprite.Sprite):
         self.bomb_timer = 100
         self.time_left = 3
         self.exploding = False
-        self.exp_steps = 20
+        self.exp_steps = 50
         self.exp_radius = 1
         self.done = False
         self.flame_len = bomb_power
@@ -154,97 +247,51 @@ class BlockBomb(pg.sprite.Sprite):
         self.expand_down = True
         self.expand_right = True
         self.expand_left = True
+        self.flames = []
+        self.flame_up = Bomb_Flame(self.x, self.y, self.screen, dir='u', flame_length=self.flame_len)
+        self.flames.append(self.flame_up)
+        self.flame_down = Bomb_Flame(self.x, self.y, self.screen, dir='d', flame_length=self.flame_len)
+        self.flames.append(self.flame_down)
+        self.flame_right = Bomb_Flame(self.x, self.y, self.screen, dir='r', flame_length=self.flame_len)
+        self.flames.append(self.flame_right)
+        self.flame_left = Bomb_Flame(self.x, self.y, self.screen, dir='l', flame_length=self.flame_len)
+        self.flames.append(self.flame_left)
+        # self.flames = [Bomb_Flame(self.x, self.y, self.screen) for k in range(4)]
+
     def update(self):
-        global CHEAT, DEBUG
-        if CHEAT or DEBUG:
-            self.bomb_timer = 10
         self.dt = pg.time.get_ticks() / FPS
         if self.dt - self.start_time >= self.bomb_timer:
             self.time_left = 0
-
+            self.exploding = True
     def update_map(self, game_map):
         # do stuff with map after explotion...
         return game_map
 
+    def draw_explotion(self):
+        if self.exploding:
+            pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
+
     def explode(self, game_map):
-        # todo convert explosion flames to Sprites
-        # todo return only information about destroyed blocks (gridxy cords)
-        destroyed_blocks = []
-        # cetner explotion
-        pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
-
-        # flame from top
-        if self.expand_up:            
-            start_pos = self.rect.midtop
-            # end_pos = (start_pos[0], start_pos[1] - self.flame_len)
-            end_pos = (start_pos[0], limit((start_pos[1] - self.flame_len),1, (GRID_Y*BLOCKSIZE)-1))
-            pg.draw.line(self.screen, (0,0,255), self.rect.midtop, end_pos, width=self.flame_width)
-            x = end_pos[0] // BLOCKSIZE
-            y = end_pos[1] // BLOCKSIZE
-            if 0 <= game_map[x][y] <= 2:
-                self.expand_up = False
-            if game_map[x][y] >= 3:
-                destroyed_blocks.append((x,y))
-                self.expand_up = False
-
-        # flame from bottom
-        if self.expand_down:
-            start_pos = self.rect.midbottom
-            # end_pos = (start_pos[0], start_pos[1] + self.flame_len)
-            end_pos = (start_pos[0], limit((start_pos[1] + self.flame_len),1, (GRID_Y*BLOCKSIZE)-1))
-            pg.draw.line(self.screen, (0,0,255), start_pos, end_pos, width=self.flame_width)
-            x = end_pos[0] // BLOCKSIZE
-            y = end_pos[1] // BLOCKSIZE
-            if 0 <= game_map[x][y] <= 2:
-                self.expand_down = False
-            if game_map[x][y] >= 3:
-                destroyed_blocks.append((x,y))
-                self.expand_down = False
-                
-
-        # flame from rightside
-        if self.expand_right:
-            start_pos = self.rect.midright
-            # end_pos = (start_pos[0] + self.flame_len, start_pos[1])
-            end_pos = (limit((start_pos[0] + self.flame_len), 1, (GRID_X*BLOCKSIZE)-1), start_pos[1])
-            pg.draw.line(self.screen, (0,0,255), start_pos, end_pos, width=self.flame_width)
-            # flame from leftside
-            x = end_pos[0] // BLOCKSIZE
-            y = end_pos[1] // BLOCKSIZE
-            if 0 <= game_map[x][y] <= 2:
-                self.expand_right = False
-            if game_map[x][y] >= 3:
-                destroyed_blocks.append((x,y))
-                self.expand_right = False
-
-        # flame from leftside
-        if self.expand_left:
-            start_pos = self.rect.midleft
-            # end_pos = (start_pos[0] - self.flame_len, start_pos[1])
-            end_pos = (limit((start_pos[0] - self.flame_len),1, (GRID_X*BLOCKSIZE)-1), start_pos[1])
-            pg.draw.line(self.screen, (0,0,255), start_pos, end_pos, width=self.flame_width)
-            x = end_pos[0] // BLOCKSIZE
-            y = end_pos[1] // BLOCKSIZE
-            if 0 <= game_map[x][y] <= 2:
-                self.expand_left = False
-            if game_map[x][y] >= 3:
-                destroyed_blocks.append((x,y))
-                self.expand_left = False
-        # pg.draw.circle(screen, (255,255,255), (250, 250), 100,2)
+        # pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
+#        for flame in self.flames:
+#            flame.update()
+#            flame.draw_flame()
         self.exp_radius += 1
         if self.exp_radius >= BLOCKSIZE:
             self.exp_radius = BLOCKSIZE
-        self.flame_len += self.flame_power
+        for flame in self.flames:            
+            flame.flame_length += self.flame_power
         self.exp_steps -= 1
-#        if DEBUG:
-#            if len(destroyed_blocks) >= 1:
-#                print(f'bomb step {self.exp_steps} gp {self.gridpos} sp {self.x} {self.y} db {len(destroyed_blocks)}')
         if self.exp_steps <= 0:
             self.exploding = False
             self.done = True
             if DEBUG:
                 print(f'bomb done gp {self.gridpos} sp {self.x} {self.y}')
+                for flame in self.flames:            
+                    print(f'flames: {flame.dir} {flame.flame_length} {flame.l_up} {flame.l_dn} {flame.l_r} {flame.l_l} {flame.expand}')
+            self.kill()
         self.flame_width -= 1
         if self.flame_width <= 1:
             self.flame_width = 1
-        return destroyed_blocks
+        
+        return []

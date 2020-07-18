@@ -34,13 +34,14 @@ class Player(pg.sprite.Sprite):
         global DEBUG
         x = self.rect.x // BLOCKSIZE
         y = self.rect.y // BLOCKSIZE
-        if game_data.game_map[x][y] == 0 and self.bombs_left > 0:  # only place bombs on free tiles
+#        if game_data.game_map[x][y] == 0 and self.bombs_left > 0:  # only place bombs on free tiles
+        if self.bombs_left > 0:  # only place bombs on free tiles
             game_data.game_map[x][y] = self.player_id
             bomb = BlockBomb(x=self.rect.centerx, y=self.rect.centery, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
             game_data.bombs.add(bomb)
             self.bombs_left -= 1
             if DEBUG:
-                print(f'drop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
+                print(f'dropdrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} bp {self.bomb_power}')
         elif self.bombs_left <= 0:
             if DEBUG:
                 print(f'nodrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
@@ -86,8 +87,8 @@ class Player(pg.sprite.Sprite):
         # pick up powerups...
         powerup_hits = pg.sprite.spritecollide(self, game_data.powerblocks, False)
         for powerup in powerup_hits:
-            if DEBUG:
-                print(f'powerup {powerup.powerup_type}')
+            #if DEBUG:
+            #    print(f'powerup {powerup.powerup_type}')
             if powerup.powerup_type[0] == 'addbomb':
                 if self.max_bombs < 10:
                     self.max_bombs += 1

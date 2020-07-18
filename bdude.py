@@ -64,8 +64,8 @@ class Game_Data():
             gridpos = [item[0], item[1]]
             block_id = self.game_map[gridpos[0]][gridpos[1]]
             if 3 <= block_id <= 9:
-                powerblock = Powerup_Block(gridpos[0], gridpos[1], screen=self.screen)
-                self.powerblocks.add(powerblock)
+                # powerblock = Powerup_Block(gridpos[0], gridpos[1], screen=self.screen)
+                # self.powerblocks.add(powerblock)
                 self.game_map[item[0]][item[1]] = powerblock.powerup_type[1]
                 self.kill_block(item[0], item[1])
                 if DEBUG:
@@ -213,7 +213,7 @@ class Game():
                 if event.key == pg.K_a:
                     pass
                 if event.key == pg.K_c:
-                    self.player1.bomb_power = 10
+                    self.player1.bomb_power = 100
                     self.player1.max_bombs = 10
                     self.player1.bombs_left = 10
                     self.player1.speed = 10
@@ -273,17 +273,40 @@ class Game():
                 self.running = False
 
     def main_logic(self):
+        global DEBUG
         for bomb in self.game_data.bombs:
-            if bomb.time_left <= 0:
-                self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 29  # set grid location where bomb was placed to 30 when it explodes
-                bomb.exploding = True  # bomb explotion 'animation'
+            if bomb.exploding:
+                bomb.explode(self.game_data.game_map)
+                # self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 29  # set grid location where bomb was placed to 29 when it explodes
+                # bomb.exploding = True  # bomb explotion 'animation'
+                for flame in bomb.flames:
+                    flame.update()
+                    flame_hits = pg.sprite.spritecollide(flame, self.game_data.blocks, False)
+                    for block in flame_hits:
+                        if block.block_type > 0:  # if block_type is larger than 0, stop expanding flame, else keep expanding until solid is hit
+                            flame.set_adder(0)
+                            flame.stop_expander()
+                            flame.kill()
+                        if block.block_type > 2: # if block_type is larger than 2 (less than 2 are permanent blocks)
+                            # block.block_bombed()
+                            block.kill()
+                            powerblock = Powerup_Block(block.gridpos[0], block.gridpos[1], screen=self.screen)  # drop powerup where destroyed block was before
+                            self.game_data.powerblocks.add(powerblock)
+                            newblock = Block(block.gridpos[0], block.gridpos[1], screen=self.screen, block_type=0)  # make a new type 0 block....
+                            self.game_data.blocks.add(newblock)
+                            # self.game_data.game_map[block.gridpos[0]][block.gridpos[1]] = 99
+                            if DEBUG:
+                                print(f'blhit: {block.gridpos} x:{block.x} y:{block.y} {block.block_type} fl: dir: {flame.dir} u:{flame.l_up} d:{flame.l_dn} r:{flame.l_r} l:{flame.l_l} a:{flame.flame_adder} fl:{flame.flame_length} fe:{flame.expand}')
             if bomb.done:
                 self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 0
                 self.player1.bombs_left += 1  # update bombs_left for player1
+                for flame in bomb.flames:
+                    flame.kill()
                 bomb.kill()
         for powerblock in self.game_data.powerblocks:
             if powerblock.timer <= 0:
-                self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
+                powerblock.kill()
+                # self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
                 # powerblock.kill()
         self.game_data.blocks.update()
         self.game_data.powerblocks.update()
@@ -300,9 +323,13 @@ class Game():
         self.game_data.bombs.draw(self.screen)
         for bomb in self.game_data.bombs:
             if bomb.exploding:
+                bomb.draw_explotion()                                
+                for flame in bomb.flames:
+                    flame.draw_flame()
+                
                 # self.game_data.game_map = bomb.update_map(self.game_data.game_map)
-                destroyed_blocks = bomb.explode(self.game_data.game_map)
-                self.game_data.update_map(destroyed_blocks)
+                #destroyed_blocks = bomb.explode(self.game_data.game_map)
+                #self.game_data.update_map(destroyed_blocks)
                 # self.game_data.destroy_blocks(destroyed_blocks)
                 # self.game_data.place_blocks()
         self.players.draw(self.screen)
