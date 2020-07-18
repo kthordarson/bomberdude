@@ -59,9 +59,14 @@ class Player(pg.sprite.Sprite):
         self.change_x += x
         self.change_y += y
     def take_damage(self, amount=25):
+        global DEBUG
         self.health -= amount
         if self.health <= 0:
             self.dead = True
+            if DEBUG:
+                print(f'player DEAD {amount} {self.health}')
+        if DEBUG:
+            print(f'player damage {amount} {self.health}')
     def update(self, game_data):
         # Move left/right
         self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)

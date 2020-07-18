@@ -259,6 +259,12 @@ class Game():
                             self.game_data.blocks.add(newblock)
                             if DEBUG:
                                 print(f'blhit: {block.gridpos} x:{block.x} y:{block.y} {block.block_type} fl: dir: {flame.dir} u:{flame.l_up} d:{flame.l_dn} r:{flame.l_r} l:{flame.l_l} a:{flame.flame_adder} fl:{flame.flame_length} fe:{flame.expand}')
+                    player_hits = pg.sprite.spritecollide(flame, self.players, False)  # did flame touch player?
+                    for player in player_hits:
+                        player.take_damage(10)
+                        if player.dead:
+                            player.kill()
+                            # game over
             if bomb.done:
                 self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 0
                 self.player1.bombs_left += 1  # update bombs_left for player1
@@ -269,12 +275,7 @@ class Game():
             if powerblock.timer <= 0:
                 powerblock.kill()
             if powerblock.ending_soon:
-                # print(f'fffff')
-                # powerblock.block_color = random.choice(list(colordict.items()))[1]
-                # powerblock.image.fill(powerblock.block_color, powerblock.rect)
                 powerblock.flash()
-                # self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
-                # powerblock.kill()
         self.game_data.blocks.update()
         self.game_data.powerblocks.update()
         self.game_data.bombs.update()
