@@ -2,7 +2,7 @@ import pygame as pg
 from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE, BOMBSIZE, CHEAT
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE, BOMBSIZE, CHEAT, DEBUG_GRID
 from globals import limit as limit
 
 class Bomb_Flame(pg.sprite.Sprite):
@@ -135,10 +135,13 @@ class Block(pg.sprite.Sprite):
         self.font = pg.font.SysFont('calibri', 10, True)
 
     def draw_id(self):
-        global DEBUG
+        global DEBUG, DEBUG_GRID
         if DEBUG:            
-            debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [0,0,0])
-            self.screen.blit(debugtext, (self.rect.centerx, self.rect.centery-4))
+            # debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [0,0,0])
+            debugtext = self.font.render(f'{self.gridpos[0]}', 1, [0,255,0], [0,0,0])
+            self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))
+            debugtext = self.font.render(f':{self.gridpos[1]}', 1, [0,255,0], [0,0,0])
+            self.screen.blit(debugtext, (self.rect.x+8, self.rect.centery-3))
 
     def update(self):
         pass            
@@ -190,21 +193,21 @@ class BlockBomb(pg.sprite.Sprite):
         super().__init__()
         self.screen = screen
         self.screen_pos = (x * BLOCKSIZE, y * BLOCKSIZE)
-        self.gridpos = (x // BLOCKSIZE,y // BLOCKSIZE)
-        self.x = x  # + (BOMBSIZE//2)
-        self.y = y  # + (BOMBSIZE//2)
+        self.gridpos = (x,y)
+        self.x = x * BLOCKSIZE
+        self.y = y * BLOCKSIZE
         self.bomber_id = bomber_id
         self.block_color = block_color
         self.start_time = pg.time.get_ticks() / FPS
         # self.pos = (self.x, self.y)
-        self.image = pg.Surface((BOMBSIZE // 2,BOMBSIZE // 2), pg.SRCALPHA)
+        self.image = pg.Surface((BOMBSIZE,BOMBSIZE ), pg.SRCALPHA)
         # todo fix exact placement on grid
-        pg.draw.rect(self.image, (0,0,0), [self.x, self.y, BOMBSIZE // 2 ,BOMBSIZE // 2])
+        pg.draw.rect(self.image, (0,0,0), [self.x,self.y, BOMBSIZE,BOMBSIZE])
         self.rect = self.image.get_rect()
         self.image.fill(self.block_color, self.rect)
         # self.rect.center = (50,50)
-        self.rect.centerx = self.x
-        self.rect.centery = self.y
+        self.rect.centerx = self.x + BLOCKSIZE // 2
+        self.rect.centery = self.y + BLOCKSIZE // 2
         self.bomb_timer = 100
         self.time_left = 3
         self.exploding = False
@@ -219,13 +222,13 @@ class BlockBomb(pg.sprite.Sprite):
         self.expand_right = True
         self.expand_left = True
         self.flames = []
-        self.flame_up = Bomb_Flame(self.x, self.y, self.screen, dir='u', flame_length=self.flame_len)
+        self.flame_up = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, dir='u', flame_length=self.flame_len)
         self.flames.append(self.flame_up)
-        self.flame_down = Bomb_Flame(self.x, self.y, self.screen, dir='d', flame_length=self.flame_len)
+        self.flame_down = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, dir='d', flame_length=self.flame_len)
         self.flames.append(self.flame_down)
-        self.flame_right = Bomb_Flame(self.x, self.y, self.screen, dir='r', flame_length=self.flame_len)
+        self.flame_right = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, dir='r', flame_length=self.flame_len)
         self.flames.append(self.flame_right)
-        self.flame_left = Bomb_Flame(self.x, self.y, self.screen, dir='l', flame_length=self.flame_len)
+        self.flame_left = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, dir='l', flame_length=self.flame_len)
         self.flames.append(self.flame_left)
         # self.flames = [Bomb_Flame(self.x, self.y, self.screen) for k in range(4)]
 

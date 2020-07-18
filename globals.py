@@ -1,12 +1,13 @@
 # global constants
-BLOCKSIZE = 15
-PLAYERSIZE = 10
+BLOCKSIZE = 20
+PLAYERSIZE = 15
 BOMBSIZE = 10
-GRID_X = 50
-GRID_Y = 50
+GRID_X = 30
+GRID_Y = 30
 FPS = 30
 # FONT = pg.font.SysFont('calibri', 13, True)
 DEBUG = True
+DEBUG_GRID = False
 CHEAT = False
 POWERUPS = {
     'bombpower' : 11,

@@ -12,7 +12,6 @@ class Player(pg.sprite.Sprite):
         self.screen = screen
         self.x = x
         self.y = y
-        self.pos = (self.x, self.y)
         self.image = pg.Surface((PLAYERSIZE,PLAYERSIZE)) # , pg.SRCALPHA, 32)
         pg.draw.rect(self.image, (0,0,0), [self.x, self.y, PLAYERSIZE,PLAYERSIZE])
         # pg.draw.circle(self.image, (0,0,0), (self.x, self.y), 2)
@@ -22,6 +21,7 @@ class Player(pg.sprite.Sprite):
         self.image.fill((0,0,255), self.rect)
         self.rect.x = self.x
         self.rect.y = self.y
+        self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
         self.change_x = 0
         self.change_y = 0
         self.max_bombs = 3
@@ -36,11 +36,13 @@ class Player(pg.sprite.Sprite):
 
     def drop_bomb(self, game_data):
         global DEBUG
-        x = self.rect.x // BLOCKSIZE
-        y = self.rect.y // BLOCKSIZE
+        # get grid pos of player
+        x = self.gridpos[0]
+        y = self.gridpos[1]
         if self.bombs_left > 0:  # only place bombs if we have bombs...
             game_data.game_map[x][y] = self.player_id
-            bomb = BlockBomb(x=self.rect.centerx, y=self.rect.centery, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
+            # create bomb at gridpos xy
+            bomb = BlockBomb(x=x, y=y, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
             game_data.bombs.add(bomb)
             self.bombs_left -= 1
             if DEBUG:
@@ -62,6 +64,7 @@ class Player(pg.sprite.Sprite):
             self.dead = True
     def update(self, game_data):
         # Move left/right
+        self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
         self.rect.x += self.change_x 
         # Did this update cause us to hit a wall?
         block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)

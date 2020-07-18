@@ -3,10 +3,13 @@ from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
 import time
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE, BOMBSIZE, CHEAT
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE, BOMBSIZE, CHEAT, DEBUG_GRID
 from globals import inside_circle as inside_circle
 from player import Player as Player
 from blocks import Block, Powerup_Block, BlockBomb
+from menus import Menu as Menu
+from menus import Info_panel as Info_panel
+
 # colors
 # C:\python\lib\site-packages\pygame\colordict.py
 
@@ -74,46 +77,6 @@ class Game_Data():
 
     def destroy_blocks(self, block_list):
         pass
-class Menu():
-    def __init__(self, screen):
-        self.screen = screen
-        super().__init__()
-        self.menu_pos = [100,100]
-        self.selected_color = [255,255,255]
-        self.inactive_color = [55,55,55]
-        self.menufont = pg.font.SysFont('calibri', 35, True)
-        self.menuitems = []
-        self.menuitems.append('Start')
-        self.menuitems.append('Pause')
-        self.menuitems.append('Restart')
-        self.menuitems.append('Quit')
-        self.selected_item = 0
-
-    def draw_mainmenu(self):
-        global DEBUG
-        pos_y = self.menu_pos[1]
-        for item in enumerate(self.menuitems):
-            if item[0] == self.selected_item:
-                text_color = self.selected_color
-            else:
-                text_color = self.inactive_color
-            text = self.menufont.render(item[1], 1, text_color, [1,1,1])
-            self.screen.blit(text, (self.menu_pos[0], pos_y))
-            pos_y += self.menufont.get_height()
-#            if DEBUG:
-#                print(f'mm s:{self.selected_item} l:{len(self.menuitems)}')
-    def get_selection(self):
-        return self.menuitems[self.selected_item]
-    def menu_up(self):
-        if self.selected_item > 0:
-            self.selected_item -= 1
-        else:
-            self.selected_item = len(self.menuitems)-1
-    def menu_down(self):
-        if self.selected_item < len(self.menuitems)-1:
-            self.selected_item += 1
-        else:
-            self.selected_item = 0
 
             
 
@@ -157,6 +120,7 @@ class Game():
         self.game_data = Game_Data(screen=self.screen)
         # menus
         self.game_menu = Menu(self.screen)
+        self.info_panel = Info_panel(BLOCKSIZE, GRID_Y*BLOCKSIZE+BLOCKSIZE, self.screen)
         # players
         self.players = pg.sprite.Group()
         player_pos = self.place_player()
@@ -194,7 +158,7 @@ class Game():
             self.run()
 
     def handle_events(self):
-        global CHEAT
+        global CHEAT, DEBUG, DEBUG_GRID
         for event in pg.event.get():
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_SPACE or event.key == pg.K_RETURN:
@@ -225,8 +189,10 @@ class Game():
                     self.show_mainmenu^= True
                     self.paused^= True
                 if event.key == pg.K_d:
-                    global DEBUG
                     DEBUG^= True
+                if event.key == pg.K_g:
+                    DEBUG = False
+                    DEBUG_GRID^= True
                 if event.key == pg.K_r:
                     self.game_init()
                     self.run()
@@ -308,9 +274,11 @@ class Game():
         self.game_data.powerblocks.update()
         self.game_data.bombs.update()
         self.players.update(self.game_data)
+        # self.info_panel.update(self.game_data)
 
 
     def draw(self):
+        global DEBUG, DEBUG_GRID
         self.screen.fill(self.bg_color)
         # self.game_data.draw_map()
 
@@ -323,21 +291,26 @@ class Game():
                 for flame in bomb.flames:
                     flame.draw_flame()
         self.players.draw(self.screen)
+        self.info_panel.draw_panel(self.player1)
         if self.show_mainmenu:
             self.game_menu.draw_mainmenu()
-        if DEBUG:
-            player_pos = self.font.render(f'x:{self.player1.rect.x} y:{self.player1.rect.y}', 1, [255,255,255], [10,10,10])
-            self.screen.blit(player_pos, (10,10))
-            player_info = self.font.render(f'mb {self.player1.max_bombs} bl {self.player1.bombs_left} bp {self.player1.bomb_power} sp {self.player1.speed}', 1, [255,255,255], [10,10,10])
-            self.screen.blit(player_info, (10,25))
+
+        # if DEBUG:
+        #     player_pos = self.font.render(f'x:{self.player1.rect.x} y:{self.player1.rect.y}', 1, [255,255,255], [10,10,10])
+        #     self.screen.blit(player_pos, (10,10))
+        #     player_info = self.font.render(f'mb {self.player1.max_bombs} bl {self.player1.bombs_left} bp {self.player1.bomb_power} sp {self.player1.speed}', 1, [255,255,255], [10,10,10])
+        #     self.screen.blit(player_info, (10,25))
+        if DEBUG or DEBUG_GRID:
             for block in self.game_data.blocks:
                 block.draw_id()
-                # block.draw_outlines()
+                block.draw_outlines()
+
         pg.display.flip()
 
 
 if __name__ == '__main__':
     main_game = Game
-    screen = pg.display.set_mode((GRID_X * BLOCKSIZE + 20 , GRID_Y * BLOCKSIZE + 20),0,32)
+    panelsize = BLOCKSIZE * 5
+    screen = pg.display.set_mode((GRID_X * BLOCKSIZE + BLOCKSIZE, GRID_Y * BLOCKSIZE + panelsize),0,32)
     # main_game(screen=screen).game_init()
     main_game(screen=screen).run()
