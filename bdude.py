@@ -277,7 +277,8 @@ class Game():
             # powerblock.time_left = 0
             for player in powerplayers:
                 player.take_powerup(powerblock)
-            if powerblock.time_left <= 0:
+                powerblock.taken = True
+            if powerblock.time_left <= 0 or powerblock.taken:
                 if DEBUG:
                     print(f'pb pos: {powerblock.gridpos[0]}, {powerblock.gridpos[1]} map: {self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]]}')
                 self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0

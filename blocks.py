@@ -179,6 +179,7 @@ class Powerup_Block(pg.sprite.Sprite):
         self.timer = 400
         self.time_left = self.timer
         self.ending_soon = False
+        self.taken = False
         self.start_time = pg.time.get_ticks() / FPS
 
     def flash(self):
