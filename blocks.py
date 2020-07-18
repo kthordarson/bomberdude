@@ -14,7 +14,7 @@ class Bomb_Flame(pg.sprite.Sprite):
         self.dir = dir
         self.flame_length = flame_length
         self.color = pg.Color('red')
-        self.image = pg.Surface((2,2))
+        self.image = pg.Surface((2,2), pg.SRCALPHA)
         pg.draw.rect(self.image, (0,0,0), (self.x, self.y, 0, 0))
         self.rect = self.image.get_rect()
         self.rect.x = x
@@ -97,7 +97,7 @@ class Block(pg.sprite.Sprite):
             self.solid = False
             self.permanent = False
             self.block_color = pg.Color('black')
-            self.bordercolor = (0,0,0)
+            self.bordercolor = (255,255,255)
         elif self.block_type == 1:
             self.solid = True
             self.permanent = True
@@ -122,8 +122,9 @@ class Block(pg.sprite.Sprite):
             self.solid = False
             self.permanent = False
             self.block_color = pg.Color('white')
-            self.bordercolor = (44,44,244)
-        self.image = pg.Surface((BLOCKSIZE,BLOCKSIZE))
+            self.bordercolor = (55,55,244)
+
+        self.image = pg.Surface((BLOCKSIZE,BLOCKSIZE), pg.SRCALPHA)
         pg.draw.rect(self.image, (0,0,0), (self.screen_pos[0], self.screen_pos[1], BLOCKSIZE, BLOCKSIZE))
         self.rect = self.image.get_rect()
         self.image.fill(self.block_color, self.rect)
@@ -132,45 +133,15 @@ class Block(pg.sprite.Sprite):
         self.rect.y = self.screen_pos[1]
         # self.solid = solid
         self.font = pg.font.SysFont('calibri', 10, True)
-            
-        # self.debugtext = self.font.render(f'x:{self.gridpos}', 1, [255,255,255], [10,10,10])
 
-    # def block_bombed(self):
-    #     self.block_type = 0
-    #     self.solid = False
-    #     self.permanent = False
-    #     self.block_color = pg.Color('black')
-    #     self.bordercolor = (0,0,0)
-    #     self.image = pg.Surface((BLOCKSIZE,BLOCKSIZE))
-    #     pg.draw.rect(self.image, (0,0,0), (self.screen_pos[0], self.screen_pos[1], BLOCKSIZE, BLOCKSIZE))
-    #     self.rect = self.image.get_rect()
-    #     self.image.fill(self.block_color, self.rect)
-
-    def draw_debug(self):
+    def draw_id(self):
         global DEBUG
         if DEBUG:            
-            # if self.y == 0:
-            #     debugtext = self.font.render(f'{self.gridpos[0]}', 1, [255,0,255], [10,10,10])
-            #     self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
-            # if self.x == 0:
-            #     debugtext = self.font.render(f'{self.gridpos[1]}', 1, [255,0,255], [10,10,10])
-            #     self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
-            #if self.permanent:
-            #    debugtext = self.font.render(f'p', 1, [255,0,0], [10,10,10])
-            #    self.screen.blit(debugtext, (self.rect.x, self.rect.centery))
-            # if 1 <= self.block_type <= 9:
-            debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [10,10,10])
+            debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [0,0,0])
             self.screen.blit(debugtext, (self.rect.centerx, self.rect.centery-4))
 
     def update(self):
         pass            
-        # if self.block_type == 0:
-        #     self.solid = False
-        #     self.permanent = False
-        #     self.bordercolor = (255,255,255)
-        # global DEBUG
-        # if DEBUG:
-        #     self.debugtext = self.font.render(f'x:{self.gridpos}', 1, [255,255,255], [10,10,10])
 
     def draw_outlines(self):
         # pg.draw.rect(self.screen, (0,0,0), [self.x, self.y, BLOCKSIZE,BLOCKSIZE])
@@ -190,7 +161,7 @@ class Powerup_Block(pg.sprite.Sprite):
         self.gridpos = (x // BLOCKSIZE,y // BLOCKSIZE)
         self.pos = (self.x, self.y)
         self.block_color = random.choice(list(colordict.items()))[1]   #block_color
-        self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2))
+        self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2), pg.SRCALPHA)
         self.radius = BLOCKSIZE // 2
         # pg.draw.circle(self.image, (255,0,0), (0,0), self.radius)
         pg.draw.rect(self.image, (0,0,0), (self.screen_pos[0], self.screen_pos[1], BLOCKSIZE // 2 , BLOCKSIZE // 2))
@@ -226,7 +197,7 @@ class BlockBomb(pg.sprite.Sprite):
         self.block_color = block_color
         self.start_time = pg.time.get_ticks() / FPS
         # self.pos = (self.x, self.y)
-        self.image = pg.Surface((BOMBSIZE // 2,BOMBSIZE // 2))
+        self.image = pg.Surface((BOMBSIZE // 2,BOMBSIZE // 2), pg.SRCALPHA)
         # todo fix exact placement on grid
         pg.draw.rect(self.image, (0,0,0), [self.x, self.y, BOMBSIZE // 2 ,BOMBSIZE // 2])
         self.rect = self.image.get_rect()
@@ -275,10 +246,6 @@ class BlockBomb(pg.sprite.Sprite):
             pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
 
     def explode(self, game_map):
-        # pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
-#        for flame in self.flames:
-#            flame.update()
-#            flame.draw_flame()
         self.exp_radius += 1
         if self.exp_radius >= BLOCKSIZE:
             self.exp_radius = BLOCKSIZE

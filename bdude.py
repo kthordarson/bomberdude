@@ -277,24 +277,20 @@ class Game():
         for bomb in self.game_data.bombs:
             if bomb.exploding:
                 bomb.explode(self.game_data.game_map)
-                # self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 29  # set grid location where bomb was placed to 29 when it explodes
-                # bomb.exploding = True  # bomb explotion 'animation'
                 for flame in bomb.flames:
                     flame.update()
-                    flame_hits = pg.sprite.spritecollide(flame, self.game_data.blocks, False)
+                    flame_hits = pg.sprite.spritecollide(flame, self.game_data.blocks, False)  # get blocks that flames touch
                     for block in flame_hits:
                         if block.block_type > 0:  # if block_type is larger than 0, stop expanding flame, else keep expanding until solid is hit
                             flame.set_adder(0)
                             flame.stop_expander()
                             flame.kill()
                         if block.block_type > 2: # if block_type is larger than 2 (less than 2 are permanent blocks)
-                            # block.block_bombed()
                             block.kill()
                             powerblock = Powerup_Block(block.gridpos[0], block.gridpos[1], screen=self.screen)  # drop powerup where destroyed block was before
                             self.game_data.powerblocks.add(powerblock)
                             newblock = Block(block.gridpos[0], block.gridpos[1], screen=self.screen, block_type=0)  # make a new type 0 block....
                             self.game_data.blocks.add(newblock)
-                            # self.game_data.game_map[block.gridpos[0]][block.gridpos[1]] = 99
                             if DEBUG:
                                 print(f'blhit: {block.gridpos} x:{block.x} y:{block.y} {block.block_type} fl: dir: {flame.dir} u:{flame.l_up} d:{flame.l_dn} r:{flame.l_r} l:{flame.l_l} a:{flame.flame_adder} fl:{flame.flame_length} fe:{flame.expand}')
             if bomb.done:
@@ -326,12 +322,6 @@ class Game():
                 bomb.draw_explotion()                                
                 for flame in bomb.flames:
                     flame.draw_flame()
-                
-                # self.game_data.game_map = bomb.update_map(self.game_data.game_map)
-                #destroyed_blocks = bomb.explode(self.game_data.game_map)
-                #self.game_data.update_map(destroyed_blocks)
-                # self.game_data.destroy_blocks(destroyed_blocks)
-                # self.game_data.place_blocks()
         self.players.draw(self.screen)
         if self.show_mainmenu:
             self.game_menu.draw_mainmenu()
@@ -341,8 +331,8 @@ class Game():
             player_info = self.font.render(f'mb {self.player1.max_bombs} bl {self.player1.bombs_left} bp {self.player1.bomb_power} sp {self.player1.speed}', 1, [255,255,255], [10,10,10])
             self.screen.blit(player_info, (10,25))
             for block in self.game_data.blocks:
-                block.draw_debug()
-                block.draw_outlines()
+                block.draw_id()
+                # block.draw_outlines()
         pg.display.flip()
 
 

@@ -1,4 +1,5 @@
 import pygame as pg
+import pygame.gfxdraw as gfxdraw
 from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
@@ -12,8 +13,11 @@ class Player(pg.sprite.Sprite):
         self.x = x
         self.y = y
         self.pos = (self.x, self.y)
-        self.image = pg.Surface((PLAYERSIZE,PLAYERSIZE))
+        self.image = pg.Surface((PLAYERSIZE,PLAYERSIZE)) # , pg.SRCALPHA, 32)
         pg.draw.rect(self.image, (0,0,0), [self.x, self.y, PLAYERSIZE,PLAYERSIZE])
+        # pg.draw.circle(self.image, (0,0,0), (self.x, self.y), 2)
+        #gfxdraw.aacircle(self.image, self.x, self.y, 15, (255,255,255))
+        #pg.gfxdraw.filled_circle(self.image, self.x, self.y, 15, (255,255,255))
         self.rect = self.image.get_rect()
         self.image.fill((0,0,255), self.rect)
         self.rect.x = self.x
@@ -34,8 +38,7 @@ class Player(pg.sprite.Sprite):
         global DEBUG
         x = self.rect.x // BLOCKSIZE
         y = self.rect.y // BLOCKSIZE
-#        if game_data.game_map[x][y] == 0 and self.bombs_left > 0:  # only place bombs on free tiles
-        if self.bombs_left > 0:  # only place bombs on free tiles
+        if self.bombs_left > 0:  # only place bombs if we have bombs...
             game_data.game_map[x][y] = self.player_id
             bomb = BlockBomb(x=self.rect.centerx, y=self.rect.centery, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
             game_data.bombs.add(bomb)
@@ -81,8 +84,6 @@ class Player(pg.sprite.Sprite):
             else:
                 if block.solid:
                     self.rect.top = block.rect.bottom
-        # text = self.font.render(f'x {self.rect.x} y {self.rect.y}', 1, (255,255,255))
-        # self.screen.blit(text, (10,10))
 
         # pick up powerups...
         powerup_hits = pg.sprite.spritecollide(self, game_data.powerblocks, False)
