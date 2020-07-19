@@ -1,8 +1,10 @@
 import pygame as pg
 from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
+
 import random
 import time
+
 from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE, BOMBSIZE, CHEAT, DEBUG_GRID
 from globals import inside_circle as inside_circle
 from player import Player as Player
@@ -154,6 +156,10 @@ class Game():
             self.show_mainmenu^= True
             self.game_init()
             self.run()
+        if selection == 'Start server':
+            print('start server')
+        if selection == 'Connect to server':
+            print('connect to server')
 
     def handle_events(self):
         global CHEAT, DEBUG, DEBUG_GRID

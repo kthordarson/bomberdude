@@ -30,6 +30,8 @@ class Menu():
         self.menufont = pg.font.SysFont('calibri', 35, True)
         self.menuitems = []
         self.menuitems.append('Start')
+        self.menuitems.append('Start server')
+        self.menuitems.append('Connect to server')
         self.menuitems.append('Pause')
         self.menuitems.append('Restart')
         self.menuitems.append('Quit')
