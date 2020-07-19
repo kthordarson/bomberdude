@@ -93,8 +93,10 @@ class Player(pg.sprite.Sprite):
                 if block.solid:
                     self.rect.top = block.rect.bottom
     def take_powerup(self, powerup):
+        global DEBUG
         # pick up powerups...
-        # print(f'take_powerup {powerup.powerup_type}')
+        if DEBUG:
+            print(f'take_powerup {powerup.powerup_type}')
         if powerup.powerup_type[0] == 'addbomb':
             if self.max_bombs < 10:
                 self.max_bombs += 1

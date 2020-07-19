@@ -135,14 +135,18 @@ class Block(pg.sprite.Sprite):
         self.font = pg.font.SysFont('calibri', 10, True)
 
     def draw_id(self):
-        global DEBUG, DEBUG_GRID
+        global DEBUG
         if DEBUG:            
             debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [0,0,0])
             self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))
-            # debugtext = self.font.render(f'{self.gridpos[0]}', 1, [0,255,0], [0,0,0])
-            # self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))
-            # debugtext = self.font.render(f':{self.gridpos[1]}', 1, [0,255,0], [0,0,0])
-            # self.screen.blit(debugtext, (self.rect.x+8, self.rect.centery-3))
+
+    def draw_grid_id(self):
+        global DEBUG_GRID
+        if DEBUG_GRID:
+            debugtext = self.font.render(f'{self.gridpos[0]}', 1, [0,255,0], [0,0,0])
+            self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))
+            debugtext = self.font.render(f':{self.gridpos[1]}', 1, [0,255,0], [0,0,0])
+            self.screen.blit(debugtext, (self.rect.x+8, self.rect.centery-3))
 
     def update(self):
         pass            
@@ -281,10 +285,11 @@ class BlockBomb(pg.sprite.Sprite):
             self.exploding = False
             self.done = True
             if DEBUG:
-                print(f'bomb done gp {self.gridpos} sp {self.x} {self.y}')
-                print(f'bombtime: {self.dt} - {self.start_time} >= {self.bomb_timer} {self.dt - self.start_time >= self.bomb_timer}')
-                for flame in self.flames:            
-                    print(f'flames: {flame.dir} {flame.flame_length} {flame.l_up} {flame.l_dn} {flame.l_r} {flame.l_l} {flame.expand}')
+                pass
+                # print(f'bomb done gp {self.gridpos} sp {self.x} {self.y}')
+                # print(f'bombtime: {self.dt} - {self.start_time} >= {self.bomb_timer} {self.dt - self.start_time >= self.bomb_timer}')
+                # for flame in self.flames:            
+                #     print(f'flames: {flame.dir} {flame.flame_length} {flame.l_up} {flame.l_dn} {flame.l_r} {flame.l_l} {flame.expand}')
             self.kill()
         self.flame_width -= 1
         if self.flame_width <= 1:

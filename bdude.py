@@ -49,7 +49,6 @@ class Game_Data():
         global DEBUG
         if DEBUG:
             t1 = time.time()
-            # print(f'place_blocks: start')
         self.blocks = pg.sprite.Group()
         # self.powerblocks = pg.sprite.Group()
         for k in range(0,GRID_X+1):
@@ -114,7 +113,6 @@ class Game():
         global DEBUG
         if DEBUG:
             t1 = time.time()
-            # print(f'game_init: start')
 
         # data and classes for Game
         self.game_data = Game_Data(screen=self.screen)
@@ -319,10 +317,14 @@ class Game():
         #     self.screen.blit(player_pos, (10,10))
         #     player_info = self.font.render(f'mb {self.player1.max_bombs} bl {self.player1.bombs_left} bp {self.player1.bomb_power} sp {self.player1.speed}', 1, [255,255,255], [10,10,10])
         #     self.screen.blit(player_info, (10,25))
-        if DEBUG or DEBUG_GRID:
+        if DEBUG :
             for block in self.game_data.blocks:
                 block.draw_id()
                 block.draw_outlines()
+        if DEBUG_GRID:
+            for block in self.game_data.blocks:
+                # block.draw_id()
+                block.draw_grid_id()
 
         pg.display.flip()
 
