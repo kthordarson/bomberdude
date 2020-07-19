@@ -251,6 +251,7 @@ class Game():
                             flame.kill()
                         if block.block_type > 2: # if block_type is larger than 2 (less than 2 are permanent blocks)
                             block.kill()
+                            self.player1.add_score()
                             powerblock = Powerup_Block(block.gridpos[0], block.gridpos[1], screen=self.screen)  # drop powerup where destroyed block was before
                             self.game_data.powerblocks.add(powerblock)
                             newblock = Block(block.gridpos[0], block.gridpos[1], screen=self.screen, block_type=0)  # make a new type 0 block....

@@ -32,6 +32,7 @@ class Player(pg.sprite.Sprite):
         self.health = 100
         self.dead = False
         self.clock = pg.time.Clock()
+        self.score = 0
         
 
     def drop_bomb(self, game_data):
@@ -109,4 +110,6 @@ class Player(pg.sprite.Sprite):
                 self.speed += 1
         if powerup.powerup_type[0] == 'healthup':
                 self.health += 10
+    def add_score(self):
+        self.score += 1
             
