@@ -305,6 +305,10 @@ class Game():
         self.game_data.powerblocks.update()
         self.game_data.bombs.update()
         self.players.update(self.game_data)
+        if self.player1.dead:
+            # self.show_mainmenu = True
+            self.game_init()
+            self.run()
         # self.info_panel.update(self.game_data)
 
 

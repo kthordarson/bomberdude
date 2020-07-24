@@ -4,3 +4,6 @@ tempCodeRunnerFile.py
 testnet.py
 testnetclient.py
 test/*
+clienttest.py
+servertest.py
+network.py
