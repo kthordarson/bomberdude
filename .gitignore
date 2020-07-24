@@ -3,3 +3,4 @@ __pycache__/*
 tempCodeRunnerFile.py
 testnet.py
 testnetclient.py
+test/*

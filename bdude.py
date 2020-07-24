@@ -161,6 +161,61 @@ class Game():
         if selection == 'Connect to server':
             print('connect to server')
 
+    def bomb_handler(self):
+        global DEBUG
+        for bomb in self.game_data.bombs:
+            if bomb.exploding:
+                bomb.explode(self.game_data.game_map)
+                for flame in bomb.flames:
+                    flame.update()
+                    flame_hits = pg.sprite.spritecollide(flame, self.game_data.blocks, False)  # get blocks that flames touch
+                    for block in flame_hits:
+                        if block.block_type > 0:  # if block_type is larger than 0, stop expanding flame, else keep expanding until solid is hit
+                            flame.set_adder(0)
+                            flame.stop_expander()
+                            flame.kill()
+                        if block.block_type > 2: # if block_type is larger than 2 (less than 2 are permanent blocks)
+                            block.kill()
+                            self.player1.add_score()
+                            powerblock = Powerup_Block(block.gridpos[0], block.gridpos[1], screen=self.screen)  # drop powerup where destroyed block was before
+                            self.game_data.powerblocks.add(powerblock)
+                            newblock = Block(block.gridpos[0], block.gridpos[1], screen=self.screen, block_type=0)  # make a new type 0 block....
+                            self.game_data.blocks.add(newblock)
+                            if DEBUG:
+                                print(f'blhit: {block.gridpos} x:{block.x} y:{block.y} {block.block_type} fl: dir: {flame.dir} u:{flame.l_up} d:{flame.l_dn} r:{flame.l_r} l:{flame.l_l} a:{flame.flame_adder} fl:{flame.flame_length} fe:{flame.expand}')
+                    player_hits = pg.sprite.spritecollide(flame, self.players, False)  # did flame touch player?
+                    for player in player_hits:
+                        player.take_damage(10)
+                        if player.dead:
+                            player.kill()
+                            # game over
+            if bomb.done:
+                self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 0
+                self.player1.bombs_left += 1  # update bombs_left for player1
+                for flame in bomb.flames:
+                    flame.kill()
+                bomb.kill()
+
+    def powerblock_handler(self):
+        global DEBUG
+        for powerblock in self.game_data.powerblocks:
+            powerplayers = pg.sprite.spritecollide(powerblock, self.players, False)
+            # powerblock.time_left = 0
+            for player in powerplayers:
+                player.take_powerup(powerblock)
+                powerblock.taken = True
+            if powerblock.time_left <= 0 or powerblock.taken:
+                if DEBUG:
+                    print(f'pb pos: {powerblock.gridpos[0]}, {powerblock.gridpos[1]} map: {self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]]}')
+                self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
+                newblock = Block(powerblock.gridpos[0], powerblock.gridpos[1], screen=self.screen, block_type=0) 
+                self.game_data.blocks.add(newblock)
+                if DEBUG:
+                    print(f'nb pos: {newblock.gridpos[0]}, {newblock.gridpos[1]} map: {self.game_data.game_map[newblock.gridpos[0]][newblock.gridpos[1]]}')
+                powerblock.kill()
+            if powerblock.ending_soon:
+                powerblock.flash()
+
     def handle_events(self):
         global CHEAT, DEBUG, DEBUG_GRID
         for event in pg.event.get():
@@ -244,56 +299,8 @@ class Game():
 
     def main_logic(self):
         global DEBUG
-        for bomb in self.game_data.bombs:
-            if bomb.exploding:
-                bomb.explode(self.game_data.game_map)
-                for flame in bomb.flames:
-                    flame.update()
-                    flame_hits = pg.sprite.spritecollide(flame, self.game_data.blocks, False)  # get blocks that flames touch
-                    for block in flame_hits:
-                        if block.block_type > 0:  # if block_type is larger than 0, stop expanding flame, else keep expanding until solid is hit
-                            flame.set_adder(0)
-                            flame.stop_expander()
-                            flame.kill()
-                        if block.block_type > 2: # if block_type is larger than 2 (less than 2 are permanent blocks)
-                            block.kill()
-                            self.player1.add_score()
-                            powerblock = Powerup_Block(block.gridpos[0], block.gridpos[1], screen=self.screen)  # drop powerup where destroyed block was before
-                            self.game_data.powerblocks.add(powerblock)
-                            newblock = Block(block.gridpos[0], block.gridpos[1], screen=self.screen, block_type=0)  # make a new type 0 block....
-                            self.game_data.blocks.add(newblock)
-                            if DEBUG:
-                                print(f'blhit: {block.gridpos} x:{block.x} y:{block.y} {block.block_type} fl: dir: {flame.dir} u:{flame.l_up} d:{flame.l_dn} r:{flame.l_r} l:{flame.l_l} a:{flame.flame_adder} fl:{flame.flame_length} fe:{flame.expand}')
-                    player_hits = pg.sprite.spritecollide(flame, self.players, False)  # did flame touch player?
-                    for player in player_hits:
-                        player.take_damage(10)
-                        if player.dead:
-                            player.kill()
-                            # game over
-            if bomb.done:
-                self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 0
-                self.player1.bombs_left += 1  # update bombs_left for player1
-                for flame in bomb.flames:
-                    flame.kill()
-                bomb.kill()
-
-        for powerblock in self.game_data.powerblocks:
-            powerplayers = pg.sprite.spritecollide(powerblock, self.players, False)
-            # powerblock.time_left = 0
-            for player in powerplayers:
-                player.take_powerup(powerblock)
-                powerblock.taken = True
-            if powerblock.time_left <= 0 or powerblock.taken:
-                if DEBUG:
-                    print(f'pb pos: {powerblock.gridpos[0]}, {powerblock.gridpos[1]} map: {self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]]}')
-                self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
-                newblock = Block(powerblock.gridpos[0], powerblock.gridpos[1], screen=self.screen, block_type=0) 
-                self.game_data.blocks.add(newblock)
-                if DEBUG:
-                    print(f'nb pos: {newblock.gridpos[0]}, {newblock.gridpos[1]} map: {self.game_data.game_map[newblock.gridpos[0]][newblock.gridpos[1]]}')
-                powerblock.kill()
-            if powerblock.ending_soon:
-                powerblock.flash()
+        self.bomb_handler()
+        self.powerblock_handler()
         self.game_data.blocks.update()
         self.game_data.powerblocks.update()
         self.game_data.bombs.update()
