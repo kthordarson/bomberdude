@@ -7,11 +7,15 @@ import asynchat, asyncore
 from rencode import loads, dumps
 import pickle
 import random
+import io
 
 class Server(Thread):
-    def __init__(self):
+    def __init__(self, game_data):
         super(Server, self).__init__()
-        self.localIP = '127.0.0.1'
+        self.game_data = game_data
+        self.hostname = socket.gethostname()
+        self.ipaddress = socket.gethostbyname(self.hostname)
+        self.localIP = self.ipaddress  # '127.0.0.1'
         self.localPort = 10102
         self.bufferSize = 1024
         self.listening = False
@@ -19,23 +23,44 @@ class Server(Thread):
         # self.bytesToSend = str.encode(self.msgFromServer)
         self.foobar = str.encode('foobar')
         self.clients = []
+        self.client_conn = []
         self.connections = 0
         self._stop_event = Event()
+        self.servername = 'stjani'
+
+    def send_map(self, client):
+        data = pickle.dumps(self.game_data.game_map)
+        data_to_send = io.BytesIO(data)
+        data_size = data_to_send.getbuffer().nbytes
+        # fsize = struct.unpack('!I', b''.join(chunks))[0]
+        print(f'[server][get_map] size: {type(self.game_data)} client: {client} d: {len(data)} {type(data)} ds:{type(data_to_send)} sdl:{data_size}')
+        self.UDPServerSocket.sendto(str.encode('[mapstart]'+str(data_size)), client)
+        while True:
+            chunk = data_to_send.read(self.bufferSize)
+            if not chunk:
+                break
+            self.UDPServerSocket.sendto(chunk, client)
+        self.UDPServerSocket.sendto(str.encode('[mapend]'), client)
 
     def get_player_id(self, client):
+        print(f'[server][get_player_id] connections: {self.connections}')
         if self.connections <= 3:
             id = str(random.randint(30,99))
             self.bytesToSend = str.encode('yourid:' + id)
             self.UDPServerSocket.sendto(self.bytesToSend, client)
             self.connections += 1
+            print(f'[server][get_player_id] id: {id} connections: {self.connections}')
             return id
         else:
-            id = 0
+            id = '0'
             self.bytesToSend = str.encode('yourid:' + id)
             self.UDPServerSocket.sendto(self.bytesToSend, client)
+            print(f'[server][get_player_id] ERR id: {id} connections: {self.connections}')
             return id
+
     def add_client(self, player):
         self.clients.append(player)
+
     def create_socket(self):
         try:
             self.UDPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
@@ -73,9 +98,22 @@ class Server(Thread):
                         print(f'[server][gotdata] {data}')
                     if command[:11] == '[playerpos]':
                         print(f'[server][gotdata] {data}')
+                    if command[:8] == '[foobar]':
+                        print(f'[server][gotdata] {data}')
+                        new_client = data[1]
+                        self.client_conn.append(new_client)
+                        self.send_server_info(new_client)
+                    if command[:8] == '[getmap]':
+                        self.send_map(data[1])
+                    else:
+                        print(f'[server][gotdata] UNKNOWN {data}')
             except Exception as e:
                 print(f'[server][err] {e}')
 
+    def send_server_info(self, client):
+        print(f'[server][send_info] {client}')
+        self.bytesToSend = str.encode(f'[serveripaddress]{self.ipaddress}')
+        self.UDPServerSocket.sendto(self.bytesToSend, client)
 
     def send(self):
         if len(self.clients) >= 1:
@@ -93,11 +131,12 @@ class Client(Thread):
         super(Client, self).__init__()
         # self.bytesToSend = str.encode(self.msgFromClient)
         #self.serverAddressPort = ("127.0.0.1", 10102)
-        #self.bufferSize = 1024
+        self.bufferSize = 1024
         self.connected = False
         self.hostname = socket.gethostname()
         self.ipaddress = socket.gethostbyname(self.hostname)
         self.client_id = 0
+        self.foundservers =[]
 
     def create_socket(self):
         try:
@@ -110,24 +149,45 @@ class Client(Thread):
             self.connected = False
             self.got_socket = False
 
+    def request_map(self, server):
+        command = str.encode('[getmap]')
+        self.UDPClientSocket.sendto(command, server)
+
     def set_id(self, id):
         print(f'[client][set_id] old {self.client_id} new {id}')
         self.client_id = id
 
     def run(self):
         # self.connect_to_server()
-        while True and self.client_id != 0:
+        while True:
             try:
                 dataraw = self.UDPClientSocket.recvfrom(self.bufferSize)                
                 if not dataraw:
                     break
                 else:
+                    chunks = []
                     data = dataraw[0].decode()
                     if data[:7] == 'yourid:':
                         self.client_id = int(data[7:10])
                         self.set_id(self.client_id)
                         self.connected = True
                         print(f'[client][gotdata] {data} {self.client_id}')
+                    if data[:17] == '[serveripaddress]':
+                        self.foundservers.append('')
+                        print(f'[client][foundserver] {data}')
+                    if data[:8] == '[mapend]':
+                        pass
+                    if data[:10] == '[mapstart]':
+                        print(f'[client][mapstart] size:{data[10:]}')
+                        data_size = int(data[10:])
+                        received = 0
+                        while received < data_size:
+                            mapdata = self.UDPClientSocket.recv(min(data_size - received, self.bufferSize))
+                            received += len(mapdata)
+                            chunks.append(mapdata)                            
+                            print(f'[client][dlmap] {received} {data_size} {len(mapdata)}')
+                    else:
+                        print(f'[client] UNKNOWN {data} {data[:10]}')
             except Exception as e:
                 print(f'[client][err] {e}')
 
@@ -140,5 +200,13 @@ class Client(Thread):
     def connect_to_server(self):
         command = str.encode('getid')
         self.UDPClientSocket.sendto(command, self.serverAddressPort)
+
+    def send_foo(self):
+        command = str.encode('[foobar]')
+        # self.UDPClientSocket.sendto(command, self.serverAddressPort)
+
+    def scan_network(self):
+        iplist = [self.ipaddress.split('.')[0] + '.' + self.ipaddress.split('.')[1] + '.' + self.ipaddress.split('.')[2] + '.' + str(k) for k in range(1,255)]
+
 
 

@@ -96,7 +96,7 @@ class Game():
         self.show_mainmenu = True
         self.paused = True
         self.client = Client()
-        self.server = Server()
+        self.server = Server(game_data=None)
 
     def place_player(self):
         # place player somewhere where there is no block
@@ -151,7 +151,7 @@ class Game():
             self.draw()           # draw
 
     def start_server(self):
-        self.server = Server()
+        self.server = Server(self.game_data)
         self.server.create_socket()
         print(f'[game][start_server]')
         self.server.start()
@@ -163,7 +163,9 @@ class Game():
 #            print(f'[run] set pid: {self.player1.player_id} {self.client.client_id}')
 
     def connect_to_server(self):
-        self.client.serverAddressPort = ("127.0.0.1", 10102)
+        self.client = Client()
+        self.client.serverAddressPort =(self.client.ipaddress, 10102) #("127.0.0.1", 10102)
+        self.client.zenbook = ('192.168.1.35', 10102)
         self.client.bufferSize = 1024
         self.client.create_socket()
         self.client.start()
@@ -172,6 +174,8 @@ class Game():
         self.player1.set_id(self.client.client_id)
         self.server.add_client(self.player1)
         print(f'[run] set pid: {self.player1.player_id} {self.client.client_id}')
+        self.client.request_map(self.client.zenbook)
+        #self.server.get_map(self.client)
 
     def handle_menu(self, selection):
         if selection == 'Quit':
@@ -377,7 +381,7 @@ class Game():
                 for flame in bomb.flames:
                     flame.draw_flame()
         self.players.draw(self.screen)
-        self.info_panel.draw_panel(self.player1)
+        self.info_panel.draw_panel(self.game_data, self.player1, self.server, self.client)
 
         # if DEBUG:
         #     player_pos = self.font.render(f'x:{self.player1.rect.x} y:{self.player1.rect.y}', 1, [255,255,255], [10,10,10])
