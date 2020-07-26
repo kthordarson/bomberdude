@@ -4,6 +4,8 @@ from pygame.colordict import THECOLORS as colordict
 
 import random
 import time
+import os
+import threading
 
 from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE, BOMBSIZE, CHEAT, DEBUG_GRID
 from globals import inside_circle as inside_circle
@@ -11,6 +13,8 @@ from player import Player as Player
 from blocks import Block, Powerup_Block, BlockBomb
 from menus import Menu as Menu
 from menus import Info_panel as Info_panel
+from network import Server, Client
+
 
 # colors
 # C:\python\lib\site-packages\pygame\colordict.py
@@ -89,9 +93,11 @@ class Game():
         self.running = True
         pg.init()
         self.font = pg.font.SysFont('calibri', 15, True)
-
         self.show_mainmenu = True
         self.paused = True
+        self.server = Server()
+        self.client = Client()
+
     def place_player(self):
         # place player somewhere where there is no block
         placed = False
@@ -126,7 +132,10 @@ class Game():
         player_pos = self.place_player()
         self.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=self.screen)
         self.players.add(self.player1)
-
+        self.server.create_socket()
+        self.client.serverAddressPort = ("127.0.0.1", 10102)
+        self.client.bufferSize = 1024
+        self.client.create_socket()
         if DEBUG:
             print(f'game_init: done time {time.time() - t1:.2f}')
 
@@ -134,6 +143,16 @@ class Game():
         # self.draw_map()
         self.game_init()
         self.game_data.place_blocks()
+        # self.server.daemon = True
+        self.server.start()
+        # self.client.connect_to_server()
+        self.client.start()
+        #time.sleep(1)
+        self.client.connect_to_server()
+        time.sleep(1)
+        print(f'[run] p1id: {self.player1.player_id} {self.client.client_id}')
+        self.player1.set_id(self.client.client_id)
+        print(f'[run] set p1id: {self.player1.player_id} {self.client.client_id}')
         while self.running:
             self.dt = self.mainClock.tick(FPS)
             #self.draw_map_with_bombs()
@@ -216,9 +235,21 @@ class Game():
             if powerblock.ending_soon:
                 powerblock.flash()
 
+    def terminate(self):
+                print(f'quitting....')
+                self.running = False
+                self.server.stop()
+                # print(f'server stop')
+                self.server.listening = False
+                # print(f'server listening false')
+                self.server.kill()
+                # print(f'server kill')
+                os._exit(0)
+
     def handle_events(self):
         global CHEAT, DEBUG, DEBUG_GRID
         for event in pg.event.get():
+            self.client.send('event...')
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_SPACE or event.key == pg.K_RETURN:
                     if not self.paused:
@@ -228,7 +259,8 @@ class Game():
                         self.handle_menu(selection)
                 if event.key == pg.K_ESCAPE:
                     if not self.paused:
-                        self.running = False
+                        # self.running = False
+                        self.terminate()
                     else:
                         self.paused^= True
                         self.show_mainmenu^= True
@@ -296,6 +328,7 @@ class Game():
                 pass
             if event.type == pg.QUIT:
                 self.running = False
+#                print(f's r f')
 
     def main_logic(self):
         global DEBUG
@@ -315,8 +348,6 @@ class Game():
     def draw(self):
         global DEBUG, DEBUG_GRID
         self.screen.fill(self.bg_color)
-        # self.game_data.draw_map()
-
         self.game_data.blocks.draw(self.screen)
         self.game_data.powerblocks.draw(self.screen)
         self.game_data.bombs.draw(self.screen)
@@ -336,6 +367,10 @@ class Game():
         #     player_info = self.font.render(f'mb {self.player1.max_bombs} bl {self.player1.bombs_left} bp {self.player1.bomb_power} sp {self.player1.speed}', 1, [255,255,255], [10,10,10])
         #     self.screen.blit(player_info, (10,25))
         if DEBUG :
+            for player in self.players:
+                player.draw_id()
+            for bomb in self.game_data.bombs:
+                bomb.draw_id()
             for block in self.game_data.blocks:
                 block.draw_id()
                 block.draw_outlines()

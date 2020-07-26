@@ -233,6 +233,7 @@ class BlockBomb(pg.sprite.Sprite):
         # self.rect.center = (50,50)
         self.rect.centerx = self.x + BLOCKSIZE // 2
         self.rect.centery = self.y + BLOCKSIZE // 2
+        self.font = pg.font.SysFont('calibri', 10, True)
         self.bomb_timer = 100
         self.time_left = 3
         self.exploding = False
@@ -296,3 +297,9 @@ class BlockBomb(pg.sprite.Sprite):
             self.flame_width = 1
         
         return []
+
+    def draw_id(self):
+        global DEBUG
+        if DEBUG:            
+            debugtext = self.font.render(f'{self.bomber_id}', 1, [255,255,255], [0,0,0])
+            self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))

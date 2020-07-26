@@ -33,8 +33,17 @@ class Player(pg.sprite.Sprite):
         self.dead = False
         self.clock = pg.time.Clock()
         self.score = 0
-        
+        self.font = pg.font.SysFont('calibri', 10, True)
 
+    def set_id(self, id):
+        print(f'[player][set_id] old {self.player_id} new {id}')
+        self.player_id = id
+    def draw_id(self):
+        global DEBUG
+        if DEBUG:            
+            debugtext = self.font.render(f'{self.player_id}', 1, [255,255,255], [0,0,0])
+            self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))
+        
     def drop_bomb(self, game_data):
         global DEBUG
         # get grid pos of player
@@ -47,13 +56,13 @@ class Player(pg.sprite.Sprite):
             game_data.bombs.add(bomb)
             self.bombs_left -= 1
             if DEBUG:
-                print(f'dropdrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} bp {self.bomb_power}')
+                print(f'dropbomb {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} bp {self.bomb_power} pid {self.player_id}')
         elif self.bombs_left <= 0:
             if DEBUG:
-                print(f'nodrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs}')
+                print(f'nodrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} pid {self.player_id}')
         else:
             if DEBUG:
-                print(f'nodrop {x} {y} {game_data.game_map[x][y]} cannot drop bomb')
+                print(f'nodrop {x} {y} {game_data.game_map[x][y]} cannot drop bomb  pid {self.player_id}')
         return game_data
 
     def changespeed(self, x, y):
@@ -65,7 +74,7 @@ class Player(pg.sprite.Sprite):
         if self.health <= 0:
             self.dead = True
             if DEBUG:
-                print(f'player DEAD {amount} {self.health}')
+                print(f'player pid {self.player_id} DEAD {amount} {self.health}')
         #if DEBUG:
         #    print(f'player damage {amount} {self.health}')
     def update(self, game_data):

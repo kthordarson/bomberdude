@@ -6,5 +6,5 @@ testnetclient.py
 test/*
 clienttest.py
 servertest.py
-network.py
+networktest.py
 rencode.py
