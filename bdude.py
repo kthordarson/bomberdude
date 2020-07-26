@@ -95,8 +95,8 @@ class Game():
         self.font = pg.font.SysFont('calibri', 15, True)
         self.show_mainmenu = True
         self.paused = True
-        self.server = Server()
         self.client = Client()
+        self.server = Server()
 
     def place_player(self):
         # place player somewhere where there is no block
@@ -132,10 +132,6 @@ class Game():
         player_pos = self.place_player()
         self.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=self.screen)
         self.players.add(self.player1)
-        self.server.create_socket()
-        self.client.serverAddressPort = ("127.0.0.1", 10102)
-        self.client.bufferSize = 1024
-        self.client.create_socket()
         if DEBUG:
             print(f'game_init: done time {time.time() - t1:.2f}')
 
@@ -144,15 +140,8 @@ class Game():
         self.game_init()
         self.game_data.place_blocks()
         # self.server.daemon = True
-        self.server.start()
         # self.client.connect_to_server()
-        self.client.start()
         #time.sleep(1)
-        self.client.connect_to_server()
-        time.sleep(1)
-        print(f'[run] p1id: {self.player1.player_id} {self.client.client_id}')
-        self.player1.set_id(self.client.client_id)
-        print(f'[run] set p1id: {self.player1.player_id} {self.client.client_id}')
         while self.running:
             self.dt = self.mainClock.tick(FPS)
             #self.draw_map_with_bombs()
@@ -161,9 +150,33 @@ class Game():
                 self.main_logic()     # update game_data, bombs and player stuff
             self.draw()           # draw
 
+    def start_server(self):
+        self.server = Server()
+        self.server.create_socket()
+        print(f'[game][start_server]')
+        self.server.start()
+#        if self.server.listening:
+#            self.client.connect_to_server()
+#            time.sleep(1)
+#            self.player1.set_id(self.client.client_id)
+#            self.server.clients.append(self.player1)
+#            print(f'[run] set pid: {self.player1.player_id} {self.client.client_id}')
+
+    def connect_to_server(self):
+        self.client.serverAddressPort = ("127.0.0.1", 10102)
+        self.client.bufferSize = 1024
+        self.client.create_socket()
+        self.client.start()
+        self.client.connect_to_server()
+        time.sleep(1)
+        self.player1.set_id(self.client.client_id)
+        self.server.add_client(self.player1)
+        print(f'[run] set pid: {self.player1.player_id} {self.client.client_id}')
+
     def handle_menu(self, selection):
         if selection == 'Quit':
-            self.running = False
+            #self.running = False
+            self.terminate()
         if selection == 'Pause':
             self.paused^= True
             self.show_mainmenu^= True
@@ -176,9 +189,10 @@ class Game():
             self.game_init()
             self.run()
         if selection == 'Start server':
-            print('start server')
+            self.start_server()
+            #print('start server')
         if selection == 'Connect to server':
-            print('connect to server')
+            self.connect_to_server()
 
     def bomb_handler(self):
         global DEBUG
@@ -201,7 +215,8 @@ class Game():
                             newblock = Block(block.gridpos[0], block.gridpos[1], screen=self.screen, block_type=0)  # make a new type 0 block....
                             self.game_data.blocks.add(newblock)
                             if DEBUG:
-                                print(f'blhit: {block.gridpos} x:{block.x} y:{block.y} {block.block_type} fl: dir: {flame.dir} u:{flame.l_up} d:{flame.l_dn} r:{flame.l_r} l:{flame.l_l} a:{flame.flame_adder} fl:{flame.flame_length} fe:{flame.expand}')
+                                pass
+                                # print(f'blhit: {block.gridpos} x:{block.x} y:{block.y} {block.block_type} fl: dir: {flame.dir} u:{flame.l_up} d:{flame.l_dn} r:{flame.l_r} l:{flame.l_l} a:{flame.flame_adder} fl:{flame.flame_length} fe:{flame.expand}')
                     player_hits = pg.sprite.spritecollide(flame, self.players, False)  # did flame touch player?
                     for player in player_hits:
                         player.take_damage(10)
@@ -224,13 +239,13 @@ class Game():
                 player.take_powerup(powerblock)
                 powerblock.taken = True
             if powerblock.time_left <= 0 or powerblock.taken:
-                if DEBUG:
-                    print(f'pb pos: {powerblock.gridpos[0]}, {powerblock.gridpos[1]} map: {self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]]}')
+#                if DEBUG:
+#                    print(f'pb pos: {powerblock.gridpos[0]}, {powerblock.gridpos[1]} map: {self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]]}')
                 self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
                 newblock = Block(powerblock.gridpos[0], powerblock.gridpos[1], screen=self.screen, block_type=0) 
                 self.game_data.blocks.add(newblock)
-                if DEBUG:
-                    print(f'nb pos: {newblock.gridpos[0]}, {newblock.gridpos[1]} map: {self.game_data.game_map[newblock.gridpos[0]][newblock.gridpos[1]]}')
+#                if DEBUG:
+#                    print(f'nb pos: {newblock.gridpos[0]}, {newblock.gridpos[1]} map: {self.game_data.game_map[newblock.gridpos[0]][newblock.gridpos[1]]}')
                 powerblock.kill()
             if powerblock.ending_soon:
                 powerblock.flash()
@@ -254,6 +269,7 @@ class Game():
                 if event.key == pg.K_SPACE or event.key == pg.K_RETURN:
                     if not self.paused:
                         self.game_data = self.player1.drop_bomb(self.game_data)
+                        self.client.send('[event] dropbomb pid:' + str(self.player1.player_id))
                     if self.show_mainmenu or self.paused:
                         selection = self.game_menu.get_selection()
                         self.handle_menu(selection)
@@ -290,19 +306,23 @@ class Game():
                 if event.key == pg.K_DOWN:
                     if not self.paused:
                         self.player1.changespeed(0,self.player1.speed)
+                        self.client.send('[playerpos] pid:' + str(self.player1.player_id) + ' ' + str(self.player1.gridpos))
                     if self.show_mainmenu:
                         self.game_menu.menu_down()
                 if event.key == pg.K_UP:
                     if not self.paused:
                         self.player1.changespeed(0,-self.player1.speed)
+                        self.client.send('[playerpos] pid:' + str(self.player1.player_id) + ' ' + str(self.player1.gridpos))
                     if self.show_mainmenu:
                         self.game_menu.menu_up()
                 if event.key == pg.K_RIGHT:
                     if not self.paused:
                         self.player1.changespeed(self.player1.speed,0)
+                        self.client.send('[playerpos] pid:' + str(self.player1.player_id) + ' ' + str(self.player1.gridpos))
                 if event.key == pg.K_LEFT:
                     if not self.paused:
                         self.player1.changespeed(-self.player1.speed,0)
+                        self.client.send('[playerpos] pid:' + str(self.player1.player_id) + ' ' + str(self.player1.gridpos))
             if event.type == pg.KEYUP:
                 if event.key == pg.K_a:
                     pass
@@ -358,8 +378,6 @@ class Game():
                     flame.draw_flame()
         self.players.draw(self.screen)
         self.info_panel.draw_panel(self.player1)
-        if self.show_mainmenu:
-            self.game_menu.draw_mainmenu()
 
         # if DEBUG:
         #     player_pos = self.font.render(f'x:{self.player1.rect.x} y:{self.player1.rect.y}', 1, [255,255,255], [10,10,10])
@@ -372,13 +390,15 @@ class Game():
             for bomb in self.game_data.bombs:
                 bomb.draw_id()
             for block in self.game_data.blocks:
-                block.draw_id()
+#                block.draw_id()
                 block.draw_outlines()
-        if DEBUG_GRID:
-            for block in self.game_data.blocks:
-                # block.draw_id()
-                block.draw_grid_id()
+#        if DEBUG_GRID:
+#            for block in self.game_data.blocks:
+#                # block.draw_id()
+#                block.draw_grid_id()
 
+        if self.show_mainmenu:
+            self.game_menu.draw_mainmenu()
         pg.display.flip()
 
 

@@ -40,6 +40,7 @@ class Menu():
     def draw_mainmenu(self):
         global DEBUG
         pos_y = self.menu_pos[1]
+        pg.draw.rect(self.screen, (0,0,0), (self.menu_pos[0], self.menu_pos[1], 400,self.menufont.get_height()*len(self.menuitems)))
         for item in enumerate(self.menuitems):
             if item[0] == self.selected_item:
                 text_color = self.selected_color

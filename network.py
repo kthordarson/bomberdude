@@ -10,7 +10,7 @@ import random
 
 class Server(Thread):
     def __init__(self):
-        super(Server_v1, self).__init__()
+        super(Server, self).__init__()
         self.localIP = '127.0.0.1'
         self.localPort = 10102
         self.bufferSize = 1024
@@ -34,7 +34,8 @@ class Server(Thread):
             self.bytesToSend = str.encode('yourid:' + id)
             self.UDPServerSocket.sendto(self.bytesToSend, client)
             return id
-            
+    def add_client(self, player):
+        self.clients.append(player)
     def create_socket(self):
         try:
             self.UDPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
@@ -43,7 +44,8 @@ class Server(Thread):
             print(f'[Server] create socket')
         except Exception as e:
             print(f'[server] create socket err {e}')
-            os._exit(1)
+            self.listening = False
+            # os._exit(1)
 
     def stop(self):
         self._stop_event.set()
@@ -67,6 +69,10 @@ class Server(Thread):
                     if command == 'getid':
                         print(f'[server][gotdata] {data}')
                         self.get_player_id(data[1])
+                    if command[:7] == '[event]':
+                        print(f'[server][gotdata] {data}')
+                    if command[:11] == '[playerpos]':
+                        print(f'[server][gotdata] {data}')
             except Exception as e:
                 print(f'[server][err] {e}')
 
@@ -84,7 +90,7 @@ class Server(Thread):
 
 class Client(Thread):
     def __init__(self):
-        super(Client_v1, self).__init__()
+        super(Client, self).__init__()
         # self.bytesToSend = str.encode(self.msgFromClient)
         #self.serverAddressPort = ("127.0.0.1", 10102)
         #self.bufferSize = 1024
@@ -96,7 +102,7 @@ class Client(Thread):
     def create_socket(self):
         try:
             self.UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-            self.UDPClientSocket.bind(self.serverAddressPort)
+            # self.UDPClientSocket.bind(self.serverAddressPort)
             self.got_socket = True
             print(f'[client] socket created: {self.UDPClientSocket}')
         except Exception as e:
@@ -110,7 +116,7 @@ class Client(Thread):
 
     def run(self):
         # self.connect_to_server()
-        while True:
+        while True and self.client_id != 0:
             try:
                 dataraw = self.UDPClientSocket.recvfrom(self.bufferSize)                
                 if not dataraw:
@@ -127,8 +133,9 @@ class Client(Thread):
 
 
     def send(self, msg):
-        self.UDPClientSocket.sendto(str.encode(msg), self.serverAddressPort)
-        time.sleep(0.001)
+        if self.client_id != 0:
+            self.UDPClientSocket.sendto(str.encode(msg), self.serverAddressPort)
+            time.sleep(0.001)
 
     def connect_to_server(self):
         command = str.encode('getid')

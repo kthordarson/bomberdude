@@ -36,8 +36,14 @@ class Player(pg.sprite.Sprite):
         self.font = pg.font.SysFont('calibri', 10, True)
 
     def set_id(self, id):
-        print(f'[player][set_id] old {self.player_id} new {id}')
+        # print(f'[player][set_id] old {self.player_id} new {id}')
+        #self.image = pg.Surface((PLAYERSIZE,PLAYERSIZE)) # , pg.SRCALPHA, 32)
+        #pg.draw.rect(self.image, (0,0,0), [self.rect.x, self.rect.y, PLAYERSIZE,PLAYERSIZE])
+        #self.rect = self.image.get_rect()
         self.player_id = id
+        self.image.fill((random.randint(100,200),0,random.randint(100,255)), self.rect)
+        pg.draw.rect(self.image, (random.randint(100,200),0,random.randint(100,255)), self.rect)
+        #self.rect.
     def draw_id(self):
         global DEBUG
         if DEBUG:            
@@ -56,13 +62,14 @@ class Player(pg.sprite.Sprite):
             game_data.bombs.add(bomb)
             self.bombs_left -= 1
             if DEBUG:
-                print(f'dropbomb {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} bp {self.bomb_power} pid {self.player_id}')
-        elif self.bombs_left <= 0:
-            if DEBUG:
-                print(f'nodrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} pid {self.player_id}')
-        else:
-            if DEBUG:
-                print(f'nodrop {x} {y} {game_data.game_map[x][y]} cannot drop bomb  pid {self.player_id}')
+                print(f'[player] dropbomb {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} bp {self.bomb_power} pid {self.player_id}')
+#        elif self.bombs_left <= 0:
+#            if DEBUG:
+#                print(f'nodrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} pid {self.player_id}')
+#        else:
+#            pass
+            # if DEBUG:
+            #    print(f'nodrop {x} {y} {game_data.game_map[x][y]} cannot drop bomb  pid {self.player_id}')
         return game_data
 
     def changespeed(self, x, y):
@@ -74,7 +81,7 @@ class Player(pg.sprite.Sprite):
         if self.health <= 0:
             self.dead = True
             if DEBUG:
-                print(f'player pid {self.player_id} DEAD {amount} {self.health}')
+                print(f'[player] pid {self.player_id} DEAD {amount} {self.health}')
         #if DEBUG:
         #    print(f'player damage {amount} {self.health}')
     def update(self, game_data):
@@ -106,7 +113,7 @@ class Player(pg.sprite.Sprite):
         global DEBUG
         # pick up powerups...
         if DEBUG:
-            print(f'take_powerup {powerup.powerup_type}')
+            print(f'[player] id {self.player_id} take_powerup {powerup.powerup_type}')
         if powerup.powerup_type[0] == 'addbomb':
             if self.max_bombs < 10:
                 self.max_bombs += 1
