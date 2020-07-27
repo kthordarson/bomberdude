@@ -165,16 +165,22 @@ class Game():
     def connect_to_server(self):
         self.client = Client()
         self.client.serverAddressPort =(self.client.ipaddress, 10102) #("127.0.0.1", 10102)
-        self.client.zenbook = ('192.168.1.35', 10102)
+        self.client.zenbook = ('192.168.1.53', 10102)
         self.client.bufferSize = 1024
         self.client.create_socket()
         self.client.start()
         self.client.connect_to_server()
-        time.sleep(1)
+        # time.sleep(1)
         self.player1.set_id(self.client.client_id)
         self.server.add_client(self.player1)
         print(f'[run] set pid: {self.player1.player_id} {self.client.client_id}')
         self.client.request_map(self.client.zenbook)
+        while not self.client.got_new_map:
+            self.client.request_map()
+            print(f'[connect_to_server] waiting for new map')
+            time.sleep(1)
+        if self.client.new_map is not None:
+            self.game_data.game_map = self.client.new_map
         #self.server.get_map(self.client)
 
     def handle_menu(self, selection):
@@ -268,7 +274,7 @@ class Game():
     def handle_events(self):
         global CHEAT, DEBUG, DEBUG_GRID
         for event in pg.event.get():
-            self.client.send('event...')
+            # self.client.send('event...')
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_SPACE or event.key == pg.K_RETURN:
                     if not self.paused:
