@@ -17,7 +17,9 @@ class Info_panel():
         texts.append(self.font.render(f'player pos x:{player1.rect.x} y:{player1.rect.y} grid {player1.gridpos}', 1, [255,255,255], [10,10,10]))
         texts.append(self.font.render(f'player health: {player1.health} max bombs {player1.max_bombs} bombs left {player1.bombs_left} bomb power: {player1.bomb_power} speed: {player1.speed}', 1, [255,255,255], [10,10,10]))
         texts.append(self.font.render(f'score: {player1.score}', 1, [255,255,255], [10,10,10]))
-        texts.append(self.font.render(f'server: {server.connections} {server.hostname} {server.ipaddress} {server.localIP}', 1, [255,255,255], [10,10,10]))
+        texts.append(self.font.render(f'server: ip: {server.ipaddress} srvip: {server.server_address} data: {server.data_rcv}/{server.data_snd} ', 1, [255,255,255], [10,10,10]))
+        texts.append(self.font.render(f'client: ip: {client.ipaddress} srvip: {client.serverAddressPort} data: {client.data_rcv}/{client.data_snd} ', 1, [255,255,255], [10,10,10]))
+#        texts.append(self.font.render(f'server: {server.connections} {server.hostname} {server.ipaddress} ', 1, [255,255,255], [10,10,10]))
         for k, text in enumerate(texts):
             self.screen.blit(text, (self.x, self.y + (k*self.font.get_height())))
             #self.screen.blit(text2, (self.x, self.y+text1.get_height()))
