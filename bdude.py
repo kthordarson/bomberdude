@@ -16,8 +16,6 @@ from blocks import Block, Powerup_Block, BlockBomb
 from menus import Menu as Menu
 from menus import Info_panel as Info_panel
 from network import Client
-from network import MyUDPServer as Server
-from network import UDPServer
 from network import get_ip_address
 import socket 
 SIZE = 800, 600
@@ -134,7 +132,8 @@ class Game():
 		self.game_data = game_data
 	def update(self):
 		# do network things
-		self.client.send_player_update(player=game.player1)
+		self.client.send_player_update(player=game.player1, server=self.server)
+	
 	def draw(self):
 		# draw on screen
 		self.screen.fill(self.bg_color)
@@ -331,19 +330,14 @@ async def main_loop(game):
 	game.set_data(game_data)
 	ipaddress=get_ip_address()
 	server_address = ipaddress
-	game.udpserver = UDPServer(download_speed=1000, upload_speed=1000, ipaddress=ipaddress, server_address=server_address)
-	game.udpserver.run(ipaddress, port=10101, loop=game.gameloop)
-	game.server = Server(game.udpserver, loop=game.gameloop, ipaddress=ipaddress, server_address=server_address)
-	game.server.listen = True
-	game.server.debug = True
-	#game.server.create_socket()
-	#game.server.listening = True
-	#game.server.run()
 
-	game.client = Client()
-	game.client.serverAddressPort = (ipaddress, 10101)
+	game.server = (ipaddress, 9000)
+
+	game.client = Client(server=game.server)
+	# game.client.serverAddressPort = (server_address, 9000)
 	game.client.create_socket()
-	#game.client.run()
+	game.client.run()
+
 	game.players = pg.sprite.Group()
 	player_pos = game_data.place_player()
 	game.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=game.screen)
@@ -373,7 +367,6 @@ async def main_loop(game):
 		#pg.time.delay(30)
 		#game.client.send_player_update(player=game.player1)
 		await asyncio.sleep(0.00001)
-		#game.server.commands.append('foo')
 		
 
 def main(game):

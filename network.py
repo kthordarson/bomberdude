@@ -18,13 +18,68 @@ import datetime
 def get_ip_address():
 	# returns the 'most real' ip address
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+	time.sleep(0.5)
 	s.connect(("8.8.8.8", 80))
+	time.sleep(0.5)
 	return s.getsockname()[0]
 
+class UDP_Server(Thread):
+	def __init__(self,host='127.0.0.1', port=9000):
+		super(UDP_Server, self).__init__()
+		self.host = host
+		self.port = port
+		#self.s.bind((host, port))
+		#self.s.setblocking(False)
+		self.setDaemon(True)
+		self.kill = False
+		self.clients = {}
+		self.connections = []
+		self.name = '[UDPSERVER]'
+		self.data_rcv = 0
+		self.data_snd = 0
+	def get_socket(self):
+		self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		#self.s.setblocking(False)
+		self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.s.bind((self.host, self.port))
+		print(f'{self.name} get_socket')
+	def data_pump(self):
+		print(f'{self.name} data_pump')
+		self.s.setblocking(True)
+		while True:
+			data = None
+			addr = None
+			if self.kill:
+				return
+			try:
+				(data, addr) = self.s.recvfrom(128*1024)
+			except OSError as e:
+				print(f'{self.name}[data_pump] OSERROR {e}')
+				self.s = None
+				self.s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+				self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			if addr:
+				self.connections.append(addr)
+				self.data_rcv += 1
+				try:
+					conn = self.clients[addr]
+				except KeyError:
+					self.clients[addr] = {'connected':True, 'in':0, 'out':0}			
+				self.clients.get(addr)['in'] += 1
+				# print(f'[] {self.clients}')
+				for client in self.connections:
+					response = str.encode(f'{self.name} to {client} data {data}')
+					# print(f'[data_pumping] to {client} response: {response}')
+					self.s.sendto(response, client)
+					self.data_snd += 1
+				#print(f'data_pump {addr} {data}')
+				yield (addr, data)
+	
 
 class UDPServer():
-	def __init__(self, upload_speed=0, download_speed=0, recv_max_size=256 * 1024, ipaddress='localhost', server_address='localhost'):
-		print(f'[UDPSERVER] init')
+	def __init__(self, upload_speed=0, download_speed=0, recv_max_size=256 * 1024, ipaddress='localhost', server_address='localhost', name='[UDPSERVER]'):
+		self.name = name
+		print(f'{self.name} init')
 		self._upload_speed = upload_speed
 		self._download_speed = download_speed
 		self._recv_max_size = recv_max_size
@@ -40,13 +95,13 @@ class UDPServer():
 
 	# region Interface
 	def run(self, host, port, loop):
-		print(f'[UDPSERVER] run')
+		print(f'{self.name} run')
 		self.loop = loop
 		try:
 			self._sock.bind((host, port))
 		except Exception as e:
-			print(f'[udpserver] {e}')
-			print(f'[udpserver] host {host} port {port}')
+			print(f'{self.name} {e}')
+			print(f'{self.name} host {host} port {port}')
 			os._exit(-1)
 		self._connection_made()
 		self._run_future(self._send_periodically(), self._recv_periodically())
@@ -58,10 +113,10 @@ class UDPServer():
 		self._subscribers.pop(id(fut), None)
 
 	def send(self, data, addr):
-		print(f'[UDPSERVER] send {data} {addr}')
+		# print(f'{self.name} send {data} {addr}')
 		self._send_queue.append((data, addr))
 		self._send_event.set()
-		print(f'[UDPSERVER] done send {data} {addr}')
+		# print(f'{self.name} done send {data} {addr}')
 
 	def _run_future(self, *args):
 		for fut in args:
@@ -73,13 +128,31 @@ class UDPServer():
 			fut = self.loop.create_future()
 		if registered:
 			self.loop.remove_reader(fd)
+		data = None
+		addr = None
 		try:
-			data, addr = self._sock.recvfrom(self._recv_max_size)
-		except (BlockingIOError, InterruptedError):
+			data = self._sock.recvfrom(self._recv_max_size)
+			print(f'[data] {data}')
+			#data, addr = self._sock.recvfrom(self._recv_max_size)
+		except (BlockingIOError, InterruptedError, NotImplementedError) as e:
+			print(f'{e}')
+			print(F'data:{data} addr:{addr}')
+			fut.set_result(0)
+			self._socket_error(e)
+#			os._exit(2)
+
+		try:
 			self.loop.add_reader(fd, self._sock_recv, fut, True)
+		except (BlockingIOError, InterruptedError, NotImplementedError) as e:
+			print(f'{e}')
+			print(F'data:{data} addr:{addr}')
+			fut.set_result(0)
+			self._socket_error(e)
+#			os._exit(2)
 		except Exception as e:
 			fut.set_result(0)
 			self._socket_error(e)
+
 		else:
 			fut.set_result((data, addr))
 		return fut
@@ -137,7 +210,8 @@ class UDPServer():
 		self._run_future(*(fut(data, addr) for fut in self._subscribers.values()))
 
 class MyUDPServer:
-	def __init__(self, server, loop, ipaddress, server_address):
+	def __init__(self, server, loop, ipaddress, server_address, name):
+		self.name = name
 		self.server = server
 		self.server_address = server_address
 		self.ipaddress = ipaddress
@@ -149,35 +223,51 @@ class MyUDPServer:
 		self.data_rcv = 0
 		self.data_snd = 0
 		self.listen = False
+		self.clients = {}
 		asyncio.ensure_future(self.do_send(), loop=self.loop)
-		print(f'[myudpserver] init')
+		print(f'{self.name} init')
 
 	async def on_datagram_received(self, data, addr):
 		self.data_rcv += 1
+		conn = None
 		if self.listen:
+			try:
+				conn = self.clients[addr[0]]
+			except KeyError:
+				self.clients[addr[0]] = {'connected':True, 'in':0, 'out':0}
+			
+			self.clients.get(addr[0])['in'] += 1
 			command = data.decode()
 			#print(f'[servercmd] {command} {data} {command}')
+			if command[:10] == '[p_update]':
+				# [p_update]:id:{player.player_id}:pos:{player.pos}
+				# [id:33:pos:(180, 320)] from ('192.168.1.35', 55285)
+				#print(f'[{command[11:]}] from {addr} clients: {len(self.clients)}')
+				self.update_clients(command[10:])
 			if self.debug:
 				pass
 				#print(f'[dgrrcv] [{datetime.datetime.now()}], {addr}, {data}')
 			
 		else:
-			print(f'[myudpserver] got data but not listening...')
+			print(f'{self.name} got data but not listening...')
+	
+	def update_clients(self, command):
+		for client in self.clients:
+			print(f'{self.name} sending update {command} to {client}')
+			self.server.send(command, client)
 
-	def send_key(self, key, player_id):
-		payload = b'[key][id]'  # + key
-		self.server.send(key, (self.server_address, 10101))
-
-	def send_foo(self):
-		payload = b'foo'  # + key
-		print(f'[foo] sending {payload}')
-		self.server.send(payload, (self.server_address, 10101))
-		print(f'[foo] done sending {payload}')
+	def send_player_update(self, player, server): # player = class Player
+		# construct data packet from Player object
+		command = str.encode(f'{self.name}[p_update]:id:{player.player_id}:pos:{player.pos}')
+		#print(f'[send_update][{datetime.datetime.now()}] {command} server: {self.serverAddressPort}')
+		self.server.send(command, server.ipaddress)
+		# self.socket.sendto(command, self.serverAddressPort)
+		self.data_snd += 1
 		
 	async def do_send(self):
-		print(f'[myudpserver] do_send')
+		print(f'{self.name} do_send')
 #		while True:
-		await asyncio.sleep(0.001)
+		await asyncio.sleep(0.1)
 		payload = None
 		for cmd in self.commands:
 			if cmd == 'foo':
@@ -197,10 +287,14 @@ class MyUDPServer:
 			self.commands = self.commands[1:]
 
 class Client():
-	def __init__(self):
+	def __init__(self, server, name='Client'):
 		super(Client, self).__init__()
 		# self.bytesToSend = str.encode(self.msgFromClient)
 		#self.serverAddressPort = ("127.0.0.1", 10102)
+		self.name = name
+		self.server = server
+		self.serverip = server[0]
+		self.serverport = server[1]
 		self.bufferSize = 1024
 		self.connected = False
 		self.hostname = socket.gethostname()
@@ -210,53 +304,63 @@ class Client():
 		self.foundservers =[]
 		self.new_map = None
 		self.got_new_map = False
+		self.got_socket = False
 		self.data_rcv = 0
 		self.data_snd = 0
 
 	def create_socket(self):
 		try:
-			self.UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-			# self.UDPClientSocket.bind(self.serverAddressPort)
+			self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+			self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+			self.socket.setblocking(False)
+			#self.socket.bind((self.serverip, self.serverport))
+			self.socket.bind(self.server)
 			self.got_socket = True
-			print(f'[client] socket created: {self.UDPClientSocket}')
+			print(f'{self.name} socket created: {self.socket}')
 		except Exception as e:
-			print(f'[client][create_socket] exception {e}')
+			print(f'{self.name}[create_socket] exception {e}')
 			self.connected = False
 			self.got_socket = False		
 
 	def run(self):
-		while True:
+		print(f'{self.name}[run]....')
+		while True and self.got_socket:
 			dataraw = None
 			try:
-				dataraw = self.UDPClientSocket.recvfrom(self.bufferSize)                
+				dataraw = self.socket.recvfrom(self.bufferSize)                
 			except Exception as e:
-				print(f'[client][run] {e} gotsocket:{self.got_socket}')
-			if not dataraw or dataraw is None:
+				print(f'{self.name}[run] {e} gotsocket:{self.got_socket}')
 				break
-			else:
-				chunks = []
-				data = dataraw[0].decode()
-				self.data_rcv += 1
-				if data[:17] == '[serveripaddress]':
-					self.foundservers.append('')
-					print(f'[client][foundserver] {data}')
-				if data[:8] == '[mapend]':
-					print(f'[client][mapend] {data}')
+				#os._exit(-1)
+			if not dataraw:
+				break
+			if dataraw is None:
+				break
+#			else:
+			chunks = []
+			data = dataraw[0].decode()
+			print(f'{self.name}[got_data] {data}')
+			self.data_rcv += 1
+			if data[:17] == '[serveripaddress]':
+				self.foundservers.append('')
+				print(f'{self.name}[foundserver] {data}')
+			if data[:8] == '[mapend]':
+				print(f'{self.name}[mapend] {data}')
 
 	def send(self, msg):
 		if self.client_id != 0:
-			self.UDPClientSocket.sendto(str.encode(msg), self.serverAddressPort)
-			time.sleep(0.001)
+			self.socket.sendto(str.encode(msg), self.server)
+			# time.sleep(0.001)
 
 	def send_foo(self):
 		command = str.encode('[foobar]')
-		self.UDPClientSocket.sendto(command, self.serverAddressPort)
+		self.socket.sendto(command, self.server)
 
-	def send_player_update(self, player): # player = class Player
+	def send_player_update(self, player, server): # player = class Player
 		# construct data packet from Player object
 		command = str.encode(f'[p_update]:id:{player.player_id}:pos:{player.pos}')
-		#print(f'[send_update][{datetime.datetime.now()}] {command} server: {self.serverAddressPort}')
-		self.UDPClientSocket.sendto(command, self.serverAddressPort)
+		# print(f'{self.name}[send_update][{datetime.datetime.now()}] {command} server: {self.serverAddressPort}')
+		self.socket.sendto(command, self.server)
 		self.data_snd += 1
 
 	def scan_network(self):
