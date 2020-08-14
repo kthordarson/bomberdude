@@ -15,8 +15,6 @@ from player import Player as Player
 from blocks import Block, Powerup_Block, BlockBomb
 from menus import Menu as Menu
 from menus import Info_panel as Info_panel
-from network import Client
-from network import get_ip_address
 import socket 
 SIZE = 800, 600
 CHAR_SIZE=  64, 64
@@ -132,7 +130,7 @@ class Game():
 		self.game_data = game_data
 	def update(self):
 		# do network things
-		self.client.send_player_update(player=game.player1, server=self.server)
+		pass
 	
 	def draw(self):
 		# draw on screen
@@ -148,7 +146,7 @@ class Game():
 					flame.draw_flame()
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu()
-		self.info_panel.draw_panel(self.game_data, self.player1, self.server, self.client)
+		self.info_panel.draw_panel(self.game_data, self.player1)
 
 	def handle_bombs(self):
 		# update bombs
@@ -223,19 +221,16 @@ class Game():
 			self.game_init()
 			self.run()
 		if selection == 'Start server':
-			self.start_server()
-			#print('start server')
+			pass
 		if selection == 'Connect to server':
-			self.connect_to_server()
+			pass
 
 	def handle_input(self):
 		# get player input
 		global CHEAT, DEBUG, DEBUG_GRID
 		for event in pg.event.get():
-			# self.client.send('event...')
 			if event.type == pg.KEYDOWN:
 				if event.key == pg.K_SPACE or event.key == pg.K_RETURN:
-						#self.client.send('[event] dropbomb pid:' + str(self.player1.player_id))
 					if self.show_mainmenu: # or self.paused:
 						selection = self.game_menu.get_selection()
 						self.handle_menu(selection)
@@ -276,7 +271,6 @@ class Game():
 				if event.key == pg.K_DOWN:
 					#if not self.paused:
 						#self.player1.changespeed(0,self.player1.speed)
-						#self.client.send('[playerpos] pid:' + str(self.player1.player_id) + ' ' + str(self.player1.gridpos))
 					if self.show_mainmenu:
 						self.game_menu.menu_down()
 					else:
@@ -284,7 +278,6 @@ class Game():
 				if event.key == pg.K_UP:
 ##					if not self.paused:#
 #						self.player1.changespeed(0,-self.player1.speed)
-						#self.client.send('[playerpos] pid:' + str(self.player1.player_id) + ' ' + str(self.player1.gridpos))
 					if self.show_mainmenu:
 						self.game_menu.menu_up()
 					else:
@@ -292,11 +285,9 @@ class Game():
 				if event.key == pg.K_RIGHT:
 					if not self.show_mainmenu:
 						self.player1.changespeed(self.player1.speed,0)
-						#self.client.send('[playerpos] pid:' + str(self.player1.player_id) + ' ' + str(self.player1.gridpos))
 				if event.key == pg.K_LEFT:
 					if not self.show_mainmenu:
 						self.player1.changespeed(-self.player1.speed,0)
-						#self.client.send('[playerpos] pid:' + str(self.player1.player_id) + ' ' + str(self.player1.gridpos))
 			if event.type == pg.KEYUP:
 				if event.key == pg.K_a:
 					pass
@@ -328,16 +319,7 @@ async def main_loop(game):
 	mainClock = pg.time.Clock()
 	game_data = Game_Data(screen=game.screen)
 	game.set_data(game_data)
-	ipaddress=get_ip_address()
-	server_address = ipaddress
-
-	game.server = (ipaddress, 9000)
-
-	game.client = Client(server=game.server)
-	# game.client.serverAddressPort = (server_address, 9000)
-	game.client.create_socket()
-	game.client.run()
-
+	
 	game.players = pg.sprite.Group()
 	player_pos = game_data.place_player()
 	game.player1 = Player(x=player_pos[0], y=player_pos[1], player_id=33, screen=game.screen)
@@ -365,7 +347,6 @@ async def main_loop(game):
 		#main_group.draw(game.screen)
 		pg.display.flip()
 		#pg.time.delay(30)
-		#game.client.send_player_update(player=game.player1)
 		await asyncio.sleep(0.00001)
 		
 
