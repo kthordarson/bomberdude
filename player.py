@@ -27,7 +27,7 @@ class Player(pg.sprite.Sprite):
 		self.max_bombs = 3
 		self.bombs_left = self.max_bombs
 		self.bomb_power = 1
-		self.speed = 1
+		self.speed = 3
 		self.player_id = player_id
 		self.health = 100
 		self.dead = False
