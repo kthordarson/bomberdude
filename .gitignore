@@ -1,4 +1,6 @@
 .vscode/*
+.git/*
+.idea/*
 __pycache__/*
 tempCodeRunnerFile.py
 testnet.py
