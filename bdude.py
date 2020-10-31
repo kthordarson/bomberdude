@@ -215,8 +215,6 @@ class Game():
 						self.terminate()
 					else:
 						self.show_mainmenu^= True
-				if event.key == pg.K_a:
-					pass
 				if event.key == pg.K_c:
 					self.player1.bomb_power = 100
 					self.player1.max_bombs = 10
@@ -227,27 +225,27 @@ class Game():
 					self.show_mainmenu^= True
 				if event.key == pg.K_m:
 					self.paused^= True
-				if event.key == pg.K_d:
+				if event.key == pg.K_q:
 					DEBUG^= True
 				if event.key == pg.K_g:
 					DEBUG = False
 					DEBUG_GRID^= True
 				if event.key == pg.K_r:
 					pass
-				if event.key == pg.K_DOWN:
+				if event.key in set([pg.K_DOWN, pg.K_s]):
 					if self.show_mainmenu:
 						self.game_menu.menu_down()
 					else:
 						self.player1.changespeed(0,self.player1.speed)
-				if event.key == pg.K_UP:
+				if event.key in set([pg.K_UP, pg.K_w]):
 					if self.show_mainmenu:
 						self.game_menu.menu_up()
 					else:
 						self.player1.changespeed(0,-self.player1.speed)
-				if event.key == pg.K_RIGHT:
+				if event.key in set([pg.K_RIGHT, pg.K_d]):
 					if not self.show_mainmenu:
 						self.player1.changespeed(self.player1.speed,0)
-				if event.key == pg.K_LEFT:
+				if event.key in set([pg.K_LEFT, pg.K_a]):
 					if not self.show_mainmenu:
 						self.player1.changespeed(-self.player1.speed,0)
 			if event.type == pg.KEYUP:
@@ -255,19 +253,19 @@ class Game():
 					pass
 				if event.key == pg.K_d:
 					pass
-				if event.key == pg.K_DOWN:
+				if event.key in set([pg.K_DOWN, pg.K_s]):
 					if not self.show_mainmenu:
 						self.player1.changespeed(0,0)
 						self.player1.change_y = 0
-				if event.key == pg.K_UP:
+				if event.key in set([pg.K_UP, pg.K_w]):
 					if not self.show_mainmenu:
 						self.player1.changespeed(0,0)
 						self.player1.change_y = 0
-				if event.key == pg.K_RIGHT:
+				if event.key in set([pg.K_RIGHT, pg.K_d]):
 					if not self.show_mainmenu:
 						self.player1.changespeed(0,0)
 						self.player1.change_x = 0
-				if event.key == pg.K_LEFT:
+				if event.key in set([pg.K_LEFT, pg.K_a]):
 					if not self.show_mainmenu:
 						self.player1.changespeed(0,0)
 						self.player1.change_x = 0
