@@ -27,8 +27,6 @@ class GameOver(BaseException):
 
 class Game_Data():
 	def __init__(self, screen):
-		# super().__init__()
-		# make a random grid map
 		self.screen = screen
 		# make a random map
 		self.game_map = [[random.randint(0,9) for k in range(GRID_Y+1)] for j in range(GRID_X+1)]
@@ -75,11 +73,11 @@ class Game_Data():
 				self.blocks.add(block)
 
 	def place_blocks(self):
+		# block placing stuff
 		global DEBUG
 		if DEBUG:
 			t1 = time.time()
 		self.blocks = pg.sprite.Group()
-		# self.powerblocks = pg.sprite.Group()
 		for k in range(0,GRID_X+1):
 			for j in range(0, GRID_Y+1):
 				try:                    
@@ -91,22 +89,6 @@ class Game_Data():
 					os._exit(-1)
 		if DEBUG:
 			print(f'place_blocks: done time {time.time() - t1:.2f}')
-
-	def update_map(self, mapinfo):
-		global DEBUG
-		for item in mapinfo:
-			if DEBUG:
-				print(f'update_map items: {len(mapinfo)} item: {item}')
-			gridpos = [item[0], item[1]]
-			block_id = self.game_map[gridpos[0]][gridpos[1]]
-			if 3 <= block_id <= 9:
-				# powerblock = Powerup_Block(gridpos[0], gridpos[1], screen=self.screen)
-				# self.powerblocks.add(powerblock)
-				self.game_map[item[0]][item[1]] = powerblock.powerup_type[1]
-				self.kill_block(item[0], item[1])
-				if DEBUG:
-					print(f'update_map: powerupdrop on {gridpos} bid {block_id} p {powerblock.powerup_type[1]} newbid: {self.game_map[item[0]][item[1]]}')
-			# self.game_map[item[0]][item[1]] = 30
 
 	def destroy_blocks(self, block_list):
 		pass
@@ -170,7 +152,6 @@ class Game():
 							self.game_data.blocks.add(newblock)
 							if DEBUG:
 								pass
-								# print(f'blhit: {block.gridpos} x:{block.x} y:{block.y} {block.block_type} fl: dir: {flame.dir} u:{flame.l_up} d:{flame.l_dn} r:{flame.l_r} l:{flame.l_l} a:{flame.flame_adder} fl:{flame.flame_length} fe:{flame.expand}')
 					player_hits = pg.sprite.spritecollide(flame, self.players, False)  # did flame touch player?
 					for player in player_hits:
 						player.take_damage(10)
@@ -188,18 +169,13 @@ class Game():
 		# powerups stuff
 		for powerblock in self.game_data.powerblocks:
 			powerplayers = pg.sprite.spritecollide(powerblock, self.players, False)
-			# powerblock.time_left = 0
 			for player in powerplayers:
 				player.take_powerup(powerblock)
 				powerblock.taken = True
 			if powerblock.time_left <= 0 or powerblock.taken:
-#                if DEBUG:
-#                    print(f'pb pos: {powerblock.gridpos[0]}, {powerblock.gridpos[1]} map: {self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]]}')
 				self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
 				newblock = Block(powerblock.gridpos[0], powerblock.gridpos[1], screen=self.screen, block_type=0) 
 				self.game_data.blocks.add(newblock)
-#                if DEBUG:
-#                    print(f'nb pos: {newblock.gridpos[0]}, {newblock.gridpos[1]} map: {self.game_data.game_map[newblock.gridpos[0]][newblock.gridpos[1]]}')
 				powerblock.kill()
 			if powerblock.ending_soon:
 				powerblock.flash()
@@ -210,13 +186,10 @@ class Game():
 			self.running = False
 			self.terminate()
 		if selection == 'Pause':
-			#self.paused^= True
 			self.show_mainmenu^= True
 		if selection == 'Start':
-			#self.paused^= True
 			self.show_mainmenu^= True
 		if selection == 'Restart':
-			#self.paused^= True
 			self.show_mainmenu^= True
 			self.game_init()
 			self.run()
@@ -236,15 +209,12 @@ class Game():
 						self.handle_menu(selection)
 					else:
 						self.game_data = self.player1.drop_bomb(self.game_data)
-
 				if event.key == pg.K_ESCAPE:
 					if not self.show_mainmenu:
 						self.running = False
 						self.terminate()
 					else:
-						#self.paused^= True
 						self.show_mainmenu^= True
-
 				if event.key == pg.K_a:
 					pass
 				if event.key == pg.K_c:
@@ -254,10 +224,8 @@ class Game():
 					self.player1.speed = 10
 					CHEAT = True
 				if event.key == pg.K_p:
-					#self.paused^= True
 					self.show_mainmenu^= True
 				if event.key == pg.K_m:
-					#self.show_mainmenu^= True
 					self.paused^= True
 				if event.key == pg.K_d:
 					DEBUG^= True
@@ -266,18 +234,12 @@ class Game():
 					DEBUG_GRID^= True
 				if event.key == pg.K_r:
 					pass
-					#self.game_init()
-					#self.run()
 				if event.key == pg.K_DOWN:
-					#if not self.paused:
-						#self.player1.changespeed(0,self.player1.speed)
 					if self.show_mainmenu:
 						self.game_menu.menu_down()
 					else:
 						self.player1.changespeed(0,self.player1.speed)
 				if event.key == pg.K_UP:
-##					if not self.paused:#
-#						self.player1.changespeed(0,-self.player1.speed)
 					if self.show_mainmenu:
 						self.game_menu.menu_up()
 					else:
@@ -327,37 +289,24 @@ async def main_loop(game):
 	game_data.place_blocks()
 	
 	while True:
+		# main game loop logic stuff
 		dt = mainClock.tick(FPS)
-		#if random.random()<0.2:
-		#	main_group.add(create_object())
 		pg.event.pump()
 		game.handle_input()
 		game.handle_bombs()
 		game.handle_powerups()
-
 		game.players.update(game.game_data)
 		game.game_data.blocks.update()
 		game.game_data.powerblocks.update()
 		game.game_data.bombs.update()
-		# game.players.update(game.game_data)
 		game.update()
 		game.draw()
-		#main_group.clear(game.screen, clear_callback)
-		#main_group.update()
-		#main_group.draw(game.screen)
 		pg.display.flip()
-		#pg.time.delay(30)
-		await asyncio.sleep(0.00001)
 		
 
 def main(game):
-	#main_group = pg.sprite.OrderedUpdates()
-	#main_group.add(Object(pos=(0, 300), move_function=move1))
-
 	game_task = asyncio.Task(main_loop(game))
-
 	game.gameloop.run_until_complete(game_task)
-
 
 if __name__ == "__main__":
 	pg.init()

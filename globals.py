@@ -16,9 +16,6 @@ POWERUPS = {
     'healthup'   : 14,
 }
 
-#def limit(num, minimum=1, maximum=255):
-#    return max(min(num, maximum), minimum)
-
 def limit(num, minimum=1, maximum=255):
     return max(min(num, maximum), minimum)
 

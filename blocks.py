@@ -171,11 +171,9 @@ class Powerup_Block(pg.sprite.Sprite):
         self.block_color = random.choice(list(colordict.items()))[1]   #block_color
         self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2), pg.SRCALPHA)
         self.radius = BLOCKSIZE // 2
-        # pg.draw.circle(self.image, (255,0,0), (0,0), self.radius)
         pg.draw.rect(self.image, (0,0,0), (self.x, self.y, BLOCKSIZE // 2 , BLOCKSIZE // 2))
         self.rect = self.image.get_rect()
         self.image.fill(self.block_color, self.rect)
-        # self.rect.center = (50,50)
         self.rect.centerx = self.x + BLOCKSIZE // 2
         self.rect.centery = self.y + BLOCKSIZE // 2
         self.solid = False
@@ -202,12 +200,6 @@ class Powerup_Block(pg.sprite.Sprite):
             # self.kill()
         if self.dt - self.start_time >= self.timer // 3:
             self.ending_soon = True
-            # self.rect.centerx = self.x + BLOCKSIZE // 2
-            # self.rect.centery = self.y + BLOCKSIZE // 2
-            # self.image = pg.Surface((BLOCKSIZE // 2,BLOCKSIZE // 2), pg.SRCALPHA)
-            # self.block_color = random.choice(list(colordict.items()))[1]   #block_color
-            # self.rect = self.image.get_rect()
-            # self.image.fill(self.block_color, self.rect)
 
     def draw_outlines(self):
         pass
@@ -287,10 +279,6 @@ class BlockBomb(pg.sprite.Sprite):
             self.done = True
             if DEBUG:
                 pass
-                # print(f'bomb done gp {self.gridpos} sp {self.x} {self.y}')
-                # print(f'bombtime: {self.dt} - {self.start_time} >= {self.bomb_timer} {self.dt - self.start_time >= self.bomb_timer}')
-                # for flame in self.flames:            
-                #     print(f'flames: {flame.dir} {flame.flame_length} {flame.l_up} {flame.l_dn} {flame.l_r} {flame.l_l} {flame.expand}')
             self.kill()
         self.flame_width -= 1
         if self.flame_width <= 1:
