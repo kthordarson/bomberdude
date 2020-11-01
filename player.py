@@ -3,27 +3,27 @@ import pygame.gfxdraw as gfxdraw
 from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE, BOMBSIZE, CHEAT
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE, BOMBSIZE
 
-from blocks import Block, Powerup_Block, BlockBomb
+from blocks import Block, Powerup_Block
+from bombs import BlockBomb, Bomb_Flame
 class Player(pg.sprite.Sprite):
-	def __init__(self, x, y, player_id, screen):
+	def __init__(self, pos, player_id, screen):
 		super().__init__()
 		self.screen = screen
-		self.x = x
-		self.y = y
+		self.pos = pos # pg.math.Vector2(pos)
+		self.vel = pg.math.Vector2(0,0)
 		self.image = pg.Surface((PLAYERSIZE,PLAYERSIZE)) # , pg.SRCALPHA, 32)
-		pg.draw.rect(self.image, (0,0,0), [self.x, self.y, PLAYERSIZE,PLAYERSIZE])
+		self.color = pg.Color('blue')
+		pg.draw.rect(self.image, self.color, [self.pos.x, self.pos.y, PLAYERSIZE,PLAYERSIZE])
 		# pg.draw.circle(self.image, (0,0,0), (self.x, self.y), 2)
 		#gfxdraw.aacircle(self.image, self.x, self.y, 15, (255,255,255))
 		#pg.gfxdraw.filled_circle(self.image, self.x, self.y, 15, (255,255,255))
 		self.rect = self.image.get_rect()
-		self.image.fill((0,0,255), self.rect)
-		self.rect.x = self.x
-		self.rect.y = self.y
+		self.image.fill(self.color, self.rect)
+		#self.rect.x = self.pos.x
+		#self.rect.y = self.pos.y
 		self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
-		self.change_x = 0
-		self.change_y = 0
 		self.max_bombs = 3
 		self.bombs_left = self.max_bombs
 		self.bomb_power = 1
@@ -36,86 +36,75 @@ class Player(pg.sprite.Sprite):
 		self.font = pg.font.SysFont('calibri', 10, True)
 
 	def set_id(self, id):
-		# print(f'[player][set_id] old {self.player_id} new {id}')
-		#self.image = pg.Surface((PLAYERSIZE,PLAYERSIZE)) # , pg.SRCALPHA, 32)
-		#pg.draw.rect(self.image, (0,0,0), [self.rect.x, self.rect.y, PLAYERSIZE,PLAYERSIZE])
-		#self.rect = self.image.get_rect()
 		self.player_id = id
-		self.image.fill((random.randint(100,200),0,random.randint(100,255)), self.rect)
-		pg.draw.rect(self.image, (random.randint(100,200),0,random.randint(100,255)), self.rect)
-		#self.rect.
-	def draw_id(self):
-		global DEBUG
-		if DEBUG:            
-			debugtext = self.font.render(f'{self.player_id}', 1, [255,255,255], [0,0,0])
-			self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))
+		# self.image.fill((random.randint(100,200),0,random.randint(100,255)), self.rect)
+		# pg.draw.rect(self.image, (random.randint(100,200),0,random.randint(100,255)), self.rect)
 		
 	def drop_bomb(self, game_data):
-		global DEBUG
 		# get grid pos of player
+		self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
 		x = self.gridpos[0]
 		y = self.gridpos[1]
 		if self.bombs_left > 0 and game_data.game_map[x][y] == 0:  # only place bombs if we have bombs... and on free spot...
 			game_data.game_map[x][y] = self.player_id
-			# create bomb at gridpos xy
-			bomb = BlockBomb(x=x, y=y, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
+			# create bomb at gridpos xy, multiply by BLOCKSIZE for screen coordinates
+			bomb = BlockBomb(pos=(x*BLOCKSIZE,y*BLOCKSIZE), bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
+			# bomb = BlockBomb(x=x, y=y, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
 			game_data.bombs.add(bomb)
 			self.bombs_left -= 1
-			if DEBUG:
-				print(f'[player] dropbomb {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} bp {self.bomb_power} pid {self.player_id}')
-#        elif self.bombs_left <= 0:
-#            if DEBUG:
-#                print(f'nodrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} pid {self.player_id}')
-#        else:
-#            pass
-			# if DEBUG:
-			#    print(f'nodrop {x} {y} {game_data.game_map[x][y]} cannot drop bomb  pid {self.player_id}')
+		else:
+			print(f'cannot drop bomb on gridpos: {x} {y}')
 		return game_data
 
-	def changespeed(self, x, y):
-		self.change_x += x
-		self.change_y += y
 	def take_damage(self, amount=25):
-		global DEBUG
 		self.health -= amount
 		if self.health <= 0:
 			self.dead = True
-			if DEBUG:
-				print(f'[player] pid {self.player_id} DEAD {amount} {self.health}')
-		#if DEBUG:
-		#    print(f'player damage {amount} {self.health}')
+
+	def draw(self):
+		pg.draw.rect(self.screen, self.color, [self.pos.x, self.pos.y, PLAYERSIZE,PLAYERSIZE])
+
 	def update(self, game_data):
 		# Move left/right
-		self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
-		self.rect.centerx += self.change_x 
+		#self.pos += self.vel
+		self.rect.centerx += self.vel.x
+		#self.rect.x = self.pos.x
+		#self.rect.y = self.pos.y
+		# self.rect.centerx += self.change_x 
 		# Did this update cause us to hit a wall?
 		block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
 		for block in block_hit_list:
 			# If we are moving right, set our right side to the left side of the item we hit
-			if self.change_x > 0 and block.solid:
+			if self.vel[0] > 0 and block.solid:
 				self.rect.right = block.rect.left
+				self.vel = pg.math.Vector2(0,0)
+				print(f'solid right')
 			else:
 				# Otherwise if we are moving left, do the opposite.
 				if block.solid:
 					self.rect.left = block.rect.right 
+					self.vel = pg.math.Vector2(0,0)
+					print(f'solid left')
 		# Move up/down
-		self.rect.centery += self.change_y
+		self.rect.centery += self.vel.y
+		# self.rect.centery += self.change_y
 		# Check and see if we hit anything
 		block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
 		for block in block_hit_list: 
 			# Reset our position based on the top/bottom of the object.
-			if self.change_y > 0 and block.solid:
+			if self.vel[1] > 0 and block.solid:
 				self.rect.bottom = block.rect.top
+				self.vel = pg.math.Vector2(0,0)
+				print(f'solid bottom')
 			else:
 				if block.solid:
 					self.rect.top = block.rect.bottom
-		self.pos = (self.rect.x, self.rect.y)
+					self.vel = pg.math.Vector2(0,0)
+					print(f'solid top,')
+		# self.pos = (self.rect.x, self.rect.y)
 
 	def take_powerup(self, powerup):
-		global DEBUG
 		# pick up powerups...
-		if DEBUG:
-			print(f'[player] id {self.player_id} take_powerup {powerup.powerup_type}')
 		if powerup.powerup_type[0] == 'addbomb':
 			if self.max_bombs < 10:
 				self.max_bombs += 1
