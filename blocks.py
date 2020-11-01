@@ -6,11 +6,12 @@ from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE,
 from globals import limit as limit
 
 class Bomb_Flame(pg.sprite.Sprite):
-	def __init__(self, x, y, screen, flame_length, velocity):
+	def __init__(self, x, y, screen, flame_length, vel, name):
 		super().__init__()
 		self.screen = screen
 		self.x = x
 		self.y = y
+		self.name = name
 		# self.dir = dir
 		self.flame_length = flame_length
 		self.color = pg.Color('red')
@@ -26,15 +27,14 @@ class Bomb_Flame(pg.sprite.Sprite):
 		self.expand = True
 		self.pos = pg.math.Vector2(x,y)
 		self.endpos = pg.math.Vector2(x,y)
-		self.vel = velocity # pg.math.Vector2(1,1)
+		self.vel = vel  # flame direction
 
 	def update(self):
-		# print(f'[flamepos] {self.pos} {self.vel}')
-		# self.pos += self.vel
 		self.endpos += self.vel
 
 	def draw(self):
 		pg.draw.line(self.screen, self.color, self.pos, self.endpos, 1)
+		self.rect = self.image.get_rect()
 class Block(pg.sprite.Sprite):
 	def __init__(self, x, y, screen, block_type):
 		super().__init__()
@@ -89,7 +89,7 @@ class Block(pg.sprite.Sprite):
 
 	def draw_id(self):
 		global DEBUG
-		if DEBUG:            
+		if DEBUG:
 			debugtext = self.font.render(f'{self.block_type}', 1, [255,255,255], [0,0,0])
 			self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))
 
@@ -102,7 +102,7 @@ class Block(pg.sprite.Sprite):
 			self.screen.blit(debugtext, (self.rect.x+8, self.rect.centery-3))
 
 	def update(self):
-		pass            
+		pass
 
 	def draw_outlines(self):
 		# pg.draw.rect(self.screen, (0,0,0), [self.x, self.y, BLOCKSIZE,BLOCKSIZE])
@@ -194,15 +194,15 @@ class BlockBomb(pg.sprite.Sprite):
 		self.expand_left = True
 		# each bomb has four flames for each side
 		# self.flames = [Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len) for k in range(4)]
-		self.flames = []
-		flameleft = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, velocity=(-1,0)) # left
-		flameright = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, velocity=(1,0))  # right
-		flamedown = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, velocity=(0,1))  # down
-		flameup = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, velocity=(0,-1)) # up
-		self.flames.append(flameleft)
-		self.flames.append(flameright)
-		self.flames.append(flamedown)
-		self.flames.append(flameup)
+		self.flames = pg.sprite.Group()
+		flameleft = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, vel=(-1,0), name='left') # left
+		flameright = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, vel=(1,0), name='right')  # right
+		flamedown = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, vel=(0,1), name='down')  # down
+		flameup = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, vel=(0,-1), name='up') # up
+		self.flames.add(flameleft)
+		self.flames.add(flameright)
+		self.flames.add(flamedown)
+		self.flames.add(flameup)
 
 	def update(self):
 		global DEBUG
@@ -211,13 +211,11 @@ class BlockBomb(pg.sprite.Sprite):
 			self.exploding = True
 		if self.exploding:
 			self.exp_radius += 1     # make it bigger
-			if self.exp_radius >= BLOCKSIZE: 
+			if self.exp_radius >= BLOCKSIZE:
 				self.exp_radius = BLOCKSIZE # not too big
 			for flame in self.flames: # flames do player damage and destroy most blocks
-				flame.flame_length += self.flame_power	
-				flame.update()			
-				# if flame.expand: # flame cannot expand after hitting something..
-				# 	flame.flame_length += self.flame_power
+				flame.flame_length += self.flame_power
+				flame.update()
 			self.exp_steps -= 1 # animation steps ?
 			if self.exp_steps <= 0: # stop animation
 				self.exploding = False
