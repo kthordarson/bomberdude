@@ -131,12 +131,7 @@ class Game():
 		self.game_data.blocks.draw(self.screen)
 		self.players.draw(self.screen)
 		self.game_data.powerblocks.draw(self.screen)
-		self.game_data.bombs.draw(self.screen)
-		for bomb in self.game_data.bombs: # iterate all bombs placed on map by players
-			if bomb.exploding:            # if bomb is bombing
-				bomb.draw_explotion()     # draw bomb animation
-				for flame in bomb.flames: # draw flames
-					flame.draw_flame()    # flame animation
+		[bomb.draw() for bomb in self.game_data.bombs]
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu()
 		self.info_panel.draw_panel(self.game_data, self.player1)
@@ -145,9 +140,7 @@ class Game():
 		# update bombs
 		for bomb in self.game_data.bombs: # iterate all placed bombs
 			if bomb.exploding:            # are you bombing ?
-				bomb.explode(self.game_data.game_map)
 				for flame in bomb.flames:
-					flame.update()
 					flame_hits = pg.sprite.spritecollide(flame, self.game_data.blocks, False)  # get blocks that flames touch
 					for block in flame_hits:
 						if block.block_type > 0:  # if block_type is larger than 0, stop expanding flame, else keep expanding until solid is hit

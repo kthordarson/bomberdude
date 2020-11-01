@@ -61,15 +61,6 @@ class Player(pg.sprite.Sprite):
 			bomb = BlockBomb(x=x, y=y, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
 			game_data.bombs.add(bomb)
 			self.bombs_left -= 1
-			if DEBUG:
-				print(f'[player] dropbomb {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} bp {self.bomb_power} pid {self.player_id}')
-#        elif self.bombs_left <= 0:
-#            if DEBUG:
-#                print(f'nodrop {x} {y} {game_data.game_map[x][y]} bl {self.bombs_left} mb {self.max_bombs} pid {self.player_id}')
-#        else:
-#            pass
-			# if DEBUG:
-			#    print(f'nodrop {x} {y} {game_data.game_map[x][y]} cannot drop bomb  pid {self.player_id}')
 		return game_data
 
 	def changespeed(self, x, y):

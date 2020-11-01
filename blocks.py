@@ -6,7 +6,7 @@ from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, DEBUG, POWERUPS, PLAYERSIZE,
 from globals import limit as limit
 
 class Bomb_Flame(pg.sprite.Sprite):
-	def __init__(self, x, y, screen, flame_length):
+	def __init__(self, x, y, screen, flame_length, velocity):
 		super().__init__()
 		self.screen = screen
 		self.x = x
@@ -20,48 +20,21 @@ class Bomb_Flame(pg.sprite.Sprite):
 		self.rect.x = x
 		self.rect.y = y
 		self.image.fill(self.color, self.rect)
-		self.max_length = 3
+		self.max_length = 13
 		self.length = 1
-		self.length_up = 1
-		self.step_up = 1
-		self.length_down = 1
-		self.step_down = 1
-		self.length_right = 1
-		self.step_right = 1
-		self.length_left = 1
-		self.step_left = 1
 		self.flame_adder = 1
 		self.expand = True
+		self.pos = pg.math.Vector2(x,y)
+		self.endpos = pg.math.Vector2(x,y)
+		self.vel = velocity # pg.math.Vector2(1,1)
 
 	def update(self):
-		if self.flame_adder == 1 and self.length_up <= self.flame_length:
-			if self.expand:
-				self.length_up += self.flame_adder
-		elif self.flame_adder == 1 and self.length_down <= self.flame_length:
-			if self.expand:
-				self.length_down += self.flame_adder
-		elif self.flame_adder == 1 and self.length_right <= self.flame_length:
-			if self.expand:
-				self.length_right += self.flame_adder
-		elif self.flame_adder == 1 and self.length_left <= self.flame_length:
-			if self.expand:
-				self.length_left += self.flame_adder
-		else:
-			pass
+		# print(f'[flamepos] {self.pos} {self.vel}')
+		# self.pos += self.vel
+		self.endpos += self.vel
 
-	def kill(self):
-		self.expand = False
-
-	def draw_flame(self):
-		self.rect = pg.Rect(self.x, self.y-self.length_up, 2,2+self.length_up)
-		pg.draw.rect(self.screen, (255,0,0), self.rect,0)
-		self.rect = pg.Rect(self.x, self.y+self.length_down, 2,2+self.length_down)
-		pg.draw.rect(self.screen, (255,0,0), self.rect,0)
-		self.rect = pg.Rect(self.x+self.length_right, self.y, 2+self.length_right,2)
-		pg.draw.rect(self.screen, (255,0,0), self.rect,0)
-		self.rect = pg.Rect(self.x-self.length_left, self.y, 2+self.length_left,2)
-		pg.draw.rect(self.screen, (255,0,0), self.rect,0)
-
+	def draw(self):
+		pg.draw.line(self.screen, self.color, self.pos, self.endpos, 1)
 class Block(pg.sprite.Sprite):
 	def __init__(self, x, y, screen, block_type):
 		super().__init__()
@@ -208,7 +181,6 @@ class BlockBomb(pg.sprite.Sprite):
 		self.rect.centery = self.y + BLOCKSIZE // 2
 		self.font = pg.font.SysFont('calibri', 10, True)
 		self.bomb_timer = 100
-		self.time_left = 3
 		self.exploding = False
 		self.exp_steps = 50
 		self.exp_radius = 1
@@ -220,44 +192,43 @@ class BlockBomb(pg.sprite.Sprite):
 		self.expand_down = True
 		self.expand_right = True
 		self.expand_left = True
-		
 		# each bomb has four flames for each side
-		self.flames = [Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len) for k in range(4)]
+		# self.flames = [Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len) for k in range(4)]
+		self.flames = []
+		flameleft = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, velocity=(-1,0)) # left
+		flameright = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, velocity=(1,0))  # right
+		flamedown = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, velocity=(0,1))  # down
+		flameup = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, velocity=(0,-1)) # up
+		self.flames.append(flameleft)
+		self.flames.append(flameright)
+		self.flames.append(flamedown)
+		self.flames.append(flameup)
 
 	def update(self):
 		global DEBUG
 		self.dt = pg.time.get_ticks() / FPS
-		if self.dt - self.start_time >= self.bomb_timer:
-			self.time_left = 0
+		if self.dt - self.start_time >= self.bomb_timer: # I will start exploding after xxx seconds....
 			self.exploding = True
-			# if DEBUG:
-			#    print(f'bombtimer expired....')
+		if self.exploding:
+			self.exp_radius += 1     # make it bigger
+			if self.exp_radius >= BLOCKSIZE: 
+				self.exp_radius = BLOCKSIZE # not too big
+			for flame in self.flames: # flames do player damage and destroy most blocks
+				flame.flame_length += self.flame_power	
+				flame.update()			
+				# if flame.expand: # flame cannot expand after hitting something..
+				# 	flame.flame_length += self.flame_power
+			self.exp_steps -= 1 # animation steps ?
+			if self.exp_steps <= 0: # stop animation
+				self.exploding = False
+				self.done = True
+				# self.kill() # destroy flame
 	def update_map(self, game_map):
 		# do stuff with map after explotion...
 		return game_map
 
-	def draw_explotion(self):
+	def draw(self):
+		pg.draw.rect(self.screen, self.block_color, [self.rect.x,self.rect.y, BOMBSIZE,BOMBSIZE])
 		if self.exploding:
 			pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
-
-	def explode(self, game_map): # handle bomb explotion animation parameters
-		self.exp_radius += 1     # make it bigger
-		if self.exp_radius >= BLOCKSIZE: 
-			self.exp_radius = BLOCKSIZE # not too big
-		for flame in self.flames: # flames do player damage and destroy most blocks
-			if flame.expand: # flame cannot expand after hitting something..
-				flame.flame_length += self.flame_power
-		self.exp_steps -= 1 # animation steps ?
-		if self.exp_steps <= 0: # stop animation
-			self.exploding = False
-			self.done = True
-			if DEBUG:
-				pass
-			self.kill() # destroy flame
-		return []
-
-	def draw_id(self):
-		global DEBUG
-		if DEBUG:            
-			debugtext = self.font.render(f'{self.bomber_id}', 1, [255,255,255], [0,0,0])
-			self.screen.blit(debugtext, (self.rect.x+3, self.rect.centery-3))
+			[flame.draw() for flame in self.flames]
