@@ -1,5 +1,5 @@
 import pygame as pg
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE, BOMBSIZE
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE
 from globals import inside_circle as inside_circle
 
 class Info_panel():

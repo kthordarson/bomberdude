@@ -2,7 +2,7 @@ import pygame as pg
 from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE, BOMBSIZE
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE
 from globals import limit as limit
 
 class Block(pg.sprite.Sprite):
@@ -10,11 +10,11 @@ class Block(pg.sprite.Sprite):
 		super().__init__()
 		self.screen = screen
 		self.block_type = block_type
-		self.x = x * BLOCKSIZE
-		self.y = y * BLOCKSIZE
-		self.screen_pos = [x * BLOCKSIZE, y * BLOCKSIZE]
-		self.gridpos = [x,y]
-		self.pos = [self.x, self.y]
+		self.pos = pg.math.Vector2(x * BLOCKSIZE, y * BLOCKSIZE)
+		self.x = self.pos.x
+		self.y = self.pos.y
+		self.gridpos = (x,y)
+		# self.pos = [self.x, self.y]
 		# self.block_color = (255,255,0)
 		if self.block_type == 0:
 			self.solid = False
@@ -48,35 +48,35 @@ class Block(pg.sprite.Sprite):
 			self.bordercolor = (55,55,244)
 
 		self.image = pg.Surface((BLOCKSIZE,BLOCKSIZE), pg.SRCALPHA)
-		pg.draw.rect(self.image, (0,0,0), (self.screen_pos[0], self.screen_pos[1], BLOCKSIZE, BLOCKSIZE))
+		pg.draw.rect(self.image, self.block_color, (self.pos.x, self.pos.y, BLOCKSIZE, BLOCKSIZE))
 		self.rect = self.image.get_rect()
-		self.image.fill(self.block_color, self.rect)
+		# self.image.fill(self.block_color, self.rect)
 		# self.rect.center = (50,50)
-		self.rect.x = self.screen_pos[0]
-		self.rect.y = self.screen_pos[1]
+		self.rect.x = self.pos.x
+		self.rect.y = self.pos.y
 		# self.solid = solid
 		self.font = pg.font.SysFont('calibri', 10, True)
-		self.pos = pg.math.Vector2(self.rect.x,self.rect.y)
+		# self.pos = pg.math.Vector2(self.rect.x,self.rect.y)
 
-	def update(self):
-		self.pos = pg.math.Vector2(self.rect.x,self.rect.y)
-
+#	def update(self):
+#		self.pos = pg.math.Vector2(self.rect.x,self.rect.y)
+		
 	def draw(self):
-		pass
-		# pg.draw.rect(self.screen, (0,0,0), [self.x, self.y, BLOCKSIZE,BLOCKSIZE])
-		#pg.draw.line(self.screen, self.bordercolor, (self.x, self.y), (self.x + BLOCKSIZE, self.y))
-		#pg.draw.line(self.screen, self.bordercolor, (self.x, self.y), (self.x, self.y + BLOCKSIZE))
-		#pg.draw.line(self.screen, self.bordercolor, (self.x + BLOCKSIZE, self.y), (self.x + BLOCKSIZE, self.y + BLOCKSIZE))
-		#pg.draw.line(self.screen, self.bordercolor, (self.x + BLOCKSIZE, self.y + BLOCKSIZE), (self.x, self.y + BLOCKSIZE))
-		# pg.draw.circle(self.screen, (255,255,255), (self.x, self.y), 300)
+		pg.draw.rect(self.screen, self.block_color, (self.pos.x, self.pos.y, BLOCKSIZE, BLOCKSIZE))
 
+	def set_zero(self):
+		self.solid = False
+		self.permanent = False
+		self.block_color = pg.Color('black')
+		self.bordercolor = (255,255,255)
+		
 class Powerup_Block(pg.sprite.Sprite):
 	def __init__(self, x, y, screen):
 		super().__init__()
 		self.screen = screen
 		self.x = x * BLOCKSIZE
 		self.y = y * BLOCKSIZE
-		self.screen_pos = (x * BLOCKSIZE, y * BLOCKSIZE)
+		self.pos = (x * BLOCKSIZE, y * BLOCKSIZE)
 		self.gridpos = (x, y)
 		self.pos = (self.x, self.y)
 		self.block_color = random.choice(list(colordict.items()))[1]   #block_color

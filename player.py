@@ -3,7 +3,7 @@ import pygame.gfxdraw as gfxdraw
 from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE, BOMBSIZE
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE
 
 from blocks import Block, Powerup_Block
 from bombs import BlockBomb, Bomb_Flame
@@ -21,8 +21,8 @@ class Player(pg.sprite.Sprite):
 		#pg.gfxdraw.filled_circle(self.image, self.x, self.y, 15, (255,255,255))
 		self.rect = self.image.get_rect()
 		self.image.fill(self.color, self.rect)
-		#self.rect.x = self.pos.x
-		#self.rect.y = self.pos.y
+		self.rect.centerx = self.pos.x
+		self.rect.centery = self.pos.y
 		self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
 		self.max_bombs = 3
 		self.bombs_left = self.max_bombs
@@ -42,18 +42,17 @@ class Player(pg.sprite.Sprite):
 		
 	def drop_bomb(self, game_data):
 		# get grid pos of player
-		self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
 		x = self.gridpos[0]
 		y = self.gridpos[1]
 		if self.bombs_left > 0 and game_data.game_map[x][y] == 0:  # only place bombs if we have bombs... and on free spot...
 			game_data.game_map[x][y] = self.player_id
 			# create bomb at gridpos xy, multiply by BLOCKSIZE for screen coordinates
-			bomb = BlockBomb(pos=(x*BLOCKSIZE,y*BLOCKSIZE), bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
+			bomb = BlockBomb(pos=(self.rect.centerx, self.rect.centery), bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power, gridpos=self.gridpos)
 			# bomb = BlockBomb(x=x, y=y, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
 			game_data.bombs.add(bomb)
 			self.bombs_left -= 1
 		else:
-			print(f'cannot drop bomb on gridpos: {x} {y}')
+			print(f'cannot drop bomb on gridpos: {x} {y} bl:{self.bombs_left} griddata: {game_data.game_map[x][y]}')
 		return game_data
 
 	def take_damage(self, amount=25):
@@ -66,8 +65,9 @@ class Player(pg.sprite.Sprite):
 
 	def update(self, game_data):
 		# Move left/right
-		#self.pos += self.vel
+		# self.pos += self.vel
 		self.rect.centerx += self.vel.x
+		self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
 		#self.rect.x = self.pos.x
 		#self.rect.y = self.pos.y
 		# self.rect.centerx += self.change_x 
@@ -75,16 +75,14 @@ class Player(pg.sprite.Sprite):
 		block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
 		for block in block_hit_list:
 			# If we are moving right, set our right side to the left side of the item we hit
-			if self.vel[0] > 0 and block.solid:
+			if self.vel[0] >= 1 and block.solid:
 				self.rect.right = block.rect.left
 				self.vel = pg.math.Vector2(0,0)
-				print(f'solid right')
 			else:
 				# Otherwise if we are moving left, do the opposite.
 				if block.solid:
 					self.rect.left = block.rect.right 
 					self.vel = pg.math.Vector2(0,0)
-					print(f'solid left')
 		# Move up/down
 		self.rect.centery += self.vel.y
 		# self.rect.centery += self.change_y
@@ -92,16 +90,14 @@ class Player(pg.sprite.Sprite):
 		block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
 		for block in block_hit_list: 
 			# Reset our position based on the top/bottom of the object.
-			if self.vel[1] > 0 and block.solid:
+			if self.vel[1] >= 1 and block.solid:
 				self.rect.bottom = block.rect.top
 				self.vel = pg.math.Vector2(0,0)
-				print(f'solid bottom')
 			else:
 				if block.solid:
 					self.rect.top = block.rect.bottom
 					self.vel = pg.math.Vector2(0,0)
-					print(f'solid top,')
-		# self.pos = (self.rect.x, self.rect.y)
+		self.pos = pg.math.Vector2(self.rect.x, self.rect.y)
 
 	def take_powerup(self, powerup):
 		# pick up powerups...

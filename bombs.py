@@ -2,8 +2,10 @@ import pygame as pg
 from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE, BOMBSIZE
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE
 from globals import limit as limit
+
+BOMBSIZE = 5
 
 class Bomb_Flame(pg.sprite.Sprite):
 	def __init__(self, screen, name, pos, vel, flame_length):
@@ -14,7 +16,7 @@ class Bomb_Flame(pg.sprite.Sprite):
 		self.color = pg.Color('red')
 		self.pos = pg.math.Vector2(pos)
 		self.endpos = pg.math.Vector2(self.pos.x, self.pos.y)
-		self.vel = vel  # flame direction
+		self.vel = pg.math.Vector2(vel[0], vel[1])  # flame direction
 		self.image = pg.Surface([1,1])
 		pg.draw.line(self.image, self.color, self.pos, self.endpos, 1)
 		#pg.draw.rect(self.image, self.color, (self.pos.x, self.pos.y, self.endpos.x, self.endpos.y))
@@ -27,21 +29,24 @@ class Bomb_Flame(pg.sprite.Sprite):
 
 	def update(self):
 		self.endpos += self.vel
-		self.image = pg.Surface((1,1), pg.SRCALPHA)
-		pg.draw.line(self.image, self.color, self.pos, self.endpos, 1)
+		self.rect.x = self.endpos.x
+		self.rect.y = self.endpos.y
+		#self.image = pg.Surface((1,1), pg.SRCALPHA)
+		#pg.draw.line(self.image, self.color, self.pos, self.endpos, 1)
 		#pg.draw.rect(self.image, self.color, (self.pos.x, self.pos.y, self.endpos.x, self.endpos.y))
-		self.rect = self.image.get_rect()
+		#self.rect = self.image.get_rect()
 
 	def draw(self):
 		pg.draw.line(self.screen, self.color, self.pos, self.endpos, 1)
 
 class BlockBomb(pg.sprite.Sprite):
-	def __init__(self, pos, bomber_id, block_color, screen, bomb_power):
+	def __init__(self, pos, bomber_id, block_color, screen, bomb_power, gridpos):
 		super().__init__()
 		self.screen = screen
-		self.pos = pg.math.Vector2(pos)
-		# self.screen_pos = (self.pos.x * BLOCKSIZE, self.pos.y * BLOCKSIZE)
-		# self.gridpos = (x,y)
+		self.pos = pg.math.Vector2(pos[0], pos[1])
+		# self.pos = pg.math.Vector2(pos)
+		# self.pos = (self.pos.x * BLOCKSIZE, self.pos.y * BLOCKSIZE)
+		self.gridpos = gridpos
 		# self.x = x * BLOCKSIZE
 		# self.y = y * BLOCKSIZE
 		self.bomber_id = bomber_id
@@ -50,13 +55,15 @@ class BlockBomb(pg.sprite.Sprite):
 		# self.pos = (self.x, self.y)
 		self.image = pg.Surface((BOMBSIZE,BOMBSIZE ), pg.SRCALPHA)
 		# todo fix exact placement on grid
-		pg.draw.rect(self.image, (0,255,0), [self.pos.x, self.pos.y, BOMBSIZE,BOMBSIZE])
+		# pg.draw.rect(self.image, self.block_color, [pos[0], pos[1], BOMBSIZE,BOMBSIZE])
+		pg.draw.circle(self.image, self.block_color, (self.pos.x,self.pos.y), BOMBSIZE)
 		# pg.draw.circle(self.image, (255,0,0), [self.x,self.y], BOMBSIZE+30, 15)
 		self.rect = self.image.get_rect()
-		self.image.fill(self.block_color, self.rect)
-		# self.rect.center = (50,50)
-		self.rect.centerx = self.pos.x + BLOCKSIZE // 2
-		self.rect.centery = self.pos.y + BLOCKSIZE // 2
+		# self.image.fill(self.block_color, self.rect)
+		self.rect.centerx = self.pos.x
+		self.rect.centery = self.pos.y
+		#self.rect.x = self.pos.x # + BLOCKSIZE // 2
+		#self.rect.y = self.pos.y # + BLOCKSIZE // 2
 		self.font = pg.font.SysFont('calibri', 10, True)
 		self.bomb_timer = 100
 		self.exploding = False
@@ -101,7 +108,8 @@ class BlockBomb(pg.sprite.Sprite):
 			[flame.update() for flame in self.flames] # update flame animation, flames do player damage and destroy most blocks
 			self.exp_steps -= 1 # animation steps ?
 			if self.exp_steps <= 0: # stop animation and kill bomb
-				self.kill()
+				self.done = True
+				# self.kill()
 				# self.exploding = False
 				# self.done = True
 				# self.kill() # destroy flame
@@ -110,7 +118,8 @@ class BlockBomb(pg.sprite.Sprite):
 		return game_map
 
 	def draw(self):
-		pg.draw.rect(self.screen, self.block_color, [self.rect.x,self.rect.y, BOMBSIZE,BOMBSIZE])
+		# pg.draw.rect(self.screen, self.block_color, [self.pos.x,self.pos.y, BOMBSIZE,BOMBSIZE])
+		pg.draw.circle(self.screen, self.block_color, (self.pos.x,self.pos.y), BOMBSIZE)
 		if self.exploding:
 			pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
 			[flame.draw() for flame in self.flames]
