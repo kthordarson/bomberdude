@@ -1,7 +1,7 @@
+import random
 import pygame as pg
 #from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
-import random
 from globals import BLOCKSIZE, FPS, POWERUPS
 
 class Block(pg.sprite.Sprite):

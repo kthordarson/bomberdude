@@ -61,10 +61,7 @@ class BlockBomb(pg.sprite.Sprite):
 		self.flame_len = 1
 		self.flame_power = bomb_power
 		self.flame_width = 10
-		self.expand_up = True
-		self.expand_down = True
-		self.expand_right = True
-		self.expand_left = True
+		self.dt = pg.time.get_ticks() / FPS
 		# each bomb has four flames for each side
 		# self.flames = [Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len) for k in range(4)]
 		self.flames = pg.sprite.Group()

@@ -1,3 +1,4 @@
+# bomberdude
 # TODO
 # fix player random teleports
 # fix player placement
@@ -19,10 +20,6 @@ from menus import Menu
 from player import Player
 
 DEBUG = False
-
-class GameOver(BaseException):
-	pass
-
 
 class Game_Data():
 	def __init__(self, screen):
