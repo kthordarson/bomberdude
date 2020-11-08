@@ -24,14 +24,19 @@ class Block(pg.sprite.Sprite):
 		elif self.block_type == 1:
 			self.solid = True
 			self.permanent = True
-			self.block_color = pg.Color('orangered4')
+			self.block_color = pg.Color('orangered1')
 			self.bordercolor = (0,255,0)
 		elif self.block_type == 2:
 			self.solid = True
 			self.permanent = True
-			self.block_color = pg.Color('orangered4')
+			self.block_color = pg.Color('orangered2')
 			self.bordercolor = (244,20,44)
-		elif 2 < self.block_type <= 9:
+		elif self.block_type == 3:
+			self.solid = True
+			self.permanent = True
+			self.block_color = pg.Color('orangered3')
+			self.bordercolor = (144,10,144)
+		elif 4 < self.block_type <= 9:
 			self.solid = True
 			self.permanent = False
 			self.block_color = pg.Color('gray31')
@@ -48,7 +53,7 @@ class Block(pg.sprite.Sprite):
 			self.bordercolor = (55,55,244)
 
 		self.image = pg.Surface((BLOCKSIZE,BLOCKSIZE), pg.SRCALPHA)
-		pg.draw.rect(self.image, self.block_color, (self.pos.x, self.pos.y, BLOCKSIZE, BLOCKSIZE))
+		# pg.draw.rect(self.image, self.block_color, (self.pos.x, self.pos.y, BLOCKSIZE, BLOCKSIZE))
 		self.rect = self.image.get_rect()
 		# self.image.fill(self.block_color, self.rect)
 		# self.rect.center = (50,50)
@@ -63,10 +68,12 @@ class Block(pg.sprite.Sprite):
 		
 	def draw(self):
 		pg.draw.rect(self.screen, self.block_color, (self.pos.x, self.pos.y, BLOCKSIZE, BLOCKSIZE))
+		# pg.draw.rect(self.screen, (255,0,0), (self.pos.x, self.pos.y, BLOCKSIZE, BLOCKSIZE), 1)
 
 	def set_zero(self):
 		self.solid = False
 		self.permanent = False
+		self.block_type = 0
 		self.block_color = pg.Color('black')
 		self.bordercolor = (255,255,255)
 		

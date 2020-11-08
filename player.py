@@ -44,7 +44,7 @@ class Player(pg.sprite.Sprite):
 		# get grid pos of player
 		x = self.gridpos[0]
 		y = self.gridpos[1]
-		if self.bombs_left > 0 and game_data.game_map[x][y] == 0:  # only place bombs if we have bombs... and on free spot...
+		if self.bombs_left > 0: #  and game_data.game_map[x][y] == 0:  # only place bombs if we have bombs... and on free spot...
 			game_data.game_map[x][y] = self.player_id
 			# create bomb at gridpos xy, multiply by BLOCKSIZE for screen coordinates
 			bomb = BlockBomb(pos=(self.rect.centerx, self.rect.centery), bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power, gridpos=self.gridpos)
@@ -64,25 +64,22 @@ class Player(pg.sprite.Sprite):
 		pg.draw.rect(self.screen, self.color, [self.pos.x, self.pos.y, PLAYERSIZE,PLAYERSIZE])
 
 	def update(self, game_data):
+
 		# Move left/right
-		# self.pos += self.vel
 		self.rect.centerx += self.vel.x
 		self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
-		#self.rect.x = self.pos.x
-		#self.rect.y = self.pos.y
-		# self.rect.centerx += self.change_x 
-		# Did this update cause us to hit a wall?
 		block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
 		for block in block_hit_list:
 			# If we are moving right, set our right side to the left side of the item we hit
-			if self.vel[0] >= 1 and block.solid:
+			if self.vel[0] > 0 and block.solid:
 				self.rect.right = block.rect.left
 				self.vel = pg.math.Vector2(0,0)
 			else:
 				# Otherwise if we are moving left, do the opposite.
-				if block.solid:
+				if self.vel[0] < 0 and block.solid:
 					self.rect.left = block.rect.right 
 					self.vel = pg.math.Vector2(0,0)
+
 		# Move up/down
 		self.rect.centery += self.vel.y
 		# self.rect.centery += self.change_y
@@ -90,11 +87,11 @@ class Player(pg.sprite.Sprite):
 		block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
 		for block in block_hit_list: 
 			# Reset our position based on the top/bottom of the object.
-			if self.vel[1] >= 1 and block.solid:
+			if self.vel[1] > 0 and block.solid:
 				self.rect.bottom = block.rect.top
 				self.vel = pg.math.Vector2(0,0)
 			else:
-				if block.solid:
+				if self.vel[1] < 0 and block.solid:
 					self.rect.top = block.rect.bottom
 					self.vel = pg.math.Vector2(0,0)
 		self.pos = pg.math.Vector2(self.rect.x, self.rect.y)

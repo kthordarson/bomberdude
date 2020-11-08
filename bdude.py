@@ -46,8 +46,8 @@ class Game_Data():
 		# place player somewhere where there is no block
 		# returns the (x,y) coordinate where player is to be placed
 		# random starting point from gridmap
-		x = GRID_X // 2 # random.randint(2, GRID_X - 2) 
-		y = GRID_Y // 2  # random.randint(2, GRID_Y - 2)
+		x = int(GRID_X // 2) # random.randint(2, GRID_X - 2) 
+		y = int(GRID_Y // 2)  # random.randint(2, GRID_Y - 2)
 		self.game_map[x][y] = 0
 		# make a clear radius around spawn point
 		for block in list(inside_circle(3, x, y)):
@@ -69,17 +69,7 @@ class Game_Data():
 		return self.game_map[mapx][mapy]
 
 	def set_block(self, x, y, value):
-		# print(f'changemap {x} {y} to {value} curr {self.game_map[x][y]}')
 		self.game_map[x][y] = value
-		# print(f'changemap {x} {y} to {value} curr {self.game_map[x][y]}')
-		# for block in self.blocks:
-		# 	if block.gridpos[0] == x and block.gridpos[1] == y:
-		# 		print(f'setblock {x} {y} {value}')
-		# 		# block.kill()
-		# 		# self.game_map[x][y] = 0
-		# 		# block = Block(x, y, screen=self.screen, block_type=value)
-		# 		# self.blocks.add(block)
-		# 		print(f'setblock {block.x} {block.y} {block.block_type} ')
 
 	def kill_block(self, x, y):
 		# remove block at gridpos x,y
@@ -114,7 +104,9 @@ class Game():
 		self.game_menu = Menu(self.screen)
 		self.info_panel = Info_panel(BLOCKSIZE, GRID_Y * BLOCKSIZE + BLOCKSIZE, self.screen)
 
-	# return screen
+	def set_block(self, x, y, value):
+		self.game_data.game_map[x][y] = value
+
 	def terminate(self):
 		os._exit(1)
 
@@ -143,17 +135,15 @@ class Game():
 							flame.vel.y = 0
 						if block.block_type >= 2:
 							block.set_zero()
-							print(f'Bomb PID {bomb.bomber_id} {bomb.pos} {flame.name:<6} {flame.pos} {type(block)} {block.x} {block.y} {block.pos}' )
-#					for coll in flame_coll:
-#						print(f'Bomb PID {bomb.bomber_id} {bomb.pos} {flame.name:<6} {flame.pos} {type(coll)} {coll.x} {coll.y} {coll.pos}' )
+							# print(f'Bomb PID {bomb.bomber_id} {bomb.pos} {flame.name:<6} {flame.pos} {type(block)} {block.x} {block.y} {block.pos}' )
 			if bomb.done:
 				self.player1.bombs_left += 1  # return bomb to owner when done
 				mapx = bomb.gridpos[0]
 				mapy = bomb.gridpos[1]
 				mapdata = self.game_data.get_block(mapx, mapy)
 				# print(f'Bombdone {mapx} {mapy} {mapdata}')
-				self.game_data.set_block(mapx, mapy, 0)
-				mapdata = self.game_data.get_block(mapx, mapy)
+				self.set_block(mapx, mapy, 0)
+				# mapdata = self.game_data.get_block(mapx, mapy)
 				# print(f'Bombdone {mapx} {mapy} {mapdata}')
 				bomb.kill()
 

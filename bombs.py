@@ -56,7 +56,7 @@ class BlockBomb(pg.sprite.Sprite):
 		self.image = pg.Surface((BOMBSIZE,BOMBSIZE ), pg.SRCALPHA)
 		# todo fix exact placement on grid
 		# pg.draw.rect(self.image, self.block_color, [pos[0], pos[1], BOMBSIZE,BOMBSIZE])
-		pg.draw.circle(self.image, self.block_color, (self.pos.x,self.pos.y), BOMBSIZE)
+		# pg.draw.circle(self.image, self.block_color, (self.pos.x,self.pos.y), BOMBSIZE)
 		# pg.draw.circle(self.image, (255,0,0), [self.x,self.y], BOMBSIZE+30, 15)
 		self.rect = self.image.get_rect()
 		# self.image.fill(self.block_color, self.rect)
@@ -119,7 +119,7 @@ class BlockBomb(pg.sprite.Sprite):
 
 	def draw(self):
 		# pg.draw.rect(self.screen, self.block_color, [self.pos.x,self.pos.y, BOMBSIZE,BOMBSIZE])
-		pg.draw.circle(self.screen, self.block_color, (self.pos.x,self.pos.y), BOMBSIZE)
+		pg.draw.circle(self.screen, self.block_color, (int(self.pos.x),int(self.pos.y)), BOMBSIZE)
 		if self.exploding:
 			pg.draw.circle(self.screen, (255,255,255), (self.rect.centerx, self.rect.centery), self.exp_radius,1)
 			[flame.draw() for flame in self.flames]
