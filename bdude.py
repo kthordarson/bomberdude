@@ -8,16 +8,15 @@
 import asyncio
 import os
 import random
-import time
 
 import pygame as pg
 
 from blocks import Block, Powerup_Block
 from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y
-from globals import inside_circle as inside_circle
-from menus import Info_panel as Info_panel
-from menus import Menu as Menu
-from player import Player as Player
+from globals import inside_circle
+from menus import Info_panel
+from menus import Menu
+from player import Player
 
 DEBUG = False
 
@@ -46,7 +45,7 @@ class Game_Data():
 		# place player somewhere where there is no block
 		# returns the (x,y) coordinate where player is to be placed
 		# random starting point from gridmap
-		x = int(GRID_X // 2) # random.randint(2, GRID_X - 2) 
+		x = int(GRID_X // 2) # random.randint(2, GRID_X - 2)
 		y = int(GRID_Y // 2)  # random.randint(2, GRID_Y - 2)
 		self.game_map[x][y] = 0
 		# make a clear radius around spawn point
@@ -81,7 +80,7 @@ class Game_Data():
 				self.blocks.add(block)
 
 	def place_blocks(self):
-		# block placing stuff		
+		# block placing stuff
 		for k in range(0, GRID_X + 1):
 			for j in range(0, GRID_Y + 1):
 				try:
@@ -100,6 +99,7 @@ class Game():
 		self.bg_color = pg.Color('gray12')
 		self.font = pg.font.SysFont('calibri', 15, True)
 		self.show_mainmenu = True
+		self.running = False
 		# self.paused = True
 		self.game_menu = Menu(self.screen)
 		self.info_panel = Info_panel(BLOCKSIZE, GRID_Y * BLOCKSIZE + BLOCKSIZE, self.screen)
@@ -116,7 +116,7 @@ class Game():
 
 	def check_flame(self, object_one, object_two):
 		# testfunction for collision callbacks
-		if (pg.sprite.collide_mask(object_one, object_two) != None):
+		if pg.sprite.collide_mask(object_one, object_two) != None:
 			#object_one.destroy()
 			#object_two.destroy()
 			return True
@@ -143,7 +143,7 @@ class Game():
 				self.player1.bombs_left += 1  # return bomb to owner when done
 				mapx = bomb.gridpos[0]
 				mapy = bomb.gridpos[1]
-				mapdata = self.game_data.get_block(mapx, mapy)
+				# mapdata = self.game_data.get_block(mapx, mapy)
 				# print(f'Bombdone {mapx} {mapy} {mapdata}')
 				self.set_block(mapx, mapy, 0)
 				# mapdata = self.game_data.get_block(mapx, mapy)
@@ -174,6 +174,9 @@ class Game():
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu()
 		self.info_panel.draw_panel(self.game_data, self.player1)
+
+	def run(self):
+		pass
 
 	def handle_menu(self, selection):
 		# mainmenu
@@ -217,7 +220,8 @@ class Game():
 				if event.key == pg.K_p:
 					self.show_mainmenu ^= True
 				if event.key == pg.K_m:
-					self.paused ^= True
+					pass
+					# self.paused ^= True
 				if event.key == pg.K_q:
 					pass
 					# DEBUG ^= True

@@ -1,12 +1,10 @@
 import pygame as pg
-import pygame.gfxdraw as gfxdraw
-from pygame.locals import *
-from pygame.colordict import THECOLORS as colordict
-import random
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE
+# from pygame.locals import *
+# from pygame.colordict import THECOLORS as colordict
+from globals import BLOCKSIZE, PLAYERSIZE
 
-from blocks import Block, Powerup_Block
-from bombs import BlockBomb, Bomb_Flame
+# from blocks import Block, Powerup_Block
+from bombs import BlockBomb
 class Player(pg.sprite.Sprite):
 	def __init__(self, pos, player_id, screen):
 		super().__init__()
@@ -32,9 +30,6 @@ class Player(pg.sprite.Sprite):
 		self.score = 0
 		self.font = pg.font.SysFont('calibri', 10, True)
 
-	def set_id(self, id):
-		self.player_id = id
-		
 	def drop_bomb(self, game_data):
 		# get grid pos of player
 		x = self.gridpos[0]
@@ -72,14 +67,14 @@ class Player(pg.sprite.Sprite):
 			else:
 				# Otherwise if we are moving left, do the opposite.
 				if self.vel[0] < 0 and block.solid:
-					self.rect.left = block.rect.right 
+					self.rect.left = block.rect.right
 					self.vel = pg.math.Vector2(0,0)
 
 		# Move up/down
 		self.rect.centery += self.vel.y
 		# Check and see if we hit anything
 		block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
-		for block in block_hit_list: 
+		for block in block_hit_list:
 			# Reset our position based on the top/bottom of the object.
 			if self.vel[1] > 0 and block.solid:
 				self.rect.bottom = block.rect.top
@@ -106,4 +101,3 @@ class Player(pg.sprite.Sprite):
 				self.health += 10
 	def add_score(self):
 		self.score += 1
-			

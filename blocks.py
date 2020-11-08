@@ -1,9 +1,8 @@
 import pygame as pg
-from pygame.locals import *
+#from pygame.locals import *
 from pygame.colordict import THECOLORS as colordict
 import random
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE
-from globals import limit as limit
+from globals import BLOCKSIZE, FPS, POWERUPS
 
 class Block(pg.sprite.Sprite):
 	def __init__(self, x, y, screen, block_type):
@@ -65,7 +64,7 @@ class Block(pg.sprite.Sprite):
 
 #	def update(self):
 #		self.pos = pg.math.Vector2(self.rect.x,self.rect.y)
-		
+
 	def draw(self):
 		pg.draw.rect(self.screen, self.block_color, (self.pos.x, self.pos.y, BLOCKSIZE, BLOCKSIZE))
 		# pg.draw.rect(self.screen, (255,0,0), (self.pos.x, self.pos.y, BLOCKSIZE, BLOCKSIZE), 1)
@@ -76,7 +75,7 @@ class Block(pg.sprite.Sprite):
 		self.block_type = 0
 		self.block_color = pg.Color('black')
 		self.bordercolor = (255,255,255)
-		
+
 class Powerup_Block(pg.sprite.Sprite):
 	def __init__(self, x, y, screen):
 		super().__init__()
@@ -121,4 +120,3 @@ class Powerup_Block(pg.sprite.Sprite):
 
 	def draw_outlines(self):
 		pass
-
