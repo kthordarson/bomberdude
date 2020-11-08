@@ -44,26 +44,15 @@ class BlockBomb(pg.sprite.Sprite):
 		super().__init__()
 		self.screen = screen
 		self.pos = pg.math.Vector2(pos[0], pos[1])
-		# self.pos = pg.math.Vector2(pos)
-		# self.pos = (self.pos.x * BLOCKSIZE, self.pos.y * BLOCKSIZE)
 		self.gridpos = gridpos
-		# self.x = x * BLOCKSIZE
-		# self.y = y * BLOCKSIZE
 		self.bomber_id = bomber_id
 		self.block_color = block_color
 		self.start_time = pg.time.get_ticks() / FPS
-		# self.pos = (self.x, self.y)
 		self.image = pg.Surface((BOMBSIZE,BOMBSIZE ), pg.SRCALPHA)
 		# todo fix exact placement on grid
-		# pg.draw.rect(self.image, self.block_color, [pos[0], pos[1], BOMBSIZE,BOMBSIZE])
-		# pg.draw.circle(self.image, self.block_color, (self.pos.x,self.pos.y), BOMBSIZE)
-		# pg.draw.circle(self.image, (255,0,0), [self.x,self.y], BOMBSIZE+30, 15)
 		self.rect = self.image.get_rect()
-		# self.image.fill(self.block_color, self.rect)
 		self.rect.centerx = self.pos.x
 		self.rect.centery = self.pos.y
-		#self.rect.x = self.pos.x # + BLOCKSIZE // 2
-		#self.rect.y = self.pos.y # + BLOCKSIZE // 2
 		self.font = pg.font.SysFont('calibri', 10, True)
 		self.bomb_timer = 100
 		self.exploding = False
@@ -89,13 +78,6 @@ class BlockBomb(pg.sprite.Sprite):
 		self.flames.add(flame)
 		flame = Bomb_Flame(screen=self.screen, pos=(self.rect.centerx, self.rect.centery), flame_length=self.flame_len, vel=(0,-1), name='up')
 		self.flames.add(flame)
-		#flameright = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, vel=(1,0), name='right')  # right
-		#flamedown = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, vel=(0,1), name='down')  # down
-		#flameup = Bomb_Flame(self.rect.centerx, self.rect.centery, self.screen, flame_length=self.flame_len, vel=(0,-1), name='up') # up
-		#self.flames.add(flameleft)
-		#self.flames.add(flameright)
-		#self.flames.add(flamedown)
-		#self.flames.add(flameup)
 
 	def update(self):
 		self.dt = pg.time.get_ticks() / FPS
@@ -109,10 +91,6 @@ class BlockBomb(pg.sprite.Sprite):
 			self.exp_steps -= 1 # animation steps ?
 			if self.exp_steps <= 0: # stop animation and kill bomb
 				self.done = True
-				# self.kill()
-				# self.exploding = False
-				# self.done = True
-				# self.kill() # destroy flame
 	def update_map(self, game_map):
 		# do stuff with map after explosion...
 		return game_map

@@ -133,8 +133,11 @@ class Game():
 						if block.block_type >= 1:
 							flame.vel.x = 0
 							flame.vel.y = 0
-						if block.block_type >= 2:
-							block.set_zero()
+						if block.block_type >= 3: 		# block_type 1,2,3 = solid orange
+							block.set_zero()      		# block_type 4 and up can be destroyed
+							self.player1.add_score()	# give player some score
+							powerblock = Powerup_Block(block.gridpos[0], block.gridpos[1], screen=self.screen)  # create powerupblock
+							self.game_data.powerblocks.add(powerblock) # add new powerblock to powerblocks list
 							# print(f'Bomb PID {bomb.bomber_id} {bomb.pos} {flame.name:<6} {flame.pos} {type(block)} {block.x} {block.y} {block.pos}' )
 			if bomb.done:
 				self.player1.bombs_left += 1  # return bomb to owner when done
@@ -171,29 +174,6 @@ class Game():
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu()
 		self.info_panel.draw_panel(self.game_data, self.player1)
-
-	def handle_bombs(self):
-		for bomb in self.game_data.bombs:
-			if bomb.exploding:
-				for flame in bomb.flames:
-					flame_coll = pg.sprite.spritecollide(flame, self.game_data.blocks, False)
-					for coll in flame_coll:
-						print(f'Bomb PID {bomb.bomber_id} {bomb.pos} {flame.name:<6} {flame.pos} {coll.x} {coll.y} {coll.pos}' )
-
-	def handle_powerups(self):
-		# powerups stuff
-		for powerblock in self.game_data.powerblocks:
-			powerplayers = pg.sprite.spritecollide(powerblock, self.players, False)
-			for player in powerplayers:
-				player.take_powerup(powerblock)
-				powerblock.taken = True
-			if powerblock.time_left <= 0 or powerblock.taken:
-				self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
-				newblock = Block(powerblock.gridpos[0], powerblock.gridpos[1], screen=self.screen, block_type=0)
-				self.game_data.blocks.add(newblock)
-				powerblock.kill()
-			if powerblock.ending_soon:
-				powerblock.flash()
 
 	def handle_menu(self, selection):
 		# mainmenu
@@ -309,8 +289,6 @@ async def main_loop(game):
 		dt = mainClock.tick(FPS)
 		pg.event.pump()
 		game.handle_input()
-		# game.handle_bombs()
-		# game.handle_powerups()
 		game.players.update(game.game_data)
 		game.game_data.blocks.update()
 		game.game_data.powerblocks.update()

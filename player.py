@@ -16,9 +16,6 @@ class Player(pg.sprite.Sprite):
 		self.image = pg.Surface((PLAYERSIZE,PLAYERSIZE)) # , pg.SRCALPHA, 32)
 		self.color = pg.Color('blue')
 		pg.draw.rect(self.image, self.color, [self.pos.x, self.pos.y, PLAYERSIZE,PLAYERSIZE])
-		# pg.draw.circle(self.image, (0,0,0), (self.x, self.y), 2)
-		#gfxdraw.aacircle(self.image, self.x, self.y, 15, (255,255,255))
-		#pg.gfxdraw.filled_circle(self.image, self.x, self.y, 15, (255,255,255))
 		self.rect = self.image.get_rect()
 		self.image.fill(self.color, self.rect)
 		self.rect.centerx = self.pos.x
@@ -37,8 +34,6 @@ class Player(pg.sprite.Sprite):
 
 	def set_id(self, id):
 		self.player_id = id
-		# self.image.fill((random.randint(100,200),0,random.randint(100,255)), self.rect)
-		# pg.draw.rect(self.image, (random.randint(100,200),0,random.randint(100,255)), self.rect)
 		
 	def drop_bomb(self, game_data):
 		# get grid pos of player
@@ -82,7 +77,6 @@ class Player(pg.sprite.Sprite):
 
 		# Move up/down
 		self.rect.centery += self.vel.y
-		# self.rect.centery += self.change_y
 		# Check and see if we hit anything
 		block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
 		for block in block_hit_list: 
