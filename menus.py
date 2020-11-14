@@ -1,37 +1,29 @@
 import pygame as pg
-# from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, POWERUPS, PLAYERSIZE
-# from globals import inside_circle
-
+import pygame.freetype
 class Info_panel():
 	def __init__ (self, x, y, screen):
 		self.screen = screen
-		self.x = x
-		self.y = y
+		self.pos = pg.math.Vector2(x,y)
 		self.panelitems = []
-		self.font = pg.font.SysFont('calibri', 15, True)
-		self.font_color = [255,255,255]
+		self.font = pg.freetype.Font("DejaVuSans.ttf", 12)
+		self.font_color = (255,255,255)
 	def add_panel_item(self, item):
 		self.panelitems.append(item)
 	def draw_panel(self, game_data, player1):
-		texts = []
 		# todo fix this shit
-		try:
-			texts.append(self.font.render(f'player pos x:{player1.rect.x} y:{player1.rect.y} grid:{player1.gridpos} vel:{player1.vel} map:{game_data.game_map[player1.gridpos[0]][player1.gridpos[1]]}', 1, [255,255,255], [10,10,10]))
-			texts.append(self.font.render(f'player health: {player1.health} max bombs {player1.max_bombs} bombs left {player1.bombs_left} bomb power: {player1.bomb_power} speed: {player1.speed}', 1, [255,255,255], [10,10,10]))
-			texts.append(self.font.render(f'score: {player1.score}', 1, [255,255,255], [10,10,10]))
-			for k, text in enumerate(texts):
-				self.screen.blit(text, (self.x, self.y + (k*self.font.get_height())))
-		except Exception as e:
-			print(f'fatal error {e}')
-	def update(self, game_data):
-		pass
+		self.font.render_to(self.screen, self.pos, f'player pos x:{player1.rect.x} y:{player1.rect.y} grid:{player1.gridpos} vel:{player1.vel} map:{game_data.game_map[player1.gridpos[0]][player1.gridpos[1]]}', self.font_color)
+		self.font.render_to(self.screen, (self.pos.x, self.pos.y+12), f'bombs: {player1.bombs_left} score: {player1.score}', self.font_color)
+
+
 class Menu():
 	def __init__(self, screen):
 		self.screen = screen
-		self.menu_pos = [100,100]
-		self.selected_color = [255,255,255]
-		self.inactive_color = [55,55,55]
-		self.menufont = pg.font.SysFont('calibri', 35, True)
+		self.pos = pg.math.Vector2(100,100)
+		self.selected_color = (255,255,255)
+		self.inactive_color = (55,55,55)
+		self.menufont = pg.freetype.Font("DejaVuSans.ttf", 24)
+		self.menufont.fgcolor = self.selected_color
+		# self.menufont.bgcolor = (44,55,66)
 		self.menuitems = []
 		self.menuitems.append('Start')
 		self.menuitems.append('Start server')
@@ -41,17 +33,17 @@ class Menu():
 		self.menuitems.append('Quit')
 		self.selected_item = 0
 
-	def draw_mainmenu(self):
-		pos_y = self.menu_pos[1]
-		pg.draw.rect(self.screen, (0,0,0), (self.menu_pos[0], self.menu_pos[1], 400,self.menufont.get_height()*len(self.menuitems)))
+	def draw_mainmenu(self, screen):
+		pos_y = self.pos.y
+		rect = pg.draw.rect(screen, (220, 0, 0), (self.pos.x, self.pos.y, 150, 160))
 		for item in enumerate(self.menuitems):
 			if item[0] == self.selected_item:
-				text_color = self.selected_color
+				self.menufont.fgcolor = self.selected_color
 			else:
-				text_color = self.inactive_color
-			text = self.menufont.render(item[1], 1, text_color, [1,1,1])
-			self.screen.blit(text, (self.menu_pos[0], pos_y))
-			pos_y += self.menufont.get_height()
+				self.menufont.fgcolor = self.inactive_color
+			self.menufont.render_to(screen, (111, pos_y), item[1], self.menufont.fgcolor)
+			pos_y += 25
+
 	def get_selection(self):
 		return self.menuitems[self.selected_item]
 	def menu_up(self):

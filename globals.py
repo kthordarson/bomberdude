@@ -11,7 +11,10 @@ POWERUPS = {
 	'addbomb'   : 13,
 	'healthup'   : 14,
 }
-
+# block = Block(k, j, screen=self.screen, block_type=block_type, solid=False, permanent=False, block_color=pg.Color('black'))
+BLOCKTYPE = {
+	'block_type' : 10,
+}
 def limit(num, minimum=1, maximum=255):
 	return max(min(num, maximum), minimum)
 

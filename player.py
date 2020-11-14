@@ -1,19 +1,18 @@
 import pygame as pg
-# from pygame.locals import *
-# from pygame.colordict import THECOLORS as colordict
 from globals import BLOCKSIZE, PLAYERSIZE
 
 # from blocks import Block, Powerup_Block
 from bombs import BlockBomb
 class Player(pg.sprite.Sprite):
-	def __init__(self, pos, player_id, screen):
+	def __init__(self, pos, player_id):
 		super().__init__()
-		self.screen = screen
-		self.pos = pos # pg.math.Vector2(pos)
-		self.vel = pg.math.Vector2(0,0)
-		self.image = pg.Surface((PLAYERSIZE,PLAYERSIZE)) # , pg.SRCALPHA, 32)
+		# self.screen = screen
+		self.pos = pg.math.Vector2(pos[0], pos[1])
+		self.vel = pg.math.Vector2(0, 0)
+		self.image = pg.Surface((PLAYERSIZE, PLAYERSIZE), pg.SRCALPHA) # , pg.SRCALPHA, 32)
 		self.color = pg.Color('blue')
-		pg.draw.rect(self.image, self.color, [self.pos.x, self.pos.y, PLAYERSIZE,PLAYERSIZE])
+		pg.draw.rect(self.image, self.color, [self.pos.x, self.pos.y, PLAYERSIZE, PLAYERSIZE])
+		self.image.set_alpha(255)
 		self.rect = self.image.get_rect()
 		self.image.fill(self.color, self.rect)
 		self.rect.centerx = self.pos.x
@@ -37,8 +36,7 @@ class Player(pg.sprite.Sprite):
 		if self.bombs_left > 0: #  and game_data.game_map[x][y] == 0:  # only place bombs if we have bombs... and on free spot...
 			game_data.game_map[x][y] = self.player_id
 			# create bomb at gridpos xy, multiply by BLOCKSIZE for screen coordinates
-			bomb = BlockBomb(pos=(self.rect.centerx, self.rect.centery), bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power, gridpos=self.gridpos)
-			# bomb = BlockBomb(x=x, y=y, bomber_id=self.player_id, block_color=pg.Color('yellow'), screen=self.screen, bomb_power=self.bomb_power)
+			bomb = BlockBomb(pos=(self.rect.centerx, self.rect.centery), bomber_id=self.player_id, block_color=pg.Color('yellow'), bomb_power=self.bomb_power, gridpos=self.gridpos)
 			game_data.bombs.add(bomb)
 			self.bombs_left -= 1
 		else:
@@ -50,15 +48,11 @@ class Player(pg.sprite.Sprite):
 		if self.health <= 0:
 			self.dead = True
 
-	def draw(self):
-		pg.draw.rect(self.screen, self.color, [self.pos.x, self.pos.y, PLAYERSIZE,PLAYERSIZE])
-
-	def update(self, game_data):
-
+	def update(self, blocks):
 		# Move left/right
 		self.rect.centerx += self.vel.x
 		self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
-		block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
+		block_hit_list = pg.sprite.spritecollide(self, blocks, False)
 		for block in block_hit_list:
 			# If we are moving right, set our right side to the left side of the item we hit
 			if self.vel[0] > 0 and block.solid:
@@ -73,7 +67,7 @@ class Player(pg.sprite.Sprite):
 		# Move up/down
 		self.rect.centery += self.vel.y
 		# Check and see if we hit anything
-		block_hit_list = pg.sprite.spritecollide(self, game_data.blocks, False)
+		block_hit_list = pg.sprite.spritecollide(self, blocks, False)
 		for block in block_hit_list:
 			# Reset our position based on the top/bottom of the object.
 			if self.vel[1] > 0 and block.solid:
