@@ -18,11 +18,15 @@ class Info_panel():
 class Menu():
 	def __init__(self, screen):
 		self.screen = screen
-		self.pos = pg.math.Vector2(100,100)
+		w, h = pg.display.get_surface().get_size()
+		self.menusize = [250, 180]
+		self.pos = pg.math.Vector2(w // 2 - self.menusize[0] // 2, h // 2 - self.menusize[1] // 2)
 		self.selected_color = (255,255,255)
-		self.inactive_color = (55,55,55)
+		self.inactive_color = (155,155,155)
 		self.menufont = pg.freetype.Font("DejaVuSans.ttf", 24)
 		self.menufont.fgcolor = self.selected_color
+		self.bgcolor = pg.Color('darkred')
+		self.bordercolor = pg.Color('black')
 		# self.menufont.bgcolor = (44,55,66)
 		self.menuitems = []
 		self.menuitems.append('Start')
@@ -32,16 +36,25 @@ class Menu():
 		self.menuitems.append('Restart')
 		self.menuitems.append('Quit')
 		self.selected_item = 0
+	def draw_menubg(self, screen):
+		
+		bordersize = 5
+		menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
+		pg.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1]))  # background
+		pg.draw.line(screen, self.bordercolor, menupos, (menupos[0] , menupos[1] + self.menusize[1]), bordersize)  # left border
+		pg.draw.line(screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # right border
+		pg.draw.line(screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize)  # top border
+		pg.draw.line(screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # bottom border
 
 	def draw_mainmenu(self, screen):
+		self.draw_menubg(screen)
 		pos_y = self.pos.y
-		rect = pg.draw.rect(screen, (220, 0, 0), (self.pos.x, self.pos.y, 150, 160))
 		for item in enumerate(self.menuitems):
 			if item[0] == self.selected_item:
 				self.menufont.fgcolor = self.selected_color
 			else:
 				self.menufont.fgcolor = self.inactive_color
-			self.menufont.render_to(screen, (111, pos_y), item[1], self.menufont.fgcolor)
+			self.menufont.render_to(screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
 			pos_y += 25
 
 	def get_selection(self):

@@ -142,6 +142,14 @@ class Game():
 		self.player1.update(self.blocks)
 		self.update_bombs()
 		self.update_powerblock()
+		self.update_blocks()
+
+	def update_blocks(self):
+		for block in self.blocks:
+			if not block.hit:
+				colls = pg.sprite.spritecollide(block, block.particles, False)
+				if len(colls) > 0:
+					print(f'coll {len(colls)}')
 
 	def update_bombs(self):
 		self.bombs.update()

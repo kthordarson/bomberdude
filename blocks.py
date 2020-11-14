@@ -25,10 +25,7 @@ class Particle(pg.sprite.Sprite):
 
 	def draw(self, screen):
 		pass
-		# self.update()
-		# if self.move:
-		# pg.draw.circle(screen, self.color, (int(self.pos.x), int(self.pos.y)), 5)
-		# pg.draw.rect(screen, self.color, (self.pos.x, self.pos.y, 3, 3))
+
 	def bounce(self, screen):
 		self.pos += self.vel
 		col = [self.color[0], self.color[1], self.color[2]] # color fading foobar
@@ -72,12 +69,13 @@ class Block(pg.sprite.Sprite):
 		self.rect.y = self.pos.y
 		self.explode = False
 		self.particles = pg.sprite.Group()
-		[self.particles.add(Particle(self.pos)) for k in range(2, random.randint(4,10))]
+		# [self.particles.add(Particle(self.pos)) for k in range(2, random.randint(4,10))]
 		self.ending_soon = False
 		self.timer = 400
 		self.time_left = self.timer
 		self.start_time = -1
 		self.dt = pg.time.get_ticks() / FPS
+		self.hit = False
 
 	def update(self):
 		pass
@@ -87,22 +85,19 @@ class Block(pg.sprite.Sprite):
 
 	def set_zero(self):
 		pass
-		# self.block_type = 0
-		# self.block_color = pg.Color('black')
-		# self.bordercolor = (255, 255, 255)
 
 	def drop_powerblock(self):
 		self.start_time = pg.time.get_ticks() / FPS
 		self.block_color = pg.Color('green')
 		self.dt = pg.time.get_ticks() / FPS
 		self.size = BLOCKSIZE // 2
-		# self.pos.x += self.size
-		# self.pos.y += self.size
 		self.solid = False
 		self.permanent = False
+
 	def take_damage(self, screen):
-		# [particle.draw(screen) for particle in self.particles]
-		# [particle.update() for particle in self.particles]
+		self.hit = True
+		# [self.particles.add(Particle(self.pos)) for k in range(2, random.randint(4,10))]
+		self.particles.add(Particle(self.pos))
 		[particle.bounce(screen) for particle in self.particles]
 
 class Powerup_Block(pg.sprite.Sprite):
