@@ -24,17 +24,18 @@ DEBUG = False
 class Game_Data():
 	def __init__(self, screen):
 		self.screen = screen
-		self.game_map = None # [[random.randint(0, 9) for k in range(GRID_Y + 1)] for j in range(GRID_X + 1)]
+		self.game_map = self.generate_map()  # None # [[random.randint(0, 9) for k in range(GRID_Y + 1)] for j in range(GRID_X + 1)]
 
 	def generate_map(self):
-		self.game_map = [[random.randint(0, 9) for k in range(GRID_Y + 1)] for j in range(GRID_X + 1)]
-		# set edges to solid blocks, 0 = solid block
+		game_map = [[random.randint(0, 9) for k in range(GRID_Y + 1)] for j in range(GRID_X + 1)]
+		# set edges to solid blocks, 10 = solid blockwalkk
 		for x in range(GRID_X + 1):
-			self.game_map[x][0] = 1
-			self.game_map[x][GRID_Y] = 1
+			game_map[x][0] = 10
+			game_map[x][GRID_Y] = 10
 		for y in range(GRID_Y + 1):
-			self.game_map[0][y] = 1
-			self.game_map[GRID_X][y] = 1
+			game_map[0][y] = 10
+			game_map[GRID_X][y] = 10
+		return game_map
 
 	def place_player(self):
 		# place player somewhere where there is no block
@@ -84,6 +85,8 @@ class Game_Data():
 						block = Block(gridpos=(k, j), block_type=block_type, solid=True, permanent=True, block_color=pg.Color('orangered3'))	# wall solid, permanent
 					elif 4 <= block_type <= 9:
 						block = Block(gridpos=(k, j), block_type=block_type, solid=True, permanent=False, block_color=pg.Color('gray31'))		# solid not permanent
+					elif block_type == 10:
+						block = Block(gridpos=(k, j), block_type=block_type, solid=True, permanent=True, block_color=pg.Color('steelblue4'))		# sidewalls
 					elif block_type == 99:
 						block = Block(gridpos=(k, j), block_type=block_type, solid=False, permanent=False, block_color=pg.Color('black'))		# not solid not permanent
 					else:
@@ -91,6 +94,7 @@ class Game_Data():
 					blocks.add(block)
 				except Exception as e:
 					print(f'[get_blocks] {k}.{j} {type(block)} {block_type} {e}')
+		print(f'[get_blocks] returning {len(blocks)}')
 		return blocks
 
 class Game():
@@ -113,6 +117,7 @@ class Game():
 		self.bombs.flames = pg.sprite.Group()
 		self.game_menu = Menu(self.screen)
 		self.info_panel = Info_panel(BLOCKSIZE, GRID_Y * BLOCKSIZE + BLOCKSIZE, self.screen)
+		self.show_panel = True
 
 	def set_block(self, x, y, value):
 		self.game_data.game_map[x][y] = value
@@ -146,22 +151,18 @@ class Game():
 
 	def update_blocks(self):
 		for block in self.blocks:
-			block.update()
+			# block.update()
 			if not block.powerblock:
 				colls = pg.sprite.spritecollide(block, block.particles, False)				
 				if len(colls) > 0:
-					for item in colls:
-						if type(item) is Particle:
-							if block.powerblock:
-								block.block_color = (255, 255, 255)
-							else:
-								block.take_damage(self.screen, item)
-							item.vel = pg.math.Vector2(0, 0)
-							item.color = (255, 255, 255)
-							item.alpha = 1
-							print(f'[update_blocks] coll {len(colls)} {type(colls)} item {item.pos} {item.vel}')
-						else:
-							print(f'[update_blocks] xcoll {len(colls)} {type(colls)} item {item.pos} {item.vel}')
+					for item in colls:						
+						if isinstance(item, Particle):
+							#item.vel = - item.vel  # pg.math.Vector2(0, 0)
+							# block.take_damage(self.screen, item)
+							print(f'[update_blocks] coll {len(colls)} block: {type(block)} pos: {block.pos} t: {block.block_type} p: {len(block.particles)} item: {type(item)} pos: {item.pos} vel: {item.vel}')
+							item.kill()
+							#self.screen.set_at((int(block.pos.x), int(block.pos.y)), pg.Color('white'))
+							#self.screen.set_at((int(item.pos.x), int(item.pos.y)), pg.Color('white'))							
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -213,7 +214,8 @@ class Game():
 		self.players.draw(self.screen)
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
-		self.info_panel.draw_panel(self.game_data, self.player1)
+		if self.show_panel:
+			self.info_panel.draw_panel(game_data=self.game_data, blocks=self.blocks, player1=self.player1)
 
 	def handle_menu(self, selection):
 		# mainmenu
@@ -254,7 +256,7 @@ class Game():
 					self.player1.bombs_left = 10
 					self.player1.speed = 10
 				if event.key == pg.K_p:
-					self.show_mainmenu ^= True
+					self.show_panel ^= True
 				if event.key == pg.K_m:
 					pass
 					# self.paused ^= True

@@ -5,22 +5,38 @@ from pygame.colordict import THECOLORS as colordict
 from globals import BLOCKSIZE, FPS, POWERUPS
 
 class Particle(pg.sprite.Sprite):
-	def __init__(self, pos):
+	def __init__(self, pos, direction=None, blockrect=None):
 		super().__init__()
 		# self.screen = screen
-		self.pos = pg.math.Vector2(pos.x, pos.y)
-		self.vel = pg.math.Vector2(random.uniform(-2,2), random.uniform(-2,2))  # pg.math.Vector2(0, 0)
-		# self.vel = pg.math.Vector2(0,0)
+		self.blockrect = blockrect
 		self.color = random.choice(list(colordict.items()))[1]  # (255, 155, 55)
-		self.image = pg.Surface((13, 13), pg.SRCALPHA)
-		self.image.set_alpha(100)
+		self.image = pg.Surface((3, 3), pg.SRCALPHA)
+		self.direction = direction
+		self.alpha = 255
+		self.alpha_mod = -3
+		self.image.set_alpha(self.alpha)
 		self.rect = self.image.get_rect()  # pg.draw.rect(self.image, self.color, (self.pos.x, self.pos.y, 1, 1))
-		self.alpha = 0
 		self.image.set_alpha(self.alpha)
 		self.image.fill(self.color, self.rect)
-		self.rect.centerx = self.pos.x
-		self.rect.centery = self.pos.y
+		self.pos = pg.math.Vector2(pos.x, pos.y)
+		self.vel = pg.math.Vector2(random.uniform(-2,2), random.uniform(-2,2))  # pg.math.Vector2(0, 0)
+		if self.direction == 'up' and self.vel.y <= 0:
+			self.vel.y = -self.vel.y
+			self.pos = self.blockrect.midbottom
+		if self.direction == 'down' and self.vel.y >= 0:
+			self.vel.y = -self.vel.y
+			self.pos = self.blockrect.midtop
+		if self.direction == 'right' and self.vel.x >= 0:
+			self.vel.x = -self.vel.x
+			self.pos = self.blockrect.midleft
+		if self.direction == 'left' and self.vel.x <= 0:
+			self.vel.x = -self.vel.x
+			self.pos = self.blockrect.midright
+		# self.vel = pg.math.Vector2(0,0)
+		#self.rect.centerx = self.pos.x
+		#self.rect.centery = self.pos.y
 		self.move = False
+		self.radius = 2
 
 		self.timer = 100
 		self.time_left = self.timer
@@ -36,35 +52,39 @@ class Particle(pg.sprite.Sprite):
 		self.dt = pg.time.get_ticks() / FPS
 		if self.dt - self.start_time >= self.timer:
 			self.time_left = 0
+			# print(f'[particle] timekill {self.pos} v {self.vel} c {self.color} a {self.alpha}')
 			self.kill()
-			print(f'[k] p {self.pos} v {self.vel} c {self.color} a {self.alpha}')
 		self.pos += self.vel
-		self.alpha += 12
-		if self.alpha >= 255:
+		self.alpha += self.alpha_mod
+		if self.alpha <= 0:
+			self.alpha = 0
+			# print(f'[particle] alphakill {self.pos} v {self.vel} c {self.color} a {self.alpha}')
 			self.kill()
-			# print(f'[k] p {self.pos} v {self.vel} c {self.color} a {self.alpha}')
-		col = [self.color[0], self.color[1], self.color[2]] # color fading foobar
-		if col[0] > 0:
-			col_r = col[0]  - 13
-			if col_r <= 0:
-				col_r = 0
-		else:
-			col_r = col[0]
-		if col[1] > 0:
-			col_g = col[1]  - 13
-			if col_g <= 0:
-				col_g = 0
-		else:
-			col_g = col[1]
-		if col[2] > 0:
-			col_b = col[2]  - 13
-			if col_b <= 0:
-				col_b = 0
-		else:
-			col_b = col[2]
-		self.color = [col_r, col_g, col_b]
+		# col = [self.color[0], self.color[1], self.color[2]] # color fading foobar
+		# if col[0] > 0:
+		# 	col_r = col[0]  - 13
+		# 	if col_r <= 0:
+		# 		col_r = 0
+		# else:
+		# 	col_r = col[0]
+		# if col[1] > 0:
+		# 	col_g = col[1]  - 13
+		# 	if col_g <= 0:
+		# 		col_g = 0
+		# else:
+		# 	col_g = col[1]
+		# if col[2] > 0:
+		# 	col_b = col[2]  - 13
+		# 	if col_b <= 0:
+		# 		col_b = 0
+		# else:
+		# 	col_b = col[2]
+		# self.color = [col_r, col_g, col_b]
 		# print(f'[bounce] pos {self.pos} vel {self.vel} color {col}')
-		pg.draw.rect(screen, self.color, (self.pos.x, self.pos.y, 3, 3))
+		# pg.draw.rect(screen, self.color, (self.pos.x, self.pos.y, 3, 3))
+		self.image.set_alpha(self.alpha)
+		pg.draw.circle(self.image, self.color, (int(self.pos.x), int(self.pos.y)), self.radius)
+		screen.blit(self.image, self.pos)
 
 class Block(pg.sprite.Sprite):
 	def __init__(self, gridpos, block_type, solid=True, permanent=False, block_color=(40,30,60), border_color=(255,255,255)):
@@ -98,10 +118,12 @@ class Block(pg.sprite.Sprite):
 		self.start_time = -1  #  will be set when block converts to powerup
 		self.dt = pg.time.get_ticks() / FPS
 		self.powerblock = False
+		self.hit = False
 		self.font = pg.freetype.Font("DejaVuSans.ttf", 10)
 		self.font.fgcolor = pg.Color('white')
 
 	def update(self):
+		# [particle.bounce(screen) for particle in self.particles]
 		if self.powerblock:
 			self.dt = pg.time.get_ticks() / FPS
 			# print(f'[block] poweruptimer {self.timer} {self.time_left} {self.start_time} {self.dt - self.start_time}')
@@ -118,8 +140,9 @@ class Block(pg.sprite.Sprite):
 				self.ending_soon = True
 
 	def draw(self, screen):
-		if self.block_type > 0:
-			pg.draw.rect(screen, self.block_color, (self.pos.x, self.pos.y, self.size, self.size))
+		#if self.block_type > 0:
+		[particle.bounce(screen) for particle in self.particles]
+		pg.draw.rect(screen, self.block_color, (self.pos.x, self.pos.y, self.size, self.size))
 			# self.font.render_to(screen, (self.pos.x+2, self.pos.y), f'{self.block_type}', self.font.fgcolor)
 		# self.font.render_to(screen, (self.pos.x+2, self.pos.y), f'{self.gridpos[0]}', self.font.fgcolor)
 		# self.font.render_to(screen, (self.pos.x+2, self.pos.y+10), f'{self.gridpos[1]}', self.font.fgcolor)
@@ -139,11 +162,14 @@ class Block(pg.sprite.Sprite):
 			self.pos.y += 5
 			self.powerblock = True
 			print(f'[powerblock] {self.pos} {self.gridpos} {self.powerblock} ')
+			self.hit = False
 
 	def take_damage(self, screen, flame):
-		# [self.particles.add(Particle(self.pos)) for k in range(2, random.randint(4,10))]
-		self.particles.add(Particle(flame.pos))
-		[particle.bounce(screen) for particle in self.particles]
+		if not self.hit:
+			[self.particles.add(Particle(self.pos, flame.direction, self.rect)) for k in range(2, random.randint(4,10))]
+			self.hit = True
+		# self.particles.add(Particle(flame.pos))
+
 		# print(f'[part] {len(self.particles)}')
 
 class Powerup_Block(pg.sprite.Sprite):

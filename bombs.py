@@ -7,9 +7,9 @@ BOMBSIZE = 5
 
 
 class Bomb_Flame(pg.sprite.Sprite):
-	def __init__(self, name, rect, vel, flame_length):
+	def __init__(self, direction, rect, vel, flame_length):
 		super().__init__()
-		self.name = name
+		self.direction = direction
 		self.flame_length = flame_length
 		self.color = pg.Color('red')
 		self.pos = pg.math.Vector2(rect.centerx, rect.centery)
@@ -72,14 +72,14 @@ class BlockBomb(pg.sprite.Sprite):
 		self.dt = pg.time.get_ticks() / FPS
 		# each bomb has four flames for each side
 		self.flames = pg.sprite.Group()
-		# screen, name, pos, vel, flame_length
-		flame = Bomb_Flame(rect=self.rect, flame_length=self.flame_len, vel=(-1, 0), name='left')
+		# screen, direction, pos, vel, flame_length
+		flame = Bomb_Flame(rect=self.rect, flame_length=self.flame_len, vel=(-1, 0), direction='left')
 		self.flames.add(flame)
-		flame = Bomb_Flame(rect=self.rect, flame_length=self.flame_len, vel=(1, 0), name='right')
+		flame = Bomb_Flame(rect=self.rect, flame_length=self.flame_len, vel=(1, 0), direction='right')
 		self.flames.add(flame)
-		flame = Bomb_Flame(rect=self.rect, flame_length=self.flame_len, vel=(0, 1), name='down')
+		flame = Bomb_Flame(rect=self.rect, flame_length=self.flame_len, vel=(0, 1), direction='down')
 		self.flames.add(flame)
-		flame = Bomb_Flame(rect=self.rect, flame_length=self.flame_len, vel=(0, -1), name='up')
+		flame = Bomb_Flame(rect=self.rect, flame_length=self.flame_len, vel=(0, -1), direction='up')
 		self.flames.add(flame)
 
 	def update(self):
@@ -102,7 +102,7 @@ class BlockBomb(pg.sprite.Sprite):
 		return game_map
 
 	def draw(self, screen):
-		pg.draw.rect(screen, self.block_color, [self.pos.x,self.pos.y, BOMBSIZE, BOMBSIZE])
+		# pg.draw.rect(screen, self.block_color, [self.pos.x,self.pos.y, BOMBSIZE, BOMBSIZE])
 		pg.draw.circle(screen, self.block_color, (int(self.pos.x), int(self.pos.y)), BOMBSIZE)
 		if self.exploding:
 			pg.draw.circle(screen, (255, 255, 255), (self.rect.centerx, self.rect.centery), self.exp_radius, 1)

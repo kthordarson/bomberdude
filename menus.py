@@ -1,5 +1,7 @@
 import pygame as pg
 import pygame.freetype
+from functools import reduce
+from operator import mul
 class Info_panel():
 	def __init__ (self, x, y, screen):
 		self.screen = screen
@@ -9,11 +11,17 @@ class Info_panel():
 		self.font_color = (255,255,255)
 	def add_panel_item(self, item):
 		self.panelitems.append(item)
-	def draw_panel(self, game_data, player1):
+	def draw_panel(self, game_data, blocks, player1):
 		# todo fix this shit
+		# parts = reduce(mul, [len(block.particles) for block in blocks])
+		parts = 0
+		for block in blocks:
+			parts += len(block.particles)
+		blockcount = len(blocks)
+		# print(f'p {parts}')
 		self.font.render_to(self.screen, self.pos, f'player pos x:{player1.rect.x} y:{player1.rect.y} grid:{player1.gridpos} vel:{player1.vel} map:{game_data.game_map[player1.gridpos[0]][player1.gridpos[1]]}', self.font_color)
 		self.font.render_to(self.screen, (self.pos.x, self.pos.y+12), f'bombs: {player1.bombs_left} score: {player1.score}', self.font_color)
-		# self.font.render_to(self.screen, (self.pos.x, self.pos.y+12*2), f'sprites {len(game_data)}', self.font_color)
+		self.font.render_to(self.screen, (self.pos.x, self.pos.y+25), f'blocks: {blockcount} particles {parts}', self.font_color)
 
 
 class Menu():
