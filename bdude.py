@@ -111,7 +111,7 @@ class Game():
 		self.player1 = Player(pos=self.game_data.place_player(), player_id=33)
 		self.players.add(self.player1)
 		self.blocks = self.game_data.get_blocks()
-		self.blocks.particles = pg.sprite.Group()
+		self.blocksparticles = pg.sprite.Group()
 		self.powerblocks = pg.sprite.Group()
 		self.bombs = pg.sprite.Group()
 		self.bombs.flames = pg.sprite.Group()
@@ -148,21 +148,35 @@ class Game():
 		self.update_bombs()
 		# self.update_powerblock()
 		self.update_blocks()
+		[particle.update(self.screen) for particle in self.blocksparticles]
 
 	def update_blocks(self):
 		for block in self.blocks:
-			# block.update()
-			if not block.powerblock:
-				colls = pg.sprite.spritecollide(block, block.particles, False)				
-				if len(colls) > 0:
-					for item in colls:						
-						if isinstance(item, Particle):
-							#item.vel = - item.vel  # pg.math.Vector2(0, 0)
-							# block.take_damage(self.screen, item)
-							print(f'[update_blocks] coll {len(colls)} block: {type(block)} pos: {block.pos} t: {block.block_type} p: {len(block.particles)} item: {type(item)} pos: {item.pos} vel: {item.vel}')
-							item.kill()
-							#self.screen.set_at((int(block.pos.x), int(block.pos.y)), pg.Color('white'))
-							#self.screen.set_at((int(item.pos.x), int(item.pos.y)), pg.Color('white'))							
+			partcoll = block.collide(self.blocksparticles) # for particle in block.particles
+			if len(partcoll) > 0:
+				for particle in partcoll:
+					if isinstance(particle, Particle) and block.solid:
+						# pg.draw.circle(self.screen, (255, 255, 255), (int(block.pos.x), int(block.pos.y)), 4)
+						particle.vel = -particle.vel
+						# particle.vel.y = -particle.vel.y
+						#pg.draw.circle(self.screen, (255, 255, 255), (int(item.pos.x), int(item.pos.y)), 4)
+						#print(f'[partcoll] {len(partcoll)} pos:{item.pos} vel:{item.vel} ')
+#			if block.solid:
+#				colls = block.partcoll()
+				# colls = pg.sprite.groupcollide(block.particles, self.blocks, False, False)
+				#colls = pg.sprite.spritecollide(block, self.blocks.particles, False, False)
+				# if len(colls) > 0:
+				# 	for item in colls:
+				# 		if isinstance(item, Particle):
+				# 			if block.solid:
+				# 				item.vel.x = - item.vel.x
+				# 				item.vel.y = - item.vel.y
+				# 				#item.vel = - item.vel  # pg.math.Vector2(0, 0)
+				# 				print(f'[coll] p:{item.pos} vel:{item.vel} d:{item.direction} b:{block.pos} t:{block.block_type} s:{block.solid}')
+				# 				pg.draw.circle(self.screen, (255, 255, 255), (int(item.pos.x), int(item.pos.y)), 4)
+				# 			# block.take_damage(self.screen, item)
+				# 			# print(f'[coll] ')
+				# 			# item.kill()
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -173,7 +187,9 @@ class Game():
 					blocks = pg.sprite.spritecollide(flame, self.blocks, False)
 					for block in blocks:
 						if block.block_type >= 1:
-							block.take_damage(self.screen, flame)  #  = True		# block particles
+							# block.take_damage(self.screen, flame)  #  = True		# block particles
+							[self.blocksparticles.add(Particle(block, flame.direction)) for k in range(1, 10) if not block.hit]
+							block.hit = True
 							flame.stop()
 							# flame.explode = True
 						if block.block_type >= 3: 		# block_type 1,2,3 = solid orange
@@ -211,11 +227,13 @@ class Game():
 		[bomb.draw(self.screen) for bomb in self.bombs]
 		[flame.draw(self.screen) for flame in self.bombs.flames]
 		[powerblock.draw(self.screen) for powerblock in self.powerblocks]
+		# for block in self.blocks:
+		[particle.draw(self.screen) for particle in self.blocksparticles]
 		self.players.draw(self.screen)
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
 		if self.show_panel:
-			self.info_panel.draw_panel(game_data=self.game_data, blocks=self.blocks, player1=self.player1)
+			self.info_panel.draw_panel(game_data=self.game_data, blocks=self.blocks, particles=self.blocksparticles, player1=self.player1)
 
 	def handle_menu(self, selection):
 		# mainmenu

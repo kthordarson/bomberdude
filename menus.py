@@ -11,17 +11,11 @@ class Info_panel():
 		self.font_color = (255,255,255)
 	def add_panel_item(self, item):
 		self.panelitems.append(item)
-	def draw_panel(self, game_data, blocks, player1):
+	def draw_panel(self, game_data, blocks, particles, player1):
 		# todo fix this shit
-		# parts = reduce(mul, [len(block.particles) for block in blocks])
-		parts = 0
-		for block in blocks:
-			parts += len(block.particles)
-		blockcount = len(blocks)
-		# print(f'p {parts}')
 		self.font.render_to(self.screen, self.pos, f'player pos x:{player1.rect.x} y:{player1.rect.y} grid:{player1.gridpos} vel:{player1.vel} map:{game_data.game_map[player1.gridpos[0]][player1.gridpos[1]]}', self.font_color)
 		self.font.render_to(self.screen, (self.pos.x, self.pos.y+12), f'bombs: {player1.bombs_left} score: {player1.score}', self.font_color)
-		self.font.render_to(self.screen, (self.pos.x, self.pos.y+25), f'blocks: {blockcount} particles {parts}', self.font_color)
+		self.font.render_to(self.screen, (self.pos.x, self.pos.y+25), f'blocks: {len(blocks)} particles {len(particles)}', self.font_color)
 
 
 class Menu():
