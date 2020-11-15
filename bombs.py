@@ -23,7 +23,7 @@ class Bomb_Flame(pg.sprite.Sprite):
 		self.flame_adder = 1
 		self.expand = True
 	def stop(self):
-		self.vel = pg.math.Vector2(0, 0) 
+		self.vel = pg.math.Vector2(0, 0)
 	def update(self):
 		self.endpos += self.vel
 		self.rect.x = self.endpos.x

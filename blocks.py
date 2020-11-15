@@ -1,5 +1,6 @@
 import random
 import pygame as pg
+import pygame.freetype
 from pygame.colordict import THECOLORS as colordict
 from globals import BLOCKSIZE, FPS, POWERUPS
 
@@ -12,13 +13,18 @@ class Particle(pg.sprite.Sprite):
 		# self.vel = pg.math.Vector2(0,0)
 		self.color = random.choice(list(colordict.items()))[1]  # (255, 155, 55)
 		self.image = pg.Surface((13, 13), pg.SRCALPHA)
-		self.image.set_alpha(155)
+		self.image.set_alpha(100)
 		self.rect = self.image.get_rect()  # pg.draw.rect(self.image, self.color, (self.pos.x, self.pos.y, 1, 1))
-		self.image.set_alpha(28)
+		self.alpha = 0
+		self.image.set_alpha(self.alpha)
 		self.image.fill(self.color, self.rect)
 		self.rect.centerx = self.pos.x
 		self.rect.centery = self.pos.y
 		self.move = False
+
+		self.timer = 100
+		self.time_left = self.timer
+		self.start_time = pg.time.get_ticks() / FPS
 
 	def update(self):
 		pass
@@ -27,26 +33,41 @@ class Particle(pg.sprite.Sprite):
 		pass
 
 	def bounce(self, screen):
+		self.dt = pg.time.get_ticks() / FPS
+		if self.dt - self.start_time >= self.timer:
+			self.time_left = 0
+			self.kill()
+			print(f'[k] p {self.pos} v {self.vel} c {self.color} a {self.alpha}')
 		self.pos += self.vel
+		self.alpha += 12
+		if self.alpha >= 255:
+			self.kill()
+			# print(f'[k] p {self.pos} v {self.vel} c {self.color} a {self.alpha}')
 		col = [self.color[0], self.color[1], self.color[2]] # color fading foobar
 		if col[0] > 0:
-			col_r = col[0]  - 1
+			col_r = col[0]  - 13
+			if col_r <= 0:
+				col_r = 0
 		else:
 			col_r = col[0]
 		if col[1] > 0:
-			col_g = col[1]  - 1
+			col_g = col[1]  - 13
+			if col_g <= 0:
+				col_g = 0
 		else:
 			col_g = col[1]
 		if col[2] > 0:
-			col_b = col[2]  - 1
+			col_b = col[2]  - 13
+			if col_b <= 0:
+				col_b = 0
 		else:
 			col_b = col[2]
 		self.color = [col_r, col_g, col_b]
-		# print(f'[bounce] pos {self.pos} vel {self.vel}')
+		# print(f'[bounce] pos {self.pos} vel {self.vel} color {col}')
 		pg.draw.rect(screen, self.color, (self.pos.x, self.pos.y, 3, 3))
 
 class Block(pg.sprite.Sprite):
-	def __init__(self, x, y, block_type, solid=True, permanent=False, block_color=(40,30,60), border_color=(255,255,255)):
+	def __init__(self, gridpos, block_type, solid=True, permanent=False, block_color=(40,30,60), border_color=(255,255,255)):
 		super().__init__()
 		self.block_type = block_type
 		self.block_color = block_color
@@ -54,10 +75,11 @@ class Block(pg.sprite.Sprite):
 		self.permanent = permanent
 		self.bordercolor = border_color
 		self.size = BLOCKSIZE
-		self.pos = pg.math.Vector2(x * BLOCKSIZE, y * BLOCKSIZE)
-		self.x = self.pos.x
-		self.y = self.pos.y
-		self.gridpos = (x, y)
+		self.gridpos = gridpos
+		self.pos = pg.math.Vector2(self.gridpos[0] * BLOCKSIZE, self.gridpos[1] * BLOCKSIZE)
+#		self.x = self.pos.x
+#		self.y = self.pos.y
+#		self.gridpos = (x, y)
 		self.image = pg.Surface((BLOCKSIZE, BLOCKSIZE), pg.SRCALPHA)
 		pg.draw.rect(self.image, self.block_color, (self.pos.x, self.pos.y, self.size, self.size)) # self.image.get_rect()
 		self.image.set_alpha(27)
@@ -71,34 +93,58 @@ class Block(pg.sprite.Sprite):
 		self.particles = pg.sprite.Group()
 		# [self.particles.add(Particle(self.pos)) for k in range(2, random.randint(4,10))]
 		self.ending_soon = False
-		self.timer = 400
+		self.timer = 100
 		self.time_left = self.timer
-		self.start_time = -1
+		self.start_time = -1  #  will be set when block converts to powerup
 		self.dt = pg.time.get_ticks() / FPS
-		self.hit = False
+		self.powerblock = False
+		self.font = pg.freetype.Font("DejaVuSans.ttf", 10)
+		self.font.fgcolor = pg.Color('white')
 
 	def update(self):
-		pass
+		if self.powerblock:
+			self.dt = pg.time.get_ticks() / FPS
+			# print(f'[block] poweruptimer {self.timer} {self.time_left} {self.start_time} {self.dt - self.start_time}')
+			if self.dt - self.start_time >= self.timer:
+				self.time_left = 0
+				self.block_color = pg.Color('black')
+				self.block_type = 0
+				self.powerblock = False
+				self.size = BLOCKSIZE
+				self.pos.x -= 5
+				self.pos.y -= 5
+				# self.kill()
+			if self.dt - self.start_time >= self.timer // 3:
+				self.ending_soon = True
+
 	def draw(self, screen):
-		#if self.block_type > 0:
-		pg.draw.rect(screen, self.block_color, (self.pos.x, self.pos.y, self.size, self.size))
+		if self.block_type > 0:
+			pg.draw.rect(screen, self.block_color, (self.pos.x, self.pos.y, self.size, self.size))
+			# self.font.render_to(screen, (self.pos.x+2, self.pos.y), f'{self.block_type}', self.font.fgcolor)
+		# self.font.render_to(screen, (self.pos.x+2, self.pos.y), f'{self.gridpos[0]}', self.font.fgcolor)
+		# self.font.render_to(screen, (self.pos.x+2, self.pos.y+10), f'{self.gridpos[1]}', self.font.fgcolor)
 
 	def set_zero(self):
 		pass
 
 	def drop_powerblock(self):
-		self.start_time = pg.time.get_ticks() / FPS
-		self.block_color = pg.Color('green')
-		self.dt = pg.time.get_ticks() / FPS
-		self.size = BLOCKSIZE // 2
-		self.solid = False
-		self.permanent = False
+		if not self.powerblock:
+			self.start_time = pg.time.get_ticks() / FPS
+			self.block_color = pg.Color('firebrick4')
+			# self.dt = pg.time.get_ticks() / FPS
+			self.size = BLOCKSIZE // 2
+			self.solid = False
+			self.permanent = False
+			self.pos.x += 5
+			self.pos.y += 5
+			self.powerblock = True
+			print(f'[powerblock] {self.pos} {self.gridpos} {self.powerblock} ')
 
-	def take_damage(self, screen):
-		self.hit = True
+	def take_damage(self, screen, flame):
 		# [self.particles.add(Particle(self.pos)) for k in range(2, random.randint(4,10))]
-		self.particles.add(Particle(self.pos))
+		self.particles.add(Particle(flame.pos))
 		[particle.bounce(screen) for particle in self.particles]
+		# print(f'[part] {len(self.particles)}')
 
 class Powerup_Block(pg.sprite.Sprite):
 	def __init__(self, x, y):

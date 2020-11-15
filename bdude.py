@@ -11,7 +11,7 @@ import random
 
 import pygame as pg
 
-from blocks import Block, Powerup_Block
+from blocks import Block, Powerup_Block, Particle
 from bombs import BlockBomb
 from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y
 from globals import inside_circle
@@ -73,21 +73,21 @@ class Game_Data():
 			for j in range(0, GRID_Y + 1):
 				try:
 					block_type = int(self.game_map[k][j])
-#					block = Block(k, j, block_type=block_type, solid=False, permanent=False, block_color=pg.Color('black'))
+#					block = Block(gridpos=(k, j), block_type=block_type, solid=False, permanent=False, block_color=pg.Color('black'))
 					if block_type == 0:
-						block = Block(k, j, block_type=block_type, solid=False, permanent=False, block_color=pg.Color('black'))		# black nothing
+						block = Block(gridpos=(k, j), block_type=block_type, solid=False, permanent=False, block_color=pg.Color('black'))		# black nothing
 					elif block_type == 1:
-						block = Block(k, j, block_type=block_type, solid=True, permanent=True, block_color=pg.Color('orangered1'))	# wall solid, permanent
+						block = Block(gridpos=(k, j), block_type=block_type, solid=True, permanent=True, block_color=pg.Color('orangered1'))	# wall solid, permanent
 					elif block_type == 2:
-						block = Block(k, j, block_type=block_type, solid=True, permanent=True, block_color=pg.Color('orangered2'))	# wall solid, permanent
+						block = Block(gridpos=(k, j), block_type=block_type, solid=True, permanent=True, block_color=pg.Color('orangered2'))	# wall solid, permanent
 					elif block_type == 3:
-						block = Block(k, j, block_type=block_type, solid=True, permanent=True, block_color=pg.Color('orangered3'))	# wall solid, permanent
+						block = Block(gridpos=(k, j), block_type=block_type, solid=True, permanent=True, block_color=pg.Color('orangered3'))	# wall solid, permanent
 					elif 4 <= block_type <= 9:
-						block = Block(k, j, block_type=block_type, solid=True, permanent=False, block_color=pg.Color('gray31'))		# solid not permanent
+						block = Block(gridpos=(k, j), block_type=block_type, solid=True, permanent=False, block_color=pg.Color('gray31'))		# solid not permanent
 					elif block_type == 99:
-						block = Block(k, j, block_type=block_type, solid=False, permanent=False, block_color=pg.Color('black'))		# solid not permanent
+						block = Block(gridpos=(k, j), block_type=block_type, solid=False, permanent=False, block_color=pg.Color('black'))		# not solid not permanent
 					else:
-						block = Block(k, j, block_type=block_type, solid=False, permanent=False, block_color=pg.Color('black'))		# solid not permanent
+						block = Block(gridpos=(k, j), block_type=block_type, solid=False, permanent=False, block_color=pg.Color('black'))		# not solid not permanent
 					blocks.add(block)
 				except Exception as e:
 					print(f'[get_blocks] {k}.{j} {type(block)} {block_type} {e}')
@@ -129,27 +129,39 @@ class Game():
 		x = player.gridpos[0]
 		y = player.gridpos[1]
 		if player.bombs_left > 0: #  and game_data.game_map[x][y] == 0:  # only place bombs if we have bombs... and on free spot...
-			self.game_data.game_map[x][y] = player.player_id
+			# self.game_data.game_map[x][y] = player.player_id
 			# create bomb at gridpos xy, multiply by BLOCKSIZE for screen coordinates
 			bomb = BlockBomb(pos=(player.rect.centerx, player.rect.centery), bomber_id=player.player_id, block_color=pg.Color('yellow'), bomb_power=player.bomb_power, gridpos=player.gridpos)
 			self.bombs.add(bomb)
 			player.bombs_left -= 1
-		else:
-			print(f'cannot drop bomb')
+		#else:
+		#	print(f'cannot drop bomb')
 
 	def update(self):
 		# todo network things
 		self.player1.update(self.blocks)
 		self.update_bombs()
-		self.update_powerblock()
+		# self.update_powerblock()
 		self.update_blocks()
 
 	def update_blocks(self):
 		for block in self.blocks:
-			if not block.hit:
-				colls = pg.sprite.spritecollide(block, block.particles, False)
+			block.update()
+			if not block.powerblock:
+				colls = pg.sprite.spritecollide(block, block.particles, False)				
 				if len(colls) > 0:
-					print(f'coll {len(colls)}')
+					for item in colls:
+						if type(item) is Particle:
+							if block.powerblock:
+								block.block_color = (255, 255, 255)
+							else:
+								block.take_damage(self.screen, item)
+							item.vel = pg.math.Vector2(0, 0)
+							item.color = (255, 255, 255)
+							item.alpha = 1
+							print(f'[update_blocks] coll {len(colls)} {type(colls)} item {item.pos} {item.vel}')
+						else:
+							print(f'[update_blocks] xcoll {len(colls)} {type(colls)} item {item.pos} {item.vel}')
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -160,35 +172,35 @@ class Game():
 					blocks = pg.sprite.spritecollide(flame, self.blocks, False)
 					for block in blocks:
 						if block.block_type >= 1:
+							block.take_damage(self.screen, flame)  #  = True		# block particles
 							flame.stop()
-							block.take_damage(self.screen)  #  = True		# block particles
 							# flame.explode = True
 						if block.block_type >= 3: 		# block_type 1,2,3 = solid orange
 							# block.explode = True
 							# block.set_zero()      	# block_type 4 and up can be destroyed
 							block.drop_powerblock()		# make block drop the powerup
 							self.player1.add_score()	# give player some score
-							self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 0
+							# self.game_data.game_map[bomb.gridpos[0]][bomb.gridpos[1]] = 0
 
 			if bomb.done:
 				self.player1.bombs_left += 1  # return bomb to owner when done
 				bomb.kill()
 
 
-	def update_powerblock(self):
-		self.powerblocks.update()
-		for powerblock in self.powerblocks:
-			powerplayers = pg.sprite.spritecollide(powerblock, self.players, False)
-			for player in powerplayers:
-				player.take_powerup(powerblock)
-				powerblock.taken = True
-			if powerblock.time_left <= 0 or powerblock.taken:
-				self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
-				newblock = Block(powerblock.gridpos[0], powerblock.gridpos[1], block_type=0, solid=False)
-				self.blocks.add(newblock)
-				powerblock.kill()
-			if powerblock.ending_soon:
-				powerblock.flash()
+	# def update_powerblock(self):
+	# 	self.powerblocks.update()
+	# 	for powerblock in self.powerblocks:
+	# 		powerplayers = pg.sprite.spritecollide(powerblock, self.players, False)
+	# 		for player in powerplayers:
+	# 			player.take_powerup(powerblock)
+	# 			powerblock.taken = True
+	# 		if powerblock.time_left <= 0 or powerblock.taken:
+	# 			#self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
+	# 			#newblock = Block(powerblock.gridpos[0], powerblock.gridpos[1], block_type=0, solid=False)
+	# 			#self.blocks.add(newblock)
+	# 			powerblock.kill()
+	# 		if powerblock.ending_soon:
+	# 			powerblock.flash()
 
 	def draw(self):
 		# draw on screen

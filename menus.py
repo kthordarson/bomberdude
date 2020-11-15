@@ -13,6 +13,7 @@ class Info_panel():
 		# todo fix this shit
 		self.font.render_to(self.screen, self.pos, f'player pos x:{player1.rect.x} y:{player1.rect.y} grid:{player1.gridpos} vel:{player1.vel} map:{game_data.game_map[player1.gridpos[0]][player1.gridpos[1]]}', self.font_color)
 		self.font.render_to(self.screen, (self.pos.x, self.pos.y+12), f'bombs: {player1.bombs_left} score: {player1.score}', self.font_color)
+		# self.font.render_to(self.screen, (self.pos.x, self.pos.y+12*2), f'sprites {len(game_data)}', self.font_color)
 
 
 class Menu():
@@ -37,7 +38,7 @@ class Menu():
 		self.menuitems.append('Quit')
 		self.selected_item = 0
 	def draw_menubg(self, screen):
-		
+
 		bordersize = 5
 		menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
 		pg.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1]))  # background
