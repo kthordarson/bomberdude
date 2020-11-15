@@ -10,3 +10,4 @@ clienttest.py
 servertest.py
 networktest.py
 rencode.py
+.VSCodeCounter/*
