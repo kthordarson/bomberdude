@@ -320,7 +320,7 @@ class Player(BasicThing):
 		self.score = 0
 		self.font = pygame.font.SysFont("calibri", 10, True)
 		self.collisions = []
-		self.collide_type = {'top':False, 'bottom':False, 'right':False, 'left':False}
+		self.collision_types = {'top':False,'bottom':False,'right':False,'left':False,'slant_bottom':False,'data':[]}
 		# self.gridpos = (self.rect.centerx // BLOCKSIZE[0], self.rect.centery // BLOCKSIZE[1])
 
 	def collide(self, items):
@@ -343,16 +343,74 @@ class Player(BasicThing):
 		if self.health <= 0:
 			self.dead = True
 
-	def update(self, blocks):		
-		self.rect.x += self.vel.x
+	def update1(self, blocks):
+		self.pos.x += self.vel.x
+		self.rect.x = self.pos.x
 		hit_list = self.collide(blocks)
 		for block in hit_list:
-			if self.vel.x > 0:
-				self.rect.right = self.rect.left
+			if self.vel.x > 0 and block.solid:
+				self.rect.right = block.rect.left
 				self.collide_type['right'] = True
-			elif self.vel.x < 0:
-				self.rect.left = self.rect.right
+			elif self.vel.x < 0 and block.solid:
+				self.rect.left = block.rect.right
 				self.collide_type['right'] = True
+			self.collision_types['data'].append([block])
+			self.rect.x = block.rect.x
+			self.vel.x = 0
+
+		self.rect.y += self.vel.y
+		hit_list = self.collide(blocks)
+		for block in hit_list:
+			if self.vel.y > 0 and block.solid:
+				self.rect.bottom = block.rect.top
+				self.collide_type['bottom'] = True
+			elif self.vel.y < 0 and block.solid:
+				self.rect.top = block.rect.bottom
+				self.collide_type['top'] = True
+			self.collision_types['data'].append([block])
+			self.rect.y = block.rect.y
+		self.rect.y += self.vel.y
+		self.vel.y = 0
+
+	def update(self, blocks):
+			self.pos.x += self.vel.x
+			self.rect.x = int(self.pos.x)
+			block_hit_list = self.collide(blocks)
+			# collision_types = {'top':False,'bottom':False,'right':False,'left':False,'slant_bottom':False,'data':[]}
+			# added collision data to "collision_types". ignore the poorly chosen variable name
+			for block in block_hit_list:
+					markers = [False,False,False,False]
+					if self.vel.x > 0 and block.solid:
+							self.rect.right = block.rect.left
+							self.collision_types['right'] = True
+							markers[0] = True
+							print(f'[{self.player_id}] {self.pos}')
+					elif self.vel.x < 0 and block.solid:
+							self.rect.left = block.rect.right
+							self.collision_types['left'] = True
+							markers[1] = True
+					self.collision_types['data'].append([block,markers])
+					self.pos.x = self.rect.x
+					#self.vel.x = 0
+			self.pos.y += self.vel.y
+			self.rect.y = int(self.pos.y)
+			block_hit_list = self.collide(blocks)
+			for block in block_hit_list:
+					markers = [False,False,False,False]
+					if self.vel.y > 0 and block.solid:
+							self.rect.bottom = block.rect.top
+							self.collision_types['bottom'] = True
+							markers[2] = True
+					elif self.vel.y < 0 and block.solid:
+							self.rect.top = block.rect.bottom
+							self.collision_types['top'] = True
+							markers[3] = True
+					self.collision_types['data'].append([block,markers])
+					# self.change_y = 0
+					self.pos.y = self.rect.y
+					#self.vel.y = 0
+			return self.collision_types
+
 
 	def update2(self, blocks):
 		# Move left/right

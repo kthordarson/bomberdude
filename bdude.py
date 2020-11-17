@@ -81,7 +81,7 @@ class Game:
 	def update_blocks(self):
 		for block in self.blocks:
 			block.update()
-		player_colls = [player.collide(self.blocks) for player in self.players]
+#		player_colls = [player.collide(self.blocks) for player in self.players]
 #		for foo in player_colls:
 #			print(f'[update_blocks] {foo}')
 	def update_bombs(self):
