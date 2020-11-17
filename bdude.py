@@ -81,43 +81,9 @@ class Game:
 	def update_blocks(self):
 		for block in self.blocks:
 			block.update()
-			block_coll = block.collide(self.players)  # for particle in block.particles
-			for item in block_coll:
-				if isinstance(item, Player) and block.solid:
-					if item.vel.x < 0: # moving left
-						item.rect.left = block.rect.right
-						item.vel.x = 0
-						# print(f'[coll-left] {type(item)} {type(block)} {block.solid} {block.rect}')
-					elif item.vel.x > 0: # moving right
-						item.rect.left = block.rect.right
-						item.vel.x = 0
-					elif item.vel.y > 0: # moving up
-						item.rect.top = block.rect.bottom
-						item.vel.y = 0
-					elif item.vel.y < 0: # moving up
-						item.rect.bottom = block.rect.top
-						item.vel.y = 0
-				elif isinstance(item, Particle) and block.solid:
-					pass
-
-						# print(f'[coll-right] {type(item)} {type(block)} {block.solid} {block.rect}')
-					# print(f'{type(item)} {type(block)} {block.solid} {block.rect}')
-				# if isinstance(particle, Particle) and block.solid:
-				# # 	# math.degrees(get_angle(pygame.math.Vector2(4,4), pygame.math.Vector2(4,5)))
-				# 	angle = get_angle(particle.rect, block.rect)
-				# 	# angle = get_entity_angle(particle.rect, block.rect)
-				# 	if 0 < angle < 90:
-				# 		particle.vel.x = -particle.vel.x
-				# 		# print('90')
-				# 	if 90 < angle < 180:
-				# 		particle.vel.x = -particle.vel.x
-				# 	if 180 < angle < 270:
-				# 		particle.vel.y = -particle.vel.y
-				# 	else:
-				# 		particle.vel.y = -particle.vel.y
-					# particle.vel.x += random.choice([-0.5, 0.5])
-					# particle.vel.y += random.choice([-0.5, 0.5])
-
+		player_colls = [player.collide(self.blocks) for player in self.players]
+#		for foo in player_colls:
+#			print(f'[update_blocks] {foo}')
 	def update_bombs(self):
 		self.bombs.update()
 		self.bombsflames.update()

@@ -113,9 +113,8 @@ class BasicThing(pygame.sprite.Sprite):
 		self.size = BLOCKSIZE
 		self.font = pygame.freetype.Font("DejaVuSans.ttf", 12)
 		self.font_color = (255, 255, 255)
+#		self.collisions = None
 
-	def collide(self, items):
-		return pygame.sprite.spritecollide(self, items, False)
 class Block(BasicThing):
 	def __init__(self, gridpos=(0, 0), block_type=0):
 		# super().__init__(screen, gridpos)
@@ -320,7 +319,13 @@ class Player(BasicThing):
 		self.dead = False
 		self.score = 0
 		self.font = pygame.font.SysFont("calibri", 10, True)
+		self.collisions = []
+		self.collide_type = {'top':False, 'bottom':False, 'right':False, 'left':False}
 		# self.gridpos = (self.rect.centerx // BLOCKSIZE[0], self.rect.centery // BLOCKSIZE[1])
+
+	def collide(self, items):
+		self.collisions = pygame.sprite.spritecollide(self, items, False)
+		return self.collisions
 
 	def drop_bomb(self, game_data):
 		# get grid pos of player
@@ -338,10 +343,30 @@ class Player(BasicThing):
 		if self.health <= 0:
 			self.dead = True
 
-	def update(self, blocks):
+	def update(self, blocks):		
+		self.rect.x += self.vel.x
+		hit_list = self.collide(blocks)
+		for block in hit_list:
+			if self.vel.x > 0:
+				self.rect.right = self.rect.left
+				self.collide_type['right'] = True
+			elif self.vel.x < 0:
+				self.rect.left = self.rect.right
+				self.collide_type['right'] = True
+
+	def update2(self, blocks):
 		# Move left/right
 		# self.pos += self.vel
 		self.pos += self.vel  #* dt
+		for item in self.collisions:
+			if isinstance(item, Block) and item.solid:
+				print(f'{item}')
+				if self.vel.x < 0:
+					self.rect.right = self.rect.left
+					#self.vel.x = 0
+				if self.vel.x > 0:
+					self.rect.left = self.rect.right
+					#self.vel.x = 0
 		self.rect.centerx = self.pos.x
 		self.rect.centery = self.pos.y
 		# self.rect.x = self.pos.x
