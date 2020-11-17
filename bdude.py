@@ -1,5 +1,5 @@
+# bomberdude
 # TODO
-# fix player random teleports
 # fix player placement
 # fix restart game
 # fix flames
@@ -9,311 +9,272 @@ import asyncio
 import os
 import random
 
-import pygame as pg
+import pygame
 
-from blocks import Block, Powerup_Block
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y
-from globals import inside_circle
-from menus import Info_panel
+from globals import Block, Particle, BlockBomb, Player, Gamemap, Bomb_Flame
+from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, SCREENSIZE
+from globals import get_angle, get_entity_angle
 from menus import Menu
-from player import Player
 
-DEBUG = False
-
-class GameOver(BaseException):
-	pass
+DEBUG = True
 
 
-class Game_Data():
-	def __init__(self, screen):
+class Game:
+	def __init__(self, screen=None):
+		# pygame.display.set_mode((GRID_X * BLOCKSIZE + BLOCKSIZE, GRID_Y * BLOCKSIZE + panelsize), 0, 32)
 		self.screen = screen
-		# make a random map
-		self.game_map = [[random.randint(0, 9) for k in range(GRID_Y + 1)] for j in range(GRID_X + 1)]
-
-		self.bombs = pg.sprite.Group()
-		self.blocks = pg.sprite.Group()
-		self.powerblocks = pg.sprite.Group()
-		# set edges to solid blocks, 0 = solid block
-		for x in range(GRID_X + 1):
-			self.game_map[x][0] = 1
-			self.game_map[x][GRID_Y] = 1
-		for y in range(GRID_Y + 1):
-			self.game_map[0][y] = 1
-			self.game_map[GRID_X][y] = 1
-
-	def place_player(self):
-		# place player somewhere where there is no block
-		# returns the (x,y) coordinate where player is to be placed
-		# random starting point from gridmap
-		x = int(GRID_X // 2) # random.randint(2, GRID_X - 2)
-		y = int(GRID_Y // 2)  # random.randint(2, GRID_Y - 2)
-		self.game_map[x][y] = 0
-		# make a clear radius around spawn point
-		for block in list(inside_circle(3, x, y)):
-			try:
-				# if self.game_map[clear_bl[0]][clear_bl[1]] > 1:
-				self.game_map[block[0]][block[1]] = 0
-			except Exception as e:
-				print(f'exception in place_player {block} {e}')
-		return (x * BLOCKSIZE, y * BLOCKSIZE)
-
-	def get_block(self, x, y):
-		# get block inf from grid
-		return self.game_map[x][y]
-
-	def get_block_real(self, x, y):
-		# get block inf from grid
-		mapx = x // BLOCKSIZE
-		mapy = y // BLOCKSIZE
-		return self.game_map[mapx][mapy]
-
-	def set_block(self, x, y, value):
-		self.game_map[x][y] = value
-
-	def kill_block(self, x, y):
-		# remove block at gridpos x,y
-		for block in self.blocks:
-			if block.gridpos[0] == x and block.gridpos[1] == y:
-				block.kill()
-				self.game_map[x][y] = 0
-				block = Block(x, y, screen=self.screen, block_type=0)
-				self.blocks.add(block)
-
-	def place_blocks(self):
-		# block placing stuff
-		for k in range(0, GRID_X + 1):
-			for j in range(0, GRID_Y + 1):
-				try:
-					block = Block(k, j, screen=self.screen, block_type=self.game_map[k][j])
-					self.blocks.add(block)
-				except Exception as e:
-					print(f'{type(self.game_map)}')
-					print(f'{k}.{j} {e}')
-					os._exit(-1)
-
-class Game():
-	def __init__(self):
-		panelsize = BLOCKSIZE * 5
-		self.screen = pg.display.set_mode((GRID_X * BLOCKSIZE + BLOCKSIZE, GRID_Y * BLOCKSIZE + panelsize), 0, 32)
 		self.gameloop = asyncio.get_event_loop()
-		self.bg_color = pg.Color('gray12')
-		self.font = pg.font.SysFont('calibri', 15, True)
+		self.bg_color = pygame.Color("gray12")
 		self.show_mainmenu = True
 		self.running = False
-		# self.paused = True
+		self.show_panel = True
+		self.gamemap = Gamemap()
+		self.blocks = pygame.sprite.Group()
+		self.players = pygame.sprite.Group()
+		self.blocksparticles = pygame.sprite.Group()
+		self.powerblocks = pygame.sprite.Group()
+		self.bombs = pygame.sprite.Group()
+		self.bombsflames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
-		self.info_panel = Info_panel(BLOCKSIZE, GRID_Y * BLOCKSIZE + BLOCKSIZE, self.screen)
+		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
+
+	def init(self):
+		self.gamemap = Gamemap()	
+		self.gamemap.generate()
+		self.blocks = pygame.sprite.Group()
+		self.players = pygame.sprite.Group()
+		self.blocksparticles = pygame.sprite.Group()
+		self.powerblocks = pygame.sprite.Group()
+		self.bombs = pygame.sprite.Group()
+		self.bombsflames = pygame.sprite.Group()
+		self.game_menu = Menu(self.screen)
+		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
+		[self.blocks.add(Block(gridpos=(k, j),block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRID_X + 1) for j in range(0, GRID_Y + 1)]
+		self.players.add(self.player1)
+
+	def update(self):
+		# todo network things
+		#[player.update(self.blocks) for player in self.players]
+		self.players.update(self.blocks)
+		self.update_bombs()
+		self.update_blocks()
 
 	def set_block(self, x, y, value):
-		self.game_data.game_map[x][y] = value
+		self.gamemap.grid[x][y] = value
 
 	def terminate(self):
 		os._exit(1)
 
-	def set_data(self, game_data):
-		# set game data
-		self.game_data = game_data
+	def bombdrop(self, player):
+		bomb = BlockBomb(pos=(player.rect.centerx, player.rect.centery), bomber_id=player.player_id, bomb_power=player.bomb_power)
+		flame = Bomb_Flame(rect=bomb.rect,flame_length=bomb.flame_len,vel=(-1, 0),direction="left")
+		self.bombsflames.add(flame)
+		flame = Bomb_Flame(rect=bomb.rect, flame_length=bomb.flame_len, vel=(1, 0), direction="right")
+		self.bombsflames.add(flame)
+		flame = Bomb_Flame(rect=bomb.rect, flame_length=bomb.flame_len, vel=(0, 1), direction="down")
+		self.bombsflames.add(flame)
+		flame = Bomb_Flame(rect=bomb.rect, flame_length=bomb.flame_len, vel=(0, -1), direction="up")
+		self.bombsflames.add(flame)
+		self.bombs.add(bomb)
+		player.bombs_left -= 1
 
-	def check_flame(self, object_one, object_two):
-		# testfunction for collision callbacks
-		if pg.sprite.collide_mask(object_one, object_two) != None:
-			#object_one.destroy()
-			#object_two.destroy()
-			return True
-		else:
-			return False
+	def update_blocks(self):
+		for block in self.blocks:
+			block.update()
+			block_coll = block.collide(self.players)  # for particle in block.particles
+			for item in block_coll:
+				if isinstance(item, Player) and block.solid:
+					if item.vel.x < 0: # moving left
+						item.rect.left = block.rect.right
+						item.vel.x = 0
+						# print(f'[coll-left] {type(item)} {type(block)} {block.solid} {block.rect}')
+					elif item.vel.x > 0: # moving right
+						item.rect.left = block.rect.right
+						item.vel.x = 0
+					elif item.vel.y > 0: # moving up
+						item.rect.top = block.rect.bottom
+						item.vel.y = 0
+					elif item.vel.y < 0: # moving up
+						item.rect.bottom = block.rect.top
+						item.vel.y = 0
+				elif isinstance(item, Particle) and block.solid:
+					pass
 
-	def update(self):
-		# todo network things
-		for bomb in self.game_data.bombs:
+						# print(f'[coll-right] {type(item)} {type(block)} {block.solid} {block.rect}')
+					# print(f'{type(item)} {type(block)} {block.solid} {block.rect}')
+				# if isinstance(particle, Particle) and block.solid:
+				# # 	# math.degrees(get_angle(pygame.math.Vector2(4,4), pygame.math.Vector2(4,5)))
+				# 	angle = get_angle(particle.rect, block.rect)
+				# 	# angle = get_entity_angle(particle.rect, block.rect)
+				# 	if 0 < angle < 90:
+				# 		particle.vel.x = -particle.vel.x
+				# 		# print('90')
+				# 	if 90 < angle < 180:
+				# 		particle.vel.x = -particle.vel.x
+				# 	if 180 < angle < 270:
+				# 		particle.vel.y = -particle.vel.y
+				# 	else:
+				# 		particle.vel.y = -particle.vel.y
+					# particle.vel.x += random.choice([-0.5, 0.5])
+					# particle.vel.y += random.choice([-0.5, 0.5])
+
+	def update_bombs(self):
+		self.bombs.update()
+		self.bombsflames.update()
+		for bomb in self.bombs:
 			if bomb.exploding:
-				for flame in bomb.flames:
-					blocks = pg.sprite.spritecollide(flame, self.game_data.blocks, False)
+				for flame in self.bombsflames:
+					blocks = pygame.sprite.spritecollide(
+						flame, self.blocks, False)
 					for block in blocks:
-						if block.block_type >= 1:
-							flame.vel.x = 0
-							flame.vel.y = 0
-						if block.block_type >= 3: 		# block_type 1,2,3 = solid orange
-							block.set_zero()      		# block_type 4 and up can be destroyed
-							self.player1.add_score()	# give player some score
-							powerblock = Powerup_Block(block.gridpos[0], block.gridpos[1], screen=self.screen)  # create powerupblock
-							self.game_data.powerblocks.add(powerblock) # add new powerblock to powerblocks list
-							# print(f'Bomb PID {bomb.bomber_id} {bomb.pos} {flame.name:<6} {flame.pos} {type(block)} {block.x} {block.y} {block.pos}' )
+						if int(block.block_type) >= 1:
+							# block.take_damage(self.screen,  flame)  #  = True		# block particles
+							gengja = [self.blocksparticles.add(Particle(block, flame.direction)) for k in range(1, 10) if not block.hit ]
+							block.hit = True
+							flame.stop()
+						if (int(block.block_type) >=
+								3):  # block_type 1,2,3 = solid orange
+							block.drop_powerblock(
+							)  # make block drop the powerup
+							self.player1.add_score()  # give player some score
+							# self.game_data.grid[bomb.gridpos[0]][bomb.gridpos[1]] = 0
+
 			if bomb.done:
 				self.player1.bombs_left += 1  # return bomb to owner when done
-				mapx = bomb.gridpos[0]
-				mapy = bomb.gridpos[1]
-				# mapdata = self.game_data.get_block(mapx, mapy)
-				# print(f'Bombdone {mapx} {mapy} {mapdata}')
-				self.set_block(mapx, mapy, 0)
-				# mapdata = self.game_data.get_block(mapx, mapy)
-				# print(f'Bombdone {mapx} {mapy} {mapdata}')
 				bomb.kill()
-
-		for powerblock in self.game_data.powerblocks:
-			powerplayers = pg.sprite.spritecollide(powerblock, self.players, False)
-			for player in powerplayers:
-				player.take_powerup(powerblock)
-				powerblock.taken = True
-			if powerblock.time_left <= 0 or powerblock.taken:
-				self.game_data.game_map[powerblock.gridpos[0]][powerblock.gridpos[1]] = 0
-				newblock = Block(powerblock.gridpos[0], powerblock.gridpos[1], screen=self.screen, block_type=0)
-				self.game_data.blocks.add(newblock)
-				powerblock.kill()
-			if powerblock.ending_soon:
-				powerblock.flash()
 
 	def draw(self):
 		# draw on screen
+		pygame.display.flip()
 		self.screen.fill(self.bg_color)
-		[block.draw() for block in self.game_data.blocks]
-		# self.game_data.blocks.draw(self.screen)
+		self.blocks.draw(self.screen)
 		self.players.draw(self.screen)
-		self.game_data.powerblocks.draw(self.screen)
-		[bomb.draw() for bomb in self.game_data.bombs]
+		self.bombs.draw(self.screen)
+		self.bombsflames.draw(self.screen)
+		self.powerblocks.draw(self.screen)
+		self.blocksparticles.draw(self.screen)
 		if self.show_mainmenu:
-			self.game_menu.draw_mainmenu()
-		self.info_panel.draw_panel(self.game_data, self.player1)
-
-	def run(self):
-		pass
+			self.game_menu.draw_mainmenu(self.screen)
+		if DEBUG:
+			self.game_menu.draw_debug_blocks(self.screen, self.blocks)
+		# self.game_menu.draw_panel(
+		# 	gamemap=self.gamemap,
+		# 	blocks=self.blocks,
+		# 	particles=self.blocksparticles,
+		# 	player1=self.player1,
+		# )
 
 	def handle_menu(self, selection):
 		# mainmenu
-		if selection == 'Quit':
+		if selection == "Quit":
 			self.running = False
 			self.terminate()
-		if selection == 'Pause':
+		if selection == "Pause":
 			self.show_mainmenu ^= True
-		if selection == 'Start':
+		if selection == "Start":
 			self.show_mainmenu ^= True
-		if selection == 'Restart':
+		if selection == "Restart":
 			self.show_mainmenu ^= True
-			game_init()
-			self.run()
-		if selection == 'Start server':
+		if selection == "Start server":
 			pass
-		if selection == 'Connect to server':
+		if selection == "Connect to server":
 			pass
 
 	def handle_input(self):
 		# get player input
-		for event in pg.event.get():
-			if event.type == pg.KEYDOWN:
-				if event.key == pg.K_SPACE or event.key == pg.K_RETURN:
+		for event in pygame.event.get():
+			if event.type == pygame.KEYDOWN:
+				if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
 					if self.show_mainmenu:  # or self.paused:
 						selection = self.game_menu.get_selection()
 						self.handle_menu(selection)
 					else:
-						self.game_data = self.player1.drop_bomb(self.game_data)
-				if event.key == pg.K_ESCAPE:
+						self.bombdrop(self.player1)
+				if event.key == pygame.K_ESCAPE:
 					if not self.show_mainmenu:
 						self.running = False
+						# break
 						self.terminate()
 					else:
 						self.show_mainmenu ^= True
-				if event.key == pg.K_c:
+				if event.key == pygame.K_c:
 					self.player1.bomb_power = 100
 					self.player1.max_bombs = 10
 					self.player1.bombs_left = 10
 					self.player1.speed = 10
-				if event.key == pg.K_p:
-					self.show_mainmenu ^= True
-				if event.key == pg.K_m:
+				if event.key == pygame.K_p:
+					self.show_panel ^= True
+				if event.key == pygame.K_m:
 					pass
 					# self.paused ^= True
-				if event.key == pg.K_q:
+				if event.key == pygame.K_q:
 					pass
 					# DEBUG ^= True
-				if event.key == pg.K_g:
+				if event.key == pygame.K_g:
 					pass
 					# DEBUG = False
 					# DEBUG_GRID ^= True
-				if event.key == pg.K_r:
-					game_init()
-				if event.key in set([pg.K_DOWN, pg.K_s]):
+				if event.key == pygame.K_r:
+					pass
+					# game_init()
+				if event.key in set([pygame.K_DOWN, pygame.K_s]):
 					if self.show_mainmenu:
 						self.game_menu.menu_down()
 					else:
 						self.player1.vel.y = self.player1.speed
-				if event.key in set([pg.K_UP, pg.K_w]):
+				if event.key in set([pygame.K_UP, pygame.K_w]):
 					if self.show_mainmenu:
 						self.game_menu.menu_up()
 					else:
 						self.player1.vel.y = -self.player1.speed
-				if event.key in set([pg.K_RIGHT, pg.K_d]):
+				if event.key in set([pygame.K_RIGHT, pygame.K_d]):
 					if not self.show_mainmenu:
 						self.player1.vel.x = self.player1.speed
-				if event.key in set([pg.K_LEFT, pg.K_a]):
+				if event.key in set([pygame.K_LEFT, pygame.K_a]):
 					if not self.show_mainmenu:
 						self.player1.vel.x = -self.player1.speed
-			if event.type == pg.KEYUP:
-				if event.key == pg.K_a:
+			if event.type == pygame.KEYUP:
+				if event.key == pygame.K_a:
 					pass
-				if event.key == pg.K_d:
+				if event.key == pygame.K_d:
 					pass
-				if event.key in set([pg.K_DOWN, pg.K_s]):
+				if event.key in set([pygame.K_DOWN, pygame.K_s]):
 					if not self.show_mainmenu:
 						self.player1.vel.y = 0
-				if event.key in set([pg.K_UP, pg.K_w]):
+				if event.key in set([pygame.K_UP, pygame.K_w]):
 					if not self.show_mainmenu:
 						self.player1.vel.y = 0
-				if event.key in set([pg.K_RIGHT, pg.K_d]):
+				if event.key in set([pygame.K_RIGHT, pygame.K_d]):
 					if not self.show_mainmenu:
 						self.player1.vel.x = 0
-				if event.key in set([pg.K_LEFT, pg.K_a]):
+				if event.key in set([pygame.K_LEFT, pygame.K_a]):
 					if not self.show_mainmenu:
 						self.player1.vel.x = 0
-			if event.type == pg.MOUSEBUTTONDOWN:
-				mousex, mousey = pg.mouse.get_pos()
-				blockinf = self.game_data.get_block_real(mousex, mousey)
-				gx = mousex // BLOCKSIZE
-				gy = mousey // BLOCKSIZE
-				print(f'mouse x:{mousex} y:{mousey} | gx:{gx} gy:{gy} | b:{blockinf}')
-			if event.type == pg.QUIT:
+			if event.type == pygame.MOUSEBUTTONDOWN:
+				mousex, mousey = pygame.mouse.get_pos()
+				blockinf = self.gamemap.get_block_real(mousex, mousey)
+				print(f"mouse x:{mousex} y:{mousey} |  b:{blockinf}")
+			if event.type == pygame.QUIT:
 				self.running = False
-def game_init():
-	game = Game()
-	game_data = Game_Data(screen=game.screen)
-	game.set_data(game_data)
 
-	game.players = pg.sprite.Group()
-	player_pos = game_data.place_player() # randomly place player and clear blocks around spawnpoint
-	pos = pg.math.Vector2(player_pos[0], player_pos[1])
-	game.player1 = Player(pos=pos, player_id=33, screen=game.screen)
-	game.players.add(game.player1)
-	game_data.place_blocks()
-	return game
 
 async def main_loop(game):
-	mainClock = pg.time.Clock()
-	# game.game_init(game)
+	mainClock = pygame.time.Clock()
 	while True:
 		# main game loop logic stuff
-		dt = mainClock.tick(FPS)
-		pg.event.pump()
+		dt = mainClock.tick(FPS) / 1000
+		pygame.event.pump()
 		game.handle_input()
-		game.players.update(game.game_data)
-		game.game_data.blocks.update()
-		game.game_data.powerblocks.update()
-		game.game_data.bombs.update()
 		game.update()
 		game.draw()
-		pg.display.flip()
-
-
-def main():
-	game = game_init()
-	game_task = asyncio.Task(main_loop(game))
-	game.gameloop.run_until_complete(game_task)
-
 
 if __name__ == "__main__":
-	pg.init()
-	# game = Game()
-	# init()
+	pygame.init()
+	pyscreen = pygame.display.set_mode(SCREENSIZE, 0, 32)	
+	game = Game(screen=pyscreen)
+	game.init()
+	game_task = asyncio.Task(main_loop(game))
 	try:
-		main()
+		game.gameloop.run_until_complete(game_task)
 	finally:
-		# game.gameloop.stop()
-		pg.quit()
+		pygame.quit()
