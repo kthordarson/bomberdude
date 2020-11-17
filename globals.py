@@ -5,12 +5,13 @@ import os
 from pygame.colordict import THECOLORS as colordict
 
 # global constants
-BLOCKSIZE = (25, 25)
+BLOCKSIZE = (30, 30)
 POWERUPSIZE = (12, 12)
 BOMBSIZE = (BLOCKSIZE[0] // 4, BLOCKSIZE[0] // 4)
-PLAYERSIZE = (BLOCKSIZE[0] // 2, BLOCKSIZE[0] // 2)
-GRID_X = 30
-GRID_Y = 30
+# PLAYERSIZE = (BLOCKSIZE[0] // 2, BLOCKSIZE[0] // 2)
+PLAYERSIZE = (15,15)
+GRID_X = 20
+GRID_Y = 20
 SCREENSIZE = (BLOCKSIZE[0] * (GRID_X + 1), BLOCKSIZE[1] * GRID_Y + 100)
 FPS = 30
 POWERUPS = {
@@ -100,7 +101,7 @@ def load_image(name, colorkey=None):
 			image.set_colorkey(colorkey)
 		return image, image.get_rect()
 	except FileNotFoundError as e:
-		print(f'[notfound] {name}')
+		print(f'[load_image] {name} {e}')
 
 class BasicThing(pygame.sprite.Sprite):
 	def __init__(self, screen=None, gridpos=(0, 0), color=(33, 44, 55, 255)):
@@ -126,6 +127,7 @@ class Block(BasicThing):
 		self.bitmap = BLOCKTYPES.get(block_type)["bitmap"]
 		self.image, self.rect = load_image(self.bitmap, -1)
 		self.image = pygame.transform.scale(self.image, BLOCKSIZE)
+		self.rect = self.image.get_rect()
 		self.pos = pygame.math.Vector2((gridpos[0] * BLOCKSIZE[0], gridpos[1] * BLOCKSIZE[1]))
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
@@ -143,7 +145,10 @@ class Block(BasicThing):
 		#self.image.set_colorkey((0,0,0))
 
 	def set_bitmap(self, bitmap):
+		self.size = BLOCKTYPES.get(block_type)["size"]
 		self.image, self.rect = load_image(bitmap, -1)
+		self.image = pygame.transform.scale(self.image, self.size)
+		self.rect = self.image.get_rect()
 
 	def collide(self, items):
 		return pygame.sprite.spritecollide(self, items, False)
@@ -155,6 +160,7 @@ class Block(BasicThing):
 		self.bitmap = BLOCKTYPES.get(block_type)["bitmap"]
 		self.image, self.rect = load_image(self.bitmap, -1)
 		self.image = pygame.transform.scale(self.image, self.size)
+		self.rect = self.image.get_rect()
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		# pygame.draw.rect(self.image, self.color, (self.pos.x, self.pos.y, self.size, self.size))
@@ -195,13 +201,12 @@ class Particle(BasicThing):
 		self.image, self.rect = load_image('blocks/blueorb.png', -1)
 		self.size = (3, 3)
 		self.image = pygame.transform.scale(self.image, self.size)
+		self.rect = self.image.get_rect()
 		self.direction = direction
 		self.alpha = 255
 		self.alpha_mod = -5
 		self.image.set_alpha(self.alpha)
-		self.vel = pygame.math.Vector2(random.uniform(-2, 2),
-								   random.uniform(-2,
-												  2))  # pygame.math.Vector2(0, 0)
+		self.vel = pygame.math.Vector2(random.uniform(-2, 2), random.uniform(-2, 2))  # pygame.math.Vector2(0, 0)
 		if self.direction == "up":
 			self.rect.midtop = block.rect.midbottom
 			self.vel.y = -self.vel.y
@@ -257,7 +262,7 @@ class Bomb_Flame(BasicThing):
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 class BlockBomb(BasicThing):
-	def __init__(self, pos, bomber_id, bomb_power, gridpos):
+	def __init__(self, pos, bomber_id, bomb_power):
 		#super().__init__()
 		pygame.sprite.Sprite.__init__(self)
 		# self.flames = pygame.sprite.Group()
@@ -265,7 +270,7 @@ class BlockBomb(BasicThing):
 		self.pos = pygame.math.Vector2(pos[0], pos[1])
 		self.image, self.rect = load_image('bomb.png', -1)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
-		self.gridpos = gridpos
+		# self.gridpos = gridpos
 		self.bomber_id = bomber_id
 		self.start_time = pygame.time.get_ticks()
 		self.rect.centerx = self.pos.x
@@ -302,8 +307,9 @@ class Player(BasicThing):
 		self.vel = pygame.math.Vector2(0, 0)
 		self.size = PLAYERSIZE
 		self.image = pygame.transform.scale(self.image, self.size)
-		self.rect.centerx = self.pos.x
-		self.rect.centery = self.pos.y
+		self.rect = self.image.get_rect()
+		self.rect.x = self.pos.x
+		self.rect.y = self.pos.y
 		# self.gridpos = (self.rect.centerx//BLOCKSIZE, self.rect.centery//BLOCKSIZE)
 		self.max_bombs = 3
 		self.bombs_left = self.max_bombs
@@ -314,15 +320,15 @@ class Player(BasicThing):
 		self.dead = False
 		self.score = 0
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.gridpos = (self.rect.centerx // BLOCKSIZE[0], self.rect.centery // BLOCKSIZE[1])
+		# self.gridpos = (self.rect.centerx // BLOCKSIZE[0], self.rect.centery // BLOCKSIZE[1])
 
 	def drop_bomb(self, game_data):
 		# get grid pos of player
-		x = self.gridpos[0]
-		y = self.gridpos[1]
-		game_data.grid[x][y] = self.player_id
+		#x = self.gridpos[0]
+		#y = self.gridpos[1]
+		#game_data.grid[x][y] = self.player_id
 		# create bomb at gridpos xy, multiply by BLOCKSIZE for screen coordinates
-		bomb = BlockBomb(pos=(self.rect.centerx, self.rect.centery), bomber_id=self.player_id, bomb_power=self.bomb_power, gridpos=self.gridpos,)
+		bomb = BlockBomb(pos=(self.rect.centerx, self.rect.centery), bomber_id=self.player_id, bomb_power=self.bomb_power)
 		game_data.bombs.add(bomb)
 		self.bombs_left -= 1
 		return game_data
@@ -336,8 +342,8 @@ class Player(BasicThing):
 		# Move left/right
 		# self.pos += self.vel
 		self.pos += self.vel  #* dt
-		self.rect.x = self.pos.x
-		self.rect.y = self.pos.y
+		self.rect.centerx = self.pos.x
+		self.rect.centery = self.pos.y
 		# self.rect.x = self.pos.x
 		# collisions = pygame.sprite.spritecollide(self, blocks, False)
 		# for block in collisions:  # Horizontal collision occurred.
@@ -363,7 +369,7 @@ class Player(BasicThing):
 		# self.gridpos = (self.rect.centerx // BLOCKSIZE[0], self.rect.centery // BLOCKSIZE[1])
 		# #self.rect.centerx = self.pos.x
 		# #self.rect.centery = self.pos.y
-
+		
 	def take_powerup(self, powerup):
 		# pick up powerups...
 		if powerup.powerup_type[0] == "addbomb":
@@ -409,7 +415,7 @@ class Gamemap:
 		y = int(GRID_Y // 2)  # random.randint(2, GRID_Y - 2)
 		self.grid[x][y] = 0
 		# make a clear radius around spawn point
-		for block in list(inside_circle(2, x, y)):
+		for block in list(inside_circle(3, x, y)):
 			try:
 				# if self.grid[clear_bl[0]][clear_bl[1]] > 1:
 				self.grid[block[0]][block[1]] = 0

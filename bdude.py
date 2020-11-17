@@ -28,9 +28,18 @@ class Game:
 		self.show_mainmenu = True
 		self.running = False
 		self.show_panel = True
+		self.gamemap = Gamemap()
+		self.blocks = pygame.sprite.Group()
+		self.players = pygame.sprite.Group()
+		self.blocksparticles = pygame.sprite.Group()
+		self.powerblocks = pygame.sprite.Group()
+		self.bombs = pygame.sprite.Group()
+		self.bombsflames = pygame.sprite.Group()
+		self.game_menu = Menu(self.screen)
+		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
 
 	def init(self):
-		self.gamemap = Gamemap()
+		self.gamemap = Gamemap()	
 		self.gamemap.generate()
 		self.blocks = pygame.sprite.Group()
 		self.players = pygame.sprite.Group()
@@ -38,10 +47,9 @@ class Game:
 		self.powerblocks = pygame.sprite.Group()
 		self.bombs = pygame.sprite.Group()
 		self.bombsflames = pygame.sprite.Group()
-
 		self.game_menu = Menu(self.screen)
-		[self.blocks.add(Block(gridpos=(k, j),block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRID_X + 1) for j in range(0, GRID_Y + 1)]
 		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
+		[self.blocks.add(Block(gridpos=(k, j),block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRID_X + 1) for j in range(0, GRID_Y + 1)]
 		self.players.add(self.player1)
 
 	def update(self):
@@ -58,7 +66,7 @@ class Game:
 		os._exit(1)
 
 	def bombdrop(self, player):
-		bomb = BlockBomb(pos=(player.rect.centerx, player.rect.centery), bomber_id=player.player_id, bomb_power=player.bomb_power, gridpos=player.gridpos,)
+		bomb = BlockBomb(pos=(player.rect.centerx, player.rect.centery), bomber_id=player.player_id, bomb_power=player.bomb_power)
 		flame = Bomb_Flame(rect=bomb.rect,flame_length=bomb.flame_len,vel=(-1, 0),direction="left")
 		self.bombsflames.add(flame)
 		flame = Bomb_Flame(rect=bomb.rect, flame_length=bomb.flame_len, vel=(1, 0), direction="right")
@@ -73,16 +81,26 @@ class Game:
 	def update_blocks(self):
 		for block in self.blocks:
 			block.update()
-			partcoll = block.collide(self.players)  # for particle in block.particles
-			for item in partcoll:
+			block_coll = block.collide(self.players)  # for particle in block.particles
+			for item in block_coll:
 				if isinstance(item, Player) and block.solid:
-					if item.vel.x < 0:
-						item.rect.right = block.rect.left
-					elif item.vel.x > 0:
+					if item.vel.x < 0: # moving left
 						item.rect.left = block.rect.right
-					print(f'{type(item)} {type(block)} {block.solid} {block.rect}')
-				else:
+						item.vel.x = 0
+						# print(f'[coll-left] {type(item)} {type(block)} {block.solid} {block.rect}')
+					elif item.vel.x > 0: # moving right
+						item.rect.left = block.rect.right
+						item.vel.x = 0
+					elif item.vel.y > 0: # moving up
+						item.rect.top = block.rect.bottom
+						item.vel.y = 0
+					elif item.vel.y < 0: # moving up
+						item.rect.bottom = block.rect.top
+						item.vel.y = 0
+				elif isinstance(item, Particle) and block.solid:
 					pass
+
+						# print(f'[coll-right] {type(item)} {type(block)} {block.solid} {block.rect}')
 					# print(f'{type(item)} {type(block)} {block.solid} {block.rect}')
 				# if isinstance(particle, Particle) and block.solid:
 				# # 	# math.degrees(get_angle(pygame.math.Vector2(4,4), pygame.math.Vector2(4,5)))
@@ -111,11 +129,7 @@ class Game:
 					for block in blocks:
 						if int(block.block_type) >= 1:
 							# block.take_damage(self.screen,  flame)  #  = True		# block particles
-							gengja = [
-								self.blocksparticles.add(
-									Particle(block, flame.direction))
-								for k in range(1, 10) if not block.hit
-							]
+							gengja = [self.blocksparticles.add(Particle(block, flame.direction)) for k in range(1, 10) if not block.hit ]
 							block.hit = True
 							flame.stop()
 						if (int(block.block_type) >=

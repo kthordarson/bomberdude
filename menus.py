@@ -81,7 +81,8 @@ class Menu:
 			self.menufont.render_to(screen, (self.pos.x, pos_y), item[1],
 									self.menufont.fgcolor)
 			pos_y += 25
-
+	def draw_coll_debug(self, players, blocks, colls):
+		pass
 	def draw_debug_player(self, players):
 		for player in players:
 			self.font.render_to(self.screen,self.pos,f"player pos x:{player.rect}",self.font_color)
@@ -89,9 +90,9 @@ class Menu:
 	def draw_debug_blocks(self, screen, blocks):
 		for block in blocks:
 			if block.solid:
-				self.debugfont.render_to(screen,(block.pos.x+5, block.pos.y+5),f"{block.block_type}",self.font_color)
-			else:
-				self.debugfont.render_to(screen,block.rect,f"X",self.font_color)
+				self.debugfont.render_to(screen,(block.pos.x+11, block.pos.y+11),f"{block.block_type}",self.font_color)
+#			else:
+#				self.debugfont.render_to(screen,block.rect,f"X",self.font_color)
 
 	def draw_panel(self, gamemap, blocks, particles, player1):
 		# todo fix this shit
