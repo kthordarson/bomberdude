@@ -16,7 +16,7 @@ from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, SCREENSIZE
 from globals import get_angle, get_entity_angle
 from menus import Menu
 
-DEBUG = True
+DEBUG = False
 
 
 class Game:
@@ -24,7 +24,7 @@ class Game:
 		# pygame.display.set_mode((GRID_X * BLOCKSIZE + BLOCKSIZE, GRID_Y * BLOCKSIZE + panelsize), 0, 32)
 		self.screen = screen
 		self.gameloop = asyncio.get_event_loop()
-		self.bg_color = pygame.Color("gray12")
+		self.bg_color = pygame.Color("black")
 		self.show_mainmenu = True
 		self.running = False
 		self.show_panel = True
@@ -67,47 +67,26 @@ class Game:
 
 	def bombdrop(self, player):
 		bomb = BlockBomb(pos=(player.rect.centerx, player.rect.centery), bomber_id=player.player_id, bomb_power=player.bomb_power)
-		flame = Bomb_Flame(rect=bomb.rect,flame_length=bomb.flame_len,vel=(-1, 0),direction="left")
+		flame = Bomb_Flame(rect=player.rect,flame_length=bomb.flame_len,vel=(-1, 0),direction="left")
 		self.bombsflames.add(flame)
-		flame = Bomb_Flame(rect=bomb.rect, flame_length=bomb.flame_len, vel=(1, 0), direction="right")
+		flame = Bomb_Flame(rect=player.rect, flame_length=bomb.flame_len, vel=(1, 0), direction="right")
 		self.bombsflames.add(flame)
-		flame = Bomb_Flame(rect=bomb.rect, flame_length=bomb.flame_len, vel=(0, 1), direction="down")
+		flame = Bomb_Flame(rect=player.rect, flame_length=bomb.flame_len, vel=(0, 1), direction="down")
 		self.bombsflames.add(flame)
-		flame = Bomb_Flame(rect=bomb.rect, flame_length=bomb.flame_len, vel=(0, -1), direction="up")
+		flame = Bomb_Flame(rect=player.rect, flame_length=bomb.flame_len, vel=(0, -1), direction="up")
 		self.bombsflames.add(flame)
 		self.bombs.add(bomb)
 		player.bombs_left -= 1
 
 	def update_blocks(self):
 		for block in self.blocks:
-			block.update()
-#		player_colls = [player.collide(self.blocks) for player in self.players]
-#		for foo in player_colls:
-#			print(f'[update_blocks] {foo}')
-	def update_bombs(self):
-		self.bombs.update()
-		self.bombsflames.update()
-		for bomb in self.bombs:
-			if bomb.exploding:
-				for flame in self.bombsflames:
-					blocks = pygame.sprite.spritecollide(
-						flame, self.blocks, False)
-					for block in blocks:
-						if int(block.block_type) >= 1:
-							# block.take_damage(self.screen,  flame)  #  = True		# block particles
-							gengja = [self.blocksparticles.add(Particle(block, flame.direction)) for k in range(1, 10) if not block.hit ]
-							block.hit = True
-							flame.stop()
-						if (int(block.block_type) >=
-								3):  # block_type 1,2,3 = solid orange
-							block.drop_powerblock(
-							)  # make block drop the powerup
-							self.player1.add_score()  # give player some score
-							# self.game_data.grid[bomb.gridpos[0]][bomb.gridpos[1]] = 0
+			block.update(self.bombsflames)
+			block.check_time()
 
-			if bomb.done:
-				self.player1.bombs_left += 1  # return bomb to owner when done
-				bomb.kill()
+	def update_bombs(self):
+		self.bombs.update(self.blocks)
+		self.bombsflames.update(self.blocks)
+		[flame.check_block(self.blocks) for flame in self.bombsflames]
 
 	def draw(self):
 		# draw on screen
