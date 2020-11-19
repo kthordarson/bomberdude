@@ -12,16 +12,16 @@ import random
 import pygame
 
 from globals import Block, Particle, BlockBomb, Player, Gamemap, Bomb_Flame
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, SCREENSIZE
+from globals import BLOCKSIZE, FPS, GRIDSIZE, GRIDSIZE, SCREENSIZE
 from globals import get_angle, get_entity_angle
+from globals import DEBUG
 from menus import Menu
 
-DEBUG = False
 
 
 class Game:
 	def __init__(self, screen=None):
-		# pygame.display.set_mode((GRID_X * BLOCKSIZE + BLOCKSIZE, GRID_Y * BLOCKSIZE + panelsize), 0, 32)
+		# pygame.display.set_mode((GRIDSIZE[0] * BLOCKSIZE + BLOCKSIZE, GRIDSIZE[1] * BLOCKSIZE + panelsize), 0, 32)
 		self.screen = screen
 		self.gameloop = asyncio.get_event_loop()
 		self.bg_color = pygame.Color("black")
@@ -34,7 +34,7 @@ class Game:
 		self.blocksparticles = pygame.sprite.Group()
 		self.powerblocks = pygame.sprite.Group()
 		self.bombs = pygame.sprite.Group()
-		self.bombsflames = pygame.sprite.Group()
+		# self.bombsflames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
 		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
 
@@ -46,18 +46,27 @@ class Game:
 		self.blocksparticles = pygame.sprite.Group()
 		self.powerblocks = pygame.sprite.Group()
 		self.bombs = pygame.sprite.Group()
-		self.bombsflames = pygame.sprite.Group()
+		# self.bombsflames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
+		# foo = self.gamemap.place_player()
+		# self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
 		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
-		[self.blocks.add(Block(gridpos=(k, j),block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRID_X + 1) for j in range(0, GRID_Y + 1)]
+		[self.blocks.add(Block(gridpos=(k, j),block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
 		self.players.add(self.player1)
 
 	def update(self):
 		# todo network things
 		#[player.update(self.blocks) for player in self.players]
 		self.players.update(self.blocks)
-		self.update_bombs()
-		self.update_blocks()
+		for block in self.blocks:
+			block.update()
+			block.check_time()
+		self.bombs.update(self.blocks)
+		for bomb in self.bombs:
+			if bomb.explode:
+				[flame.update(self.blocks) for flame in bomb.flames]
+		# self.bombsflames.update(self.blocks)
+		# [flame.check_coll(self.blocks) for flame in self.bombsflames]
 
 	def set_block(self, x, y, value):
 		self.gamemap.grid[x][y] = value
@@ -67,47 +76,42 @@ class Game:
 
 	def bombdrop(self, player):
 		bomb = BlockBomb(pos=(player.rect.centerx, player.rect.centery), bomber_id=player.player_id, bomb_power=player.bomb_power)
-		flame = Bomb_Flame(rect=player.rect,flame_length=bomb.flame_len,vel=(-1, 0),direction="left")
-		self.bombsflames.add(flame)
-		flame = Bomb_Flame(rect=player.rect, flame_length=bomb.flame_len, vel=(1, 0), direction="right")
-		self.bombsflames.add(flame)
-		flame = Bomb_Flame(rect=player.rect, flame_length=bomb.flame_len, vel=(0, 1), direction="down")
-		self.bombsflames.add(flame)
-		flame = Bomb_Flame(rect=player.rect, flame_length=bomb.flame_len, vel=(0, -1), direction="up")
-		self.bombsflames.add(flame)
+		# flame.set_screen(self.screen)
+		print(f'[bombdrop] b:{bomb.rect} p:{player.rect}')
+		# flame = Bomb_Flame(pos=pygame.math.Vector2(player.pos), vel=(-1, 0),direction="left", bomb=bomb)
+		# # flame.set_screen(self.screen)
+		# self.bombsflames.add(flame)
+		# flame = Bomb_Flame(pos=pygame.math.Vector2(player.pos), vel=(1, 0), direction="right", bomb=bomb)
+		# # flame.set_screen(self.screen)
+		# self.bombsflames.add(flame)
+		# flame = Bomb_Flame(pos=pygame.math.Vector2(player.pos), vel=(0, 1), direction="down", bomb=bomb)
+		# # flame.set_screen(self.screen)
+		# self.bombsflames.add(flame)
+		# flame = Bomb_Flame(pos=pygame.math.Vector2(player.pos), vel=(0, -1), direction="up", bomb=bomb)
+		# # flame.set_screen(self.screen)
+		# self.bombsflames.add(flame)
 		self.bombs.add(bomb)
 		player.bombs_left -= 1
 
-	def update_blocks(self):
-		for block in self.blocks:
-			block.update(self.bombsflames)
-			block.check_time()
-
-	def update_bombs(self):
-		self.bombs.update(self.blocks)
-		self.bombsflames.update(self.blocks)
-		[flame.check_block(self.blocks) for flame in self.bombsflames]
 
 	def draw(self):
 		# draw on screen
 		pygame.display.flip()
 		self.screen.fill(self.bg_color)
+		# self.bombsflames.draw(self.screen)
 		self.blocks.draw(self.screen)
-		self.players.draw(self.screen)
 		self.bombs.draw(self.screen)
-		self.bombsflames.draw(self.screen)
 		self.powerblocks.draw(self.screen)
 		self.blocksparticles.draw(self.screen)
+		self.players.draw(self.screen)
+		for bomb in self.bombs:
+			if bomb.explode:
+				[flame.draw(self.screen) for flame in bomb.flames]
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
 		if DEBUG:
 			self.game_menu.draw_debug_blocks(self.screen, self.blocks)
-		# self.game_menu.draw_panel(
-		# 	gamemap=self.gamemap,
-		# 	blocks=self.blocks,
-		# 	particles=self.blocksparticles,
-		# 	player1=self.player1,
-		# )
+			self.game_menu.draw_panel(gamemap=self.gamemap, blocks=self.blocks, particles=self.blocksparticles, player1=self.player1)
 
 	def handle_menu(self, selection):
 		# mainmenu

@@ -2,7 +2,7 @@ import pygame
 import pygame.freetype
 from functools import reduce
 from operator import mul
-
+from globals import BLOCKSIZE
 
 class Menu:
 	def __init__(self, screen):
@@ -11,14 +11,15 @@ class Menu:
 		self.menusize = (250, 180)
 		self.image = pygame.Surface(self.menusize)
 		self.rect = self.image.get_rect()
-		self.pos = pygame.math.Vector2(w // 2 - self.menusize[0] // 2,
-								   h // 2 - self.menusize[1] // 2)
+		self.pos = pygame.math.Vector2(w // 2 - self.menusize[0] // 2, h // 2 - self.menusize[1] // 2)
 		self.selected_color = (255, 255, 255)
 		self.inactive_color = (155, 155, 155)
 		self.menufont = pygame.freetype.Font("DejaVuSans.ttf", 24)
-		self.debugfont = pygame.freetype.Font("DejaVuSans.ttf", 8)
+		self.debugfont = pygame.freetype.Font("DejaVuSans.ttf", 10)
+		self.panelfont = pygame.freetype.Font("DejaVuSans.ttf", 10)
 		self.font = pygame.freetype.Font("DejaVuSans.ttf", 12)
 		self.font_color = (255, 255, 255)
+		self.panelfont_color = (255, 255, 255)
 		self.menufont.fgcolor = self.selected_color
 		self.bgcolor = pygame.Color("darkred")
 		self.bordercolor = pygame.Color("black")
@@ -33,45 +34,17 @@ class Menu:
 		self.selected_item = 0
 
 	def draw_menubg(self, screen):
-
-		bordersize = 5
-		menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
-		pygame.draw.rect(
-			screen,
-			self.bgcolor,
-			(menupos[0], menupos[1], self.menusize[0], self.menusize[1]),
-		)  # background
-		pygame.draw.line(
-			screen,
-			self.bordercolor,
-			menupos,
-			(menupos[0], menupos[1] + self.menusize[1]),
-			bordersize,
-		)  # left border
-		pygame.draw.line(
-			screen,
-			self.bordercolor,
-			(menupos[0] + self.menusize[0], menupos[1]),
-			(menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]),
-			bordersize,
-		)  # right border
-		pygame.draw.line(
-			screen,
-			self.bordercolor,
-			menupos,
-			(menupos[0] + self.menusize[0], menupos[1]),
-			bordersize,
-		)  # top border
-		pygame.draw.line(
-			screen,
-			self.bordercolor,
-			(menupos[0], menupos[1] + self.menusize[1]),
-			(menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]),
-			bordersize,
-		)  # bottom border
+		pass
+		# bordersize = 5
+		# menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
+		# pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1]))  # background
+		# pygame.draw.line(screen, self.bordercolor, menupos ,(menupos[0], menupos[1] + self.menusize[1]), bordersize)  # left border
+		# pygame.draw.line(screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # right border
+		# pygame.draw.line(screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize)  # top border
+		# pygame.draw.line(screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # bottom border
 
 	def draw_mainmenu(self, screen):
-		self.draw_menubg(screen)
+		# self.draw_menubg(screen)
 		pos_y = self.pos.y
 		for item in enumerate(self.menuitems):
 			if item[0] == self.selected_item:
@@ -90,34 +63,29 @@ class Menu:
 	def draw_debug_blocks(self, screen, blocks):
 		for block in blocks:
 			if block.solid:
-				self.debugfont.render_to(screen,(block.pos.x+11, block.pos.y+11),f"{block.block_type}",self.font_color)
+				outlinecolor = (255,155,155)
+				self.debugfont.render_to(screen,(block.pos.x+3, block.pos.y+11),f"{block.gridpos}",self.font_color)
+			else:
+				outlinecolor = (155,55,55)
+			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y))
+			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x, block.pos.y+BLOCKSIZE[1]))
+			pygame.draw.line(screen, outlinecolor, (block.pos.x+BLOCKSIZE[0], block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
+			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y+BLOCKSIZE[1]), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
 #			else:
 #				self.debugfont.render_to(screen,block.rect,f"X",self.font_color)
 
 	def draw_panel(self, gamemap, blocks, particles, player1):
 		# todo fix this shit
+		pos = pygame.math.Vector2(10,630)
 		try:
-			self.font.render_to(
-				self.screen,
-				self.pos,
-				f"player pos x:{player1.rect} grid:{player1.gridpos} vel:{player1.vel} gamemap:{gamemap.grid[player1.gridpos[0]][player1.gridpos[1]]}",
-				self.font_color,
-			)
-			self.font.render_to(
-				self.screen,
-				(self.pos.x, self.pos.y + 12),
-				f"bombs: {player1.bombs_left} score: {player1.score}",
-				self.font_color,
-			)
-			self.font.render_to(
-				self.screen,
-				(self.pos.x, self.pos.y + 25),
-				f"blocks: {len(blocks)} particles {len(particles)}",
-				self.font_color,
-			)
-			self.screen.blit(self.image, self.rect)
+			self.panelfont.render_to(self.screen, pos, f"player pos x:{player1.rect} vel:{player1.vel} ", self.panelfont_color)
+			self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"bombs: {player1.bombs_left} score: {player1.score}", self.panelfont_color)
+			self.panelfont.render_to(self.screen,(pos.x, pos.y + 25), f"blocks: {len(blocks)} particles {len(particles)}", self.panelfont_color)
+			# self.screen.blit(self.image, self.rect)
 		except IndexError as e:
 			print(f"[panel] {e} {player1.gridpos}")
+		except TypeError as e:
+			print(f"[panel] {e} ")
 
 	def get_selection(self):
 		return self.menuitems[self.selected_item]
