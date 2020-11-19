@@ -11,20 +11,20 @@ import random
 
 import pygame
 
-from globals import Block, Particle, BlockBomb, Player, Gamemap, Bomb_Flame
-from globals import BLOCKSIZE, FPS, GRID_X, GRID_Y, SCREENSIZE
+from globals import Block, Particle, Bomb, Player, Gamemap, Flame
+from globals import BLOCKSIZE, FPS, GRIDSIZE, GRIDSIZE, SCREENSIZE
 from globals import get_angle, get_entity_angle
+from globals import DEBUG
 from menus import Menu
 
-DEBUG = True
 
 
 class Game:
 	def __init__(self, screen=None):
-		# pygame.display.set_mode((GRID_X * BLOCKSIZE + BLOCKSIZE, GRID_Y * BLOCKSIZE + panelsize), 0, 32)
+		# pygame.display.set_mode((GRIDSIZE[0] * BLOCKSIZE + BLOCKSIZE, GRIDSIZE[1] * BLOCKSIZE + panelsize), 0, 32)
 		self.screen = screen
 		self.gameloop = asyncio.get_event_loop()
-		self.bg_color = pygame.Color("gray12")
+		self.bg_color = pygame.Color("black")
 		self.show_mainmenu = True
 		self.running = False
 		self.show_panel = True
@@ -32,9 +32,9 @@ class Game:
 		self.blocks = pygame.sprite.Group()
 		self.players = pygame.sprite.Group()
 		self.blocksparticles = pygame.sprite.Group()
-		self.powerblocks = pygame.sprite.Group()
+		self.powerups = pygame.sprite.Group()
 		self.bombs = pygame.sprite.Group()
-		self.bombsflames = pygame.sprite.Group()
+		# self.bombsflames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
 		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
 
@@ -44,20 +44,29 @@ class Game:
 		self.blocks = pygame.sprite.Group()
 		self.players = pygame.sprite.Group()
 		self.blocksparticles = pygame.sprite.Group()
-		self.powerblocks = pygame.sprite.Group()
+		self.powerups = pygame.sprite.Group()
 		self.bombs = pygame.sprite.Group()
-		self.bombsflames = pygame.sprite.Group()
+		# self.bombsflames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
+		# foo = self.gamemap.place_player()
+		# self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
 		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
-		[self.blocks.add(Block(gridpos=(k, j),block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRID_X + 1) for j in range(0, GRID_Y + 1)]
+		[self.blocks.add(Block(gridpos=(k, j),block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
 		self.players.add(self.player1)
 
 	def update(self):
 		# todo network things
 		#[player.update(self.blocks) for player in self.players]
 		self.players.update(self.blocks)
-		self.update_bombs()
-		self.update_blocks()
+		for block in self.blocks:
+			block.update()
+			block.check_time()
+		self.bombs.update(self.blocks)
+		for bomb in self.bombs:
+			if bomb.explode:
+				[flame.update(self.blocks) for flame in bomb.flames]
+		# self.bombsflames.update(self.blocks)
+		# [flame.check_coll(self.blocks) for flame in self.bombsflames]
 
 	def set_block(self, x, y, value):
 		self.gamemap.grid[x][y] = value
@@ -66,103 +75,38 @@ class Game:
 		os._exit(1)
 
 	def bombdrop(self, player):
-		bomb = BlockBomb(pos=(player.rect.centerx, player.rect.centery), bomber_id=player.player_id, bomb_power=player.bomb_power)
-		flame = Bomb_Flame(rect=bomb.rect,flame_length=bomb.flame_len,vel=(-1, 0),direction="left")
-		self.bombsflames.add(flame)
-		flame = Bomb_Flame(rect=bomb.rect, flame_length=bomb.flame_len, vel=(1, 0), direction="right")
-		self.bombsflames.add(flame)
-		flame = Bomb_Flame(rect=bomb.rect, flame_length=bomb.flame_len, vel=(0, 1), direction="down")
-		self.bombsflames.add(flame)
-		flame = Bomb_Flame(rect=bomb.rect, flame_length=bomb.flame_len, vel=(0, -1), direction="up")
-		self.bombsflames.add(flame)
+		bombpos = pygame.math.Vector2((player.rect.centerx, player.rect.centery))
+		bomb = Bomb(pos=bombpos, bomber_id=player.player_id, bomb_power=player.bomb_power)
+		print(f'[bombdrop] b:{bomb.rect} p:{player.rect} bp:{bombpos}')
 		self.bombs.add(bomb)
 		player.bombs_left -= 1
-
-	def update_blocks(self):
-		for block in self.blocks:
-			block.update()
-			block_coll = block.collide(self.players)  # for particle in block.particles
-			for item in block_coll:
-				if isinstance(item, Player) and block.solid:
-					if item.vel.x < 0: # moving left
-						item.rect.left = block.rect.right
-						item.vel.x = 0
-						# print(f'[coll-left] {type(item)} {type(block)} {block.solid} {block.rect}')
-					elif item.vel.x > 0: # moving right
-						item.rect.left = block.rect.right
-						item.vel.x = 0
-					elif item.vel.y > 0: # moving up
-						item.rect.top = block.rect.bottom
-						item.vel.y = 0
-					elif item.vel.y < 0: # moving up
-						item.rect.bottom = block.rect.top
-						item.vel.y = 0
-				elif isinstance(item, Particle) and block.solid:
-					pass
-
-						# print(f'[coll-right] {type(item)} {type(block)} {block.solid} {block.rect}')
-					# print(f'{type(item)} {type(block)} {block.solid} {block.rect}')
-				# if isinstance(particle, Particle) and block.solid:
-				# # 	# math.degrees(get_angle(pygame.math.Vector2(4,4), pygame.math.Vector2(4,5)))
-				# 	angle = get_angle(particle.rect, block.rect)
-				# 	# angle = get_entity_angle(particle.rect, block.rect)
-				# 	if 0 < angle < 90:
-				# 		particle.vel.x = -particle.vel.x
-				# 		# print('90')
-				# 	if 90 < angle < 180:
-				# 		particle.vel.x = -particle.vel.x
-				# 	if 180 < angle < 270:
-				# 		particle.vel.y = -particle.vel.y
-				# 	else:
-				# 		particle.vel.y = -particle.vel.y
-					# particle.vel.x += random.choice([-0.5, 0.5])
-					# particle.vel.y += random.choice([-0.5, 0.5])
-
-	def update_bombs(self):
-		self.bombs.update()
-		self.bombsflames.update()
-		for bomb in self.bombs:
-			if bomb.exploding:
-				for flame in self.bombsflames:
-					blocks = pygame.sprite.spritecollide(
-						flame, self.blocks, False)
-					for block in blocks:
-						if int(block.block_type) >= 1:
-							# block.take_damage(self.screen,  flame)  #  = True		# block particles
-							gengja = [self.blocksparticles.add(Particle(block, flame.direction)) for k in range(1, 10) if not block.hit ]
-							block.hit = True
-							flame.stop()
-						if (int(block.block_type) >=
-								3):  # block_type 1,2,3 = solid orange
-							block.drop_powerblock(
-							)  # make block drop the powerup
-							self.player1.add_score()  # give player some score
-							# self.game_data.grid[bomb.gridpos[0]][bomb.gridpos[1]] = 0
-
-			if bomb.done:
-				self.player1.bombs_left += 1  # return bomb to owner when done
-				bomb.kill()
+		x = int(player.rect.centerx // BLOCKSIZE[0])
+		y = int(player.rect.centery // BLOCKSIZE[1])
+		self.gamemap.set_block(x, y, 0)
 
 	def draw(self):
 		# draw on screen
 		pygame.display.flip()
 		self.screen.fill(self.bg_color)
+		# self.bombsflames.draw(self.screen)
 		self.blocks.draw(self.screen)
-		self.players.draw(self.screen)
 		self.bombs.draw(self.screen)
-		self.bombsflames.draw(self.screen)
-		self.powerblocks.draw(self.screen)
+		self.powerups.draw(self.screen)
 		self.blocksparticles.draw(self.screen)
+		self.players.draw(self.screen)
+		for bomb in self.bombs:
+			if bomb.explode:
+				[flame.draw(self.screen) for flame in bomb.flames]
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
 		if DEBUG:
+			self.game_menu.draw_debug_sprite(self.screen, self.players)
+			self.game_menu.draw_debug_sprite(self.screen, self.bombs)
 			self.game_menu.draw_debug_blocks(self.screen, self.blocks)
-		# self.game_menu.draw_panel(
-		# 	gamemap=self.gamemap,
-		# 	blocks=self.blocks,
-		# 	particles=self.blocksparticles,
-		# 	player1=self.player1,
-		# )
+			for bomb in self.bombs:
+				if bomb.explode:
+					self.game_menu.draw_debug_sprite(self.screen, bomb.flames)
+			self.game_menu.draw_panel(gamemap=self.gamemap, blocks=self.blocks, particles=self.blocksparticles, player1=self.player1)
 
 	def handle_menu(self, selection):
 		# mainmenu
@@ -253,12 +197,12 @@ class Game:
 			if event.type == pygame.MOUSEBUTTONDOWN:
 				mousex, mousey = pygame.mouse.get_pos()
 				blockinf = self.gamemap.get_block_real(mousex, mousey)
-				print(f"mouse x:{mousex} y:{mousey} |  b:{blockinf}")
+				print(f"mouse x:{mousex} y:{mousey} [x:{mousex//BLOCKSIZE[0]} y:{mousey//BLOCKSIZE[1]}]|  b:{self.gamemap.get_block(mousex // GRIDSIZE[0], mousey // GRIDSIZE[1])} ")
 			if event.type == pygame.QUIT:
 				self.running = False
 
 
-async def main_loop(game):
+async def main_loop(game=None):
 	mainClock = pygame.time.Clock()
 	while True:
 		# main game loop logic stuff
