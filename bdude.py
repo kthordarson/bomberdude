@@ -11,7 +11,7 @@ import random
 
 import pygame
 
-from globals import Block, Particle, BlockBomb, Player, Gamemap, Bomb_Flame
+from globals import Block, Particle, Bomb, Player, Gamemap, Flame
 from globals import BLOCKSIZE, FPS, GRIDSIZE, GRIDSIZE, SCREENSIZE
 from globals import get_angle, get_entity_angle
 from globals import DEBUG
@@ -32,7 +32,7 @@ class Game:
 		self.blocks = pygame.sprite.Group()
 		self.players = pygame.sprite.Group()
 		self.blocksparticles = pygame.sprite.Group()
-		self.powerblocks = pygame.sprite.Group()
+		self.powerups = pygame.sprite.Group()
 		self.bombs = pygame.sprite.Group()
 		# self.bombsflames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
@@ -44,7 +44,7 @@ class Game:
 		self.blocks = pygame.sprite.Group()
 		self.players = pygame.sprite.Group()
 		self.blocksparticles = pygame.sprite.Group()
-		self.powerblocks = pygame.sprite.Group()
+		self.powerups = pygame.sprite.Group()
 		self.bombs = pygame.sprite.Group()
 		# self.bombsflames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
@@ -75,24 +75,14 @@ class Game:
 		os._exit(1)
 
 	def bombdrop(self, player):
-		bomb = BlockBomb(pos=(player.rect.centerx, player.rect.centery), bomber_id=player.player_id, bomb_power=player.bomb_power)
-		# flame.set_screen(self.screen)
-		print(f'[bombdrop] b:{bomb.rect} p:{player.rect}')
-		# flame = Bomb_Flame(pos=pygame.math.Vector2(player.pos), vel=(-1, 0),direction="left", bomb=bomb)
-		# # flame.set_screen(self.screen)
-		# self.bombsflames.add(flame)
-		# flame = Bomb_Flame(pos=pygame.math.Vector2(player.pos), vel=(1, 0), direction="right", bomb=bomb)
-		# # flame.set_screen(self.screen)
-		# self.bombsflames.add(flame)
-		# flame = Bomb_Flame(pos=pygame.math.Vector2(player.pos), vel=(0, 1), direction="down", bomb=bomb)
-		# # flame.set_screen(self.screen)
-		# self.bombsflames.add(flame)
-		# flame = Bomb_Flame(pos=pygame.math.Vector2(player.pos), vel=(0, -1), direction="up", bomb=bomb)
-		# # flame.set_screen(self.screen)
-		# self.bombsflames.add(flame)
+		bombpos = pygame.math.Vector2((player.rect.centerx, player.rect.centery))
+		bomb = Bomb(pos=bombpos, bomber_id=player.player_id, bomb_power=player.bomb_power)
+		print(f'[bombdrop] b:{bomb.rect} p:{player.rect} bp:{bombpos}')
 		self.bombs.add(bomb)
 		player.bombs_left -= 1
-
+		x = int(player.rect.centerx // BLOCKSIZE[0])
+		y = int(player.rect.centery // BLOCKSIZE[1])
+		self.gamemap.set_block(x, y, 0)
 
 	def draw(self):
 		# draw on screen
@@ -101,7 +91,7 @@ class Game:
 		# self.bombsflames.draw(self.screen)
 		self.blocks.draw(self.screen)
 		self.bombs.draw(self.screen)
-		self.powerblocks.draw(self.screen)
+		self.powerups.draw(self.screen)
 		self.blocksparticles.draw(self.screen)
 		self.players.draw(self.screen)
 		for bomb in self.bombs:
@@ -110,7 +100,12 @@ class Game:
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
 		if DEBUG:
+			self.game_menu.draw_debug_sprite(self.screen, self.players)
+			self.game_menu.draw_debug_sprite(self.screen, self.bombs)
 			self.game_menu.draw_debug_blocks(self.screen, self.blocks)
+			for bomb in self.bombs:
+				if bomb.explode:
+					self.game_menu.draw_debug_sprite(self.screen, bomb.flames)
 			self.game_menu.draw_panel(gamemap=self.gamemap, blocks=self.blocks, particles=self.blocksparticles, player1=self.player1)
 
 	def handle_menu(self, selection):
@@ -202,12 +197,12 @@ class Game:
 			if event.type == pygame.MOUSEBUTTONDOWN:
 				mousex, mousey = pygame.mouse.get_pos()
 				blockinf = self.gamemap.get_block_real(mousex, mousey)
-				print(f"mouse x:{mousex} y:{mousey} |  b:{blockinf}")
+				print(f"mouse x:{mousex} y:{mousey} [x:{mousex//BLOCKSIZE[0]} y:{mousey//BLOCKSIZE[1]}]|  b:{self.gamemap.get_block(mousex // GRIDSIZE[0], mousey // GRIDSIZE[1])} ")
 			if event.type == pygame.QUIT:
 				self.running = False
 
 
-async def main_loop(game):
+async def main_loop(game=None):
 	mainClock = pygame.time.Clock()
 	while True:
 		# main game loop logic stuff

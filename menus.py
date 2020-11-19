@@ -56,24 +56,38 @@ class Menu:
 			pos_y += 25
 	def draw_coll_debug(self, players, blocks, colls):
 		pass
-	def draw_debug_player(self, players):
-		for player in players:
-			self.font.render_to(self.screen,self.pos,f"player pos x:{player.rect}",self.font_color)
+
+	def draw_debug_sprite(self, screen, sprites):
+		# self.font_color = (255, 255, 255)
+		for sprite in sprites:
+			screen.set_at(sprite.rect.center, (255,255,255))
+			screen.set_at(sprite.rect.topleft, (255,255,255))
+			screen.set_at(sprite.rect.topright, (255,255,255))
+			screen.set_at(sprite.rect.bottomright, (255,255,255))
+			screen.set_at(sprite.rect.bottomleft, (255,255,255))
+			# self.font.render_to(screen,(player.rect.x, player.rect.y),f"player pos x:{player.rect}",self.font_color)
+			#self.font.render_to(screen,player.rect.topleft,f"{player.rect.x}",self.font_color)
+			#self.font.render_to(screen,player.rect.topright,f"{player.rect.y}",self.font_color)
+			#self.font.render_to(screen,player.rect.bottomleft,f"{player.rect.y}",self.font_color)
+			#self.font.render_to(screen,player.rect.bottomright,f"{player.rect.y}",self.font_color)
+			# self.font.render_to(screen,player.pos,f"player pos x:{player.rect}",self.font_color)
 
 	def draw_debug_blocks(self, screen, blocks):
 		for block in blocks:
 			if block.solid:
 				outlinecolor = (255,155,155)
-				self.debugfont.render_to(screen,(block.pos.x+3, block.pos.y+11),f"{block.gridpos}",self.font_color)
+				self.debugfont.render_to(screen,(block.pos.x+3, block.pos.y+11),f"{block.block_type}",self.font_color)
 			else:
+				self.font_color = (123, 123, 123)
 				outlinecolor = (155,55,55)
-			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y))
-			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x, block.pos.y+BLOCKSIZE[1]))
-			pygame.draw.line(screen, outlinecolor, (block.pos.x+BLOCKSIZE[0], block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
-			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y+BLOCKSIZE[1]), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
+				self.debugfont.render_to(screen,(block.pos.x+3, block.pos.y+11),f"{block.block_type}",self.font_color)
+			#pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y))
+			#pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x, block.pos.y+BLOCKSIZE[1]))
+			#pygame.draw.line(screen, outlinecolor, (block.pos.x+BLOCKSIZE[0], block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
+			#pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y+BLOCKSIZE[1]), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
 #			else:
 #				self.debugfont.render_to(screen,block.rect,f"X",self.font_color)
-
+	#def draw_debug_pl
 	def draw_panel(self, gamemap, blocks, particles, player1):
 		# todo fix this shit
 		pos = pygame.math.Vector2(10,630)
