@@ -16,6 +16,7 @@ POWERUPSIZE = (12, 12)
 BOMBSIZE = (16, 16)
 PLAYERSIZE = (16,16)
 FLAMESIZE = (8,8)
+FLAMELENGTH = 20
 PARTICLESIZE = (2,2)
 SCREENSIZE = (BLOCKSIZE[0] * (GRIDSIZE[0] + 1), BLOCKSIZE[1] * GRIDSIZE[1] + 100)
 #SCREENSIZE = (700, 700)
@@ -85,6 +86,7 @@ BLOCKTYPES = {
 		"powerup": True,
 	},
 }
+
 def random_velocity():
 	vel = pygame.math.Vector2((random.uniform(-2,2),random.uniform(-2,2)))
 	return vel
@@ -142,8 +144,7 @@ class BasicThing(pygame.sprite.Sprite):
 		self.font_color = (255, 255, 255)
 		self.collisions = []
 		self.collision_types = {'top':False,'bottom':False,'right':False,'left':False,'slant_bottom':False,'data':[]}
-		self.dt = pygame.time.get_ticks() / 1000
-		self.start_time = pygame.time.get_ticks()
+		self.start_time = pygame.time.get_ticks() / 1000
 
 	def collide(self, items):
 		self.collisions = pygame.sprite.spritecollide(self, items, False)
@@ -155,26 +156,26 @@ class Block(BasicThing):
 	def __init__(self, gridpos=None, block_type=None, blockid=None, pos=None):
 		BasicThing.__init__(self)
 		pygame.sprite.Sprite.__init__(self)
+		self.gridpos = gridpos
 		self.block_type = block_type
 		self.blockid = blockid
-		self.pos = pygame.math.Vector2((BLOCKSIZE[0]*gridpos[0], BLOCKSIZE[1]*gridpos[1]))
-		self.solid = None
-		self.image = None
-		self.init(block_type)
-		self.explode = False
-		self.hit = False
-		self.timer = 1000
-		self.bomb_timer = 1
-		self.poweruptime = 10
-		self.image.set_alpha(100)
-		self.image.set_colorkey((0,0,0))
-		self.hit = False
-		self.gridpos = pygame.math.Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
+		self.set_type(block_type)
+		self.particles = pygame.sprite.Group()
+		self.start_time = pygame.time.get_ticks() / 1000
 
 	def get_type(self):
 		return self.block_type
 
-	def init(self, block_type):
+	def set_type(self, block_type='0'):
+		self.start_time = pygame.time.get_ticks() / 1000
+		self.explode = False
+		self.hit = False
+		self.timer = 10
+		self.bomb_timer = 1
+		self.poweruptime = 10
+		# self.particles = pygame.sprite.Group()
+		self.pos = pygame.math.Vector2((BLOCKSIZE[0]*self.gridpos[0], BLOCKSIZE[1]*self.gridpos[1]))
+		self.gridpos = pygame.math.Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
 		self.solid = BLOCKTYPES.get(block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(block_type)["permanent"]
 		self.size = BLOCKTYPES.get(block_type)["size"]
@@ -186,78 +187,43 @@ class Block(BasicThing):
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		# self.gridpos = pygame.math.Vector2((self.rect.x // BLOCKSIZE[0], self.rect.y // BLOCKSIZE[1]))
-		# self.particles = pygame.sprite.Group()
-		self.hit = False
-		#self.rect.x = pos.x
-		#self.rect.y = pos.y
+		#self.rect.x = self.gridpos.x
+		#self.rect.y = self.gridpos.y
+		self.image.set_alpha(100)
+		self.image.set_colorkey((0,0,0))
 		# print(f'[set_type] t:{block_type} ')
 
-	def set_type(self, block_type):
-		self.hit = False
-		center = self.rect.center
-		self.solid = BLOCKTYPES.get(block_type)["solid"]
-		self.permanent = BLOCKTYPES.get(block_type)["permanent"]
-		self.size = BLOCKTYPES.get(block_type)["size"]
-		self.bitmap = BLOCKTYPES.get(block_type)["bitmap"]
-		self.powerup = BLOCKTYPES.get(block_type)["powerup"]
-		self.image, self.rect = load_image(self.bitmap, -1)
-		self.image = pygame.transform.scale(self.image, self.size)
-		self.rect = self.image.get_rect()
-		self.rect.x = self.gridpos.x
-		self.rect.y = self.gridpos.y
-		# self.gridpos = pygame.math.Vector2((self.rect.x // BLOCKSIZE[0], self.rect.y // BLOCKSIZE[1]))
-	
 	def update(self):
 		#if self.hit:
 		#	[particle.update() for particle in self.particles]
-		self.pos = pygame.math.Vector2(self.rect.x, self.rect.y)
+		# self.pos = pygame.math.Vector2(self.rect.x, self.rect.y)
 		if self.powerup:
-			self.dt = pygame.time.get_ticks() // 1000			
-			if self.dt >= self.poweruptime:
+			self.dt = pygame.time.get_ticks() / 1000
+			if self.dt - self.start_time >= self.poweruptime:
 				# print(f'pt:{self.dt} t:{self.poweruptime} t:{self.start_time-self.dt} ')
 				self.set_type('0')
 				self.powerup = False
 
 #		self.gridpos = pygame.math.Vector2((self.rect.x // BLOCKSIZE[0], self.rect.y // BLOCKSIZE[1]))
+	def get_particles(self):
+		return self.particles
 
 	def take_damage(self, item):
-		particles = pygame.sprite.Group()
-		self.hit = True		
+		self.hit = True
 		item.vel = pygame.math.Vector2(item.vel[0], item.vel[1])
 		if item.direction == 'left':
-			pos = self.rect.midright
-			# vel = pygame.math.Vector2(random.uniform(1,3), (random.uniform(-2,2)))
-			# [self.particles.add(Particle(pos, vel)) for k in range(5,10)] 
-			# [self.particles.add(Particle(pos, pygame.math.Vector2(random.uniform(-2,-1), item.vel.y))) for k in range(5,10)] 
-			[particles.add(Particle(pos=pos, direction=item.direction)) for k in range(5,10)] 
-			#print(f'[pi {len(self.particles)}] {item.direction} p:{pos} v:{vel}')
+			pos = (self.rect.midright)
+			[self.particles.add(Particle(pos=pos, direction=item.direction)) for k in range(5,10)]
 		if item.direction == 'right':
 			pos = self.rect.midleft
-			[particles.add(Particle(pos=pos, direction=item.direction)) for k in range(5,10)] 
-			# print(f'[bldmg] {self.rect} from {item} d:{item.direction} p:{pos}')
-			# vel = pygame.math.Vector2((random.uniform(-3,-3), (random.uniform(-1,1))))			
-			# [self.particles.add(Particle(pos, pygame.math.Vector2(random.uniform(1,2), item.vel.y))) for k in range(5,10)] 
-			#print(f'[pi {len(self.particles)}] {item.direction} p:{pos} v:{vel}')
+			[self.particles.add(Particle(pos=pos, direction=item.direction)) for k in range(5,10)]
 		if item.direction == 'up':
 			pos = self.rect.midbottom
-			[particles.add(Particle(pos=pos, direction=item.direction)) for k in range(5,10)] 
-			# vel = pygame.math.Vector2((random.uniform(1,1), (random.uniform(3,3))))			
-			# [self.particles.add(Particle(pos, pygame.math.Vector2(random.uniform(-1,1), (random.uniform(3,3))))) for k in range(5,10)] 
-			#print(f'[pi {len(self.particles)}] {item.direction} p:{pos} v:{vel}')
+			[self.particles.add(Particle(pos=pos, direction=item.direction)) for k in range(5,10)]
 		if item.direction == 'down':
 			pos = self.rect.midtop
-			[particles.add(Particle(pos=pos, direction=item.direction)) for k in range(5,10)] 
-			# vel = pygame.math.Vector2((random.uniform(1,1), (random.uniform(-3,-3))))
-			#[self.particles.add(Particle(pos, pygame.math.Vector2(random.uniform(-1,1), (random.uniform(-3,-3))))) for k in range(5,10)] 
-			#print(f'[pi {len(self.particles)}] {item.direction} p:{pos} v:{vel}')
+			[self.particles.add(Particle(pos=pos, direction=item.direction)) for k in range(5,10)]
 
-
-		# if item.direction == 'right':
-		# 	[self.particles.add(Particle(pos=self.rect.left, vel=pygame.math.Vector2((random.uniform(-3,-1), (random.uniform(-1,1)))))) for k in range(5,10)] 
-		# if item.direction == 'up':
-		# 	[self.particles.add(Particle(pos=self.rect.bottom, vel=pygame.math.Vector2((random.uniform(-1,1), (random.uniform(1,3)))))) for k in range(5,10)] 
-		# if item.direction == 'down':
-		# 	[self.particles.add(Particle(pos=self.rect.top, vel=pygame.math.Vector2((random.uniform(-1,1), (random.uniform(-3,-1)))))) for k in range(5,10)] 
 
 class Particle(BasicThing):
 	def __init__(self, pos=None, vel=None, direction=None):
@@ -272,13 +238,16 @@ class Particle(BasicThing):
 		self.rect = self.image.get_rect()
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
+		self.start_time = 1  # pygame.time.get_ticks() // 1000
+		self.timer = 10
+		self.start_time = pygame.time.get_ticks() / 1000
 		# self.direction = direction
 		if vel is not None:
 			self.vel = vel  # pygame.math.Vector2(random.uniform(-2, 2), random.uniform(-2, 2))  # pygame.math.Vector2(0, 0)
 			print(f'[p] vel {self.vel}')
 		else:
 			self.vel = random_velocity()
-			print(f'[p] randvel {self.vel} {self.direction}')
+			# print(f'[p] randvel {self.vel} {self.direction}')
 		if direction == 'up' and self.vel.y <= 0:
 			self.vel.y = -1 * self.vel.y
 		if direction == 'down' and self.vel.y >= 0:
@@ -291,35 +260,40 @@ class Particle(BasicThing):
 			self.vel.y = random.uniform(-2,2)
 
 	def update(self, items=None):
-		# if isinstance(self.vel, NoneType):
-			
-			# print(f'[parthits] {len(block_hit_list)}')
-		if self.direction == 'up':  #self.vel.y <= 0:  # direction up
-			self.pos.y += abs(self.vel.y)
-			self.pos.x += self.vel.x
-		if self.direction == 'down':  # self.vel.y >= 0 :  # direction down
-			self.pos.y -= abs(self.vel.y)
-			self.pos.x += self.vel.x
-		if self.direction == 'right':  # self.vel.y >= 0 :  # direction down
-			self.pos.x -= abs(self.vel.x)
-			self.pos.y += self.vel.y
-		if self.direction == 'left':  # self.vel.y >= 0 :  # direction down
-			self.pos.x += abs(self.vel.x)
-			self.pos.y += self.vel.y
+		self.dt = pygame.time.get_ticks() / 1000
+		if self.dt  - self.start_time >= self.timer:
+			self.kill()
+			# print(f'[p] time {self.dt - self.start_time} >= {self.timer}')
+		# if self.direction == 'up':  #self.vel.y <= 0:  # direction up
+		# 	self.pos.y += abs(self.vel.y)
+		# 	self.pos.x += self.vel.x * 1.3
+		# if self.direction == 'down':  # self.vel.y >= 0 :  # direction down
+		# 	self.pos.y -= abs(self.vel.y)
+		# 	self.pos.x += self.vel.x  * 1.3
+		# if self.direction == 'right':  # self.vel.y >= 0 :  # direction down
+		# 	self.pos.x -= abs(self.vel.x)
+		# 	self.pos.y += self.vel.y  * 1.3
+		# if self.direction == 'left':  # self.vel.y >= 0 :  # direction down
+		# 	self.pos.x += abs(self.vel.x)
+		# 	self.pos.y += self.vel.y  * 1.3
+		# self.rect.x = self.pos.x
+		# self.rect.y = self.pos.y
+		self.pos += self.vel
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		if isinstance(items, pygame.sprite.Group):
 			block_hit_list = self.collide(items)
-			for hit in block_hit_list:
-				if hit.solid:
-					print(f'[parthits] {len(block_hit_list)} {hit}')
-					self.vel = -1 * self.vel
-					self.pos += self.vel
-					self.rect.x = self.pos.x
-					self.rect.y = self.pos.y
-				if not hit.solid:
-					print(f'[parthits] kill {len(block_hit_list)} {hit}')
-					self.kill()
+			for block in block_hit_list:
+				if block.block_type == '1' or block.block_type == '2' or block.block_type == '3' or block.block_type == '4':
+					# print(f'[parthits] {len(block_hit_list)} {block}')
+					self.vel = (random.uniform(-1,-0.1)) * self.vel
+					#self.pos += self.vel
+					#self.rect.x = self.pos.x
+					#self.rect.y = self.pos.y
+#				if not hit.solid:
+#					pass
+					#print(f'[parthits] kill {len(block_hit_list)} {hit}')
+					#self.kill()
 		# print(f'[P] {self.pos} {self.rect}')
 
 class Flame(BasicThing):
@@ -337,57 +311,61 @@ class Flame(BasicThing):
 			self.image, self.rect = rot_center(self.image, self.rect, 180)
 		self.direction = direction
 		self.size = FLAMESIZE
-		self.flame_length = 55
 		self.pos = pygame.math.Vector2(pos)
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		self.start_pos = pygame.math.Vector2(pos)
 		self.vel = vel  # pygame.math.Vector2(vel[0], vel[1])  # flame direction
-		self.timer = 1000
+		self.timer = 10
+		self.start_time = pygame.time.get_ticks() / 1000
 
 	def check_time(self):
 		pass
+
 	def draw(self, screen):
 		screen.blit(self.image, self.pos)
 
-	def update(self, blocks):
+	def update(self):
+		self.dt = pygame.time.get_ticks() / 1000
 		self.pos += self.vel
 		distance = abs(int(self.pos.distance_to(self.start_pos)))
 		self.rect = self.image.get_rect()
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
-		block_hit_list = self.collide(blocks)
 		# print(f'{self.pos.x} {self.start_pos.x} {self.pos.distance_to(self.start_pos)}')
-		if distance >= self.flame_length: # or (self.dt - self.start_time >= self.timer):
-			print(f'[flame] dist {distance} max {self.flame_length}')
+		if distance >= FLAMELENGTH: # or (self.dt - self.start_time >= self.timer):
+			# print(f'[flame] dist {distance} max {self.FLAMELENGTH}')
 			self.kill()
 		if self.dt - self.start_time >= self.timer:
-			print(f'[flame] time {self.dt - self.start_time} >= {self.timer}')
+			# print(f'[flame] time {self.dt - self.start_time} >= {self.timer}')
 			self.kill()
-		for block in block_hit_list:
+
+	def flamecollide(self, block):
+		#block_hit_list = self.collide(blocks)
+		#for block in block_hit_list:
 			# print(f'{block.get_type}')
-			if block.get_type() == '1':
-				block.take_damage(self)
-				block.set_type('20')
-				self.kill()
-			if block.get_type() == '2':
-				block.take_damage(self)
-				block.set_type('20')
-				self.kill()
-			if block.get_type() == '3':
-				block.take_damage(self)
-				block.set_type('20')
-				self.kill()
-			if block.get_type() == '4':
-				block.take_damage(self)
-				block.set_type('20')
-				self.kill()
-			if block.get_type() == '11':
-				# block.take_damage(self)
-				block.set_type('0')
-				self.kill()
-			else:
-				pass
+		if block.get_type() == '1':
+			block.take_damage(self)
+			#block.set_type('20')
+			self.kill()
+		if block.get_type() == '2':
+			block.take_damage(self)
+			#block.set_type('20')
+			self.kill()
+		if block.get_type() == '3':
+			block.take_damage(self)
+			#block.set_type('20')
+			self.kill()
+		if block.get_type() == '4':
+			block.take_damage(self)
+			#block.set_type('20')
+			self.kill()
+		if block.get_type() == '11':
+			block.take_damage(self)
+			#block.set_type('0')
+			self.kill()
+		else:
+			pass
 				# print(f'[fl] p:{self.pos} b:{block.block_type}')
 
 class Bomb(BasicThing):
@@ -401,14 +379,14 @@ class Bomb(BasicThing):
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		# self.gridpos = gridpos
 		self.bomber_id = bomber_id
-		self.start_time = pygame.time.get_ticks() // 1000
+		self.start_time = pygame.time.get_ticks() / 1000
 		self.rect = self.image.get_rect()
 		self.rect.centerx = self.pos.x
 		self.rect.centery = self.pos.y
 		self.font = pygame.font.SysFont("calibri", 10, True)
 		self.bomb_timer = 1
 		self.bomb_fuse = 1
-		self.bomb_end = 2
+		self.bomb_end = 5
 		self.bomb_size = 5
 		self.explode = False
 		self.exp_radius = 1
@@ -417,27 +395,30 @@ class Bomb(BasicThing):
 		self.flame_power = bomb_power
 		self.flame_width = 10
 		self.flamesout = False
-		# self.flames = pygame.sprite.Group()
+		self.flames = pygame.sprite.Group()
 
-	def update(self, blocks):
+	def get_flames(self):
+		if not self.flamesout:
+			flame1 = Flame(pos=pygame.math.Vector2(self.pos), vel=(-1, 0),direction="left")
+			flame2 = Flame(pos=pygame.math.Vector2(self.pos), vel=(1, 0), direction="right")
+			flame3 = Flame(pos=pygame.math.Vector2(self.pos), vel=(0, 1), direction="down")
+			flame4 = Flame(pos=pygame.math.Vector2(self.pos), vel=(0, -1), direction="up")
+			flames = pygame.sprite.Group()
+			flames.add(flame1)
+			flames.add(flame2)
+			flames.add(flame3)
+			flames.add(flame4)
+			self.flamesout = True
+			return flames
+		else:
+			return pygame.sprite.Group()
+
+	def update(self):
 		self.dt = pygame.time.get_ticks() / 1000
 		#print(f'{self.start_time} {self.dt} {self.dt - self.start_time} {self.bomb_timer}')
 		# I will start exploding after xxx seconds....
 		if self.dt - self.start_time >= self.bomb_fuse:
 			self.explode = True
-			if not self.flamesout:
-				flame1 = Flame(pos=pygame.math.Vector2(self.pos), vel=(-1, 0),direction="left")
-				flame2 = Flame(pos=pygame.math.Vector2(self.pos), vel=(1, 0), direction="right")
-				flame3 = Flame(pos=pygame.math.Vector2(self.pos), vel=(0, 1), direction="down")
-				flame4 = Flame(pos=pygame.math.Vector2(self.pos), vel=(0, -1), direction="up")
-				self.flamesout = True
-				flames = pygame.sprite.Group()
-				flames.add(flame1)
-				flames.add(flame2)
-				flames.add(flame3)
-				flames.add(flame4)
-				return flames
-
 		if self.dt - self.start_time >= self.bomb_end:
 			self.kill()
 
@@ -464,7 +445,7 @@ class Player(BasicThing):
 		self.font = pygame.font.SysFont("calibri", 10, True)
 
 	def update(self, blocks):
-			self.vel += self.accel		
+			self.vel += self.accel
 			self.pos.x += self.vel.x
 			self.rect.x = int(self.pos.x)
 			block_hit_list = self.collide(blocks)
@@ -500,7 +481,7 @@ class Player(BasicThing):
 					self.pos.y = self.rect.y
 					#self.vel.y = 0
 			return self.collision_types
-		
+
 	def take_powerup(self, powerup):
 		# pick up powerups...
 		if powerup.powerup_type[0] == "addbomb":
@@ -556,7 +537,7 @@ class Gamemap:
 	def get_block(self, x, y):
 		# get block inf from grid
 		try:
-			value = self.grid[x][y] 
+			value = self.grid[x][y]
 		except IndexError as e:
 			print(f'[get_block] {e} x:{x} y:{y}')
 			return -1
@@ -566,7 +547,7 @@ class Gamemap:
 		x = x // BLOCKSIZE[0]
 		y = y // BLOCKSIZE[1]
 		try:
-			value = self.grid[x][y] 
+			value = self.grid[x][y]
 		except IndexError as e:
 			print(f'[get_block] {e} x:{x} y:{y}')
 			return -1

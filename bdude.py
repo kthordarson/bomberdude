@@ -30,11 +30,12 @@ class Game:
 		self.show_panel = True
 		self.gamemap = Gamemap()
 		self.blocks = pygame.sprite.Group()
+		self.particles = pygame.sprite.Group()
 		self.players = pygame.sprite.Group()
 		self.particles = pygame.sprite.Group()
 		self.powerups = pygame.sprite.Group()
 		self.bombs = pygame.sprite.Group()
-		# self.bombsflames = pygame.sprite.Group()
+		self.flames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
 		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
 
@@ -46,26 +47,33 @@ class Game:
 		self.particles = pygame.sprite.Group()
 		self.powerups = pygame.sprite.Group()
 		self.bombs = pygame.sprite.Group()
-		# self.bombsflames = pygame.sprite.Group()
+		self.flames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
 		# foo = self.gamemap.place_player()
 		# self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
 		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33)
-		[self.blocks.add(Block(gridpos=(k, j),block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
+		[self.blocks.add(Block(gridpos=(j, k),block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
 		self.players.add(self.player1)
 
 	def update(self):
 		# todo network things
 		#[player.update(self.blocks) for player in self.players]
 		self.players.update(self.blocks)
-		for block in self.blocks:
-			self.particles = block.update()
-			if block.hit:
-				[particle.update(self.blocks) for particle in block.particles]
-		self.bombs.update(self.blocks)
+		self.bombs.update()
 		for bomb in self.bombs:
 			if bomb.explode:
-				[flame.update(self.blocks) for flame in bomb.flames]
+				[self.flames.add(flames) for flames in bomb.get_flames()]
+		self.flames.update()
+		flame_colls = pygame.sprite.groupcollide(self.blocks, self.flames, False, False)
+		for block, flames in flame_colls.items():
+			if block.solid:
+				[flame.flamecollide(block) for flame in flames]
+				[block.take_damage(flame) for flame in flames]
+				self.particles.add(block.particles)
+		self.particles.update(self.blocks)
+				#block.hit = True
+				#[self.particles.add(block.particles) for ]
+				# print(f'[coll] b:{block} f:{flame}')
 		# self.bombsflames.update(self.blocks)
 		# [flame.check_coll(self.blocks) for flame in self.bombsflames]
 
@@ -80,7 +88,7 @@ class Game:
 		bomb = Bomb(pos=bombpos, bomber_id=player.player_id, bomb_power=player.bomb_power)
 		# print(f'[bombdrop] b:{bomb.rect} p:{player.rect} bp:{bombpos}')
 		self.bombs.add(bomb)
-		player.bombs_left -= 1
+		# player.bombs_left -= 1
 		x = int(player.rect.centerx // BLOCKSIZE[0])
 		y = int(player.rect.centery // BLOCKSIZE[1])
 		self.gamemap.set_block(x, y, 0)
@@ -97,7 +105,7 @@ class Game:
 		self.players.draw(self.screen)
 		for bomb in self.bombs:
 			if bomb.explode:
-				[flame.draw(self.screen) for flame in bomb.flames]
+				self.flames.draw(self.screen)
 #		for block in self.blocks:
 
 		if self.show_mainmenu:
@@ -106,12 +114,12 @@ class Game:
 			self.game_menu.draw_debug_sprite(self.screen, self.players)
 			for block in self.blocks:
 				if block.hit:
-					self.game_menu.draw_debug_sprite(self.screen, block.particles)
-			#self.game_menu.draw_debug_sprite(self.screen, self.bombs)
-			self.game_menu.draw_debug_blocks(self.screen, self.blocks, self.gamemap)
-			# for bomb in self.bombs:
-			# 	if bomb.explode:
-			# 		self.game_menu.draw_debug_sprite(self.screen, bomb.flames)
+					self.game_menu.draw_debug_sprite(self.screen, self.particles)
+			# self.game_menu.draw_debug_sprite(self.screen, self.bombs)
+			# self.game_menu.draw_debug_blocks(self.screen, self.blocks, self.gamemap)
+			for bomb in self.bombs:
+				if bomb.explode:
+					self.game_menu.draw_debug_sprite(self.screen, bomb.flames)
 			self.game_menu.draw_panel(gamemap=self.gamemap, blocks=self.blocks, particles=self.particles, player1=self.player1)
 
 	def handle_menu(self, selection):
