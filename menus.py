@@ -72,19 +72,14 @@ class Menu:
 			#self.font.render_to(screen,player.rect.bottomright,f"{player.rect.y}",self.font_color)
 			# self.font.render_to(screen,player.pos,f"player pos x:{player.rect}",self.font_color)
 
-	def draw_debug_blocks(self, screen, blocks):
+	def draw_debug_blocks(self, screen, blocks, gridmap):
 		for block in blocks:
-			if block.solid:
-				outlinecolor = (255,155,155)
-				self.debugfont.render_to(screen,(block.pos.x+3, block.pos.y+11),f"{block.block_type}",self.font_color)
-			else:
-				self.font_color = (123, 123, 123)
-				outlinecolor = (155,55,55)
-				self.debugfont.render_to(screen,(block.pos.x+3, block.pos.y+11),f"{block.block_type}",self.font_color)
-			#pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y))
-			#pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x, block.pos.y+BLOCKSIZE[1]))
-			#pygame.draw.line(screen, outlinecolor, (block.pos.x+BLOCKSIZE[0], block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
-			#pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y+BLOCKSIZE[1]), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
+			outlinecolor = (255,155,155)
+			self.debugfont.render_to(screen,(block.rect.centerx-5, block.rect.centery),f"{block.block_type}/{gridmap.get_block_real(block.rect.centerx, block.rect.centery)}",self.font_color)
+			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y))
+			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x, block.pos.y+BLOCKSIZE[1]))
+			pygame.draw.line(screen, outlinecolor, (block.pos.x+BLOCKSIZE[0], block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
+			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y+BLOCKSIZE[1]), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
 #			else:
 #				self.debugfont.render_to(screen,block.rect,f"X",self.font_color)
 	#def draw_debug_pl
