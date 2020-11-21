@@ -71,6 +71,10 @@ class Game:
 				[block.take_damage(flame) for flame in flames]
 				self.particles.add(block.particles)
 		self.particles.update(self.blocks)
+		self.blocks.update(self.blocks)
+		# [block.check_coll(self.particles) for block in self.blocks]
+		[particle.coll_check(self.blocks) for particle in self.particles]
+		#[particle.set_vel(particle.reflect((1,1))) for particle in self.particles]
 				#block.hit = True
 				#[self.particles.add(block.particles) for ]
 				# print(f'[coll] b:{block} f:{flame}')
@@ -112,11 +116,13 @@ class Game:
 			self.game_menu.draw_mainmenu(self.screen)
 		if DEBUG:
 			self.game_menu.draw_debug_sprite(self.screen, self.players)
-			for block in self.blocks:
-				if block.hit:
-					self.game_menu.draw_debug_sprite(self.screen, self.particles)
+		# if DEBUG:
+		# 	for block in self.blocks:
+		# 		if block.hit:
+		# 			self.game_menu.draw_debug_sprite(self.screen, self.particles)
 			# self.game_menu.draw_debug_sprite(self.screen, self.bombs)
 			# self.game_menu.draw_debug_blocks(self.screen, self.blocks, self.gamemap)
+		if DEBUG:
 			for bomb in self.bombs:
 				if bomb.explode:
 					self.game_menu.draw_debug_sprite(self.screen, bomb.flames)

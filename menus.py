@@ -3,15 +3,16 @@ import pygame.freetype
 from functools import reduce
 from operator import mul
 from globals import BLOCKSIZE
-
+from globals import Particle
+import math
 class Menu:
 	def __init__(self, screen):
 		self.screen = screen
-		w, h = pygame.display.get_surface().get_size()
+		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (250, 180)
 		self.image = pygame.Surface(self.menusize)
 		self.rect = self.image.get_rect()
-		self.pos = pygame.math.Vector2(w // 2 - self.menusize[0] // 2, h // 2 - self.menusize[1] // 2)
+		self.pos = pygame.math.Vector2(self.screenw // 2 - self.menusize[0] // 2, self.screenh // 2 - self.menusize[1] // 2)
 		self.selected_color = (255, 255, 255)
 		self.inactive_color = (155, 155, 155)
 		self.menufont = pygame.freetype.Font("DejaVuSans.ttf", 24)
@@ -59,12 +60,19 @@ class Menu:
 
 	def draw_debug_sprite(self, screen, sprites):
 		# self.font_color = (255, 255, 255)
+		# self.debugfont.fgcolor
+		self.debugfont = pygame.freetype.Font("DejaVuSans.ttf", 15)
 		for sprite in sprites:
-			screen.set_at(sprite.rect.center, (255,255,255))
-			screen.set_at(sprite.rect.topleft, (255,255,255))
-			screen.set_at(sprite.rect.topright, (255,255,255))
-			screen.set_at(sprite.rect.bottomright, (255,255,255))
-			screen.set_at(sprite.rect.bottomleft, (255,255,255))
+			# screen.set_at(sprite.rect.center, (255,255,255))
+			# screen.set_at(sprite.rect.topleft, (255,255,255))
+			# screen.set_at(sprite.rect.topright, (255,255,255))
+			# screen.set_at(sprite.rect.bottomright, (255,255,255))
+			# screen.set_at(sprite.rect.bottomleft, (255,255,255))
+			if isinstance(sprite, Particle):
+				try:
+					self.debugfont.render_to(screen, sprite.rect.center, f'{sprite.angle:.1f}', (255,255,255))
+				except TypeError as e:
+					print(f'[DP] {e} {sprite.rect} {math.degrees(sprite.angle)}')
 			# self.font.render_to(screen,(player.rect.x, player.rect.y),f"player pos x:{player.rect}",self.font_color)
 			#self.font.render_to(screen,player.rect.topleft,f"{player.rect.x}",self.font_color)
 			#self.font.render_to(screen,player.rect.topright,f"{player.rect.y}",self.font_color)
@@ -85,7 +93,7 @@ class Menu:
 	#def draw_debug_pl
 	def draw_panel(self, gamemap, blocks, particles, player1):
 		# todo fix this shit
-		pos = pygame.math.Vector2(10,630)
+		pos = pygame.math.Vector2(10, self.screenh-40)
 		try:
 			self.panelfont.render_to(self.screen, pos, f"player pos x:{player1.rect} vel:{player1.vel} ", self.panelfont_color)
 			self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"bombs: {player1.bombs_left} score: {player1.score}", self.panelfont_color)
