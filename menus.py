@@ -4,6 +4,8 @@ from functools import reduce
 from operator import mul
 from globals import BLOCKSIZE
 from globals import Particle
+from globals import DEFAULTFONT
+from globals import get_angle
 import math
 class Menu:
 	def __init__(self, screen):
@@ -11,14 +13,14 @@ class Menu:
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (250, 180)
 		self.image = pygame.Surface(self.menusize)
-		self.rect = self.image.get_rect()
 		self.pos = pygame.math.Vector2(self.screenw // 2 - self.menusize[0] // 2, self.screenh // 2 - self.menusize[1] // 2)
+		self.rect = self.image.get_rect(topleft=self.pos)
 		self.selected_color = (255, 255, 255)
 		self.inactive_color = (155, 155, 155)
-		self.menufont = pygame.freetype.Font("DejaVuSans.ttf", 24)
-		self.debugfont = pygame.freetype.Font("DejaVuSans.ttf", 10)
-		self.panelfont = pygame.freetype.Font("DejaVuSans.ttf", 10)
-		self.font = pygame.freetype.Font("DejaVuSans.ttf", 12)
+		self.menufont = pygame.freetype.Font(DEFAULTFONT, 24)
+		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 10)
+		self.panelfont = pygame.freetype.Font(DEFAULTFONT, 10)
+		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.font_color = (255, 255, 255)
 		self.panelfont_color = (255, 255, 255)
 		self.menufont.fgcolor = self.selected_color
@@ -58,39 +60,6 @@ class Menu:
 	def draw_coll_debug(self, players, blocks, colls):
 		pass
 
-	def draw_debug_sprite(self, screen, sprites):
-		# self.font_color = (255, 255, 255)
-		# self.debugfont.fgcolor
-		self.debugfont = pygame.freetype.Font("DejaVuSans.ttf", 15)
-		for sprite in sprites:
-			# screen.set_at(sprite.rect.center, (255,255,255))
-			# screen.set_at(sprite.rect.topleft, (255,255,255))
-			# screen.set_at(sprite.rect.topright, (255,255,255))
-			# screen.set_at(sprite.rect.bottomright, (255,255,255))
-			# screen.set_at(sprite.rect.bottomleft, (255,255,255))
-			if isinstance(sprite, Particle):
-				try:
-					self.debugfont.render_to(screen, sprite.rect.center, f'{sprite.angle:.1f}', (255,255,255))
-				except TypeError as e:
-					print(f'[DP] {e} {sprite.rect} {math.degrees(sprite.angle)}')
-			# self.font.render_to(screen,(player.rect.x, player.rect.y),f"player pos x:{player.rect}",self.font_color)
-			#self.font.render_to(screen,player.rect.topleft,f"{player.rect.x}",self.font_color)
-			#self.font.render_to(screen,player.rect.topright,f"{player.rect.y}",self.font_color)
-			#self.font.render_to(screen,player.rect.bottomleft,f"{player.rect.y}",self.font_color)
-			#self.font.render_to(screen,player.rect.bottomright,f"{player.rect.y}",self.font_color)
-			# self.font.render_to(screen,player.pos,f"player pos x:{player.rect}",self.font_color)
-
-	def draw_debug_blocks(self, screen, blocks, gridmap):
-		for block in blocks:
-			outlinecolor = (255,155,155)
-			self.debugfont.render_to(screen,(block.rect.centerx-5, block.rect.centery),f"{block.block_type}/{gridmap.get_block_real(block.rect.centerx, block.rect.centery)}",self.font_color)
-			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y))
-			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x, block.pos.y+BLOCKSIZE[1]))
-			pygame.draw.line(screen, outlinecolor, (block.pos.x+BLOCKSIZE[0], block.pos.y), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
-			pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y+BLOCKSIZE[1]), (block.pos.x+BLOCKSIZE[0], block.pos.y+BLOCKSIZE[1]))
-#			else:
-#				self.debugfont.render_to(screen,block.rect,f"X",self.font_color)
-	#def draw_debug_pl
 	def draw_panel(self, gamemap, blocks, particles, player1):
 		# todo fix this shit
 		pos = pygame.math.Vector2(10, self.screenh-40)
