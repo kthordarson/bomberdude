@@ -66,18 +66,17 @@ class Game:
         self.flames.update()
         flame_colls = pygame.sprite.groupcollide(self.blocks, self.flames, False, False)
         for block, flames in flame_colls.items():
-            if int(block.block_type) in range(1, 10) and block.solid and not block.hit:
+            if int(block.block_type) in range(1, 10) and block.solid:
                 if block.block_type == '1' or block.block_type == "2" or block.block_type == '3' or block.block_type == '4':
                     powerup = Powerup(pos=block.rect.center, dt=dt)
                     self.powerups.add(powerup)
-                    block.set_type("0")
-                    block.solid = False
+                    block.hit()  #  = True
                 for flame in flames:
                     if block.rect.colliderect(flame.rect):
                         draw_debug_block(self.screen, block)
                         # if flame.rect.colliderect(block.rect):
                         # pygame.draw.rect(self.screen, (0,123,33), block.rect)
-                        block.hit = True
+                        block.hit()  #  = True
                         block.gen_particles(flame)
                         self.particles.add(block.particles)  # for flame in flames]
                         flame.kill()

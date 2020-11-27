@@ -18,7 +18,8 @@ PLAYERSIZE = [int(x // 1.5) for x in BLOCKSIZE]
 POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
 BOMBSIZE = [int(x // 2.5) for x in BLOCKSIZE]
 PARTICLESIZE = [int(x // 6) for x in BLOCKSIZE]
-FLAMESIZE = [int(x // 6) for x in BLOCKSIZE]
+FLAMESIZE = [10,5]
+# FLAMESIZE = [int(x // 6) for x in BLOCKSIZE]
 
 # POWERUPSIZE = (12, 12)
 # BOMBSIZE = (16, 16)
@@ -187,8 +188,7 @@ def normalize(v):
 
 
 class BasicThing(pygame.sprite.Sprite):
-    def __init__(self, screen=None, gridpos=None, color=None, vel=pygame.math.Vector2(), accel=pygame.math.Vector2(),
-                 dt=None):
+    def __init__(self, screen=None, gridpos=None, color=None, vel=pygame.math.Vector2(), accel=pygame.math.Vector2(), dt=None):
         pygame.sprite.Sprite.__init__(self)
         self.color = color
         self.screen = screen
@@ -202,14 +202,6 @@ class BasicThing(pygame.sprite.Sprite):
         self.font = pygame.freetype.Font(DEFAULTFONT, 12)
         self.font_color = (255, 255, 255)
         self.collisions = []
-        self.collision_types = {
-            "top": False,
-            "bottom": False,
-            "right": False,
-            "left": False,
-            "slant_bottom": False,
-            "data": [],
-        }
         self.start_time = pygame.time.get_ticks() / 1000
         self.screenw, self.screenh = pygame.display.get_surface().get_size()
 
@@ -231,27 +223,17 @@ class Block(BasicThing):
         self.gridpos = gridpos
         self.block_type = block_type
         self.blockid = blockid
-        self.set_type(block_type)
         self.start_time = pygame.time.get_ticks() / 1000
         self.particles = pygame.sprite.Group()
         self.dt = dt
-
-    def get_type(self):
-        return self.block_type
-
-    def set_type(self, block_type="0"):
         self.start_time = pygame.time.get_ticks() / 1000
         self.explode = False
-        self.hit = False
+        # self.hit = False
         self.timer = 10
         self.bomb_timer = 1
         self.poweruptime = 10
-        self.pos = pygame.math.Vector2(
-            (BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1])
-        )
-        self.gridpos = pygame.math.Vector2(
-            (self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1])
-        )
+        self.pos = pygame.math.Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
+        self.gridpos = pygame.math.Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
         self.solid = BLOCKTYPES.get(block_type)["solid"]
         self.permanent = BLOCKTYPES.get(block_type)["permanent"]
         self.size = BLOCKTYPES.get(block_type)["size"]
@@ -262,17 +244,31 @@ class Block(BasicThing):
         self.rect = self.image.get_rect(topleft=self.pos)
         self.rect.x = self.pos.x
         self.rect.y = self.pos.y
-        # self.gridpos = pygame.math.Vector2((self.rect.x // BLOCKSIZE[0], self.rect.y // BLOCKSIZE[1]))
-        # self.rect.x = self.gridpos.x
-        # self.rect.y = self.gridpos.y
         self.image.set_alpha(255)
         self.image.set_colorkey((0, 0, 0))
 
-    # print(f'[set_type] t:{block_type} ')
+    def hit(self):
+        self.block_type = '0'
+        self.solid = False
+        self.image, self.rect = load_image('blackfloor.png', -1)
+        self.image = pygame.transform.scale(self.image, self.size)
+        self.image.set_alpha(255)
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = self.image.get_rect(topleft=self.pos)
+        self.rect.x = self.pos.x
+        self.rect.y = self.pos.y
+        # self.rect = self.image.get_rect()
+
+    def get_type(self):
+        return self.block_type
+
+    def set_type(self, block_type="0"):
+        pass
 
     def update(self, items=None):
-        if len(self.particles) <= 0:
-            self.hit = False
+        pass
+        # if len(self.particles) <= 0:
+        #   self.hit = False
 
     def get_particles(self):
         return self.particles
@@ -286,27 +282,13 @@ class Block(BasicThing):
         # flame.vel = pygame.math.Vector2(flame.vel[0], flame.vel[1])
         for k in range(1, 10):
             if flame.vel.x < 0:  # flame come from left
-                self.particles.add(
-                    Particle(
-                        pos=flame.rect.midright, vel=random_velocity(direction="right")
-                    )
-                )  # make particle go right
+                self.particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
             elif flame.vel.x > 0:  # right
-                self.particles.add(
-                    Particle(
-                        pos=flame.rect.midleft, vel=random_velocity(direction="left")
-                    )
-                )  # for k in range(1,2)]
+                self.particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left")))  # for k in range(1,2)]
             elif flame.vel.y > 0:  # down
-                self.particles.add(
-                    Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up"))
-                )  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
+                self.particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up")))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
             elif flame.vel.y < 0:  # up
-                self.particles.add(
-                    Particle(
-                        pos=flame.rect.midbottom, vel=random_velocity(direction="down")
-                    )
-                )  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
+                self.particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
         return self.particles
 
     def collide_particless(self, particles, dt):
@@ -326,15 +308,14 @@ class Powerup(BasicThing):
         BasicThing.__init__(self)
         pygame.sprite.Sprite.__init__(self)
         self.dt = dt
-        self.pos = pygame.math.Vector2(pos)
         self.image, self.rect = load_image("heart.png", -1)
         self.size = POWERUPSIZE
         self.image = pygame.transform.scale(self.image, self.size)
+        self.rect = self.image.get_rect()
+        self.rect.center = pos
+        self.pos = pygame.math.Vector2(pos)
         self.alpha = 255
         self.image.set_alpha(self.alpha)
-        self.rect = self.image.get_rect(topleft=self.pos)
-        self.rect.x = self.pos.x
-        self.rect.y = self.pos.y
         self.timer = 5
         self.start_time = pygame.time.get_ticks() / 1000
 
@@ -534,13 +515,10 @@ class Player(BasicThing):
                 markers = [False, False, False, False]
                 if self.vel.x > 0 and block.solid:
                     self.rect.right = block.rect.left
-                    self.collision_types["right"] = True
                     markers[0] = True
                 elif self.vel.x < 0 and block.solid:
                     self.rect.left = block.rect.right
-                    self.collision_types["left"] = True
                     markers[1] = True
-                self.collision_types["data"].append([block, markers])
                 self.pos.x = self.rect.x
             # self.vel.x = 0
         self.pos.y += self.vel.y
@@ -550,17 +528,13 @@ class Player(BasicThing):
             markers = [False, False, False, False]
             if self.vel.y > 0 and block.solid:
                 self.rect.bottom = block.rect.top
-                self.collision_types["bottom"] = True
                 markers[2] = True
             elif self.vel.y < 0 and block.solid:
                 self.rect.top = block.rect.bottom
-                self.collision_types["top"] = True
                 markers[3] = True
-            self.collision_types["data"].append([block, markers])
             # self.change_y = 0
             self.pos.y = self.rect.y
         # self.vel.y = 0
-        return self.collision_types
 
     def take_powerup(self, powerup):
         # pick up powerups...
@@ -583,7 +557,7 @@ class Player(BasicThing):
 
 class Gamemap:
     def __init__(self):
-        self.gridmap = []
+        self.grid = []
 
     @staticmethod
     def generate():
