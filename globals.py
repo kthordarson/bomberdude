@@ -18,12 +18,12 @@ PLAYERSIZE = [int(x // 1.5) for x in BLOCKSIZE]
 POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
 BOMBSIZE = [int(x // 2.5) for x in BLOCKSIZE]
 PARTICLESIZE = [int(x // 6) for x in BLOCKSIZE]
-FLAMESIZE = [int(x // 8) for x in BLOCKSIZE]
+FLAMESIZE = [int(x // 6) for x in BLOCKSIZE]
 
 # POWERUPSIZE = (12, 12)
 # BOMBSIZE = (16, 16)
 # FLAMESIZE = (8,8)
-FLAMELENGTH = 20
+# FLAMELENGTH = 20
 # PARTICLESIZE = (3,3)
 SCREENSIZE = (BLOCKSIZE[0] * (GRIDSIZE[0] + 1), BLOCKSIZE[1] * GRIDSIZE[1] + 100)
 # SCREENSIZE = (700, 700)
@@ -145,11 +145,11 @@ def limit(num, minimum=1, maximum=255):
     return max(min(num, maximum), minimum)
 
 
-def inside_circle(R, pos_x, pos_y):
-    X = int(R)  # R is the radius
-    for x in range(-X, X + 1):
-        Y = int((R * R - x * x) ** 0.5)  # bound for y given x
-        for y in range(-Y, Y + 1):
+def inside_circle(radius, pos_x, pos_y):
+    x = int(radius)  # radius is the radius
+    for x in range(-x, x + 1):
+        y = int((radius * radius - x * x) ** 0.5)  # bound for y given x
+        for y in range(-y, y + 1):
             yield x + pos_x, y + pos_y
 
 
@@ -418,12 +418,12 @@ class Particle(BasicThing):
 
 
 class Flame(BasicThing):
-    def __init__(self, pos=None, vel=None, direction=None, dt=None):
+    def __init__(self, pos=None, vel=None, direction=None, dt=None, flame_length=None):
         # super().__init__()
         BasicThing.__init__(self)
         pygame.sprite.Sprite.__init__(self)
         self.dt = dt
-        self.image, self.rect = load_image("flame2.png", -1)
+        self.image, self.rect = load_image("flame3.png", -1)
         self.image = pygame.transform.scale(self.image, FLAMESIZE)
         self.size = FLAMESIZE
         self.pos = pygame.math.Vector2(pos)
@@ -433,6 +433,7 @@ class Flame(BasicThing):
         self.vel = pygame.math.Vector2(vel[0], vel[1])  # flame direction
         self.timer = 10
         self.start_time = pygame.time.get_ticks() / 1000
+        self.flame_length = flame_length
 
     def check_time(self):
         pass
@@ -448,12 +449,13 @@ class Flame(BasicThing):
         self.rect.x = self.pos.x
         self.rect.y = self.pos.y
         # print(f'{self.pos.x} {self.start_pos.x} {self.pos.distance_to(self.start_pos)}')
-        if distance >= FLAMELENGTH:  # or (self.dt - self.start_time >= self.timer):
-            # print(f'[flame] dist {distance} max {self.FLAMELENGTH}')
+        if distance >= self.flame_length:  # or (self.dt - self.start_time >= self.timer):
+            # print(f'[flame] dist {distance} max {self.flame_length}')
             self.kill()
         if self.dt - self.start_time >= self.timer:
+            pass
             # print(f'[flame] time {self.dt - self.start_time} >= {self.timer}')
-            self.kill()
+            # self.kill()
 
 
 class Bomb(BasicThing):
@@ -469,7 +471,6 @@ class Bomb(BasicThing):
         self.rect.centerx = self.pos.x
         self.rect.centery = self.pos.y
         self.font = pygame.font.SysFont("calibri", 10, True)
-
         self.start_time = pygame.time.get_ticks() / 1000
         self.bomb_timer = 1
         self.bomb_fuse = 1
@@ -478,21 +479,17 @@ class Bomb(BasicThing):
         self.explode = False
         self.exp_radius = 1
         self.done = False
-        self.flame_len = 50
         self.flame_power = bomb_power
+        self.flame_len = bomb_power
         self.flame_width = 10
         self.flamesout = False
         self.flames = pygame.sprite.Group()
 
     def gen_flames(self):
-        flame1 = Flame(pos=pygame.math.Vector2(self.pos), vel=(-1, 0), dt=self.dt)
-        flame2 = Flame(pos=pygame.math.Vector2(self.pos), vel=(1, 0), dt=self.dt)
-        flame3 = Flame(pos=pygame.math.Vector2(self.pos), vel=(0, 1), dt=self.dt)
-        flame4 = Flame(pos=pygame.math.Vector2(self.pos), vel=(0, -1), dt=self.dt)
-        self.flames.add(flame1)
-        self.flames.add(flame2)
-        self.flames.add(flame3)
-        self.flames.add(flame4)
+        dirs = [(-1,0),(1,0),(0,1),(0,-1)]
+        flex = [Flame(pos=pygame.math.Vector2(self.pos), vel=(k), dt=self.dt, flame_length=self.flame_len) for k in dirs]
+        for f in flex:
+            self.flames.add(f)
 
     def update(self):
         self.dt = pygame.time.get_ticks() / 1000
@@ -502,9 +499,6 @@ class Bomb(BasicThing):
             if self.dt - self.start_time >= self.bomb_fuse:
                 self.explode = True
                 self.gen_flames()
-            # self.explode = False
-            if self.dt - self.start_time >= self.bomb_end:
-                self.kill()
 
 
 class Player(BasicThing):
@@ -522,7 +516,7 @@ class Player(BasicThing):
         self.rect.centery = self.pos.y
         self.max_bombs = 3
         self.bombs_left = self.max_bombs
-        self.bomb_power = 1
+        self.bomb_power = 15
         self.speed = 3
         self.player_id = player_id
         self.health = 100
@@ -591,7 +585,8 @@ class Gamemap:
     def __init__(self):
         self.gridmap = []
 
-    def generate(self):
+    @staticmethod
+    def generate():
         grid = [[random.randint(0, 4) for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
         # set edges to solid blocks, 10 = solid blockwalkk
         for x in range(GRIDSIZE[0] + 1):

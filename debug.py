@@ -214,6 +214,18 @@ def draw_debug_particles_1(screen, particles, blocks):
                             screen, block.rect.midtop, f"R {angle:.1f}", DEBUGFONTCOLOR
                         )
 
+def draw_debug_block(screen=None, block=None):
+    DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 14)
+    outlinecolor = (255, 255, 255)
+    # DEBUGFONT.render_to(screen,(block.rect.x, block.rect.y),f"{block.gridpos}",DEBUGFONTCOLOR)
+    # DEBUGFONT.render_to(screen,(block.rect.x, block.rect.y+14),f"x:{block.rect.x:.0f}",DEBUGFONTCOLOR)
+    # DEBUGFONT.render_to(screen,(block.rect.x, block.rect.y+14+14),f"x:{block.rect.y:.0f}",DEBUGFONTCOLOR)
+    # DEBUGFONT.render_to(screen,(block.rect.centerx-5, block.rect.centery),f"{block.block_type}/{gridmap.get_block_real(block.rect.centerx, block.rect.centery)}",DEBUGFONTCOLOR)
+    pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x + BLOCKSIZE[0], block.pos.y))
+    pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x, block.pos.y + BLOCKSIZE[1]))
+    pygame.draw.line(screen, outlinecolor, (block.pos.x + BLOCKSIZE[0], block.pos.y),(block.pos.x + BLOCKSIZE[0], block.pos.y + BLOCKSIZE[1]))
+    pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y + BLOCKSIZE[1]), (block.pos.x + BLOCKSIZE[0], block.pos.y + BLOCKSIZE[1]))
+
 
 def draw_debug_blocks(screen=None, blocks=None, gridmap=None, particles=None):
     DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 14)
