@@ -18,7 +18,7 @@ PLAYERSIZE = [int(x // 1.5) for x in BLOCKSIZE]
 POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
 BOMBSIZE = [int(x // 2.5) for x in BLOCKSIZE]
 PARTICLESIZE = [int(x // 6) for x in BLOCKSIZE]
-FLAMESIZE = [10,5]
+FLAMESIZE = [10, 5]
 # FLAMESIZE = [int(x // 6) for x in BLOCKSIZE]
 
 # POWERUPSIZE = (12, 12)
@@ -188,7 +188,8 @@ def normalize(v):
 
 
 class BasicThing(pygame.sprite.Sprite):
-    def __init__(self, screen=None, gridpos=None, color=None, vel=pygame.math.Vector2(), accel=pygame.math.Vector2(), dt=None):
+    def __init__(self, screen=None, gridpos=None, color=None, vel=pygame.math.Vector2(), accel=pygame.math.Vector2(),
+                 dt=None):
         pygame.sprite.Sprite.__init__(self)
         self.color = color
         self.screen = screen
@@ -282,24 +283,18 @@ class Block(BasicThing):
         # flame.vel = pygame.math.Vector2(flame.vel[0], flame.vel[1])
         for k in range(1, 10):
             if flame.vel.x < 0:  # flame come from left
-                self.particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
+                self.particles.add(
+                    Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
             elif flame.vel.x > 0:  # right
-                self.particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left")))  # for k in range(1,2)]
+                self.particles.add(
+                    Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left")))  # for k in range(1,2)]
             elif flame.vel.y > 0:  # down
-                self.particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up")))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
+                self.particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(
+                    direction="up")))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
             elif flame.vel.y < 0:  # up
-                self.particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
+                self.particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(
+                    direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
         return self.particles
-
-    def collide_particless(self, particles, dt):
-        for particle in particles:
-            # print(f'{self.surface_distance(particle, dt)}')
-            if self.surface_distance(particle, dt) <= 0:
-                collision_vector = self.pos - particle.pos
-                collision_vector.normalize()
-                print(f'{self.surface_distance(particle, dt)}')
-                self.vel = self.vel.reflect(collision_vector)
-                particle.vel = particle.vel.reflect(collision_vector)
 
 
 class Powerup(BasicThing):
@@ -404,8 +399,12 @@ class Flame(BasicThing):
         BasicThing.__init__(self)
         pygame.sprite.Sprite.__init__(self)
         self.dt = dt
-        self.image, self.rect = load_image("flame3.png", -1)
+        if vel[0] == -1 or vel[0] == 1:
+            self.image, self.rect = load_image("flame4.png", -1)
+        elif vel[1] == -1 or vel[1] == 1:
+            self.image, self.rect = load_image("flame3.png", -1)
         self.image = pygame.transform.scale(self.image, FLAMESIZE)
+        # dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]
         self.size = FLAMESIZE
         self.pos = pygame.math.Vector2(pos)
         self.rect.x = self.pos.x
@@ -415,28 +414,39 @@ class Flame(BasicThing):
         self.timer = 10
         self.start_time = pygame.time.get_ticks() / 1000
         self.flame_length = flame_length
+        self.stopped = False
 
     def check_time(self):
         pass
+
+    def stop(self):
+        self.vel = pygame.math.Vector2((0,0))
+        self.stopped = True
+        self.kill()
 
     def draw(self, screen):
         screen.blit(self.image, self.pos)
 
     def update(self):
-        self.dt = pygame.time.get_ticks() / 1000
-        self.pos += self.vel
-        distance = abs(int(self.pos.distance_to(self.start_pos)))
-        self.rect = self.image.get_rect(topleft=self.pos)
-        self.rect.x = self.pos.x
-        self.rect.y = self.pos.y
-        # print(f'{self.pos.x} {self.start_pos.x} {self.pos.distance_to(self.start_pos)}')
-        if distance >= self.flame_length:  # or (self.dt - self.start_time >= self.timer):
-            # print(f'[flame] dist {distance} max {self.flame_length}')
-            self.kill()
-        if self.dt - self.start_time >= self.timer:
-            pass
-            # print(f'[flame] time {self.dt - self.start_time} >= {self.timer}')
-            # self.kill()
+        if not self.stopped:
+            self.dt = pygame.time.get_ticks() / 1000
+            self.pos += self.vel
+            distance = abs(int(self.pos.distance_to(self.start_pos)))
+            center = self.rect.center
+            #self.image = pygame.transform.scale(self.image, (self.size[0]+distance, self.size[1]+distance, ))
+            self.rect = self.image.get_rect()
+            self.rect = self.image.get_rect(topleft=self.pos)
+            self.rect.center = center
+            self.rect.x = self.pos.x
+            self.rect.y = self.pos.y
+            # print(f'{self.pos.x} {self.start_pos.x} {self.pos.distance_to(self.start_pos)}')
+            if distance >= self.flame_length:  # or (self.dt - self.start_time >= self.timer):
+                # print(f'[flame] dist {distance} max {self.flame_length}')
+                self.kill()
+            if self.dt - self.start_time >= self.timer:
+                pass
+                # print(f'[flame] time {self.dt - self.start_time} >= {self.timer}')
+                # self.kill()
 
 
 class Bomb(BasicThing):
@@ -467,19 +477,14 @@ class Bomb(BasicThing):
         self.flames = pygame.sprite.Group()
 
     def gen_flames(self):
-        dirs = [(-1,0),(1,0),(0,1),(0,-1)]
-        flex = [Flame(pos=pygame.math.Vector2(self.pos), vel=(k), dt=self.dt, flame_length=self.flame_len) for k in dirs]
-        for f in flex:
-            self.flames.add(f)
-
-    def update(self):
-        self.dt = pygame.time.get_ticks() / 1000
-        # print(f'{self.start_time} {self.dt} {self.dt - self.start_time} {self.bomb_timer}')
-        # I will start exploding after xxx seconds....
-        if self.dt is not None:
-            if self.dt - self.start_time >= self.bomb_fuse:
-                self.explode = True
-                self.gen_flames()
+        if not self.flamesout:
+            self.flames = pygame.sprite.Group()
+            dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]
+            flex = [Flame(pos=pygame.math.Vector2(self.pos), vel=k, dt=self.dt, flame_length=self.flame_len) for k in dirs]
+            for f in flex:
+                self.flames.add(f)
+            self.flamesout = True
+        return self.flames
 
 
 class Player(BasicThing):
@@ -498,7 +503,7 @@ class Player(BasicThing):
         self.max_bombs = 3
         self.bombs_left = self.max_bombs
         self.bomb_power = 15
-        self.speed = 3
+        self.speed = 1
         self.player_id = player_id
         self.health = 100
         self.dead = False
@@ -536,20 +541,17 @@ class Player(BasicThing):
             self.pos.y = self.rect.y
         # self.vel.y = 0
 
-    def take_powerup(self, powerup):
+    def take_powerup(self, powerup=None):
         # pick up powerups...
-        if powerup.powerup_type[0] == "addbomb":
+        if powerup == 1:
             if self.max_bombs < 10:
                 self.max_bombs += 1
                 self.bombs_left += 1
-        if powerup.powerup_type[0] == "bombpower":
-            if self.bomb_power < 10:
-                self.bomb_power += 1
-        if powerup.powerup_type[0] == "speedup":
-            if self.speed < 10:
-                self.speed += 1
-        if powerup.powerup_type[0] == "healthup":
-            self.health += 10
+        if powerup == 2:
+            self.speed += 1
+        if powerup == 3:
+            self.bomb_power += 10
+
 
     def add_score(self):
         self.score += 1

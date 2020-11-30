@@ -130,25 +130,26 @@ def draw_debug_particles_1(screen, particles, blocks):
                     # pygame.draw.circle(screen, (0,255,110), block.rect.center, 3)
                     if -3 <= angle <= -2.5:
                         pygame.draw.line(screen, THECOLORS["firebrick1"], particle.rect.center, block.rect.midright)
-                        DEBUGFONT.render_to( screen, block.rect.midright, f"R {angle:.1f}", DEBUGFONTCOLOR)
+                        DEBUGFONT.render_to(screen, block.rect.midright, f"R {angle:.1f}", DEBUGFONTCOLOR)
                     if -2.5 <= angle <= -1.5:
                         pygame.draw.line(screen, THECOLORS["skyblue1"], particle.rect.center, block.rect.midbottom)
                         DEBUGFONT.render_to(screen, block.rect.midbottom, f"B {angle:.1f}", DEBUGFONTCOLOR)
                     if -1.5 <= angle <= -0.5:
-                        pygame.draw.line( screen, THECOLORS["skyblue1"], particle.rect.center, block.rect.midleft)
+                        pygame.draw.line(screen, THECOLORS["skyblue1"], particle.rect.center, block.rect.midleft)
                         DEBUGFONT.render_to(screen, block.rect.midleft, f"L1 {angle:.1f}", DEBUGFONTCOLOR)
                     if -0.5 <= angle <= -0.0:
                         pygame.draw.line(screen, THECOLORS["skyblue1"], particle.rect.center, block.rect.midleft)
                         DEBUGFONT.render_to(screen, block.rect.midleft, f"L2 {angle:.1f}", DEBUGFONTCOLOR)
                     if 0.0 <= angle <= 0.5:
-                        pygame.draw.line( screen, THECOLORS["skyblue1"], particle.rect.center, block.rect.midleft)
+                        pygame.draw.line(screen, THECOLORS["skyblue1"], particle.rect.center, block.rect.midleft)
                         DEBUGFONT.render_to(screen, block.rect.midleft, f"L3 {angle:.1f}", DEBUGFONTCOLOR)
                     if 0.5 <= angle <= 3:
-                        pygame.draw.line( screen, THECOLORS["skyblue1"], particle.rect.center, block.rect.midtop)
+                        pygame.draw.line(screen, THECOLORS["skyblue1"], particle.rect.center, block.rect.midtop)
                         DEBUGFONT.render_to(screen, block.rect.midtop, f"T {angle:.1f}", DEBUGFONTCOLOR)
                     if 3 <= angle <= 3.5:
                         pygame.draw.line(screen, (255, 255, 225), particle.rect.center, block.rect.midright)
                         DEBUGFONT.render_to(screen, block.rect.midtop, f"R {angle:.1f}", DEBUGFONTCOLOR)
+
 
 def draw_debug_block(screen=None, block=None):
     DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 14)
@@ -158,8 +159,10 @@ def draw_debug_block(screen=None, block=None):
     # DEBUGFONT.render_to(screen,(block.rect.x, block.rect.y+14+14),f"x:{block.rect.y:.0f}",DEBUGFONTCOLOR)
     pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x + BLOCKSIZE[0], block.pos.y))
     pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x, block.pos.y + BLOCKSIZE[1]))
-    pygame.draw.line(screen, outlinecolor, (block.pos.x + BLOCKSIZE[0], block.pos.y),(block.pos.x + BLOCKSIZE[0], block.pos.y + BLOCKSIZE[1]))
-    pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y + BLOCKSIZE[1]), (block.pos.x + BLOCKSIZE[0], block.pos.y + BLOCKSIZE[1]))
+    pygame.draw.line(screen, outlinecolor, (block.pos.x + BLOCKSIZE[0], block.pos.y),
+                     (block.pos.x + BLOCKSIZE[0], block.pos.y + BLOCKSIZE[1]))
+    pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y + BLOCKSIZE[1]),
+                     (block.pos.x + BLOCKSIZE[0], block.pos.y + BLOCKSIZE[1]))
 
 
 def draw_debug_blocks(screen=None, blocks=None, grid=None, particles=None):

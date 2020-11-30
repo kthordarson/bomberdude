@@ -6,7 +6,7 @@
 # multiplayer
 
 import asyncio
-
+import random
 import pygame
 
 from debug import (
@@ -58,33 +58,47 @@ class Game:
         [player.move(self.blocks, dt) for player in self.players]
         self.bombs.update()
         for bomb in self.bombs:
-            if bomb.explode:
-                [self.flames.add(flames) for flames in bomb.flames]
-            if bomb.dt - bomb.start_time >= bomb.bomb_end:
+            bomb.dt = pygame.time.get_ticks() / 1000
+            if bomb.dt - bomb.start_time >= bomb.bomb_fuse:
+                bomb.gen_flames()
+                self.flames.add(bomb.flames)
                 bomb.kill()
                 self.player1.bombs_left += 1
         self.flames.update()
-        flame_colls = pygame.sprite.groupcollide(self.blocks, self.flames, False, False)
-        for block, flames in flame_colls.items():
-            if int(block.block_type) in range(1, 10) and block.solid:
-                if block.block_type == '1' or block.block_type == "2" or block.block_type == '3' or block.block_type == '4':
+        for flame in self.flames:
+            flame_coll = pygame.sprite.spritecollide(flame, self.blocks, False)
+            for block in flame_coll:
+                if block.block_type == '1' or block.block_type == "2": #  or block.block_type == '3' or block.block_type == '4':
                     powerup = Powerup(pos=block.rect.center, dt=dt)
                     self.powerups.add(powerup)
-                    block.hit()  #  = True
-                for flame in flames:
-                    if block.rect.colliderect(flame.rect):
-                        draw_debug_block(self.screen, block)
-                        # if flame.rect.colliderect(block.rect):
-                        # pygame.draw.rect(self.screen, (0,123,33), block.rect)
-                        block.hit()  #  = True
-                        block.gen_particles(flame)
-                        self.particles.add(block.particles)  # for flame in flames]
-                        flame.kill()
+                    draw_debug_block(self.screen, block)
+                if block.solid:
+                    block.hit()
+                    block.gen_particles(flame)
+                    flame.kill()
+        # flame_colls = pygame.sprite.groupcollide(self.blocks, self.flames, False, False)
+        # for block, flames in flame_colls.items():
+        #     if block.solid:
+        #         block.hit()  # = True
+        #         [block.gen_particles(flame) for flame in flames]
+        #         [flame.stop() for flame in flames]
+        #         flames[0].stop()
+        #         self.particles.add(block.particles)  # for flame in flames]
+        #         if block.block_type == '1':  # or block.block_type == "2" or block.block_type == '3' or block.block_type == '4':
+        #             powerup = Powerup(pos=block.rect.center, dt=dt)
+        #             self.powerups.add(powerup)
+        #         draw_debug_block(self.screen, block)
+
+
         for particle in self.particles:
             blocks = pygame.sprite.spritecollide(particle, self.blocks, dokill=False)
             for block in blocks:
-                if int(block.block_type) in range(1, 11) and block.solid:
+                if  block.solid:
                     particle.kill()
+        powerblock_coll = pygame.sprite.spritecollide(self.player1, self.powerups, False)
+        for pc in powerblock_coll:
+            self.player1.take_powerup(powerup=random.choice([1,2,3]))
+            pc.kill()
 
         self.particles.update(self.blocks)
         self.blocks.update(self.blocks)
@@ -97,7 +111,6 @@ class Game:
         if player.bombs_left > 0:
             bombpos = pygame.math.Vector2((player.rect.centerx, player.rect.centery))
             bomb = Bomb(pos=bombpos, dt=self.dt, bomber_id=player.player_id, bomb_power=player.bomb_power)
-            # print(f'[bombdrop] b:{bomb.rect} p:{player.rect} bp:{bombpos}')
             self.bombs.add(bomb)
             player.bombs_left -= 1
 
@@ -117,12 +130,7 @@ class Game:
 
         if self.show_mainmenu:
             self.game_menu.draw_mainmenu(self.screen)
-        self.game_menu.draw_panel(
-            gamemap=self.gamemap,
-            blocks=self.blocks,
-            particles=self.particles,
-            player1=self.player1,
-        )
+        self.game_menu.draw_panel(gamemap=self.gamemap, blocks=self.blocks, particles=self.particles, player1=self.player1, flames=self.flames)
         if DEBUG:
             # debug_draw_mouseangle(self.screen, self.player1)
             # debug_mouse_particles(self.screen, self.particles)
@@ -178,7 +186,7 @@ class Game:
                     self.player1.bomb_power = 100
                     self.player1.max_bombs = 10
                     self.player1.bombs_left = 10
-                    self.player1.speed = 5
+                    self.player1.speed = 7
                 if event.key == pygame.K_p:
                     self.show_panel ^= True
                 if event.key == pygame.K_m:
@@ -221,18 +229,14 @@ class Game:
                     pass
                 if event.key == pygame.K_d:
                     pass
-                if event.key in {pygame.K_DOWN, pygame.K_s}:
-                    if not self.show_mainmenu:
-                        self.player1.vel.y = 0
-                if event.key in {pygame.K_UP, pygame.K_w}:
-                    if not self.show_mainmenu:
-                        self.player1.vel.y = 0
-                if event.key in {pygame.K_RIGHT, pygame.K_d}:
-                    if not self.show_mainmenu:
-                        self.player1.vel.x = 0
-                if event.key in {pygame.K_LEFT, pygame.K_a}:
-                    if not self.show_mainmenu:
-                        self.player1.vel.x = 0
+                if event.key in {pygame.K_DOWN, pygame.K_s} and not self.show_mainmenu:
+                    self.player1.vel.y = 0
+                if event.key in {pygame.K_UP, pygame.K_w} and not self.show_mainmenu:
+                    self.player1.vel.y = 0
+                if event.key in {pygame.K_RIGHT, pygame.K_d} and not self.show_mainmenu:
+                    self.player1.vel.x = 0
+                if event.key in {pygame.K_LEFT, pygame.K_a} and not self.show_mainmenu:
+                    self.player1.vel.x = 0
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mousex, mousey = pygame.mouse.get_pos()
                 gridx = mousex // BLOCKSIZE[0]
