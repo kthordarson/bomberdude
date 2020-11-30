@@ -433,7 +433,10 @@ class Flame(BasicThing):
             self.pos += self.vel
             distance = abs(int(self.pos.distance_to(self.start_pos)))
             center = self.rect.center
-            #self.image = pygame.transform.scale(self.image, (self.size[0]+distance, self.size[1]+distance, ))
+            if self.vel[0] == -1 or self.vel[0] == 1:
+                self.image = pygame.transform.scale(self.image, (self.size[0]+distance, self.size[1]))
+            if self.vel[1] == -1 or self.vel[1] == 1:
+                self.image = pygame.transform.scale(self.image, (self.size[0], self.size[1]+distance))
             self.rect = self.image.get_rect()
             self.rect = self.image.get_rect(topleft=self.pos)
             self.rect.center = center
