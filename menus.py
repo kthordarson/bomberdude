@@ -15,8 +15,7 @@ class Menu:
         self.screenw, self.screenh = pygame.display.get_surface().get_size()
         self.menusize = (250, 180)
         self.image = pygame.Surface(self.menusize)
-        self.pos = pygame.math.Vector2(self.screenw // 2 - self.menusize[0] // 2,
-                                       self.screenh // 2 - self.menusize[1] // 2)
+        self.pos = pygame.math.Vector2(self.screenw // 2 - self.menusize[0] // 2, self.screenh // 2 - self.menusize[1] // 2)
         self.rect = self.image.get_rect(topleft=self.pos)
         self.selected_color = (255, 255, 255)
         self.inactive_color = (155, 155, 155)

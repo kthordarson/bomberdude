@@ -75,6 +75,7 @@ class Game:
                 if block.solid:
                     block.hit()
                     block.gen_particles(flame)
+                    self.particles.add(block.particles)
                     flame.kill()
         # flame_colls = pygame.sprite.groupcollide(self.blocks, self.flames, False, False)
         # for block, flames in flame_colls.items():

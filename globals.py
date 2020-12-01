@@ -85,6 +85,14 @@ BLOCKTYPES = {
         "bgbitmap": "black.png",
         "powerup": False,
     },
+    "5": {
+        "solid": True,
+        "permanent": True,
+        "size": BLOCKSIZE,
+        "bitmap": "blocksprite1b.png",
+        "bgbitmap": "black.png",
+        "powerup": False,
+    },
     "10": {
         "solid": True,
         "permanent": True,
@@ -249,16 +257,17 @@ class Block(BasicThing):
         self.image.set_colorkey((0, 0, 0))
 
     def hit(self):
-        self.block_type = '0'
-        self.solid = False
-        self.image, self.rect = load_image('blackfloor.png', -1)
-        self.image = pygame.transform.scale(self.image, self.size)
-        self.image.set_alpha(255)
-        self.image.set_colorkey((0, 0, 0))
-        self.rect = self.image.get_rect(topleft=self.pos)
-        self.rect.x = self.pos.x
-        self.rect.y = self.pos.y
-        # self.rect = self.image.get_rect()
+        if not self.permanent:
+            self.block_type = '0'
+            self.solid = False
+            self.image, self.rect = load_image('blackfloor.png', -1)
+            self.image = pygame.transform.scale(self.image, self.size)
+            self.image.set_alpha(255)
+            self.image.set_colorkey((0, 0, 0))
+            self.rect = self.image.get_rect(topleft=self.pos)
+            self.rect.x = self.pos.x
+            self.rect.y = self.pos.y
+            # self.rect = self.image.get_rect()
 
     def get_type(self):
         return self.block_type
@@ -566,7 +575,7 @@ class Gamemap:
 
     @staticmethod
     def generate():
-        grid = [[random.randint(0, 4) for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
+        grid = [[random.randint(0, 5) for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
         # set edges to solid blocks, 10 = solid blockwalkk
         for x in range(GRIDSIZE[0] + 1):
             grid[x][0] = 10
