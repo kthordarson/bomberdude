@@ -11,3 +11,8 @@ servertest.py
 networktest.py
 rencode.py
 .VSCodeCounter/*
+.pydevproject
+.project
+.vs/ProjectSettings.json
+.vs/slnx.sqlite
+.vs/VSWorkspaceState.json
