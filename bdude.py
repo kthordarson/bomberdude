@@ -45,10 +45,11 @@ class Game:
 		self.bombs = pygame.sprite.Group()
 		self.flames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
-		self.player1 = Player(pos=self.gamemap.place_player(), player_id=33, dt=self.dt)
-		[self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap.grid[j][k]))) for k in
-		 range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
+		self.player1 = Player(pos=self.gamemap.place_player(location=0), player_id=33, dt=self.dt, image='player1.png')
+		self.player2= Player(pos=self.gamemap.place_player(location=1), player_id=50, dt=self.dt, image='player2.png')
+		[self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
 		self.players.add(self.player1)
+		self.players.add(self.player2)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 
 	def update(self):
@@ -77,18 +78,6 @@ class Game:
 					block.gen_particles(flame)
 					self.particles.add(block.particles)
 					flame.kill()
-		# flame_colls = pygame.sprite.groupcollide(self.blocks, self.flames, False, False)
-		# for block, flames in flame_colls.items():
-		#     if block.solid:
-		#         block.hit()  # = True
-		#         [block.gen_particles(flame) for flame in flames]
-		#         [flame.stop() for flame in flames]
-		#         flames[0].stop()
-		#         self.particles.add(block.particles)  # for flame in flames]
-		#         if block.block_type == '1':  # or block.block_type == "2" or block.block_type == '3' or block.block_type == '4':
-		#             powerup = Powerup(pos=block.rect.center, dt=dt)
-		#             self.powerups.add(powerup)
-		#         draw_debug_block(self.screen, block)
 
 
 		for particle in self.particles:

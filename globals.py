@@ -196,8 +196,7 @@ def normalize(v):
 
 
 class BasicThing(pygame.sprite.Sprite):
-    def __init__(self, screen=None, gridpos=None, color=None, vel=pygame.math.Vector2(), accel=pygame.math.Vector2(),
-                 dt=None):
+    def __init__(self, screen=None, gridpos=None, color=None, vel=pygame.math.Vector2(), accel=pygame.math.Vector2(), dt=None):
         pygame.sprite.Sprite.__init__(self)
         self.color = color
         self.screen = screen
@@ -500,11 +499,11 @@ class Bomb(BasicThing):
 
 
 class Player(BasicThing):
-    def __init__(self, pos=None, player_id=None, dt=None):
+    def __init__(self, pos=None, player_id=None, dt=None, image='player1.png'):
         BasicThing.__init__(self)
         pygame.sprite.Sprite.__init__(self)
         self.dt = dt
-        self.image, self.rect = load_image("player1.png", -1)
+        self.image, self.rect = load_image(image, -1)
         self.pos = pygame.math.Vector2(pos)
         self.vel = pygame.math.Vector2(0, 0)
         self.size = PLAYERSIZE
@@ -585,22 +584,36 @@ class Gamemap:
             grid[GRIDSIZE[0]][y] = 10
         return grid
 
-    def place_player(self):
+    def place_player(self, location=0):
         # place player somewhere where there is no block
         # returns the (x,y) coordinate where player is to be placed
         # random starting point from gridgamemap
-        x = int(GRIDSIZE[0] // 2)  # random.randint(2, GRIDSIZE[0] - 2)
-        y = int(GRIDSIZE[1] // 2)  # random.randint(2, GRIDSIZE[1] - 2)
-        # x = int(x)
-        self.grid[x][y] = 0
-        # make a clear radius around spawn point
-        for block in list(inside_circle(3, x, y)):
-            try:
-                # if self.grid[clear_bl[0]][clear_bl[1]] > 1:
-                self.grid[block[0]][block[1]] = 0
-            except Exception as e:
-                print(f"exception in place_player {block} {e}")
-        return pygame.math.Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
+        if location == 0: # center pos
+            x = int(GRIDSIZE[0] // 2)  # random.randint(2, GRIDSIZE[0] - 2)
+            y = int(GRIDSIZE[1] // 2)  # random.randint(2, GRIDSIZE[1] - 2)
+            # x = int(x)
+            self.grid[x][y] = 0
+            # make a clear radius around spawn point
+            for block in list(inside_circle(3, x, y)):
+                try:
+                    # if self.grid[clear_bl[0]][clear_bl[1]] > 1:
+                    self.grid[block[0]][block[1]] = 0
+                except Exception as e:
+                    print(f"exception in place_player {block} {e}")
+            return pygame.math.Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
+        if location == 1: # top left
+            x = 5
+            y = 5
+            # x = int(x)
+            self.grid[x][y] = 0
+            # make a clear radius around spawn point
+            for block in list(inside_circle(3, x, y)):
+                try:
+                    # if self.grid[clear_bl[0]][clear_bl[1]] > 1:
+                    self.grid[block[0]][block[1]] = 0
+                except Exception as e:
+                    print(f"exception in place_player {block} {e}")
+            return pygame.math.Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
 
     def get_block(self, x, y):
         # get block inf from grid
