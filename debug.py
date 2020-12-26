@@ -222,3 +222,7 @@ def draw_debug_blocks(screen=None, blocks=None, grid=None, particles=None):
 # 			else:
 # 				DEBUGFONT.render_to(screen,block.rect,f"X",DEBUGFONTCOLOR)
 # def draw_debug_pl
+def debug_coll(screen, item1, item2):
+    screen.set_at(item1.rect.center, (255, 55, 255))
+    screen.set_at(item2.rect.center, (255, 255, 55))
+

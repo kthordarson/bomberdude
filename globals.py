@@ -1,6 +1,7 @@
 import random
 import math
 import pygame
+from pygame.math import Vector2
 import os
 
 # from pygame.colordict import THECOLORS as colordict
@@ -114,7 +115,7 @@ BLOCKTYPES = {
 
 def random_velocity(direction=None):
     while True:
-        vel = pygame.math.Vector2(
+        vel = Vector2(
             (random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0))
         )
         if direction == "left":
@@ -196,7 +197,8 @@ def normalize(v):
 
 
 class BasicThing(pygame.sprite.Sprite):
-    def __init__(self, screen=None, gridpos=None, color=None, vel=pygame.math.Vector2(), accel=pygame.math.Vector2(), dt=None):
+    def __init__(self, screen=None, gridpos=None, color=None, vel=Vector2(), accel=Vector2(),
+                 dt=None):
         pygame.sprite.Sprite.__init__(self)
         self.color = color
         self.screen = screen
@@ -240,8 +242,8 @@ class Block(BasicThing):
         self.timer = 10
         self.bomb_timer = 1
         self.poweruptime = 10
-        self.pos = pygame.math.Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
-        self.gridpos = pygame.math.Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
+        self.pos = Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
+        self.gridpos = Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
         self.solid = BLOCKTYPES.get(block_type)["solid"]
         self.permanent = BLOCKTYPES.get(block_type)["permanent"]
         self.size = BLOCKTYPES.get(block_type)["size"]
@@ -288,7 +290,7 @@ class Block(BasicThing):
         self.particles = pygame.sprite.Group()
         self.rect.x = self.pos.x
         self.rect.y = self.pos.y
-        # flame.vel = pygame.math.Vector2(flame.vel[0], flame.vel[1])
+        # flame.vel = Vector2(flame.vel[0], flame.vel[1])
         for k in range(1, 10):
             if flame.vel.x < 0:  # flame come from left
                 self.particles.add(
@@ -316,7 +318,7 @@ class Powerup(BasicThing):
         self.image = pygame.transform.scale(self.image, self.size)
         self.rect = self.image.get_rect()
         self.rect.center = pos
-        self.pos = pygame.math.Vector2(pos)
+        self.pos = Vector2(pos)
         self.alpha = 255
         self.image.set_alpha(self.alpha)
         self.timer = 5
@@ -335,7 +337,7 @@ class Particle(BasicThing):
         BasicThing.__init__(self)
         pygame.sprite.Sprite.__init__(self)
         self.dt = dt
-        self.pos = pygame.math.Vector2(pos)
+        self.pos = Vector2(pos)
         self.image, self.rect = load_image("greenorb.png", -1)
         self.size = PARTICLESIZE
         self.image = pygame.transform.scale(self.image, self.size)
@@ -351,27 +353,17 @@ class Particle(BasicThing):
         self.start_time = pygame.time.get_ticks() / 1000
         self.angle = math.degrees(0)
         self.mass = 11
-        self.vel = vel  # pygame.math.Vector2(random.uniform(-2, 2), random.uniform(-2, 2))  # pygame.math.Vector2(0, 0)
+        self.vel = vel  # Vector2(random.uniform(-2, 2), random.uniform(-2, 2))  # Vector2(0, 0)
 
-    # self.accel = pygame.math.Vector2(0.05,0.05)
+    # self.accel = Vector2(0.05,0.05)
 
     def stop(self):
         print(f"[stop] {self.vel}")
-        self.vel = pygame.math.Vector2(0, 0)
+        self.vel = Vector2(0, 0)
         print(f"[stop] {self.vel}")
 
     def move(self):
         print(f"[move] {self.vel}")
-        self.vel = self._vel
-        print(f"[move] {self.vel}")
-
-    def set_vel(self, vel=None):
-        print(f"[set_vel] {self.vel} {vel}")
-        if vel is not None:
-            self.vel = vel
-        else:
-            self.vel = self._vel
-        print(f"[set_vel] {self.vel}")
 
     def update(self, items=None):
         self.dt = pygame.time.get_ticks() / 1000
@@ -388,7 +380,6 @@ class Particle(BasicThing):
         self.pos += self.vel
         self.rect.x = self.pos.x
         self.rect.y = self.pos.y
-        self._vel = self.vel
 
     def collide_blocks(self, blocks, dt):
         pass
@@ -414,11 +405,11 @@ class Flame(BasicThing):
         self.image = pygame.transform.scale(self.image, FLAMESIZE)
         # dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]
         self.size = FLAMESIZE
-        self.pos = pygame.math.Vector2(pos)
+        self.pos = Vector2(pos)
         self.rect.x = self.pos.x
         self.rect.y = self.pos.y
-        self.start_pos = pygame.math.Vector2(pos)
-        self.vel = pygame.math.Vector2(vel[0], vel[1])  # flame direction
+        self.start_pos = Vector2(pos)
+        self.vel = Vector2(vel[0], vel[1])  # flame direction
         self.timer = 10
         self.start_time = pygame.time.get_ticks() / 1000
         self.flame_length = flame_length
@@ -428,7 +419,7 @@ class Flame(BasicThing):
         pass
 
     def stop(self):
-        self.vel = pygame.math.Vector2((0,0))
+        self.vel = Vector2((0, 0))
         self.stopped = True
         self.kill()
 
@@ -442,9 +433,9 @@ class Flame(BasicThing):
             distance = abs(int(self.pos.distance_to(self.start_pos)))
             center = self.rect.center
             if self.vel[0] == -1 or self.vel[0] == 1:
-                self.image = pygame.transform.scale(self.image, (self.size[0]+distance, self.size[1]))
+                self.image = pygame.transform.scale(self.image, (self.size[0] + distance, self.size[1]))
             if self.vel[1] == -1 or self.vel[1] == 1:
-                self.image = pygame.transform.scale(self.image, (self.size[0], self.size[1]+distance))
+                self.image = pygame.transform.scale(self.image, (self.size[0], self.size[1] + distance))
             self.rect = self.image.get_rect()
             self.rect = self.image.get_rect(topleft=self.pos)
             self.rect.center = center
@@ -491,7 +482,8 @@ class Bomb(BasicThing):
         if not self.flamesout:
             self.flames = pygame.sprite.Group()
             dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]
-            flex = [Flame(pos=pygame.math.Vector2(self.pos), vel=k, dt=self.dt, flame_length=self.flame_len) for k in dirs]
+            flex = [Flame(pos=Vector2(self.pos), vel=k, dt=self.dt, flame_length=self.flame_len) for k in
+                    dirs]
             for f in flex:
                 self.flames.add(f)
             self.flamesout = True
@@ -499,13 +491,13 @@ class Bomb(BasicThing):
 
 
 class Player(BasicThing):
-    def __init__(self, pos=None, player_id=None, dt=None, image='player1.png'):
+    def __init__(self, pos=None, player_id=None, dt=None, image='player1.png', bot=False):
         BasicThing.__init__(self)
         pygame.sprite.Sprite.__init__(self)
         self.dt = dt
         self.image, self.rect = load_image(image, -1)
-        self.pos = pygame.math.Vector2(pos)
-        self.vel = pygame.math.Vector2(0, 0)
+        self.pos = Vector2(pos)
+        self.vel = Vector2(0, 0)
         self.size = PLAYERSIZE
         self.image = pygame.transform.scale(self.image, self.size)
         self.rect = self.image.get_rect(topleft=self.pos)
@@ -520,6 +512,22 @@ class Player(BasicThing):
         self.dead = False
         self.score = 0
         self.font = pygame.font.SysFont("calibri", 10, True)
+        self.bot = bot
+        self.bot_chdir = False
+
+    def bot_move(self, blocks, dt):
+        pass
+        # if self.bot_chdir:
+        #     botdir = random.choice([1,2,3,4])
+        #     if botdir == 1:
+        #         self.vel.x = -self.speed
+        #     if botdir == 2:
+        #         self.vel.x = abs(self.speed)
+        #     if botdir == 3:
+        #         self.vel.y = -self.speed
+        #     if botdir == 4:
+        #         self.vel.y = abs(self.speed)
+        #     self.bot_chdir = False
 
     def move(self, blocks, dt):
         self.vel += self.accel
@@ -528,26 +536,25 @@ class Player(BasicThing):
         block_hit_list = self.collide(blocks, dt)
         for block in block_hit_list:
             if isinstance(block, Block):
-                markers = [False, False, False, False]
                 if self.vel.x > 0 and block.solid:
                     self.rect.right = block.rect.left
-                    markers[0] = True
+                    self.bot_chdir = True
                 elif self.vel.x < 0 and block.solid:
                     self.rect.left = block.rect.right
-                    markers[1] = True
+                    self.bot_chdir = True
                 self.pos.x = self.rect.x
             # self.vel.x = 0
         self.pos.y += self.vel.y
         self.rect.y = int(self.pos.y)
         block_hit_list = self.collide(blocks)
         for block in block_hit_list:
-            markers = [False, False, False, False]
+            self.bot_chdir = True
             if self.vel.y > 0 and block.solid:
                 self.rect.bottom = block.rect.top
-                markers[2] = True
+                self.bot_chdir = True
             elif self.vel.y < 0 and block.solid:
                 self.rect.top = block.rect.bottom
-                markers[3] = True
+                self.bot_chdir = True
             # self.change_y = 0
             self.pos.y = self.rect.y
         # self.vel.y = 0
@@ -562,7 +569,6 @@ class Player(BasicThing):
             self.speed += 1
         if powerup == 3:
             self.bomb_power += 10
-
 
     def add_score(self):
         self.score += 1
@@ -588,7 +594,7 @@ class Gamemap:
         # place player somewhere where there is no block
         # returns the (x,y) coordinate where player is to be placed
         # random starting point from gridgamemap
-        if location == 0: # center pos
+        if location == 0:  # center pos
             x = int(GRIDSIZE[0] // 2)  # random.randint(2, GRIDSIZE[0] - 2)
             y = int(GRIDSIZE[1] // 2)  # random.randint(2, GRIDSIZE[1] - 2)
             # x = int(x)
@@ -600,8 +606,8 @@ class Gamemap:
                     self.grid[block[0]][block[1]] = 0
                 except Exception as e:
                     print(f"exception in place_player {block} {e}")
-            return pygame.math.Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
-        if location == 1: # top left
+            return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
+        if location == 1:  # top left
             x = 5
             y = 5
             # x = int(x)
@@ -613,7 +619,7 @@ class Gamemap:
                     self.grid[block[0]][block[1]] = 0
                 except Exception as e:
                     print(f"exception in place_player {block} {e}")
-            return pygame.math.Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
+            return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
 
     def get_block(self, x, y):
         # get block inf from grid

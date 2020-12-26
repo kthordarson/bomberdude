@@ -1,5 +1,6 @@
 import pygame
 import pygame.freetype
+from pygame.math import Vector2
 from functools import reduce
 from operator import mul
 from globals import BLOCKSIZE
@@ -15,7 +16,7 @@ class Menu:
         self.screenw, self.screenh = pygame.display.get_surface().get_size()
         self.menusize = (250, 180)
         self.image = pygame.Surface(self.menusize)
-        self.pos = pygame.math.Vector2(self.screenw // 2 - self.menusize[0] // 2, self.screenh // 2 - self.menusize[1] // 2)
+        self.pos = Vector2(self.screenw // 2 - self.menusize[0] // 2, self.screenh // 2 - self.menusize[1] // 2)
         self.rect = self.image.get_rect(topleft=self.pos)
         self.selected_color = (255, 255, 255)
         self.inactive_color = (155, 155, 155)
@@ -66,7 +67,7 @@ class Menu:
 
     def draw_panel(self, gamemap, blocks, particles, player1, flames):
         # todo fix this shit
-        pos = pygame.math.Vector2(10, self.screenh - 40)
+        pos = Vector2(10, self.screenh - 40)
         try:
             self.panelfont.render_to(self.screen, pos, f"player pos x:{player1.rect} vel:{player1.vel} ", self.panelfont_color)
             self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"s: {player1.speed} bombs: {player1.bombs_left}  bp: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
