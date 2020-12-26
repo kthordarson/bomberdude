@@ -290,8 +290,8 @@ class Block(BasicThing):
         self.particles = pygame.sprite.Group()
         self.rect.x = self.pos.x
         self.rect.y = self.pos.y
-        # flame.vel = Vector2(flame.vel[0], flame.vel[1])
-        for k in range(1, 10):
+        # flame.vel = pygame.math.Vector2(flame.vel[0], flame.vel[1])
+        for k in range(1, 40):
             if flame.vel.x < 0:  # flame come from left
                 self.particles.add(
                     Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
