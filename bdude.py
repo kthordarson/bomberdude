@@ -43,7 +43,7 @@ class Game:
         self.game_menu = Menu(self.screen)
         self.player1 = Player(pos=self.gamemap.place_player(location=0), player_id=33, dt=self.dt, image='player1.png', bot=False)
         self.player2 = Player(pos=self.gamemap.place_player(location=1), player_id=50, dt=self.dt, image='player2.png', bot=True)
-        [self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
+        _ = [self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
         self.players.add(self.player1)
         self.players.add(self.player2)
         self.font = pygame.freetype.Font(DEFAULTFONT, 12)
@@ -52,8 +52,8 @@ class Game:
         # todo network things
         # [player.update(self.blocks) for player in self.players]
         self.players.update(self.blocks)
-        [player.move(self.blocks, dt) for player in self.players]
-        [player.bot_move(self.blocks, dt) for player in self.players if player.bot]
+        _ = [player.move(self.blocks, dt) for player in self.players]
+        _ = [player.bot_move(self.blocks, dt) for player in self.players if player.bot]
         self.bombs.update()
         for bomb in self.bombs:
             bomb.dt = pygame.time.get_ticks() / 1000
@@ -157,15 +157,15 @@ class Game:
                     else:
                         self.show_mainmenu ^= True
                 if event.key == pygame.K_1:
-                    [particle.stop() for particle in self.particles]
+                    _ = [particle.stop() for particle in self.particles]
                 if event.key == pygame.K_2:
-                    [particle.move() for particle in self.particles]
+                    _ = [particle.move() for particle in self.particles]
                 if event.key == pygame.K_3:
-                    [particle.set_vel() for particle in self.particles]
+                    _ = [particle.set_vel() for particle in self.particles]
                 if event.key == pygame.K_4:
-                    [particle.set_vel(Vector2(1, 1)) for particle in self.particles]
+                    _ = [particle.set_vel(Vector2(1, 1)) for particle in self.particles]
                 if event.key == pygame.K_5:
-                    [particle.kill() for particle in self.particles]
+                    _ = [particle.kill() for particle in self.particles]
                 if event.key == pygame.K_c:
                     self.player1.bomb_power = 100
                     self.player1.max_bombs = 10
@@ -210,12 +210,12 @@ class Game:
                     self.player1.vel.x = 0
                 if event.key in {pygame.K_LEFT, pygame.K_a} and not self.show_mainmenu:
                     self.player1.vel.x = 0
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                mousex, mousey = pygame.mouse.get_pos()
-                gridx = mousex // BLOCKSIZE[0]
-                gridy = mousey // BLOCKSIZE[1]
-                angle = get_angle(self.player1.pos, pygame.mouse.get_pos())
-                angle2 = get_angle(pygame.mouse.get_pos(), self.player1.pos)
+            #if event.type == pygame.MOUSEBUTTONDOWN:
+                # mousex, mousey = pygame.mouse.get_pos()
+                # gridx = mousex // BLOCKSIZE[0]
+                # gridy = mousey // BLOCKSIZE[1]
+                # angle = get_angle(self.player1.pos, pygame.mouse.get_pos())
+                # angle2 = get_angle(pygame.mouse.get_pos(), self.player1.pos)
             # blockinf = self.gamemap.get_block_real(mousex, mousey)
             # print(f"mouse x:{mousex} y:{mousey} [gx:{gridx} gy:{gridy}] |  b:{self.gamemap.get_block(gridx, gridy)} a:{angle:.1f} a2:{angle2:.1f}")
             # print(f"mouse x:{mousex} y:{mousey} [x:{mousex//BLOCKSIZE[0]} y:{mousey//BLOCKSIZE[1]}]|  b:{self.gamemap.get_block(mousex // GRIDSIZE[0], mousey // GRIDSIZE[1])} ")
