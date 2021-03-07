@@ -17,3 +17,4 @@ rencode.py
 .vs/slnx.sqlite
 .vs/VSWorkspaceState.json
 .vs/*
+*.pyc

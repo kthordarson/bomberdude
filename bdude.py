@@ -19,7 +19,9 @@ from globals import Block, Bomb, Player, Gamemap, Powerup
 from globals import DEBUG
 from globals import get_angle
 from menus import Menu
-
+from random import randint
+import time
+from net.bombclient import BombClient
 
 class Game:
     def __init__(self, screen=None, game_dt=None):
@@ -47,6 +49,13 @@ class Game:
         self.players.add(self.player1)
         self.players.add(self.player2)
         self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+        self.connected = False
+        self.client = BombClient(player=self.player1)
+
+    def network_update(self, data=None):
+        data = self.player1.pos
+        # print(f'[n] send {data}')
+        self.client.Send(data)
 
     def update(self):
         # todo network things
@@ -116,15 +125,8 @@ class Game:
         self.game_menu.draw_panel(gamemap=self.gamemap, blocks=self.blocks, particles=self.particles,
                                   player1=self.player1, flames=self.flames)
         if DEBUG:
-            # debug_draw_mouseangle(self.screen, self.player1)
-            # debug_mouse_particles(self.screen, self.particles)
-            # draw_debug_sprite(self.screen, self.particles)
             draw_debug_sprite(self.screen, self.players)
 
-    # draw_debug_sprite(self.screen, self.flames)
-    # draw_debug_particles(self.screen, self.particles, self.blocks)
-    # draw_debug_sprite(self.screen, self.bombs)
-    # draw_debug_blocks(self.screen, self.blocks, self.gamemap, self.particles)
 
     def handle_menu(self, selection):
         # mainmenu
@@ -139,7 +141,11 @@ class Game:
         if selection == "Start server":
             pass
         if selection == "Connect to server":
-            pass
+            if self.client.Connect():
+                auth = self.client.authenticate()
+                self.connected = True
+            else:
+                self.connected = False
 
     def handle_input(self):
         # get player input
@@ -236,4 +242,7 @@ if __name__ == "__main__":
         pygame.event.pump()
         game.update()
         game.draw()
+        if game.connected:
+            game.network_update()
+        # print(f'{game.client}')
     pygame.quit()

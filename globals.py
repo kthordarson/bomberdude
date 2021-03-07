@@ -112,6 +112,13 @@ BLOCKTYPES = {
     },
 }
 
+def gen_randid(seed=None):
+    randid = []
+    for k in range(0,7):
+        n = random.randint(1,99)
+        randid.append(n)
+    return randid
+
 
 def random_velocity(direction=None):
     while True:
@@ -514,6 +521,7 @@ class Player(BasicThing):
         self.font = pygame.font.SysFont("calibri", 10, True)
         self.bot = bot
         self.bot_chdir = False
+        self.clientid = ''.join([''.join(str(k)) for k in gen_randid()])
 
     def bot_move(self, blocks, dt):
         pass
