@@ -3,7 +3,7 @@ import math
 import pygame
 from pygame.math import Vector2
 import os
-
+from net.bombclient import gen_randid
 # from pygame.colordict import THECOLORS as colordict
 
 DEBUG = True
@@ -112,12 +112,12 @@ BLOCKTYPES = {
     },
 }
 
-def gen_randid(seed=None):
-    randid = []
-    for k in range(0,7):
-        n = random.randint(1,99)
-        randid.append(n)
-    return randid
+# def gen_randid(seed=None):
+#     randid = []
+#     for k in range(0,7):
+#         n = random.randint(1,99)
+#         randid.append(n)
+#     return randid
 
 
 def random_velocity(direction=None):
@@ -498,7 +498,7 @@ class Bomb(BasicThing):
 
 
 class Player(BasicThing):
-    def __init__(self, pos=None, player_id=None, dt=None, image='player1.png', bot=False):
+    def __init__(self, pos=None, dt=None, image='player1.png', bot=False):
         BasicThing.__init__(self)
         pygame.sprite.Sprite.__init__(self)
         self.dt = dt
@@ -514,14 +514,13 @@ class Player(BasicThing):
         self.bombs_left = self.max_bombs
         self.bomb_power = 15
         self.speed = 1
-        self.player_id = player_id
         self.health = 100
         self.dead = False
         self.score = 0
         self.font = pygame.font.SysFont("calibri", 10, True)
         self.bot = bot
         self.bot_chdir = False
-        self.clientid = ''.join([''.join(str(k)) for k in gen_randid()])
+        self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
 
     def bot_move(self, blocks, dt):
         pass

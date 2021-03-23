@@ -20,7 +20,7 @@ def gen_randid(seed=None):
 
 class Player():
     def __init__(self):
-        self.clientid = ''.join([''.join(str(k)) for k in gen_randid()])
+        self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
 
 class Game(Thread):
     def __init__(self):
@@ -47,7 +47,7 @@ class BombClient(Thread):
             rawdata = self.Receive()
 
     def Connect(self):
-        #print(f'[bcl] id {self.player.clientid} connecting to {self.server} {self.server_port}')
+        #print(f'[bcl] id {self.player.client_id} connecting to {self.server} {self.server_port}')
         try:
             self.socket.connect((self.server, self.server_port))
             self.connected = True
@@ -61,11 +61,25 @@ class BombClient(Thread):
         data = pickle.dumps(data)
         self.socket.sendall(data)
 
+    def Sendpos(self, rawdata):
+        posdata = {'x': rawdata.x, 'y': rawdata.y}
+        packet = {'auth': self.player.client_id, 'pos':posdata}
+        data = pickle.dumps(packet)
+        print(f'[sendpos] size {len(data)} p: {packet}')
+        try:
+            self.socket.sendall(data)
+        except ConnectionResetError as e:
+            print(f'[sendpos] conn err {e}')
+        except WindowsError as e:
+            print(f'[sendpos] winerr err {e}')
+        except Exception as e:
+            print(f'[sendpos] err {e}')
+
     def _Send(self, rawdata=None):
         if self.connected:
             try:
-                # data1 = f'[conn]{self.player.clientid}'
-                #data = {'pid' : self.player.clientid, 'rawdata': rawdata}
+                # data1 = f'[conn]{self.player.client_id}'
+                #data = {'pid' : self.player.client_id, 'rawdata': rawdata}
                 data = pickle.dumps(rawdata)
                 # print(f'[send] {data}')
                 self.socket.sendall(data)
@@ -93,12 +107,11 @@ if __name__ == "__main__":
     game.client.Connect()
     while True:
         data = {
-                'auth': game.player.clientid, 
+                'auth': game.player.client_id, 
                 'foo' : f'{datetime.datetime.now()}'
                 }
         print(f'[send] {data}')
         game.client.Send(data)
-        print(f'[bc] .')
         resp = game.client.Receive()
         print(f'[resp] {resp}')
         cmd = input('> ')
@@ -106,16 +119,8 @@ if __name__ == "__main__":
             os._exit(0)
         if cmd[:1] == 's':
             data = {
-                'auth': game.player.clientid, 
+                'auth': game.player.client_id, 
                 'foo' : f'donk'
                 }
         if cmd[:1] == 'r':
             pass
-
-
-            # game.client.run()
-        # time.sleep(2)
-    #app = QApplication(sys.argv)
-    #client_window = ClientGUI()
-    #client_window.show()
-    #app.exec_()

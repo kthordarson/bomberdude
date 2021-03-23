@@ -16,9 +16,9 @@ class Client(TCPClient):
         super(Client, self).__init__()
         self._stream = None
         self._executor = ThreadPoolExecutor(1)
-        self.clientid = ''.join([''.join(str(k)) for k in gen_randid()])
+        self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
         self.readerr = 0
-        print(f'[client] init {self.clientid}')
+        print(f'[client] init {self.client_id}')
     @gen.coroutine
     def read(self):
         while True:
@@ -28,7 +28,7 @@ class Client(TCPClient):
                     body = data.rstrip(self.msg_separator)
                 except TypeError as typerr:
                     print(f'[cr] {typerr}')
-                    #body = str(self.clientid)
+                    #body = str(self.client_id)
                 print(f'[crl] b: {body}')
             except StreamClosedError as streamclosed:
                 print(f'[cr] closed? {streamclosed} e: {self.readerr}')
@@ -49,7 +49,7 @@ class Client(TCPClient):
     def writexx(self):
         while True:
             try:
-                #data = self.clientid  # yield self._executor.submit(input)
+                #data = self.client_id  # yield self._executor.submit(input)
                 if 'q' in data:
                     print(f'[cwl] q {data}')
                     self.disconnect()
@@ -62,7 +62,7 @@ class Client(TCPClient):
                     print(f'[cwl] not encoded_data s0: {encoded_data}')                    
                     break
                 else:
-                    #encoded_data = str(self.clientid) + data.encode('utf8') + self.msg_separator 
+                    #encoded_data = str(self.client_id) + data.encode('utf8') + self.msg_separator 
                     print(f'[cwl] s1: {encoded_data}')
                     yield self._stream.write(encoded_data)
             except StreamClosedError as streamerr:
@@ -75,7 +75,7 @@ class Client(TCPClient):
     def write(self, data=''):
         if data != '':
             try:
-                #data = self.clientid  # yield self._executor.submit(input)
+                #data = self.client_id  # yield self._executor.submit(input)
                 if 'q' in data:
                     print(f'[cwl] q {data}')
                     self.disconnect()
@@ -89,7 +89,7 @@ class Client(TCPClient):
                     #print(f'[cwl] not encoded_data s0: {encoded_data}')                    
                     #break
                 else:
-                    #encoded_data = str(self.clientid) + data.encode('utf8') + self.msg_separator 
+                    #encoded_data = str(self.client_id) + data.encode('utf8') + self.msg_separator 
                     print(f'[cwl] s1: {encoded_data}')
                     yield self._stream.write(encoded_data)
             except StreamClosedError as streamerr:

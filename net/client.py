@@ -18,9 +18,9 @@ class Client(TCPClient):
         super(Client, self).__init__()
         self._stream = None
         self._executor = ThreadPoolExecutor(1)
-        self.clientid = ''.join([''.join(str(k)) for k in gen_randid()])
+        self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
         self.databuffer = []
-        print(f'[client] __init__ {self.clientid}')
+        print(f'[client] __init__ {self.client_id}')
 
     @gen.coroutine
     def run(self, host, port):
@@ -33,7 +33,7 @@ class Client(TCPClient):
             try:
                 data = yield self._stream.read_until(self.msg_separator)
                 body = data.rstrip(self.msg_separator)
-                print(f'[clientread {self.clientid}] body: {body}')
+                print(f'[clientread {self.client_id}] body: {body}')
             except StreamClosedError:
                 self.disconnect()
                 return
@@ -43,7 +43,7 @@ class Client(TCPClient):
         while True:
             try:
                 data = ''
-                data = self.clientid + '|' + self.databuffer #  yield self._executor.submit(input)
+                data = self.client_id + '|' + self.databuffer #  yield self._executor.submit(input)
                 encoded_data = data.encode('utf8')
                 encoded_data += self.msg_separator
                 print(f'[client] ed: {encoded_data}')
@@ -54,13 +54,13 @@ class Client(TCPClient):
                 return
 
     def printstatus(self):
-        print(f'[client] id:{self.clientid}')
+        print(f'[client] id:{self.client_id}')
 
     def disconnect(self):
         super(Client, self).close()
         self._executor.shutdown(False)
         if not self._stream.closed():
-            print(f'[client {self.clientid}] Disconnecting...')
+            print(f'[client {self.client_id}] Disconnecting...')
             self._stream.close()
 
 def gen_randid(seed=None):
