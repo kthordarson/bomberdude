@@ -19,9 +19,22 @@ from globals import Block, Bomb, Player, Gamemap, Powerup
 from globals import DEBUG
 from globals import get_angle
 from menus import Menu
+from pygame import mixer  # Load the popular external library
 
+
+mixer.init()
 
 class Game:
+    def music_menu(self):
+        mixer.music.stop()
+        mixer.music.load('data/2021-03-26-bdosttest.mp3')
+        mixer.music.play()
+
+    def music_game(self):
+        mixer.music.stop()
+        mixer.music.load('data/2021-03-26-bdosttest2.mp3')
+        mixer.music.play()
+
     def __init__(self, screen=None, game_dt=None):
         # pygame.display.set_mode((GRIDSIZE[0] * BLOCKSIZE + BLOCKSIZE, GRIDSIZE[1] * BLOCKSIZE + panelsize), 0, 32)
         self.dt = game_dt
@@ -47,6 +60,7 @@ class Game:
         self.players.add(self.player1)
         self.players.add(self.player2)
         self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+        self.music_menu()
 
     def update(self):
         # todo network things
@@ -132,10 +146,13 @@ class Game:
             self.running = False
         if selection == "Pause":
             self.show_mainmenu ^= True
+            self.music_menu()
         if selection == "Start":
             self.show_mainmenu ^= True
+            self.music_game()
         if selection == "Restart":
             self.show_mainmenu ^= True
+            self.music_game()
         if selection == "Start server":
             pass
         if selection == "Connect to server":

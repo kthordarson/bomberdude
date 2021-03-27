@@ -2,6 +2,7 @@
 .git/*
 .idea/*
 __pycache__/*
+net/__pycache__/*
 tempCodeRunnerFile.py
 testnet.py
 testnetclient.py
