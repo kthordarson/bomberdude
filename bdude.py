@@ -54,11 +54,9 @@ class Game:
         self.bombs = pygame.sprite.Group()
         self.flames = pygame.sprite.Group()
         self.game_menu = Menu(self.screen)
-        self.player1 = Player(pos=self.gamemap.place_player(location=0), player_id=33, dt=self.dt, image='player1.png', bot=False)
-        self.player2 = Player(pos=self.gamemap.place_player(location=1), player_id=50, dt=self.dt, image='player2.png', bot=True)
+        self.player1 = Player(pos=self.gamemap.place_player(location=0),  dt=self.dt, image='player1.png', bot=False)
         [self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
         self.players.add(self.player1)
-        self.players.add(self.player2)
         self.font = pygame.freetype.Font(DEFAULTFONT, 12)
         self.music_menu()
 
@@ -110,7 +108,7 @@ class Game:
     def bombdrop(self, player):
         if player.bombs_left > 0:
             bombpos = Vector2((player.rect.centerx, player.rect.centery))
-            bomb = Bomb(pos=bombpos, dt=self.dt, bomber_id=player.player_id, bomb_power=player.bomb_power)
+            bomb = Bomb(pos=bombpos, dt=self.dt, bomber_id=player.client_id, bomb_power=player.bomb_power)
             self.bombs.add(bomb)
             player.bombs_left -= 1
 
