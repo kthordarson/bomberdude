@@ -59,6 +59,8 @@ class Game:
         self.players.add(self.player1)
         self.font = pygame.freetype.Font(DEFAULTFONT, 12)
         self.music_menu()
+        self.snd_bombexplode = mixer.Sound('data/bomb.mp3')
+        self.snd_bombdrop = mixer.Sound('data/bombdrop.mp3')
 
     def update(self):
         # todo network things
@@ -74,6 +76,7 @@ class Game:
                 self.flames.add(bomb.flames)
                 bomb.kill()
                 self.player1.bombs_left += 1
+                mixer.Sound.play(self.snd_bombexplode)
         self.flames.update()
         for flame in self.flames:
             flame_coll = pygame.sprite.spritecollide(flame, self.blocks, False)
@@ -111,6 +114,7 @@ class Game:
             bomb = Bomb(pos=bombpos, dt=self.dt, bomber_id=player.client_id, bomb_power=player.bomb_power)
             self.bombs.add(bomb)
             player.bombs_left -= 1
+            mixer.Sound.play(self.snd_bombdrop)
 
     def draw(self):
         # draw on screen
