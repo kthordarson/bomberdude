@@ -18,3 +18,5 @@ rencode.py
 .vs/VSWorkspaceState.json
 .vs/*
 *.pyc
+net/oldbombclient.py
+net/oldbombserver.py
