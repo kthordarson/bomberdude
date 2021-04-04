@@ -25,15 +25,6 @@ from pygame import mixer  # Load the popular external library
 mixer.init()
 
 class Game:
-    def music_menu(self):
-        mixer.music.stop()
-        mixer.music.load('data/2021-03-26-bdosttest.mp3')
-        mixer.music.play()
-
-    def music_game(self):
-        mixer.music.stop()
-        mixer.music.load('data/2021-03-26-bdosttest2.mp3')
-        mixer.music.play()
 
     def __init__(self, screen=None, game_dt=None):
         # pygame.display.set_mode((GRIDSIZE[0] * BLOCKSIZE + BLOCKSIZE, GRIDSIZE[1] * BLOCKSIZE + panelsize), 0, 32)
@@ -104,6 +95,16 @@ class Game:
         self.particles.update(self.blocks)
         self.blocks.update(self.blocks)
         self.powerups.update()
+
+    def music_menu(self):
+        mixer.music.stop()
+        mixer.music.load('data/2021-03-26-bdosttest.mp3')
+        mixer.music.play()
+
+    def music_game(self):
+        mixer.music.stop()
+        mixer.music.load('data/2021-03-26-bdosttest2.mp3')
+        mixer.music.play()
 
     def set_block(self, x, y, value):
         self.gamemap.grid[x][y] = value

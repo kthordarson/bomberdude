@@ -33,8 +33,9 @@ class Menu:
         # self.menufont.bgcolor = (44,55,66)
         self.menuitems = []
         self.menuitems.append("Start")
-        self.menuitems.append("Start server")
         self.menuitems.append("Connect to server")
+        self.menuitems.append("Start server")
+        self.menuitems.append("Stop server")
         self.menuitems.append("Pause")
         self.menuitems.append("Restart")
         self.menuitems.append("Quit")
@@ -59,8 +60,7 @@ class Menu:
                 self.menufont.fgcolor = self.selected_color
             else:
                 self.menufont.fgcolor = self.inactive_color
-            self.menufont.render_to(screen, (self.pos.x, pos_y), item[1],
-                                    self.menufont.fgcolor)
+            self.menufont.render_to(screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
             pos_y += 25
 
     def draw_coll_debug(self, players, blocks, colls):

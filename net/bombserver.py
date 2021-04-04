@@ -3,120 +3,145 @@ import pickle
 import random
 import threading
 from threading import Thread
-from multiprocessing import  Queue
+from multiprocessing import Queue
 import os
 import sys
 from ctypes import WinError
+import asyncio
 
-def get_ip():
-    return '0.0.0.0'
+class Client:
+    def __init__(self, clientid, ipaddress):
+        self.clientid = clientid
+        self.ipaddress = ipaddress
+    def __repr__(self):
+        return self.clientid
 
-class BombServer(Thread):
-    def __init__(self):
-        Thread.__init__(self)
-        self.running = True
-        self.kill = False
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setblocking(0)
-    server.bind(('localhost', 50000))
-    server.listen(5)
-    inputs = [server]
-    outputs = []
-    message_queues = {}
-    def run(self):
-        while inputs:
-            readable, writable, exceptional = select.select(inputs, outputs, inputs)
-            for s in readable:
-                if s is server:
-                    connection, client_address = s.accept()
-                    connection.setblocking(0)
-                    inputs.append(connection)
-                    message_queues[connection] = Queue.Queue()
-                else:
-                    data = s.recv(1024)
-                    if data:
-                        message_queues[s].put(data)
-                        if s not in outputs:
-                            outputs.append(s)
-                    else:
-                        if s in outputs:
-                            outputs.remove(s)
-                        inputs.remove(s)
-                        s.close()
-                        del message_queues[s]
+class UDPServer:
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.sock = None
+        self.running = False
+        self.clients = []
+        self.max_clients = 4
 
-        for s in writable:
-            try:
-                next_msg = message_queues[s].get_nowait()
-            except Queue.Empty:
-                outputs.remove(s)
+    def configure_server(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setblocking(False)
+        self.sock.bind((self.host, self.port))
+        # self.sock.setsockopt(level, optname, value)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket_lock = threading.Lock()
+        print(f'Server {self.host}:{self.port}...')
+
+    def check_clientid(self, clientid):
+        for c in self.clients:
+            if c.clientid == clientid:
+                return True
+        return False
+
+    def parse_data(self, data, client_address):
+        if len(self.clients) <= self.max_clients:
+            client = Client(clientid=data['id'], ipaddress=client_address)
+            if self.check_clientid(client.clientid):
+                print(f'[parse_data] update clientid: {data["id"]} pos: {data["pos"]}')
             else:
-                s.send(next_msg)
+                self.clients.append(client)
+                print(f'[parse_data] newclient {client} clientconns: {len(self.clients)}')
+            return '[serverok]'
+        else:
+            print(f'[server] server full clients connected {len(self.clients)} max_clients={self.max_clients} ')
+            return '[serverfull]'
 
-        for s in exceptional:
-            inputs.remove(s)
-            if s in outputs:
-                outputs.remove(s)
-            s.close()
-            del message_queues[s]
+    def handle_request(self, data, client_address):
+        # print(f'[server] client: {client_address} sent: {data["id"]}')
+        clientid = None
+        try:
+            clientid = data['id']
+        except Exception as e:
+            print(f'[server] clientid err {e}')
+        if clientid:
+            resp = self.parse_data(data, client_address)
+            print(f'[server] sending {resp} to client {client_address}')
+            self.sock.sendto(resp.encode('utf-8'), client_address)
+        else:
+            print(f'[server] could not get clientid')
+        #with self.socket_lock:
+        #    self.sock.sendto(resp.encode('utf-8'), client_address)
+        #    print(f'[slock]')
 
-    def Stop(self):
-        self.socket.close()
-        self.running = False
+    def shutdown_server(self):
+        self.sock.close()
 
-    def clean_exit(self, threads):
-        for t in threads:
-            t.join()
+    def send_update(self):
+        print(f'[server] sending update to all [{len(self.clients)}] connected clients')
+        for client in self.clients:
+            print(f'\t sending to client {client} {client.ipaddress}')
+            update = 'beef'.encode('utf-8')
+            # self.sock.sendto(update, client.ipaddress)
+            self.sock.sendto(update, ('192.168.1.67', 4445))
 
-    def stopmain(self, maint):
-        self.Stop()
-        for k in self.threads:
-            print(f'[stopmain] {k} {self.running} {self.kill} ')
-            # k.self_kill()
-        print(f'[stopmain] {self.running} {self.kill}')
-        self.running = False
-        print(f'[stopmain] r {self.running} {self.kill}')
-        self.kill = True
-        print(f'[stopmain] k {self.running} {self.kill}')
-        # maint.self_kill()
-        # maint.join()
-        print(f'[stopmain] j {self.running} {self.kill}')
-        # print(f'[stopmain] join')
-        os._exit(0)
+    def wait_for_client(self):
+        data = None
+        datapickled = None
+        client_address = None
+        print(f'[wait_for_client] run: {self.running}')
+        while self.running:
+            try:
+                data, client_address = self.sock.recvfrom(1024)
+                datapickled = pickle.loads(data)
+            except OSError as err:
+                # print(f'[server] oserr {err}')
+                datapickled = None
+                data = None
+            except pickle.UnpicklingError as e:
+                print(f'[server] pickle ERR {e}')
+                data = None
+                datapickled = None
+#            except Exception as e:
+                # self.running = False
+                #print(f'[server] err {e}')
+            except KeyboardInterrupt:
+                data = None
+                datapickled = None
+                self.running = False
+                self.shutdown_server()
+            if datapickled is not None:
+                c_thread = threading.Thread(target = self.handle_request, args = (datapickled, client_address))
+                c_thread.daemon = True
+                c_thread.start()
 
-    def check_threads(self, threads):
-        return True in [t.isAlive() for t in threads]
-
-    def check_main_thread(self, thread):
-        return thread.isAlive()
-
-    def reset_threads(self, threads):
-        print(f'RESET')
-        for t in threads:
-            t.join()
-
-
-
-if __name__ == "__main__":
-    print('[bombserver]')
-    server = BombServer()
-#    print(f'{server}')
-    #server_thread = threading.Thread(target=server.Start, args=())
-    #server_thread = threading.Thread(target=server.Start, args=())
-    server.start()
-    while server.is_alive():
+if __name__ == '__main__':
+    udpserver = UDPServer('192.168.1.67', 4444)
+    udpserver.configure_server()
+    s_thread = threading.Thread(target=udpserver.wait_for_client, daemon=True)
+    # s_thread.daemon = True
+    # s_thread.start()
+    udpserver.running=False
+    while True:
         try:
             cmd = input('> ')
-            if cmd[:1] == 'r':
-                pass
-            if cmd[:1] == 's':
-                print(f'[server] t: {len(server.threads)}  c: {len(server.conn_list)}')
             if cmd[:1] == 'q':
-                server.stopmain(server)
+                udpserver.running = False
+                os._exit(0)
+            if cmd[:5] == 'start':
+                print(f'[server] starting udpserver.running {udpserver.running}')
+                if not udpserver.running:
+                    s_thread = threading.Thread(target=udpserver.wait_for_client, daemon=True)
+                    udpserver.running=True
+                    s_thread.start()
+                else:
+                    print(f'[server] status udpserver.running {udpserver.running}')
+            if cmd[:6] == 'status':
+                print(f'[serverstatus] threads: {threading.active_count()} clients: {len(udpserver.clients)}')
+            if cmd[:4] == 'send':
+                udpserver.send_update()
+            if cmd[:4] == 'stop':
+                print(f'[r] stopping threads: {threading.active_count()}')
+                udpserver.running = False
+                s_thread.join()
+                s_thread = None
+                print(f'[r] stopped threads: {threading.active_count()}')
         except KeyboardInterrupt:
-            server.stopmain(server)
-
-    #app = QApplication(sys.argv)
-    #window = ServerWindow()
-    #window.show()
-    #app.exec_()
+            udpserver.running = False
+            os._exit(0)

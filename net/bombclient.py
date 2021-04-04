@@ -26,101 +26,119 @@ class Game(Thread):
     def __init__(self):
         super(Game, self).__init__()
         self.player = Player()
-        self.client = BombClient(server='127.0.0.1', server_port=9999, player=self.player)
+        self.client = UDPClient('192.168.1.67', 4444)
+        # self.client = BombClient(server='127.0.0.1', server_port=9999, player=self.player)
 
-class BombClient(Thread):
-    def __init__(self,server='127.0.0.1', server_port=9999, player=None):
-        super(BombClient, self).__init__()
-        self.server = server
-        self.server_port = server_port
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.player = player
+
+class UDPClient:
+    def __init__(self, host, port):
+        self.server_address = host
+        self.server_port = port
+        self.listen_port = port+1
+        self.listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.server_sock.setblocking(False)
+        self.listen_sock.setblocking(False)
+        # self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.client_id = ''.join([''.join(str(random.randint(0,99))) for k in range(10)])
         self.connected = False
+        self.listening = False
+        print(f'[UDPClient] {self.client_id} init server:{host}:{port} lport:{self.listen_port}')
 
-    def run(self):
-        rawdata = 'donk'
-        while self.connected:
-            data = pickle.loads(rawdata)
-            resp = pickle.dumps(f'[r] got {len(data)}')
-            print(resp)
-            self.socket.sendall(resp)
-            rawdata = self.Receive()
-
-    def Connect(self):
-        #print(f'[bcl] id {self.player.client_id} connecting to {self.server} {self.server_port}')
-        try:
-            self.socket.connect((self.server, self.server_port))
-            self.connected = True
-            return True
-        except Exception as e:
-            print(f'[bclient] Err {e}')
-            self.connected = False
-            return False
-
-    def Send(self, data):
-        data = pickle.dumps(data)
-        self.socket.sendall(data)
-
-    def Sendpos(self, rawdata):
-        posdata = {'x': rawdata.x, 'y': rawdata.y}
-        packet = {'auth': self.player.client_id, 'pos':posdata}
-        data = pickle.dumps(packet)
-        print(f'[sendpos] size {len(data)} p: {packet}')
-        try:
-            self.socket.sendall(data)
-        except ConnectionResetError as e:
-            print(f'[sendpos] conn err {e}')
-        except WindowsError as e:
-            print(f'[sendpos] winerr err {e}')
-        except Exception as e:
-            print(f'[sendpos] err {e}')
-
-    def _Send(self, rawdata=None):
+    def listener(self):
+        print(f'[UDPClient] listener starting...')
         if self.connected:
-            try:
-                # data1 = f'[conn]{self.player.client_id}'
-                #data = {'pid' : self.player.client_id, 'rawdata': rawdata}
-                data = pickle.dumps(rawdata)
-                # print(f'[send] {data}')
-                self.socket.sendall(data)
-            except Exception as e:
-                self.connected = False
-                self.authenticated = False
-                print(f'[s] ERR {e}')
+            self.listen_sock.bind(('0.0.0.0', self.listen_port))
+            data = None
+            self.listening = True
+            print(f'[UDPClient] listener ok {self.listen_sock}')
+            while self.connected:
+                try:
+                    data, server_address = self.listen_sock.recvfrom(1024)
+                except OSError as err:
+                    data = None
+                if data:
+                    print(f'[listener] got {data}')
+        else:
+            print(f'[UDPClient] listener failed not connected ...')
 
-    def Receive(self):
-        try:
-            data = self.socket.recv(1024)
-            data_rcv = pickle.loads(data)
-            return data_rcv
-        except Exception as e:
-            #self.connected = False
-            #self.authenticated = False
-            print(f'[r] ERR {e}')
-            return None
+    def connect(self):
+        if self.connected:
+            print(f'[client] already connected')
+            return
+        else:
+            connectstring = pickle.dumps({'id' : self.client_id, 'request': 'connect', 'pos': [0,0]})
+            try:
+                self.server_sock.sendto(connectstring, (self.server_address, self.server_port))
+                time.sleep(0.5)
+                resp, server_address = self.server_sock.recvfrom(1024)
+                response = resp.decode('utf-8')
+                print(f'[client] conn resp: {resp} {server_address}')
+                if '[serverok]' in response:
+                    self.connected = True
+                    l_thread = threading.Thread(target=self.listener, daemon=True)
+                    l_thread.start()
+                else:
+                    print(f'[client] connection error')
+                    self.connected = False
+            except OSError as err:
+                self.connected = False
+
+    def send_data(self, extradata=None):
+        if self.connected:
+            posx = random.randint(1, 32)
+            posy = random.randint(1, 32)        
+            data = pickle.dumps({'id' : self.client_id, 'pos': [posx, posy]})
+            # print(f'[bcl] sending {data}')
+            try:
+                self.server_sock.sendto(data, (self.server_address, self.server_port))
+                # time.sleep(0.1)
+                resp, server_address = self.server_sock.recvfrom(1024)
+                print(f'[RECEIVED] {resp.decode()}')
+            except OSError as err:
+                pass
+        else:
+            print(f'[client] not connected')
+
+    def send_garbage(self):
+        if self.connected:
+            #self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            #self.server_sock.setblocking(False)
+            data = b'foobarbadbeef'
+            # data = pickle.dumps(data)
+            try:
+                self.server_sock.sendto(data, (self.server_address, self.server_port))
+                resp, server_address = self.server_sock.recvfrom(1024)
+                print(f'[RECEIVED] {resp.decode()}')
+            except OSError as err:
+                pass
+                # print(f'[send_data] OSERR {err}')
+            #except KeyboardInterrupt:
+            #    self.server_sock.close()
+            #finally:
+            #    self.server_sock.close()
+        else:
+            print(f'[client] garb not connected')
+            return
+
 
 
 if __name__ == "__main__":
     print('[bombclient]')
     game = Game()
 #    print(f'cl {client}')
-    game.client.Connect()
+#    game.client.Connect()
     while True:
-        data = {
-                'auth': game.player.client_id, 
-                'foo' : f'{datetime.datetime.now()}'
-                }
-        print(f'[send] {data}')
-        game.client.Send(data)
-        resp = game.client.Receive()
-        print(f'[resp] {resp}')
+        # data = {'auth': game.player.client_id,  'foo' : f'{datetime.datetime.now()}' }
+        
         cmd = input('> ')
         if cmd[:1] == 'q':
             os._exit(0)
         if cmd[:1] == 's':
-            data = {
-                'auth': game.player.client_id, 
-                'foo' : f'donk'
-                }
+            game.client.send_data()
+        if cmd[:1] == 'c':
+            game.client.connect()
+        if cmd[:1] == 'g':
+            game.client.send_garbage()
         if cmd[:1] == 'r':
             pass
