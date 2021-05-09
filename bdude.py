@@ -14,7 +14,7 @@ from debug import (
 	draw_debug_sprite,
 	draw_debug_block
 )
-from globals import BLOCKSIZE, FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT
+from globals import FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT, BLOCKSIZE
 from globals import Block, Bomb, Gamemap, Powerup
 from globals import DEBUG
 from globals import get_angle
@@ -61,6 +61,13 @@ class Game:
 
 	def update(self):
 		# [player.update(self.blocks) for player in self.players]
+		if self.server.running and len(self.server.clients) <= 1:
+			clients = self.server.get_clients()
+			try:
+				for client in clients:
+					print(f'{client}')
+			except RuntimeError as e:
+				pass
 		self.players.update(self.blocks)
 		[player.move(self.blocks, dt) for player in self.players]
 		[player.bot_move(self.blocks, dt) for player in self.players if player.bot]
@@ -135,8 +142,8 @@ class Game:
 
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
-		self.game_menu.draw_panel(gamemap=self.gamemap, blocks=self.blocks, particles=self.particles,
-								  player1=self.player1, flames=self.flames)
+		self.game_menu.draw_panel(gamemap=self.gamemap, blocks=self.blocks, particles=self.particles,player1=self.player1, flames=self.flames)
+		self.game_menu.draw_server_debug(server=self.server)
 		if DEBUG:
 			# debug_draw_mouseangle(self.screen, self.player1)
 			# debug_mouse_particles(self.screen, self.particles)
@@ -167,6 +174,8 @@ class Game:
 			self.music_menu()
 		if selection == "Start":
 			self.show_mainmenu ^= True
+			if self.server.running:
+				self.player1.connect()
 			self.music_game()
 		if selection == "Restart":
 			self.show_mainmenu ^= True

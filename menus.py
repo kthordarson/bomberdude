@@ -66,6 +66,15 @@ class Menu:
 	def draw_coll_debug(self, players, blocks, colls):
 		pass
 
+	def draw_server_debug(self, server=None):
+		pos = self.screenh // 2
+		pos = Vector2(pos, self.screenh - 40)
+		self.panelfont.render_to(self.screen, pos, f"server running : {server.running} - c:{len(server.clients)} ", self.panelfont_color)
+		if len(server.clients) > 1:
+			for client in server.clients:
+				pos.y += 12
+				self.panelfont.render_to(self.screen, pos, f"cli : {client} {server.clients[client].get_pos()} ", self.panelfont_color)
+
 	def draw_panel(self, gamemap, blocks, particles, player1, flames):
 		# todo fix this shit
 		pos = Vector2(10, self.screenh - 40)

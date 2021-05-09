@@ -11,6 +11,9 @@ import os
 
 import sys
 
+#from bdude import Game
+#from player import Player
+
 def gen_randid(seed=None):
 	randid = []
 	for k in range(0,7):
@@ -44,6 +47,8 @@ class UDPClient:
 		self.listening = False
 		self.clnt_inpackets = 0
 		self.clnt_outpackets = 0
+		self.posx = 0
+		self.posy = 0
 
 		print(f'[UDPClient] {self.client_id} init server:{host}:{port}')
 
@@ -62,10 +67,31 @@ class UDPClient:
 				except OSError as err:
 					data = None
 				if data:
-					print(f'[listener] got {data}')
+					#print(f'[listener] got {data}')
 					self.clnt_inpackets += 1
 		else:
 			print(f'[UDPClient] listener failed not connected ...')
+
+	def is_connected(self):
+		return self.connected
+	
+	def set_pos(self, pos):
+		self.pos = pos
+
+	def send_pos(self, pos):
+		if self.connected:
+			self.clnt_outpackets += 1
+			data = pickle.dumps({'id' : self.client_id, 'pos': pos})
+			# print(f'[bcl] sending {data}')
+			try:
+				self.server_sock.sendto(data, (self.server_address, self.server_port))
+				# time.sleep(0.1)
+				resp, server_address = self.server_sock.recvfrom(1024)
+				#print(f'[send_pos] r: {resp.decode()}')
+			except OSError as err:
+				pass
+		else:
+			print(f'[send_pos] not connected')
 
 	def connect(self):
 		if self.connected:
@@ -73,18 +99,18 @@ class UDPClient:
 			return
 		else:
 			connectstring = pickle.dumps({'id' : self.client_id, 'request': 'connect', 'pos': [0,0]})
-			print(f'[client] sending connection string {connectstring}')
+			#print(f'[client] sending connection string {connectstring}')
 			try:
 				self.server_sock.sendto(connectstring, (self.server_address, self.server_port))
 				time.sleep(0.5)
 				resp, server_address = self.server_sock.recvfrom(1024)
 				response = resp.decode('utf-8')
-				print(f'[client] conn resp: {resp} {server_address}')
+				#print(f'[client] conn resp: {resp} {server_address}')
 				if '[serverok]' in response:
 					lport = response.split(':')[1]
 					self.listen_port = int(lport)
 					self.connected = True
-					print(f'[client] connection ok lport:{self.listen_port}')
+					#print(f'[client] connection ok lport:{self.listen_port}')
 					l_thread = threading.Thread(target=self.listener, daemon=True)
 					l_thread.start()
 				else:
@@ -96,19 +122,19 @@ class UDPClient:
 	def send_data(self, extradata=None):
 		if self.connected:
 			self.clnt_outpackets += 1
-			posx = random.randint(1, 32)
-			posy = random.randint(1, 32)        
-			data = pickle.dumps({'id' : self.client_id, 'pos': [posx, posy]})
+			self.posx = random.randint(1, 32)
+			self.posy = random.randint(1, 32)        
+			data = pickle.dumps({'id' : self.client_id, 'pos': [self.posx, self.posy]})
 			# print(f'[bcl] sending {data}')
 			try:
 				self.server_sock.sendto(data, (self.server_address, self.server_port))
 				# time.sleep(0.1)
 				resp, server_address = self.server_sock.recvfrom(1024)
-				print(f'[RECEIVED] {resp.decode()}')
+				#print(f'[send_data] r: {resp.decode()}')
 			except OSError as err:
 				pass
 		else:
-			print(f'[client] not connected')
+			print(f'[send_data] not connected')
 
 	def send_garbage(self):
 		if self.connected:

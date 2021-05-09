@@ -29,6 +29,9 @@ class Player(BasicThing):
 		self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
 		self.client = UDPClient()
 
+	def connect(self):
+		self.client.connect()
+
 	def bot_move(self, blocks, dt):
 		pass
 
@@ -36,6 +39,9 @@ class Player(BasicThing):
 		self.vel += self.accel
 		self.pos.x += self.vel.x
 		self.rect.x = int(self.pos.x)
+		self.client.set_pos(self.pos)
+		if self.client.connected:
+			self.client.send_pos(self.pos)
 		block_hit_list = self.collide(blocks, dt)
 		for block in block_hit_list:
 			if isinstance(block, Block):

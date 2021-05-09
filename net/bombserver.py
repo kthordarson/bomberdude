@@ -11,14 +11,20 @@ import asyncio
 
 
 class Client:
-	def __init__(self, clientid, ipaddress):
+	def __init__(self, clientid, ipaddress, pos):
 		self.clientid = clientid
 		self.ipaddress = ipaddress
 		self.inpackets = 0
 		self.outpackets = 0
+		self.pos = pos # (self.posx, self.posy)
 
-	def __repr__(self):
-		return self.clientid
+	def __str__(self):
+		return f'clientid: {self.clientid}'
+	
+	def get_pos(self):
+		return self.pos
+	def set_pos(self, pos):
+		self.pos = pos
 
 
 class UDPServer:
@@ -46,7 +52,10 @@ class UDPServer:
 			if c == clientid:
 				return True
 		return False
-	
+
+	def get_clients(self):
+		return self.clients
+
 	def dumpclients(self):
 		for client in self.clients:
 			cl_id = self.clients.get(client).clientid
@@ -57,18 +66,23 @@ class UDPServer:
 
 	def parse_data(self, data, client_address):
 		if len(self.clients) <= self.max_clients:
-			client = Client(clientid=data['id'], ipaddress=client_address)
+			clientid = data['id']
+			clientpos = data['pos']
+			client = Client(clientid=clientid, ipaddress=client_address, pos=clientpos)
 			ret_port = self.port + len(self.clients) + 1
 			if self.check_clientid(client.clientid):
-				print(f'[parse_data] update clientid: {data["id"]} pos: {data["pos"]}')
-				self.clients[data['id']].inpackets += 1
+				# print(f'[parse_data] update clientid: {clientid} pos: {clientpos}')
+				self.clients[clientid].inpackets += 1
+				self.clients[clientid].pos = clientpos
+
 			else:
 				#self.clients.append(client)
-				self.clients[data['id']] = client
-				print(f'[parse_data] newclient {client} clientconns: {len(self.clients)}')
+				self.clients[clientid] = client
+				self.clients[clientid].pos = clientpos
+				# print(f'[parse_data] newclient {client} clientconns: {len(self.clients)}')
 			return f'[serverok] ret_port:{ret_port}'
 		else:
-			print(f'[server] server full clients connected {len(self.clients)} max_clients={self.max_clients} ')
+			# print(f'[server] server full clients connected {len(self.clients)} max_clients={self.max_clients} ')
 			return '[serverfull]'
 
 	def handle_request(self, data, client_address):
@@ -80,7 +94,7 @@ class UDPServer:
 			print(f'[server] clientid err {e}')
 		if clientid:
 			resp = self.parse_data(data, client_address)
-			print(f'[server] sending {resp} to client {client_address}')
+			# print(f'[server] sending {resp} to client {client_address}')
 			self.sock.sendto(resp.encode('utf-8'), client_address)
 		else:
 			print(f'[server] could not get clientid')
@@ -92,10 +106,10 @@ class UDPServer:
 		self.sock.close()
 
 	def send_update(self):
-		print(f'[server] sending update to all [{len(self.clients)}] connected clients')
+		# print(f'[server] sending update to all [{len(self.clients)}] connected clients')
 		d_port = self.port + 1
 		for client in self.clients:
-			print(f'\t sending to client {client} {client.ipaddress}')
+			# print(f'\t sending to client {client} {client.ipaddress}')
 			update = 'beef'.encode('utf-8')
 			# self.sock.sendto(update, client.ipaddress)
 			self.sock.sendto(update, ('192.168.1.67', d_port))
