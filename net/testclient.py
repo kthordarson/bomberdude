@@ -129,33 +129,33 @@ def connector(client=None):
 #    print('Connecting to the server socket...')
 #    client=Client()
     client = Client()
-    client._stream = yield client.connect(host='127.0.0.1', port=5567)
+    client._stream = yield client.connect(host='192.168.1.67', port=5567)
     print(f'{client._stream}')
     yield [client.read(), client.write()]
     while True:
         client.write(data='asdfasdf')
-    # IOLoop.instance().run_sync(lambda: client.connect(host='127.0.0.1', port=5567))
+    # IOLoop.instance().run_sync(lambda: client.connect(host='192.168.1.67', port=5567))
     # yield [client.read(), client.write()]
-    # # client._stream = client.connect(host='127.0.0.1', port=5567)
+    # # client._stream = client.connect(host='192.168.1.67', port=5567)
     # while True:
     #     client.write(data='asdfasdf')
 #    try:
-#        yield Client().run('127.0.0.1', 5567)
+#        yield Client().run('192.168.1.67', 5567)
 #    except StreamClosedError as streamerr:
 #        print(f'[c] Disconnected {streamerr}')
 
 @gen.coroutine
 def writer(client=None, data=None):
-    # IOLoop.instance().run_sync(lambda: client.connect(host='127.0.0.1', port=5567))
+    # IOLoop.instance().run_sync(lambda: client.connect(host='192.168.1.67', port=5567))
     yield [client.read(), client.write()]
-    # client._stream = client.connect(host='127.0.0.1', port=5567)
+    # client._stream = client.connect(host='192.168.1.67', port=5567)
 
 
 @gen.coroutine
 def main1():
     print('Connecting to the server socket...')
     try:
-        yield Client().run('127.0.0.1', 5567)
+        yield Client().run('192.168.1.67', 5567)
     except StreamClosedError as streamerr:
         print(f'[c] Disconnected {streamerr}')
 

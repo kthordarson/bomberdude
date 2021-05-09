@@ -121,7 +121,7 @@ class Server(TCPServer):
         :param channel_name: string representing Redis PUB/SUB channel name
         """
         print(f'[server] subscribe')
-        self._redis = yield aioredis.create_redis(('127.0.0.1', 6379))
+        self._redis = yield aioredis.create_redis(('192.168.1.67', 6379))
         channels = yield self._redis.subscribe(channel_name)
         print('[server] Subscribed to "{}" Redis channel.'.format(channel_name))
         self._channel = channels[0]
@@ -186,7 +186,7 @@ def create_server():
     signal.signal(signal.SIGTERM, sig_handler)
     signal.signal(signal.SIGINT, sig_handler)
     AsyncIOMainLoop().install()
-    server.listen(port=5567, address='127.0.0.1')
+    server.listen(port=5567, address='192.168.1.67')
     IOLoop.current().spawn_callback(server.subscribe, 'updates')
 
     print('Starting the server...')
@@ -202,7 +202,7 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, sig_handler)
     signal.signal(signal.SIGINT, sig_handler)
     AsyncIOMainLoop().install()
-    server.listen(port=5567, address='127.0.0.1')
+    server.listen(port=5567, address='192.168.1.67')
     print(f'[srv] {server}')
     IOLoop.current().spawn_callback(server.subscribe, 'updates')
     server.start1 = True

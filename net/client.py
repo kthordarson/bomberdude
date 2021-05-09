@@ -73,7 +73,7 @@ def gen_randid(seed=None):
 @gen.coroutine
 def main():
     print('Connecting to the server socket...')
-    yield Client().run('127.0.0.1', 5567)
+    yield Client().run('192.168.1.67', 5567)
     print('Disconnected from server socket.')
 
 
