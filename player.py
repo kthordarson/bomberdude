@@ -26,14 +26,27 @@ class Player(BasicThing):
 		self.font = pygame.font.SysFont("calibri", 10, True)
 		self.bot = bot
 		self.bot_chdir = False
-		self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
+		# self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
 		self.client = UDPClient()
+		# self.client_id = self.client.client_id
+
+	def __str__(self):
+		return self.client.client_id
+
+	def __repr__(self):
+		return str(self.client.client_id)
 
 	def connect(self):
 		self.client.connect()
 
 	def bot_move(self, blocks, dt):
 		pass
+
+	def set_pos(self, pos):
+		self.pos = pos
+
+	def set_clientid(self, clientid):
+		self.client.setid(clientid)
 
 	def move(self, blocks, dt):
 		self.vel += self.accel

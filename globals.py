@@ -223,6 +223,13 @@ class BasicThing(pygame.sprite.Sprite):
 		self.collisions = []
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		self.thing_id = ''.join([''.join(str(random.randint(0,99))) for k in range(10)])
+
+	# def __str__(self):
+	# 	return self.thing_id
+
+	# def __repr__(self):
+	# 	return self.thing_id
 
 	def collide(self, items=None, dt=None):
 		self.collisions = pygame.sprite.spritecollide(self, items, False)

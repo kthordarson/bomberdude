@@ -78,6 +78,9 @@ class UDPClient:
 	def set_pos(self, pos):
 		self.pos = pos
 
+	def setid(self, clientid):
+		self.client_id = clientid
+		
 	def send_pos(self, pos):
 		if self.connected:
 			self.clnt_outpackets += 1
