@@ -1,3 +1,19 @@
 [MASTER]
+jobs = 4
 disable=
     C0114, # missing-module-docstring
+    W1309,
+
+[BASIC]
+function-naming-style=any
+
+[VARIABLES]
+allow-global-unused-variables=yes
+
+[MESSAGES CONTROL]
+disable = 
+    unused-variable,
+    unused-argument,
+    unused-import,
+    broad-except,
+    no-self-use,

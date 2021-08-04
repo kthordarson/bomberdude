@@ -1,4 +1,3 @@
-import pygame
 import random
 import socket
 import pickle
@@ -8,8 +7,8 @@ import threading
 from threading import Thread
 from multiprocessing import  Queue
 import os
-
 import sys
+import pygame
 
 #from bdude import Game
 #from player import Player
@@ -49,6 +48,7 @@ class UDPClient:
 		self.clnt_outpackets = 0
 		self.posx = 0
 		self.posy = 0
+		self.pos = (0,0)
 
 		print(f'[UDPClient] {self.client_id} init server:{host}:{port}')
 
@@ -74,13 +74,13 @@ class UDPClient:
 
 	def is_connected(self):
 		return self.connected
-	
+
 	def set_pos(self, pos):
 		self.pos = pos
 
 	def setid(self, clientid):
 		self.client_id = clientid
-		
+
 	def send_pos(self, pos):
 		if self.connected:
 			self.clnt_outpackets += 1
@@ -126,7 +126,7 @@ class UDPClient:
 		if self.connected:
 			self.clnt_outpackets += 1
 			self.posx = random.randint(1, 32)
-			self.posy = random.randint(1, 32)        
+			self.posy = random.randint(1, 32)
 			data = pickle.dumps({'id' : self.client_id, 'pos': [self.posx, self.posy]})
 			# print(f'[bcl] sending {data}')
 			try:

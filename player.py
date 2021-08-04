@@ -1,7 +1,8 @@
-from globals import BasicThing, load_image, PLAYERSIZE, gen_randid, Block
-from net.bombclient import UDPClient
 import pygame
 from pygame.math import Vector2
+from PodSixNet.Connection import connection, ConnectionListener
+from globals import BasicThing, load_image, PLAYERSIZE, Block, gen_randid
+# from net.bombclient import UDPClient
 
 class Player(BasicThing):
 	def __init__(self, pos=None, dt=None, image='player1.png', bot=False):
@@ -26,18 +27,23 @@ class Player(BasicThing):
 		self.font = pygame.font.SysFont("calibri", 10, True)
 		self.bot = bot
 		self.bot_chdir = False
-		# self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
-		self.client = UDPClient()
-		# self.client_id = self.client.client_id
+		self.client = ConnectionListener()
+		self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
+		# self.client = UDPClient()
+		# self.client_id = self.client_id
 
 	def __str__(self):
-		return self.client.client_id
+		return self.client_id
 
 	def __repr__(self):
-		return str(self.client.client_id)
+		return str(self.client_id)
+
+	def loop(self):
+		connection.Pump()
+		self.client.Pump()
 
 	def connect(self):
-		self.client.connect()
+		self.client.Connect(('localhost', 1234))
 
 	def bot_move(self, blocks, dt):
 		pass
@@ -46,15 +52,16 @@ class Player(BasicThing):
 		self.pos = pos
 
 	def set_clientid(self, clientid):
-		self.client.setid(clientid)
+		pass
+		# self.client.setid(clientid)
 
 	def move(self, blocks, dt):
 		self.vel += self.accel
 		self.pos.x += self.vel.x
 		self.rect.x = int(self.pos.x)
-		self.client.set_pos(self.pos)
-		if self.client.connected:
-			self.client.send_pos(self.pos)
+		# self.client.set_pos(self.pos)
+		# if self.client.connected:
+		# 	self.client.send_pos(self.pos)
 		block_hit_list = self.collide(blocks, dt)
 		for block in block_hit_list:
 			if isinstance(block, Block):

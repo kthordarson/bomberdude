@@ -1,14 +1,11 @@
 # bomberdude
-# TODO
-# fix player placement
-# fix restart game
-# fix flames
-# multiplayer
 
 import asyncio
 import random
+# import threading
 import pygame
 from pygame.math import Vector2
+from pygame import mixer  # Load the popular external library
 
 from debug import (
 	draw_debug_sprite,
@@ -20,11 +17,9 @@ from globals import DEBUG
 from globals import get_angle
 from player import Player
 from menus import Menu
-from pygame import mixer  # Load the popular external library
-
-import threading
 from net.bombserver import UDPServer
-from net.bombclient import UDPClient
+# from net.bombserver import UDPServer
+# from net.bombclient import UDPClient
 
 mixer.init()
 
@@ -50,7 +45,7 @@ class Game:
 		self.flames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
 		self.player1 = Player(pos=self.gamemap.place_player(location=0),  dt=self.dt, image='player1.png', bot=False)
-		[self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
+		_ = [self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
 		self.players.add(self.player1)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.music_menu()
@@ -78,8 +73,8 @@ class Game:
 				except RuntimeError as e:
 					print(f'[update] ERR {e}')
 		self.players.update(self.blocks)
-		[player.move(self.blocks, dt) for player in self.players]
-		[player.bot_move(self.blocks, dt) for player in self.players if player.bot]
+		_ = [player.move(self.blocks, dt) for player in self.players]
+		_ = [player.bot_move(self.blocks, dt) for player in self.players if player.bot]
 		self.bombs.update()
 		for bomb in self.bombs:
 			bomb.dt = pygame.time.get_ticks() / 1000
@@ -133,7 +128,7 @@ class Game:
 	def bombdrop(self, player):
 		if player.bombs_left > 0:
 			bombpos = Vector2((player.rect.centerx, player.rect.centery))
-			bomb = Bomb(pos=bombpos, dt=self.dt, bomber_id=player.client.client_id, bomb_power=player.bomb_power)
+			bomb = Bomb(pos=bombpos, dt=self.dt, bomber_id=player.client_id, bomb_power=player.bomb_power)
 			self.bombs.add(bomb)
 			player.bombs_left -= 1
 			# mixer.Sound.play(self.snd_bombdrop)
@@ -151,7 +146,7 @@ class Game:
 
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
-		self.game_menu.draw_panel(gamemap=self.gamemap, blocks=self.blocks, particles=self.particles,player1=self.player1, flames=self.flames)
+		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles,player1=self.player1, flames=self.flames)
 		self.game_menu.draw_server_debug(server=self.server, netplayers=self.netplayers)
 		if DEBUG:
 			# debug_draw_mouseangle(self.screen, self.player1)
@@ -165,10 +160,11 @@ class Game:
 	# draw_debug_blocks(self.screen, self.blocks, self.gamemap, self.particles)
 
 	def start_server(self):
-		self.server.configure_server()
-		self.server_thread = threading.Thread(target=self.server.wait_for_client, daemon=True)
-		self.server.running = True
-		self.server_thread.start()
+		pass
+		# self.server.configure_server()
+		# self.server_thread = threading.Thread(target=self.server.wait_for_client, daemon=True)
+		# self.server.running = True
+		# self.server_thread.start()
 
 	def handle_menu(self, selection):
 		# mainmenu
@@ -194,7 +190,7 @@ class Game:
 			self.start_server()
 		if selection == "Connect to server":
 			print(f'[SRV] Connecting to server ...')
-			self.player1.client.connect()
+			self.player1.client.Connect()
 
 
 	def handle_input(self):
@@ -208,24 +204,23 @@ class Game:
 					else:
 						self.bombdrop(self.player1)
 				if event.key == pygame.K_ESCAPE:
-					if not self.show_mainmenu:
-						if self.server.running:
-							self.server.running = False
-							self.server_thread.join()
-							self.server_thread = None
-						self.running = False
-					else:
-						self.show_mainmenu ^= True
+					self.show_mainmenu ^= True
+				# if not self.show_mainmenu:
+				# 	self.running = False
+				# else:
+				# 	self.show_mainmenu ^= True
+				if event.key == pygame.K_q:
+					self.running = False
 				if event.key == pygame.K_1:
-					[particle.stop() for particle in self.particles]
+					_ = [particle.stop() for particle in self.particles]
 				if event.key == pygame.K_2:
-					[particle.move() for particle in self.particles]
+					_ = [particle.move() for particle in self.particles]
 				if event.key == pygame.K_3:
-					[particle.set_vel() for particle in self.particles]
+					_ = [particle.set_vel() for particle in self.particles]
 				if event.key == pygame.K_4:
-					[particle.set_vel(Vector2(1, 1)) for particle in self.particles]
+					_ = [particle.set_vel(Vector2(1, 1)) for particle in self.particles]
 				if event.key == pygame.K_5:
-					[particle.kill() for particle in self.particles]
+					_ = [particle.kill() for particle in self.particles]
 				if event.key == pygame.K_c:
 					self.player1.bomb_power = 100
 					self.player1.max_bombs = 10
@@ -276,9 +271,9 @@ class Game:
 				gridy = mousey // BLOCKSIZE[1]
 				angle = get_angle(self.player1.pos, pygame.mouse.get_pos())
 				angle2 = get_angle(pygame.mouse.get_pos(), self.player1.pos)
+				print(f"mouse x:{mousex} y:{mousey} [gx:{gridx} gy:{gridy}] |  b:{self.gamemap.get_block(gridx, gridy)} a:{angle:.1f} a2:{angle2:.1f}")
+				print(f"mouse x:{mousex} y:{mousey} [x:{mousex//BLOCKSIZE[0]} y:{mousey//BLOCKSIZE[1]}]|  b:{self.gamemap.get_block(mousex // GRIDSIZE[0], mousey // GRIDSIZE[1])} ")
 			# blockinf = self.gamemap.get_block_real(mousex, mousey)
-			# print(f"mouse x:{mousex} y:{mousey} [gx:{gridx} gy:{gridy}] |  b:{self.gamemap.get_block(gridx, gridy)} a:{angle:.1f} a2:{angle2:.1f}")
-			# print(f"mouse x:{mousex} y:{mousey} [x:{mousex//BLOCKSIZE[0]} y:{mousey//BLOCKSIZE[1]}]|  b:{self.gamemap.get_block(mousex // GRIDSIZE[0], mousey // GRIDSIZE[1])} ")
 			if event.type == pygame.QUIT:
 				self.running = False
 

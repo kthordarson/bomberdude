@@ -1,13 +1,13 @@
+import math
+from functools import reduce
+from operator import mul
 import pygame
 import pygame.freetype
 from pygame.math import Vector2
-from functools import reduce
-from operator import mul
 from globals import BLOCKSIZE
 from globals import Particle
 from globals import DEFAULTFONT
 from globals import get_angle
-import math
 COLOR_INACTIVE = pygame.Color('lightskyblue3')
 COLOR_ACTIVE = pygame.Color('dodgerblue2')
 
@@ -77,8 +77,7 @@ class Menu:
 				client_text = f'[C] id: {client} ip: {server.clients[client].ipaddress} {server.clients[client].inpackets}|{server.clients[client].outpackets} pos:{server.clients[client].pos}'
 				self.panelfont.render_to(self.screen, (pos.x, pos.y), client_text, self.panelfont_color)
 				# self.panelfont.render_to(self.screen, pos, f"cli : {client} {server.clients[client].get_pos()} ", self.panelfont_color)
-	def draw_panel(self, gamemap, blocks, particles, player1, flames):
-		# todo fix this shit
+	def draw_panel(self, blocks, particles, player1, flames):
 		pos = Vector2(10, self.screenh - 40)
 		try:
 			self.panelfont.render_to(self.screen, pos, f"player pos x:{player1.rect} vel:{player1.vel} ", self.panelfont_color)

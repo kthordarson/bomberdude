@@ -1,8 +1,8 @@
+import math
 import pygame
 import pygame.freetype
 from pygame.color import THECOLORS
-import math
-from globals import Bomb, Block, Particle, BasicThing
+from globals import Particle
 from globals import DEFAULTFONT, BLOCKSIZE
 from globals import get_angle
 
@@ -67,42 +67,8 @@ def debug_mouse_particles(screen, particles):
             # pygame.draw.line(screen, (255,255,225), mousepos, particle.rect.topright)
             pygame.draw.line(screen, (255, 255, 225), mousepos, particle.rect.midright)
 
-
-def debug_draw_mouseangle(self, screen, player):
-    DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
-    DEBUGFONTCOLOR = (123, 123, 123)
-    mousepos = pygame.mouse.get_pos()
-    angle = get_angle(mousepos, player.rect.center)
-    DEBUGFONT.render_to(screen, mousepos, f"{angle:.1f}", (255, 255, 255))
-    if -3 <= angle <= -2.5:
-        pygame.draw.line(screen, (255, 255, 255), mousepos, player.rect.midright)
-    if -2.5 <= angle <= -1.5:
-        pygame.draw.line(screen, (255, 255, 255), mousepos, player.rect.midbottom)
-    # pygame.draw.line(screen, (255,255,255), mousepos, player.rect.bottomleft)
-    if -1.5 <= angle <= -0.5:
-        pygame.draw.line(screen, (255, 255, 255), mousepos, player.rect.midleft)
-    # pygame.draw.line(screen, (255,255,255), mousepos, player.rect.bottomleft)
-    if -0.5 <= angle <= -0.0:
-        pygame.draw.line(screen, (255, 255, 255), mousepos, player.rect.midleft)
-    if 0.0 <= angle <= 0.5:
-        # pygame.draw.line(screen, (255,255,255), mousepos, player.rect.topleft)
-        pygame.draw.line(screen, (255, 255, 255), mousepos, player.rect.midleft)
-    if 0.5 <= angle <= 3:
-        pygame.draw.line(screen, (255, 255, 255), mousepos, player.rect.midtop)
-    # pygame.draw.line(screen, (255,255,255), mousepos, player.rect.topleft)
-    # pygame.draw.line(screen, (255,255,255), mousepos, player.rect.topright)
-    if 3 <= angle <= 3.5:
-        # pygame.draw.line(screen, (255,255,225), mousepos, player.rect.topleft)
-        # pygame.draw.line(screen, (255,255,225), mousepos, player.rect.topright)
-        pygame.draw.line(screen, (255, 255, 225), mousepos, player.rect.midright)
-
-
-# pygame.mouse.set_visible(True)
-
-
 def draw_debug_particles(screen, particles, blocks):
     pass
-
 
 def draw_debug_particles_1(screen, particles, blocks):
     DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
@@ -225,4 +191,3 @@ def draw_debug_blocks(screen=None, blocks=None, grid=None, particles=None):
 def debug_coll(screen, item1, item2):
     screen.set_at(item1.rect.center, (255, 55, 255))
     screen.set_at(item2.rect.center, (255, 255, 55))
-

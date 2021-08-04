@@ -1,10 +1,10 @@
+import os
 import random
 import math
 import pygame
 from pygame.math import Vector2
-import os
-from net.bombclient import gen_randid
-from net.bombclient import UDPClient
+# from net.bombclient import gen_randid
+# from net.bombclient import UDPClient
 
 # from pygame.colordict import THECOLORS as colordict
 
@@ -470,6 +470,7 @@ class Flame(BasicThing):
 class Bomb(BasicThing):
 	def __init__(self, pos=None, bomber_id=None, bomb_power=None, dt=None):
 		pygame.sprite.Sprite.__init__(self)
+		BasicThing.__init__(self)
 		self.dt = dt
 		self.pos = pos
 		self.image, self.rect = load_image("bomb.png", -1)
@@ -574,3 +575,10 @@ class Gamemap:
 
 	def set_block(self, x, y, value):
 		self.grid[x][y] = value
+
+def gen_randid(seed=None):
+	randid = []
+	for k in range(0,7):
+		n = random.randint(1,99)
+		randid.append(n)
+	return randid
