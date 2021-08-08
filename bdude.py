@@ -21,10 +21,8 @@ from net.bombserver import UDPServer
 # from net.bombserver import UDPServer
 # from net.bombclient import UDPClient
 
-mixer.init()
 
 class Game:
-
 	def __init__(self, screen=None, game_dt=None):
 		# pygame.display.set_mode((GRIDSIZE[0] * BLOCKSIZE + BLOCKSIZE, GRIDSIZE[1] * BLOCKSIZE + panelsize), 0, 32)
 		self.dt = game_dt
@@ -51,27 +49,16 @@ class Game:
 		self.music_menu()
 		self.snd_bombexplode = mixer.Sound('data/bomb.mp3')
 		self.snd_bombdrop = mixer.Sound('data/bombdrop.mp3')
-		self.server = UDPServer()
-		self.server_thread = None
-		self.netplayers = []
+		# self.server = UDPServer()
+		# self.server_thread = None
+		# self.netplayers = []
 
 	def update(self):
-		# [player.update(self.blocks) for player in self.players]
-		if self.server.running and len(self.server.clients) <= 1:
-			clients = self.server.get_clients()
-			if len(clients) >= 1:
-				try:
-					for client in clients:
-						# send netupdate to clients
-						if client in str(self.netplayers):
-							print(f'[update] {self.server.clients[client]} - {client}')
-						else:
-							netplayer = Player(pos=self.server.clients[client].pos, dt=self.dt, image='player1.png', bot=False)
-							netplayer.set_clientid(client)
-							self.netplayers.append(netplayer)
-						# print(f'[CN] id: {client} ip: {self.server.clients[client].ipaddress} {self.server.clients[client].inpackets}|{self.server.clients[client].outpackets} pos:{self.server.clients[client].pos}')
-				except RuntimeError as e:
-					print(f'[update] ERR {e}')
+		self.player1.Loop()
+		player_updates = ''
+		player_updates = self.player1.get_network_updates()
+		if player_updates != '':
+			print(f'[netup] {player_updates}')
 		self.players.update(self.blocks)
 		_ = [player.move(self.blocks, dt) for player in self.players]
 		_ = [player.bot_move(self.blocks, dt) for player in self.players if player.bot]
@@ -147,7 +134,7 @@ class Game:
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
 		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles,player1=self.player1, flames=self.flames)
-		self.game_menu.draw_server_debug(server=self.server, netplayers=self.netplayers)
+		# self.game_menu.draw_server_debug(server=self.server, netplayers=self.netplayers)
 		if DEBUG:
 			# debug_draw_mouseangle(self.screen, self.player1)
 			# debug_mouse_particles(self.screen, self.particles)
@@ -169,28 +156,21 @@ class Game:
 	def handle_menu(self, selection):
 		# mainmenu
 		if selection == "Quit":
-			if self.server.running:
-				self.server.running = False
-				self.server_thread.join()
-				self.server_thread = None
 			self.running = False
 		if selection == "Pause":
 			self.show_mainmenu ^= True
 			self.music_menu()
 		if selection == "Start":
 			self.show_mainmenu ^= True
-			if self.server.running:
-				self.player1.connect()
 			self.music_game()
 		if selection == "Restart":
 			self.show_mainmenu ^= True
 			self.music_game()
 		if selection == "Start server":
-			print(f'[SRV] Starting server ...')
+			print(f'Starting server ...')
 			self.start_server()
 		if selection == "Connect to server":
-			print(f'[SRV] Connecting to server ...')
-			self.player1.client.Connect()
+			self.player1.playerconnect()
 
 
 	def handle_input(self):
@@ -280,6 +260,7 @@ class Game:
 
 if __name__ == "__main__":
 	pygame.init()
+	mixer.init()
 	pyscreen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 	game = Game(screen=pyscreen)
 	mainClock = pygame.time.Clock()

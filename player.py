@@ -4,7 +4,7 @@ from PodSixNet.Connection import connection, ConnectionListener
 from globals import BasicThing, load_image, PLAYERSIZE, Block, gen_randid
 # from net.bombclient import UDPClient
 
-class Player(BasicThing):
+class Player(ConnectionListener, BasicThing):
 	def __init__(self, pos=None, dt=None, image='player1.png', bot=False):
 		BasicThing.__init__(self)
 		pygame.sprite.Sprite.__init__(self)
@@ -27,10 +27,9 @@ class Player(BasicThing):
 		self.font = pygame.font.SysFont("calibri", 10, True)
 		self.bot = bot
 		self.bot_chdir = False
-		self.client = ConnectionListener()
 		self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
-		# self.client = UDPClient()
-		# self.client_id = self.client_id
+		self.connected_to_server = False
+		self.network_updates = []
 
 	def __str__(self):
 		return self.client_id
@@ -38,12 +37,21 @@ class Player(BasicThing):
 	def __repr__(self):
 		return str(self.client_id)
 
-	def loop(self):
-		connection.Pump()
-		self.client.Pump()
+	def Loop(self):
+		if self.connected_to_server:
+			try:
+				connection.Pump()
+			except AttributeError as e:
+				print(f'[player] connection pump err {e}')
+			try:
+				self.Pump()
+			except Exception as e:
+				print(f'[player] client pump err {e}')
 
-	def connect(self):
-		self.client.Connect(('localhost', 1234))
+	def playerconnect(self):
+		print(f'[player] connecting to server...')
+		self.Connect(('192.168.1.222', 1234))
+		self.connected_to_server = True
 
 	def bot_move(self, blocks, dt):
 		pass
@@ -55,6 +63,11 @@ class Player(BasicThing):
 		pass
 		# self.client.setid(clientid)
 
+	def get_network_updates(self):
+		updates = self.network_updates
+		self.network_updates = []
+		return updates
+
 	def move(self, blocks, dt):
 		self.vel += self.accel
 		self.pos.x += self.vel.x
@@ -62,6 +75,8 @@ class Player(BasicThing):
 		# self.client.set_pos(self.pos)
 		# if self.client.connected:
 		# 	self.client.send_pos(self.pos)
+		if self.connected_to_server:
+			self.network_updates.append(['move', (self.pos.x, self.pos.y)])
 		block_hit_list = self.collide(blocks, dt)
 		for block in block_hit_list:
 			if isinstance(block, Block):
