@@ -15,6 +15,7 @@ from globals import FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT, BLOCKSIZE
 from globals import Block, Bomb, Gamemap, Powerup
 from globals import DEBUG
 from globals import get_angle
+from globals import NetworkEntity
 from player import Player
 from menus import Menu
 from net.bombserver import UDPServer
@@ -42,23 +43,29 @@ class Game:
 		self.bombs = pygame.sprite.Group()
 		self.flames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
-		self.player1 = Player(pos=self.gamemap.place_player(location=0),  dt=self.dt, image='player1.png', bot=False)
+		self.player1 = Player(pos=self.gamemap.place_player(location=0),  dt=self.dt, image='player1.png', bot=False, game=self)
 		_ = [self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
 		self.players.add(self.player1)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.music_menu()
 		self.snd_bombexplode = mixer.Sound('data/bomb.mp3')
 		self.snd_bombdrop = mixer.Sound('data/bombdrop.mp3')
+		self.network_clients = {}
 		# self.server = UDPServer()
 		# self.server_thread = None
 		# self.netplayers = []
 
 	def update(self):
-		self.player1.Loop()
+		#self.player1.Loop()
 		player_updates = ''
+		# player_updates = self.player1.get_network_updates()
+		for identifier, client in self.network_clients.items():
+			print(f'[update] {identifier} {client}')
+			client.update()
 		player_updates = self.player1.get_network_updates()
-		if player_updates != '':
-			print(f'[netup] {player_updates}')
+		if player_updates != '' and self.player1.connected_to_server:
+			self.player1.send("update", player_updates)
+			# print(f'[netup] conn: {self.player1.connected_to_server} data: {player_updates}')
 		self.players.update(self.blocks)
 		_ = [player.move(self.blocks, dt) for player in self.players]
 		_ = [player.bot_move(self.blocks, dt) for player in self.players if player.bot]
@@ -136,15 +143,21 @@ class Game:
 		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles,player1=self.player1, flames=self.flames)
 		# self.game_menu.draw_server_debug(server=self.server, netplayers=self.netplayers)
 		if DEBUG:
-			# debug_draw_mouseangle(self.screen, self.player1)
-			# debug_mouse_particles(self.screen, self.particles)
-			# draw_debug_sprite(self.screen, self.particles)
 			draw_debug_sprite(self.screen, self.players)
 
-	# draw_debug_sprite(self.screen, self.flames)
-	# draw_debug_particles(self.screen, self.particles, self.blocks)
-	# draw_debug_sprite(self.screen, self.bombs)
-	# draw_debug_blocks(self.screen, self.blocks, self.gamemap, self.particles)
+	def move_players(self, data):
+		print(f'[moveplayer] {data}')
+		for m in data["data"]:
+			self.network_clients[data["origin"]].move(m[1][0], m[1][1])
+
+	def set_players(self, players):
+		print(f'[setplayers] {players}')
+		new_items = set(players) - self.network_clients.keys()
+		print(f'[setplayers] new {new_items}')
+		for item in new_items:
+			if item != self.player1.client_id:
+				self.network_clients[item] = NetworkEntity(item)
+		print(self.network_clients)
 
 	def start_server(self):
 		pass
@@ -270,6 +283,7 @@ if __name__ == "__main__":
 		# main game loop logic stuff
 		game.handle_input()
 		pygame.event.pump()
+		game.player1.Pump()
 		game.update()
 		game.draw()
 	pygame.quit()

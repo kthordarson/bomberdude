@@ -1,6 +1,8 @@
 import os
 import random
 import math
+import hashlib
+import time
 import pygame
 from pygame.math import Vector2
 # from net.bombclient import gen_randid
@@ -9,7 +11,7 @@ from pygame.math import Vector2
 # from pygame.colordict import THECOLORS as colordict
 
 DEBUG = True
-DEFAULTFONT = "DejaVuSans.ttf"
+DEFAULTFONT = "data/DejaVuSans.ttf"
 
 # global constants
 # GRIDSIZE[0] = 15
@@ -113,14 +115,6 @@ BLOCKTYPES = {
 		"powerup": True,
 	},
 }
-
-# def gen_randid(seed=None):
-#     randid = []
-#     for k in range(0,7):
-#         n = random.randint(1,99)
-#         randid.append(n)
-#     return randid
-
 
 def random_velocity(direction=None):
 	while True:
@@ -576,9 +570,27 @@ class Gamemap:
 	def set_block(self, x, y, value):
 		self.grid[x][y] = value
 
-def gen_randid(seed=None):
+def xxgen_randid(seed=None):
 	randid = []
 	for k in range(0,7):
 		n = random.randint(1,99)
 		randid.append(n)
 	return randid
+
+def gen_randid():
+	hashid = hashlib.sha1()
+	hashid.update(str(time.time()).encode("utf-8"))
+	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
+class NetworkEntity():
+	def __init__(self, identifier):
+		super(NetworkEntity, self).__init__()
+		self.identifier = identifier
+		self.x = 0
+		self.y = 0
+
+	def update(self):
+		pass
+
+	def move(self, x, y):
+		self.x += x
+		self.y += y

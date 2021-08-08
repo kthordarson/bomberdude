@@ -5,9 +5,11 @@ from globals import BasicThing, load_image, PLAYERSIZE, Block, gen_randid
 # from net.bombclient import UDPClient
 
 class Player(ConnectionListener, BasicThing):
-	def __init__(self, pos=None, dt=None, image='player1.png', bot=False):
+	def __init__(self, pos=None, dt=None, image='player1.png', bot=False, game=None):
 		BasicThing.__init__(self)
 		pygame.sprite.Sprite.__init__(self)
+		# self.playerconnect()
+		self.game = game
 		self.dt = dt
 		self.image, self.rect = load_image(image, -1)
 		self.pos = Vector2(pos)
@@ -27,7 +29,7 @@ class Player(ConnectionListener, BasicThing):
 		self.font = pygame.font.SysFont("calibri", 10, True)
 		self.bot = bot
 		self.bot_chdir = False
-		self.client_id = ''.join([''.join(str(k)) for k in gen_randid()])
+		self.client_id = gen_randid()  # ''.join([''.join(str(k)) for k in gen_randid()])
 		self.connected_to_server = False
 		self.network_updates = []
 
@@ -37,20 +39,51 @@ class Player(ConnectionListener, BasicThing):
 	def __repr__(self):
 		return str(self.client_id)
 
+	def Network(self, data):
+		print(f'[net] {data}')
+
+	def Network_players(self, data):
+		print(f'[netplayer] {data}')
+		self.game.set_players(data["players"])
+
+	def Network_connected(self, data):
+		print(f'[net] connected {data}')
+		self.connected_to_server = True
+
+	def Network_error(self, data):
+		print(f'[net] error {data}')
+
+	def Network_disconnected(self, data):
+		print(f'[net] disconnect {data}')
+		self.connected_to_server = False
+
+	def Network_myaction(self, data):
+		print(f'[net] action {data}')
+
+	def Network_update(self, data):
+		print(f'[net] update {data}')
+		self.game.move_players(data)
+
+	def send(self, action, data):
+		# print(f'[netsend] action: {action} origin {self.client_id} data: {data}')
+		connection.Send({"action": action, "origin": self.client_id, "data": data})
+
+	def Events(self):
+		pass
+
 	def Loop(self):
-		if self.connected_to_server:
-			try:
-				connection.Pump()
-			except AttributeError as e:
-				print(f'[player] connection pump err {e}')
-			try:
-				self.Pump()
-			except Exception as e:
-				print(f'[player] client pump err {e}')
+		try:
+			self.Pump()
+			connection.Pump()
+		except AttributeError as e:
+			print(f'self.pump {e}')
+		self.Events()
 
 	def playerconnect(self):
-		print(f'[player] connecting to server...')
-		self.Connect(('192.168.1.222', 1234))
+		serverip = '192.168.1.222'
+		serverport = 1234
+		print(f'[player] connecting to server {serverip} {serverport}...')
+		self.Connect((serverip, serverport))
 		self.connected_to_server = True
 
 	def bot_move(self, blocks, dt):
@@ -75,8 +108,8 @@ class Player(ConnectionListener, BasicThing):
 		# self.client.set_pos(self.pos)
 		# if self.client.connected:
 		# 	self.client.send_pos(self.pos)
-		if self.connected_to_server:
-			self.network_updates.append(['move', (self.pos.x, self.pos.y)])
+		# if self.connected_to_server:
+		self.network_updates.append(['move', (self.pos.x, self.pos.y)])
 		block_hit_list = self.collide(blocks, dt)
 		for block in block_hit_list:
 			if isinstance(block, Block):

@@ -19,3 +19,4 @@ disable =
     no-self-use,
     protected-access,
     invalid-name,
+    redefined-outer-name,
