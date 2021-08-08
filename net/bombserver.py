@@ -35,7 +35,8 @@ class ServerChannel(Channel):
 	# self.color = [(intid + 1) % 3 * 84, (intid + 2) % 3 * 84, (intid + 3) % 3 * 84]
 
 	def Network(self, data):
-		print(f'[netdata] {data}')
+		pass
+		# print(f'[netdata] {data}')
 		#pass
 
 	def Close(self):
@@ -45,7 +46,7 @@ class ServerChannel(Channel):
 	#     print(data)
 
 	def Network_update(self, data):
-		print(f'[netupdate] {data}')
+		# print(f'[netupdate] {data}')
 		self._server.move_player(data)
 
 	def PassOn(self, data):
@@ -101,7 +102,7 @@ class UDPServer(Server):
 		_ = [p.Send(data) for p in self.players]
 
 	def send_to_all_origin(self, data, origin):
-		print(f'[sendallo] {data} {origin}')
+		# print(f'[sendallo] {data} {origin}')
 		_ = [p.Send(data) for p in self.players if p.id != origin]
 
 	def get_unique_id(self):
@@ -110,7 +111,7 @@ class UDPServer(Server):
 		return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
 
 	def move_player(self, data):
-		print(f'[move] {data}')
+		# print(f'[move] {data}')
 		self.send_to_all_origin(data, data["origin"])
 
 class ServerThread(Thread):

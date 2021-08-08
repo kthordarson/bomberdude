@@ -40,10 +40,11 @@ class Player(ConnectionListener, BasicThing):
 		return str(self.client_id)
 
 	def Network(self, data):
-		print(f'[net] {data}')
+		pass
+		# print(f'[net] {data}')
 
 	def Network_players(self, data):
-		print(f'[netplayer] {data}')
+		print(f'[setnetplayers] {data}')
 		self.game.set_players(data["players"])
 
 	def Network_connected(self, data):
@@ -61,7 +62,7 @@ class Player(ConnectionListener, BasicThing):
 		print(f'[net] action {data}')
 
 	def Network_update(self, data):
-		print(f'[net] update {data}')
+		# print(f'[net] update {data}')
 		self.game.move_players(data)
 
 	def send(self, action, data):
@@ -76,7 +77,8 @@ class Player(ConnectionListener, BasicThing):
 			self.Pump()
 			connection.Pump()
 		except AttributeError as e:
-			print(f'self.pump {e}')
+			pass
+			#print(f'self.pump {e}')
 		self.Events()
 
 	def playerconnect(self):

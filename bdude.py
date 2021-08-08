@@ -60,7 +60,7 @@ class Game:
 		player_updates = ''
 		# player_updates = self.player1.get_network_updates()
 		for identifier, client in self.network_clients.items():
-			print(f'[update] {identifier} {client}')
+			# print(f'[update] {identifier} {client}')
 			client.update()
 		player_updates = self.player1.get_network_updates()
 		if player_updates != '' and self.player1.connected_to_server:
@@ -146,9 +146,15 @@ class Game:
 			draw_debug_sprite(self.screen, self.players)
 
 	def move_players(self, data):
-		print(f'[moveplayer] {data}')
+		#print(f'[moveplayer] {data}')
 		for m in data["data"]:
-			self.network_clients[data["origin"]].move(m[1][0], m[1][1])
+			#print(f'[moveplayer] {m}')
+			try:
+				self.network_clients[data["origin"]].move(m[1][0], m[1][1])
+			except KeyError as e:
+				pass
+				#print(f'[moveplayers] {e}')
+				#print(f'[moveplayers] netclients: {self.network_clients}')
 
 	def set_players(self, players):
 		print(f'[setplayers] {players}')
@@ -157,7 +163,7 @@ class Game:
 		for item in new_items:
 			if item != self.player1.client_id:
 				self.network_clients[item] = NetworkEntity(item)
-		print(self.network_clients)
+		print(f'[setplayers] net {self.network_clients}')
 
 	def start_server(self):
 		pass
@@ -283,7 +289,7 @@ if __name__ == "__main__":
 		# main game loop logic stuff
 		game.handle_input()
 		pygame.event.pump()
-		game.player1.Pump()
+		game.player1.Loop()
 		game.update()
 		game.draw()
 	pygame.quit()
