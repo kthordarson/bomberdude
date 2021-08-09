@@ -20,3 +20,4 @@ rencode.py
 *.pyc
 net/oldbombclient.py
 net/oldbombserver.py
+workspace.code-workspace
