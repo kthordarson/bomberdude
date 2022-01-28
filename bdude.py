@@ -9,13 +9,14 @@ from pygame import mixer  # Load the popular external library
 
 from debug import (
 	draw_debug_sprite,
-	draw_debug_block
+	draw_debug_block,
+	draw_debug_netblock
 )
 from globals import FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT, BLOCKSIZE
 from globals import Block, Bomb, Gamemap, Powerup
 from globals import DEBUG
 from globals import get_angle
-from globals import NetworkEntity
+# from globals import NetworkEntity
 from player import Player
 from menus import Menu
 from net.bombserver import UDPServer
@@ -24,7 +25,7 @@ from net.bombserver import UDPServer
 
 
 class Game:
-	def __init__(self, screen=None, game_dt=None):
+	def __init__(self, screen, game_dt):
 		# pygame.display.set_mode((GRIDSIZE[0] * BLOCKSIZE + BLOCKSIZE, GRIDSIZE[1] * BLOCKSIZE + panelsize), 0, 32)
 		self.dt = game_dt
 		self.screen = screen
@@ -43,13 +44,19 @@ class Game:
 		self.bombs = pygame.sprite.Group()
 		self.flames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
-		self.player1 = Player(pos=self.gamemap.place_player(location=0),  dt=self.dt, image='player1.png', bot=False, game=self)
+		self.player1 = Player(self.gamemap.place_player(location=0), self.dt, 'player1.png', False, game=self)
 		_ = [self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
 		self.players.add(self.player1)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.music_menu()
-		self.snd_bombexplode = mixer.Sound('data/bomb.mp3')
-		self.snd_bombdrop = mixer.Sound('data/bombdrop.mp3')
+		try:
+			self.snd_bombexplode = mixer.Sound('data/bomb.mp3')
+			self.snd_bombdrop = mixer.Sound('data/bombdrop.mp3')
+		except pygame.error as e:
+			print(f'[bdude] music err {e}')
+			self.snd_bombexplode = None
+			self.snd_bombdrop = None
+
 		self.network_clients = {}
 		# self.server = UDPServer()
 		# self.server_thread = None
@@ -68,7 +75,6 @@ class Game:
 			# print(f'[netup] conn: {self.player1.connected_to_server} data: {player_updates}')
 		self.players.update(self.blocks)
 		_ = [player.move(self.blocks, dt) for player in self.players]
-		_ = [player.bot_move(self.blocks, dt) for player in self.players if player.bot]
 		self.bombs.update()
 		for bomb in self.bombs:
 			bomb.dt = pygame.time.get_ticks() / 1000
@@ -77,7 +83,10 @@ class Game:
 				self.flames.add(bomb.flames)
 				bomb.kill()
 				self.player1.bombs_left += 1
-				mixer.Sound.play(self.snd_bombexplode)
+				try:
+					mixer.Sound.play(self.snd_bombexplode)
+				except (AttributeError, TypeError) as e:
+					print(f'[bdude] {e}')
 		self.flames.update()
 		for flame in self.flames:
 			flame_coll = pygame.sprite.spritecollide(flame, self.blocks, False)
@@ -108,12 +117,18 @@ class Game:
 
 	def music_menu(self):
 		mixer.music.stop()
-		mixer.music.load('data/2021-03-26-bdosttest.mp3')
+		try:
+			mixer.music.load('data/2021-03-26-bdosttest.mp3')
+		except pygame.error as e:
+			print(f'[bdude] music err {e}')
 		# mixer.music.play()
 
 	def music_game(self):
 		mixer.music.stop()
-		mixer.music.load('data/2021-03-26-bdosttest2.mp3')
+		try:
+			mixer.music.load('data/2021-03-26-bdosttest2.mp3')
+		except pygame.error as e:
+			print(f'[bdude] music err {e}')
 		# mixer.music.play()
 
 	def set_block(self, x, y, value):
@@ -157,14 +172,26 @@ class Game:
 				#print(f'[moveplayers] netclients: {self.network_clients}')
 
 	def set_players(self, players):
-		print(f'[setplayers] {players}')
+#		print(f'[setplayers] players: {players}')
 		new_items = set(players) - self.network_clients.keys()
-		print(f'[setplayers] new {new_items}')
 		for item in new_items:
 			if item != self.player1.client_id:
-				self.network_clients[item] = NetworkEntity(item)
-		print(f'[setplayers] net {self.network_clients}')
-
+				self.network_clients[item] = Player(client_id=item)
+			if item == self.player1.client_id:
+				self.network_clients[item].pos = self.player1.pos
+#		print(f'[setplayers] net {self.network_clients}')
+#		for idx, netplayer in enumerate(self.network_clients):
+#			print(f'[netplayer] {idx} {self.network_clients[netplayer].client_id} pos: {self.network_clients[netplayer].pos}')
+	def net_draw(self):
+		for k in self.network_clients: # pylint: disable=consider-using-dict-items 
+			#x = int(self.network_clients[k].pos.x)
+			#y = int(self.network_clients[k].pos.y)
+			try:
+				draw_debug_netblock(self.screen, pos=self.network_clients[k].pos)
+			except Exception as e:
+				pass
+		# [self.network_clients[k].pos for k in self.network_clients]
+		# [self.screen.set_at((int(self.network_clients[k].pos.x),int(self.network_clients[k].pos.y)), (255,255,255)) for k in self.network_clients]
 	def start_server(self):
 		pass
 		# self.server.configure_server()
@@ -190,7 +217,6 @@ class Game:
 			self.start_server()
 		if selection == "Connect to server":
 			self.player1.playerconnect()
-
 
 	def handle_input(self):
 		# get player input
@@ -281,9 +307,9 @@ if __name__ == "__main__":
 	pygame.init()
 	mixer.init()
 	pyscreen = pygame.display.set_mode(SCREENSIZE, 0, 32)
-	game = Game(screen=pyscreen)
 	mainClock = pygame.time.Clock()
 	dt = mainClock.tick(FPS) / 1000
+	game = Game(pyscreen, dt)
 	game.running = True
 	while game.running:
 		# main game loop logic stuff
@@ -292,4 +318,5 @@ if __name__ == "__main__":
 		game.player1.Loop()
 		game.update()
 		game.draw()
+		game.net_draw()
 	pygame.quit()

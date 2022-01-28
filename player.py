@@ -5,14 +5,19 @@ from globals import BasicThing, load_image, PLAYERSIZE, Block, gen_randid
 # from net.bombclient import UDPClient
 
 class Player(ConnectionListener, BasicThing):
-	def __init__(self, pos=None, dt=None, image='player1.png', bot=False, game=None):
+	def __init__(self, pos, dt, image, bot, game):
 		BasicThing.__init__(self)
 		pygame.sprite.Sprite.__init__(self)
 		# self.playerconnect()
+		self.client_id = gen_randid()
+		print(f'[player] init pos:{pos} dt:{dt} i:{image} bot:{bot} game:{game} client_id:{self.client_id}')
 		self.game = game
 		self.dt = dt
 		self.image, self.rect = load_image(image, -1)
-		self.pos = Vector2(pos)
+		if pos is None:
+			self.pos = Vector2(1,1)
+		else:
+			self.pos = Vector2(pos)
 		self.vel = Vector2(0, 0)
 		self.size = PLAYERSIZE
 		self.image = pygame.transform.scale(self.image, self.size)
@@ -27,9 +32,12 @@ class Player(ConnectionListener, BasicThing):
 		self.dead = False
 		self.score = 0
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.bot = bot
+		self.bot = False
 		self.bot_chdir = False
-		self.client_id = gen_randid()  # ''.join([''.join(str(k)) for k in gen_randid()])
+#		if client_id is None:
+#			self.client_id = gen_randid()  # ''.join([''.join(str(k)) for k in gen_randid()])
+#		else:
+#			self.client_id = client_id
 		self.connected_to_server = False
 		self.network_updates = []
 
