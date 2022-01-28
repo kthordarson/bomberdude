@@ -17,7 +17,7 @@ DEFAULTFONT = "data/DejaVuSans.ttf"
 # GRIDSIZE[0] = 15
 # GRIDSIZE[1] = 15
 GRIDSIZE = (20, 20)
-BLOCK = 40
+BLOCK = 30
 BLOCKSIZE = (BLOCK, BLOCK)
 PLAYERSIZE = [int(x // 1.5) for x in BLOCKSIZE]
 POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
@@ -581,16 +581,17 @@ def gen_randid():
 	hashid = hashlib.sha1()
 	hashid.update(str(time.time()).encode("utf-8"))
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
-class NetworkEntity():
-	def __init__(self, identifier):
-		super(NetworkEntity, self).__init__()
-		self.identifier = identifier
-		self.x = 0
-		self.y = 0
 
-	def update(self):
-		pass
+# class NetworkEntity():
+# 	def __init__(self, identifier):
+# 		super(NetworkEntity, self).__init__()
+# 		self.identifier = identifier
+# 		self.x = 0
+# 		self.y = 0
 
-	def move(self, x, y):
-		self.x += x
-		self.y += y
+# 	def update(self):
+# 		pass
+
+# 	def move(self, x, y):
+# 		self.x += x
+# 		self.y += y

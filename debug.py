@@ -67,8 +67,10 @@ def debug_mouse_particles(screen, particles):
             # pygame.draw.line(screen, (255,255,225), mousepos, particle.rect.topright)
             pygame.draw.line(screen, (255, 255, 225), mousepos, particle.rect.midright)
 
+
 def draw_debug_particles(screen, particles, blocks):
     pass
+
 
 def draw_debug_particles_1(screen, particles, blocks):
     DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
@@ -117,6 +119,19 @@ def draw_debug_particles_1(screen, particles, blocks):
                         DEBUGFONT.render_to(screen, block.rect.midtop, f"R {angle:.1f}", DEBUGFONTCOLOR)
 
 
+def draw_debug_netblock(screen, pos):
+    print(f'[deb] draw {pos} {pos.x} {pos.y}')
+    DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 14)
+    outlinecolor = (255, 255, 255)
+    # DEBUGFONT.render_to(screen,(block.rect.x, block.rect.y),f"{block.gridpos}",DEBUGFONTCOLOR)
+    # DEBUGFONT.render_to(screen,(block.rect.x, block.rect.y+14),f"x:{block.rect.x:.0f}",DEBUGFONTCOLOR)
+    # DEBUGFONT.render_to(screen,(block.rect.x, block.rect.y+14+14),f"x:{block.rect.y:.0f}",DEBUGFONTCOLOR)
+    pygame.draw.line(screen, outlinecolor, (pos.x, pos.y), (pos.x + BLOCKSIZE[0], pos.y))
+    pygame.draw.line(screen, outlinecolor, (pos.x, pos.y), (pos.x, pos.y + BLOCKSIZE[1]))
+    pygame.draw.line(screen, outlinecolor, (pos.x + BLOCKSIZE[0], pos.y), (pos.x + BLOCKSIZE[0], pos.y + BLOCKSIZE[1]))
+    pygame.draw.line(screen, outlinecolor, (pos.x, pos.y + BLOCKSIZE[1]), (pos.x + BLOCKSIZE[0], pos.y + BLOCKSIZE[1]))
+
+
 def draw_debug_block(screen=None, block=None):
     DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 14)
     outlinecolor = (255, 255, 255)
@@ -125,10 +140,8 @@ def draw_debug_block(screen=None, block=None):
     # DEBUGFONT.render_to(screen,(block.rect.x, block.rect.y+14+14),f"x:{block.rect.y:.0f}",DEBUGFONTCOLOR)
     pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x + BLOCKSIZE[0], block.pos.y))
     pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y), (block.pos.x, block.pos.y + BLOCKSIZE[1]))
-    pygame.draw.line(screen, outlinecolor, (block.pos.x + BLOCKSIZE[0], block.pos.y),
-                     (block.pos.x + BLOCKSIZE[0], block.pos.y + BLOCKSIZE[1]))
-    pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y + BLOCKSIZE[1]),
-                     (block.pos.x + BLOCKSIZE[0], block.pos.y + BLOCKSIZE[1]))
+    pygame.draw.line(screen, outlinecolor, (block.pos.x + BLOCKSIZE[0], block.pos.y), (block.pos.x + BLOCKSIZE[0], block.pos.y + BLOCKSIZE[1]))
+    pygame.draw.line(screen, outlinecolor, (block.pos.x, block.pos.y + BLOCKSIZE[1]), (block.pos.x + BLOCKSIZE[0], block.pos.y + BLOCKSIZE[1]))
 
 
 def draw_debug_blocks(screen=None, blocks=None, grid=None, particles=None):
@@ -166,9 +179,9 @@ def draw_debug_blocks(screen=None, blocks=None, grid=None, particles=None):
         )
         for particle in particles:
             if (
-                    particle.distance(block) < 55
-                    and int(block.block_type) in range(1, 11)
-                    and block.solid
+                particle.distance(block) < 55
+                and int(block.block_type) in range(1, 11)
+                and block.solid
             ):
                 d2 = math.degrees(get_angle(particle.pos, block.pos))
                 angle = get_angle(particle.pos, block.pos)
@@ -188,6 +201,8 @@ def draw_debug_blocks(screen=None, blocks=None, grid=None, particles=None):
 # 			else:
 # 				DEBUGFONT.render_to(screen,block.rect,f"X",DEBUGFONTCOLOR)
 # def draw_debug_pl
+
+
 def debug_coll(screen, item1, item2):
     screen.set_at(item1.rect.center, (255, 55, 255))
     screen.set_at(item2.rect.center, (255, 255, 55))
