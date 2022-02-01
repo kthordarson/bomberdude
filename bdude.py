@@ -10,7 +10,7 @@ from debug import (
 	draw_debug_sprite,
 	draw_debug_block
 )
-from globals import FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT, BLOCKSIZE
+from globals import FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT, BLOCKSIZE, TextInputVisualizer, TextInputManager
 from globals import Block, Bomb, Powerup
 from globals import DEBUG
 from globals import get_angle
@@ -37,6 +37,10 @@ class Game(Thread):
 		self.game_menu = Menu(self.screen)
 		self.server = ServerThread(name='gameserver', dt=self.dt)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+		self.get_input = False
+		self.textmanager = TextInputManager(initial='server ip:')
+		self.textinput = TextInputVisualizer(screen=self.screen, font_color=(255,255,255), manager=self.textmanager)
+		self.server_text = ''
 		try:
 			self.snd_bombexplode = mixer.Sound('data/bomb.mp3')
 			self.snd_bombdrop = mixer.Sound('data/bombdrop.mp3')
@@ -92,6 +96,8 @@ class Game(Thread):
 		# draw on screen
 		pygame.display.flip()
 		self.screen.fill(self.bg_color)
+
+
 		self.server.blocks.draw(self.screen)
 		self.bombs.draw(self.screen)
 		self.powerups.draw(self.screen)
@@ -99,7 +105,10 @@ class Game(Thread):
 		self.server.players.draw(self.screen)
 		self.flames.draw(self.screen)
 
-		if self.show_mainmenu:
+		if self.get_input:
+			self.textinput.draw(self.screen)
+
+		if self.show_mainmenu and not self.get_input:
 			self.game_menu.draw_mainmenu(self.screen)
 		# self.game_menu.draw_panel(blocks=self.server.blocks, particles=self.particles, player1=self.server.players[0], flames=self.flames)
 		# self.game_menu.draw_server_debug(server=self.server, netplayers=self.netplayers)
@@ -118,23 +127,35 @@ class Game(Thread):
 			self.show_mainmenu ^= True
 		if selection == "Start server":
 			logger.debug(f'Starting server ...')
-			self.start_server()
+			self.server.start_backend()
+			# pass
+			# self.start_server()
 		if selection == "Connect to server":
-			pass
+			self.get_input = True
+			self.show_mainmenu = False
 			# self.server.players[0].playerconnect()
 
 	def handle_input(self, player1):
 		# get player input
-		for event in pygame.event.get():
+		events = pygame.event.get()
+		if self.get_input:
+			self.textinput.update(events)
+		for event in events:
 			if event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
 					if self.show_mainmenu:  # or self.paused:
 						selection = self.game_menu.get_selection()
 						self.handle_menu(selection)
-					else:
+					elif not self.show_mainmenu and not self.get_input:
 						b = self.server.player_action(player1, 'b')
 						if b != 0:
 							self.bombs.add(b)
+					elif not self.show_mainmenu and self.get_input:
+						logger.debug(f'[input] {self.textinput.value}')
+						self.server_text = self.textinput.value.split(':')[1]
+						self.get_input = False
+						self.show_mainmenu = False
+						player1.connect_to_server(self.server_text)
 						# self.bombdrop(self.server.players[0])
 				if event.key == pygame.K_ESCAPE:
 					self.show_mainmenu ^= True

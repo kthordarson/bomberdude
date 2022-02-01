@@ -5,7 +5,7 @@ import random
 from queue import Queue, Empty
 from weakref import WeakKeyDictionary
 from threading import Thread
-from PodSixNet.Server import Server
+# from PodSixNet.Server import Server
 from PodSixNet.Channel import Channel
 from globals import Gamemap
 from globals import Block
@@ -13,11 +13,56 @@ from globals import FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT, BLOCKSIZE, inside_ci
 from pygame.sprite import Group
 from pygame.math import Vector2
 from loguru import logger
+# from __future__ import print_function
+import socket
+
+from PodSixNet.asyncwrapper import poll, asyncore
+from PodSixNet.Channel import Channel
 
 def gen_randid():
 	hashid = hashlib.sha1()
 	hashid.update(str(time.time()).encode("utf-8"))
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
+
+
+class Server(asyncore.dispatcher):
+	channelClass = Channel
+	
+	def __init__(self, channelClass=None, localaddr=("127.0.0.1", 5071), listeners=5):
+		if channelClass:
+			self.channelClass = channelClass
+		self._map = {}
+		self.channels = []
+		self.localaddr = localaddr
+		self.listeners = listeners
+		asyncore.dispatcher.__init__(self, map=self._map)
+
+	def sock_init(self):
+		self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+		self.set_reuse_addr()
+		self.bind(self.localaddr)
+		self.listen(self.listeners)
+	
+	def handle_accept(self):
+		try:
+			conn, addr = self.accept()
+		except socket.error:
+			print('warning: server accept() threw an exception')
+			return
+		except TypeError:
+			print('warning: server accept() threw EWOULDBLOCK')
+			return
+		print("connection")
+		self.channels.append(self.channelClass(conn, addr, self, self._map))
+		self.channels[-1].Send({"action": "connected"})
+		if hasattr(self, "Connected"):
+			self.Connected(self.channels[-1], addr)
+	
+	def Pump(self):
+		[c.Pump() for c in self.channels]
+		poll(map=self._map)
+
 
 
 class ServerChannel(Channel):
@@ -69,8 +114,7 @@ class UDPServer(Server):
 		pass
 
 	def Connected(self, channel, addr):
-		logger.debug(f"[udpserver]  New connection {addr}: ")
-		logger.debug(f'[udpserver]  channel: {channel}')
+		logger.debug(f"[udpserver]  New connection:{addr} ch: {channel}")
 		self.AddPlayer(channel)
 
 	def AddPlayer(self, player):
@@ -99,8 +143,7 @@ class UDPServer(Server):
 		# logger.debug(f'[sendallo] {data} {origin}')
 		_ = [p.Send(data) for p in self.players if p.id != origin]
 
-	@staticmethod
-	def get_unique_id():
+	def get_unique_id(self):
 		hashid = hashlib.sha1()
 		hashid.update(str(time.time()).encode("utf-8"))
 		return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
@@ -123,6 +166,9 @@ class ServerThread(Thread):
 		self.mainq = Queue()
 		logger.debug(f'[ST] {self.name} init')
 		self.gamemap = [] #self.generate_map() #Gamemap()
+
+	def start_backend(self):
+		self.backend.sock_init()
 
 	def init_blocks(self):
 		_ = [self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]

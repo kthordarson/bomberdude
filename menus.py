@@ -8,6 +8,7 @@ from globals import BLOCKSIZE
 from globals import Particle
 from globals import DEFAULTFONT
 from globals import get_angle
+from loguru import logger
 
 COLOR_INACTIVE = pygame.Color('lightskyblue3')
 COLOR_ACTIVE = pygame.Color('dodgerblue2')

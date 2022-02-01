@@ -54,16 +54,14 @@ class Player(ConnectionListener, BasicThing):
 		logger.debug(f'[net] connected {data}')
 		self.connected_to_server = True
 
-	@staticmethod
-	def Network_error(data):
-		logger.debug(f'[net] error {data}')
+	#def Network_error(self, data, error):
+	#	logger.debug(f'[net] error {data} {error}')
 
 	def Network_disconnected(self, data):
 		logger.debug(f'[net] disconnect {data}')
 		self.connected_to_server = False
 
-	@staticmethod
-	def Network_myaction(data):
+	def Network_myaction(self, data):
 		logger.debug(f'[net] action {data}')
 
 	def Network_update(self, data):
@@ -86,12 +84,13 @@ class Player(ConnectionListener, BasicThing):
 		# logger.debug(f'self.pump {e}')
 		self.Events()
 
-	def playerconnect(self):
-		serverip = '127.0.0.1'
+	def connect_to_server(self, server_name):
+		# serverip = '127.0.0.1'
 		serverport = 6666
-		logger.debug(f'[player] connecting to server {serverip} {serverport}...')
-		self.Connect((serverip, serverport))
+		logger.debug(f'[player] connect to {server_name} ...')
+		connres = self.Connect((server_name, serverport))
 		self.connected_to_server = True
+		logger.debug(f'[player] connecting {server_name} {connres} {self.connected_to_server}')
 
 	def set_pos(self, pos):
 		self.pos = pos
