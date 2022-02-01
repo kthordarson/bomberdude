@@ -1,32 +1,27 @@
 # bomberdude
-
 import asyncio
 import random
-# import threading
+from threading import Thread
 import pygame
 from pygame.math import Vector2
 from pygame import mixer  # Load the popular external library
-
+from loguru import logger
 from debug import (
 	draw_debug_sprite,
-	draw_debug_block,
-	draw_debug_netblock
+	draw_debug_block
 )
 from globals import FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT, BLOCKSIZE
-from globals import Block, Bomb, Gamemap, Powerup
+from globals import Block, Bomb, Powerup
 from globals import DEBUG
 from globals import get_angle
-# from globals import NetworkEntity
 from player import Player
 from menus import Menu
-from net.bombserver import UDPServer
-# from net.bombserver import UDPServer
-# from net.bombclient import UDPClient
+from net.bombserver import ServerThread
 
-
-class Game:
+class Game(Thread):
 	def __init__(self, screen, game_dt):
-		# pygame.display.set_mode((GRIDSIZE[0] * BLOCKSIZE + BLOCKSIZE, GRIDSIZE[1] * BLOCKSIZE + panelsize), 0, 32)
+		Thread.__init__(self)
+		self.kill = False
 		self.dt = game_dt
 		self.screen = screen
 		self.gameloop = asyncio.get_event_loop()
@@ -34,62 +29,39 @@ class Game:
 		self.show_mainmenu = True
 		self.running = False
 		self.show_panel = True
-		self.gamemap = Gamemap()
-		self.gamemap.grid = self.gamemap.generate()
-		self.blocks = pygame.sprite.Group()
 		self.particles = pygame.sprite.Group()
-		self.players = pygame.sprite.Group()
 		self.particles = pygame.sprite.Group()
 		self.powerups = pygame.sprite.Group()
 		self.bombs = pygame.sprite.Group()
 		self.flames = pygame.sprite.Group()
 		self.game_menu = Menu(self.screen)
-		self.player1 = Player(self.gamemap.place_player(location=0), self.dt, 'player1.png', False, game=self)
-		_ = [self.blocks.add(Block(gridpos=(j, k), dt=self.dt, block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
-		self.players.add(self.player1)
+		self.server = ServerThread(name='gameserver', dt=self.dt)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
-		self.music_menu()
 		try:
 			self.snd_bombexplode = mixer.Sound('data/bomb.mp3')
 			self.snd_bombdrop = mixer.Sound('data/bombdrop.mp3')
 		except pygame.error as e:
-			print(f'[bdude] music err {e}')
+			logger.debug(f'[bdude] music err {e}')
 			self.snd_bombexplode = None
 			self.snd_bombdrop = None
 
-		self.network_clients = {}
-		# self.server = UDPServer()
-		# self.server_thread = None
-		# self.netplayers = []
-
 	def update(self):
-		#self.player1.Loop()
-		player_updates = ''
-		# player_updates = self.player1.get_network_updates()
-		for identifier, client in self.network_clients.items():
-			# print(f'[update] {identifier} {client}')
-			client.update()
-		player_updates = self.player1.get_network_updates()
-		if player_updates != '' and self.player1.connected_to_server:
-			self.player1.send("update", player_updates)
-			# print(f'[netup] conn: {self.player1.connected_to_server} data: {player_updates}')
-		self.players.update(self.blocks)
-		_ = [player.move(self.blocks, dt) for player in self.players]
+		self.server.players.update(self.server.blocks)
 		self.bombs.update()
 		for bomb in self.bombs:
 			bomb.dt = pygame.time.get_ticks() / 1000
 			if bomb.dt - bomb.start_time >= bomb.bomb_fuse:
 				bomb.gen_flames()
 				self.flames.add(bomb.flames)
+				bomb.bomber_id.bombs_left += 1
 				bomb.kill()
-				self.player1.bombs_left += 1
+				#self.server.players[0].bombs_left += 1
 				try:
 					mixer.Sound.play(self.snd_bombexplode)
-				except (AttributeError, TypeError) as e:
-					print(f'[bdude] {e}')
+				except (AttributeError, TypeError) as e: logger.debug(f'[bdude] {e}')
 		self.flames.update()
 		for flame in self.flames:
-			flame_coll = pygame.sprite.spritecollide(flame, self.blocks, False)
+			flame_coll = pygame.sprite.spritecollide(flame, self.server.blocks, False)
 			for block in flame_coll:
 				if block.block_type == '1' or block.block_type == "2":  # or block.block_type == '3' or block.block_type == '4':
 					powerup = Powerup(pos=block.rect.center, dt=dt)
@@ -102,102 +74,37 @@ class Game:
 					flame.kill()
 
 		for particle in self.particles:
-			blocks = pygame.sprite.spritecollide(particle, self.blocks, dokill=False)
+			blocks = pygame.sprite.spritecollide(particle, self.server.blocks, dokill=False)
 			for block in blocks:
 				if block.solid:
 					particle.kill()
-		powerblock_coll = pygame.sprite.spritecollide(self.player1, self.powerups, False)
-		for pc in powerblock_coll:
-			self.player1.take_powerup(powerup=random.choice([1, 2, 3]))
-			pc.kill()
+		# powerblock_coll = pygame.sprite.spritecollide(self.server.players[0], self.powerups, False)
+		# for pc in powerblock_coll:
+		#s	pass
+			# self.server.players[0].take_powerup(powerup=random.choice([1, 2, 3]))
+			# pc.kill()
 
-		self.particles.update(self.blocks)
-		self.blocks.update(self.blocks)
+		self.particles.update(self.server.blocks)
+		self.server.blocks.update(self.server.blocks)
 		self.powerups.update()
-
-	def music_menu(self):
-		mixer.music.stop()
-		try:
-			mixer.music.load('data/2021-03-26-bdosttest.mp3')
-		except pygame.error as e:
-			print(f'[bdude] music err {e}')
-		# mixer.music.play()
-
-	def music_game(self):
-		mixer.music.stop()
-		try:
-			mixer.music.load('data/2021-03-26-bdosttest2.mp3')
-		except pygame.error as e:
-			print(f'[bdude] music err {e}')
-		# mixer.music.play()
-
-	def set_block(self, x, y, value):
-		self.gamemap.grid[x][y] = value
-
-	def bombdrop(self, player):
-		if player.bombs_left > 0:
-			bombpos = Vector2((player.rect.centerx, player.rect.centery))
-			bomb = Bomb(pos=bombpos, dt=self.dt, bomber_id=player.client_id, bomb_power=player.bomb_power)
-			self.bombs.add(bomb)
-			player.bombs_left -= 1
-			# mixer.Sound.play(self.snd_bombdrop)
 
 	def draw(self):
 		# draw on screen
 		pygame.display.flip()
 		self.screen.fill(self.bg_color)
-		self.blocks.draw(self.screen)
+		self.server.blocks.draw(self.screen)
 		self.bombs.draw(self.screen)
 		self.powerups.draw(self.screen)
 		self.particles.draw(self.screen)
-		self.players.draw(self.screen)
+		self.server.players.draw(self.screen)
 		self.flames.draw(self.screen)
 
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
-		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles,player1=self.player1, flames=self.flames)
+		# self.game_menu.draw_panel(blocks=self.server.blocks, particles=self.particles, player1=self.server.players[0], flames=self.flames)
 		# self.game_menu.draw_server_debug(server=self.server, netplayers=self.netplayers)
 		if DEBUG:
-			draw_debug_sprite(self.screen, self.players)
-
-	def move_players(self, data):
-		#print(f'[moveplayer] {data}')
-		for m in data["data"]:
-			#print(f'[moveplayer] {m}')
-			try:
-				self.network_clients[data["origin"]].move(m[1][0], m[1][1])
-			except KeyError as e:
-				pass
-				#print(f'[moveplayers] {e}')
-				#print(f'[moveplayers] netclients: {self.network_clients}')
-
-	def set_players(self, players):
-#		print(f'[setplayers] players: {players}')
-		new_items = set(players) - self.network_clients.keys()
-		for item in new_items:
-			if item != self.player1.client_id:
-				self.network_clients[item] = Player(client_id=item)
-			if item == self.player1.client_id:
-				self.network_clients[item].pos = self.player1.pos
-#		print(f'[setplayers] net {self.network_clients}')
-#		for idx, netplayer in enumerate(self.network_clients):
-#			print(f'[netplayer] {idx} {self.network_clients[netplayer].client_id} pos: {self.network_clients[netplayer].pos}')
-	def net_draw(self):
-		for k in self.network_clients: # pylint: disable=consider-using-dict-items 
-			#x = int(self.network_clients[k].pos.x)
-			#y = int(self.network_clients[k].pos.y)
-			try:
-				draw_debug_netblock(self.screen, pos=self.network_clients[k].pos)
-			except Exception as e:
-				pass
-		# [self.network_clients[k].pos for k in self.network_clients]
-		# [self.screen.set_at((int(self.network_clients[k].pos.x),int(self.network_clients[k].pos.y)), (255,255,255)) for k in self.network_clients]
-	def start_server(self):
-		pass
-		# self.server.configure_server()
-		# self.server_thread = threading.Thread(target=self.server.wait_for_client, daemon=True)
-		# self.server.running = True
-		# self.server_thread.start()
+			draw_debug_sprite(self.screen, self.server.players)
 
 	def handle_menu(self, selection):
 		# mainmenu
@@ -205,20 +112,18 @@ class Game:
 			self.running = False
 		if selection == "Pause":
 			self.show_mainmenu ^= True
-			self.music_menu()
 		if selection == "Start":
 			self.show_mainmenu ^= True
-			self.music_game()
 		if selection == "Restart":
 			self.show_mainmenu ^= True
-			self.music_game()
 		if selection == "Start server":
-			print(f'Starting server ...')
+			logger.debug(f'Starting server ...')
 			self.start_server()
 		if selection == "Connect to server":
-			self.player1.playerconnect()
+			pass
+			# self.server.players[0].playerconnect()
 
-	def handle_input(self):
+	def handle_input(self, player1):
 		# get player input
 		for event in pygame.event.get():
 			if event.type == pygame.KEYDOWN:
@@ -227,30 +132,20 @@ class Game:
 						selection = self.game_menu.get_selection()
 						self.handle_menu(selection)
 					else:
-						self.bombdrop(self.player1)
+						b = self.server.player_action(player1, 'b')
+						if b != 0:
+							self.bombs.add(b)
+						# self.bombdrop(self.server.players[0])
 				if event.key == pygame.K_ESCAPE:
 					self.show_mainmenu ^= True
-				# if not self.show_mainmenu:
-				# 	self.running = False
-				# else:
-				# 	self.show_mainmenu ^= True
 				if event.key == pygame.K_q:
 					self.running = False
-				if event.key == pygame.K_1:
-					_ = [particle.stop() for particle in self.particles]
-				if event.key == pygame.K_2:
-					_ = [particle.move() for particle in self.particles]
-				if event.key == pygame.K_3:
-					_ = [particle.set_vel() for particle in self.particles]
-				if event.key == pygame.K_4:
-					_ = [particle.set_vel(Vector2(1, 1)) for particle in self.particles]
-				if event.key == pygame.K_5:
-					_ = [particle.kill() for particle in self.particles]
 				if event.key == pygame.K_c:
-					self.player1.bomb_power = 100
-					self.player1.max_bombs = 10
-					self.player1.bombs_left = 10
-					self.player1.speed = 7
+					pass
+					# self.server.players[0].bomb_power = 100
+					# self.server.players[0].max_bombs = 10
+					# self.server.players[0].bombs_left = 10
+					# self.server.players[0].speed = 7
 				if event.key == pygame.K_p:
 					self.show_panel ^= True
 				if event.key == pygame.K_m:
@@ -265,40 +160,47 @@ class Game:
 					if self.show_mainmenu:
 						self.game_menu.menu_down()
 					else:
-						self.player1.vel.y = self.player1.speed
+						#player1.vel.y = player1.speed
+						self.server.player_action(player1, action=f'd')
+						# self.server.players[0].vel.y = self.server.players[0].speed
 				if event.key in {pygame.K_UP, pygame.K_w}:
 					if self.show_mainmenu:
 						self.game_menu.menu_up()
 					else:
-						self.player1.vel.y = -self.player1.speed
+						#player1.vel.y = -player1.speed
+						self.server.player_action(player1, action=f'u')
+						# self.server.players[0].vel.y = -self.server.players[0].speed
 				if event.key in {pygame.K_RIGHT, pygame.K_d} and not self.show_mainmenu:
 					# if not self.show_mainmenu:
-					self.player1.vel.x = self.player1.speed
+					#player1.vel.x = player1.speed
+					self.server.player_action(player1, action=f'r')
+					# self.server.players[0].vel.x = self.server.players[0].speed
 				if event.key in {pygame.K_LEFT, pygame.K_a} and not self.show_mainmenu:
 					# if not self.show_mainmenu:
-					self.player1.vel.x = -self.player1.speed
+					#player1.vel.x = -player1.speed
+					self.server.player_action(player1, action=f'l')
+					# self.server.players[0].vel.x = -self.server.players[0].speed
 			if event.type == pygame.KEYUP:
 				if event.key == pygame.K_a:
 					pass
 				if event.key == pygame.K_d:
 					pass
 				if event.key in {pygame.K_DOWN, pygame.K_s} and not self.show_mainmenu:
-					self.player1.vel.y = 0
+					player1.vel.y = 0
+					# self.server.player_action(player1, action='vel:y:0')
+					# self.server.players[0].vel.y = 0
 				if event.key in {pygame.K_UP, pygame.K_w} and not self.show_mainmenu:
-					self.player1.vel.y = 0
+					player1.vel.y = 0
+					# self.server.player_action(player1, action='vel:y:0')
+					# self.server.players[0].vel.y = 0
 				if event.key in {pygame.K_RIGHT, pygame.K_d} and not self.show_mainmenu:
-					self.player1.vel.x = 0
+					player1.vel.x = 0
+					# self.server.player_action(player1, action='vel:x:0')
+					# self.server.players[0].vel.x = 0
 				if event.key in {pygame.K_LEFT, pygame.K_a} and not self.show_mainmenu:
-					self.player1.vel.x = 0
-			if event.type == pygame.MOUSEBUTTONDOWN:
-				mousex, mousey = pygame.mouse.get_pos()
-				gridx = mousex // BLOCKSIZE[0]
-				gridy = mousey // BLOCKSIZE[1]
-				angle = get_angle(self.player1.pos, pygame.mouse.get_pos())
-				angle2 = get_angle(pygame.mouse.get_pos(), self.player1.pos)
-				print(f"mouse x:{mousex} y:{mousey} [gx:{gridx} gy:{gridy}] |  b:{self.gamemap.get_block(gridx, gridy)} a:{angle:.1f} a2:{angle2:.1f}")
-				print(f"mouse x:{mousex} y:{mousey} [x:{mousex//BLOCKSIZE[0]} y:{mousey//BLOCKSIZE[1]}]|  b:{self.gamemap.get_block(mousex // GRIDSIZE[0], mousey // GRIDSIZE[1])} ")
-			# blockinf = self.gamemap.get_block_real(mousex, mousey)
+					player1.vel.x = 0
+					# self.server.player_action(player1, action='vel:x:0')
+					# self.server.players[0].vel.x = 0
 			if event.type == pygame.QUIT:
 				self.running = False
 
@@ -310,13 +212,23 @@ if __name__ == "__main__":
 	mainClock = pygame.time.Clock()
 	dt = mainClock.tick(FPS) / 1000
 	game = Game(pyscreen, dt)
+	game.start()
 	game.running = True
+	game.server.start()
+	game.server.gamemap = game.server.generate_map()
+	startpos = game.server.place_player(location=0)
+	player1 = Player(startpos, game.dt, 'player1.png')
+	game.server.add_player(player1)
+	game.server.init_blocks()
+	# game.server.clear_spot()
 	while game.running:
 		# main game loop logic stuff
-		game.handle_input()
-		pygame.event.pump()
-		game.player1.Loop()
+		game.handle_input(player1)
+		# pygame.event.pump()
+		player1.Loop()
 		game.update()
 		game.draw()
-		game.net_draw()
+		
+		# game.net_draw()
+	game.server.kill = True
 	pygame.quit()

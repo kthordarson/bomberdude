@@ -5,6 +5,7 @@ import hashlib
 import time
 import pygame
 from pygame.math import Vector2
+from loguru import logger
 # from net.bombclient import gen_randid
 # from net.bombclient import UDPClient
 
@@ -116,6 +117,7 @@ BLOCKTYPES = {
 	},
 }
 
+
 def random_velocity(direction=None):
 	while True:
 		vel = Vector2(
@@ -132,7 +134,7 @@ def random_velocity(direction=None):
 		if vel.y != 0 and vel.x != 0:
 			return vel
 		else:
-			print(f"[vel] {vel}")
+			logger.debug(f"[vel] {vel}")
 
 
 def rot_center(image, rect, angle):
@@ -177,7 +179,7 @@ def load_image(name, colorkey=None):
 			image.set_colorkey(colorkey)
 		return image, image.get_rect()
 	except FileNotFoundError as e:
-		print(f"[load_image] {name} {e}")
+		logger.debug(f"[load_image] {name} {e}")
 
 
 def dot_product(v1, v2):
@@ -200,8 +202,7 @@ def normalize(v):
 
 
 class BasicThing(pygame.sprite.Sprite):
-	def __init__(self, screen=None, gridpos=None, color=None, vel=Vector2(), accel=Vector2(),
-				 dt=None):
+	def __init__(self, screen=None, gridpos=None, color=None, vel=Vector2(), accel=Vector2(), dt=None):
 		pygame.sprite.Sprite.__init__(self)
 		self.color = color
 		self.screen = screen
@@ -217,7 +218,7 @@ class BasicThing(pygame.sprite.Sprite):
 		self.collisions = []
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
-		self.thing_id = ''.join([''.join(str(random.randint(0,99))) for k in range(10)])
+		self.thing_id = ''.join([''.join(str(random.randint(0, 99))) for k in range(10)])
 
 	# def __str__(self):
 	# 	return self.thing_id
@@ -278,7 +279,7 @@ class Block(BasicThing):
 			self.rect = self.image.get_rect(topleft=self.pos)
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y
-			# self.rect = self.image.get_rect()
+		# self.rect = self.image.get_rect()
 
 	def get_type(self):
 		return self.block_type
@@ -288,8 +289,9 @@ class Block(BasicThing):
 
 	def update(self, items=None):
 		pass
-		# if len(self.particles) <= 0:
-		#   self.hit = False
+
+	# if len(self.particles) <= 0:
+	#   self.hit = False
 
 	def get_particles(self):
 		return self.particles
@@ -336,7 +338,7 @@ class Powerup(BasicThing):
 
 	def update(self, items=None):
 		self.dt = pygame.time.get_ticks() / 1000
-		# print(f'[pu] {dt  - self.start_time} {self.timer}')
+		# logger.debug(f'[pu] {dt  - self.start_time} {self.timer}')
 		if self.dt - self.start_time >= self.timer:
 			self.kill()
 
@@ -368,12 +370,12 @@ class Particle(BasicThing):
 	# self.accel = Vector2(0.05,0.05)
 
 	def stop(self):
-		print(f"[stop] {self.vel}")
+		logger.debug(f"[stop] {self.vel}")
 		self.vel = Vector2(0, 0)
-		print(f"[stop] {self.vel}")
+		logger.debug(f"[stop] {self.vel}")
 
 	def move(self):
-		print(f"[move] {self.vel}")
+		logger.debug(f"[move] {self.vel}")
 
 	def update(self, items=None):
 		self.dt = pygame.time.get_ticks() / 1000
@@ -393,13 +395,13 @@ class Particle(BasicThing):
 
 	def collide_blocks(self, blocks, dt):
 		pass
-	# for block in blocks:
-	#     if self.surface_distance(block, dt) <= 0:
-	#         collision_vector = self.pos - block.pos
-	#         collision_vector.normalize()
-	#         print(f'{self.surface_distance(block, dt)}')
-	#         self.vel = self.vel.reflect(collision_vector)
-	#         block.vel = block.vel.reflect(collision_vector)
+# for block in blocks:
+#     if self.surface_distance(block, dt) <= 0:
+#         collision_vector = self.pos - block.pos
+#         collision_vector.normalize()
+#         logger.debug(f'{self.surface_distance(block, dt)}')
+#         self.vel = self.vel.reflect(collision_vector)
+#         block.vel = block.vel.reflect(collision_vector)
 
 
 class Flame(BasicThing):
@@ -451,14 +453,14 @@ class Flame(BasicThing):
 			self.rect.center = center
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y
-			# print(f'{self.pos.x} {self.start_pos.x} {self.pos.distance_to(self.start_pos)}')
+			# logger.debug(f'{self.pos.x} {self.start_pos.x} {self.pos.distance_to(self.start_pos)}')
 			if distance >= self.flame_length:  # or (self.dt - self.start_time >= self.timer):
-				# print(f'[flame] dist {distance} max {self.flame_length}')
+				# logger.debug(f'[flame] dist {distance} max {self.flame_length}')
 				self.kill()
 			if self.dt - self.start_time >= self.timer:
 				pass
-				# print(f'[flame] time {self.dt - self.start_time} >= {self.timer}')
-				# self.kill()
+			# logger.debug(f'[flame] time {self.dt - self.start_time} >= {self.timer}')
+			# self.kill()
 
 
 class Bomb(BasicThing):
@@ -492,9 +494,8 @@ class Bomb(BasicThing):
 	def gen_flames(self):
 		if not self.flamesout:
 			self.flames = pygame.sprite.Group()
-			dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]
-			flex = [Flame(pos=Vector2(self.pos), vel=k, dt=self.dt, flame_length=self.flame_len) for k in
-					dirs]
+			dirs = [Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1), Vector2(0, -1)]
+			flex = [Flame(pos=Vector2(self.pos), vel=k, dt=self.dt, flame_length=self.flame_len) for k in dirs]
 			for f in flex:
 				self.flames.add(f)
 			self.flamesout = True
@@ -503,10 +504,10 @@ class Bomb(BasicThing):
 
 class Gamemap:
 	def __init__(self):
-		self.grid = []
+		self.grid = self.generate()
 
-	@staticmethod
-	def generate():
+	# @staticmethod
+	def generate(self):
 		grid = [[random.randint(0, 5) for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
 		# set edges to solid blocks, 10 = solid blockwalkk
 		for x in range(GRIDSIZE[0] + 1):
@@ -532,7 +533,7 @@ class Gamemap:
 					# if self.grid[clear_bl[0]][clear_bl[1]] > 1:
 					self.grid[block[0]][block[1]] = 0
 				except Exception as e:
-					print(f"exception in place_player {block} {e}")
+					logger.debug(f"exception in place_player {block} {e}")
 			return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
 		if location == 1:  # top left
 			x = 5
@@ -545,7 +546,7 @@ class Gamemap:
 					# if self.grid[clear_bl[0]][clear_bl[1]] > 1:
 					self.grid[block[0]][block[1]] = 0
 				except Exception as e:
-					print(f"exception in place_player {block} {e}")
+					logger.debug(f"exception in place_player {block} {e}")
 			return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
 
 	def get_block(self, x, y):
@@ -553,7 +554,7 @@ class Gamemap:
 		try:
 			value = self.grid[x][y]
 		except IndexError as e:
-			print(f"[get_block] {e} x:{x} y:{y}")
+			logger.debug(f"[get_block] {e} x:{x} y:{y}")
 			return -1
 		return value
 
@@ -563,19 +564,21 @@ class Gamemap:
 		try:
 			value = self.grid[x][y]
 		except IndexError as e:
-			print(f"[get_block] {e} x:{x} y:{y}")
+			logger.debug(f"[get_block] {e} x:{x} y:{y}")
 			return -1
 		return value
 
 	def set_block(self, x, y, value):
 		self.grid[x][y] = value
 
+
 def xxgen_randid(seed=None):
 	randid = []
-	for k in range(0,7):
-		n = random.randint(1,99)
+	for k in range(0, 7):
+		n = random.randint(1, 99)
 		randid.append(n)
 	return randid
+
 
 def gen_randid():
 	hashid = hashlib.sha1()

@@ -8,8 +8,10 @@ from globals import BLOCKSIZE
 from globals import Particle
 from globals import DEFAULTFONT
 from globals import get_angle
+
 COLOR_INACTIVE = pygame.Color('lightskyblue3')
 COLOR_ACTIVE = pygame.Color('dodgerblue2')
+
 
 class Menu:
 	def __init__(self, screen):
@@ -76,7 +78,8 @@ class Menu:
 				pos.y += 12
 				client_text = f'[C] id: {client} ip: {server.clients[client].ipaddress} {server.clients[client].inpackets}|{server.clients[client].outpackets} pos:{server.clients[client].pos}'
 				self.panelfont.render_to(self.screen, (pos.x, pos.y), client_text, self.panelfont_color)
-				# self.panelfont.render_to(self.screen, pos, f"cli : {client} {server.clients[client].get_pos()} ", self.panelfont_color)
+			# self.panelfont.render_to(self.screen, pos, f"cli : {client} {server.clients[client].get_pos()} ", self.panelfont_color)
+
 	def draw_panel(self, blocks, particles, player1, flames):
 		pos = Vector2(10, self.screenh - 40)
 		try:
@@ -85,9 +88,9 @@ class Menu:
 			self.panelfont.render_to(self.screen, (pos.x, pos.y + 25), f"b: {len(blocks)} p: {len(particles)} f: {len(flames)}", self.panelfont_color)
 		# self.screen.blit(self.image, self.rect)
 		except IndexError as e:
-			print(f"[panel] {e} {player1.gridpos}")
+			logger.debug(f"[panel] {e} {player1.gridpos}")
 		except TypeError as e:
-			print(f"[panel] {e} ")
+			logger.debug(f"[panel] {e} ")
 
 	def get_selection(self):
 		return self.menuitems[self.selected_item]
