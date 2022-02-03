@@ -69,17 +69,16 @@ class Menu:
 	def draw_coll_debug(self, players, blocks, colls):
 		pass
 
-	def draw_server_debug(self, server=None, netplayers=None):
+	def draw_server_debug(self, server=None):
 		pos = self.screenh // 2
 		pos = Vector2(pos, self.screenh - 50)
-		server_text = f"running : {server.running} c: {len(server.clients)} np: {len(netplayers)}"
+		server_text = f"players: {len(server.players)} "
 		self.panelfont.render_to(self.screen, pos, server_text, self.panelfont_color)
-		if len(server.clients) >= 1:
-			for client in server.clients:
-				pos.y += 12
-				client_text = f'[C] id: {client} ip: {server.clients[client].ipaddress} {server.clients[client].inpackets}|{server.clients[client].outpackets} pos:{server.clients[client].pos}'
-				self.panelfont.render_to(self.screen, (pos.x, pos.y), client_text, self.panelfont_color)
-			# self.panelfont.render_to(self.screen, pos, f"cli : {client} {server.clients[client].get_pos()} ", self.panelfont_color)
+		for player in server.players:
+			pos.y += 12
+			player_text = f'[C] id: {player} {player.pos} '
+			self.panelfont.render_to(self.screen, (pos.x, pos.y), player_text, self.panelfont_color)
+			
 
 	def draw_panel(self, blocks, particles, player1, flames):
 		pos = Vector2(10, self.screenh - 40)

@@ -1,4 +1,4 @@
-import os
+import os, sys
 import random
 import math
 import hashlib
@@ -11,6 +11,8 @@ from loguru import logger
 # from net.bombclient import UDPClient
 
 # from pygame.colordict import THECOLORS as colordict
+
+data_identifiers = {'info': 0, 'data': 1, 'image': 2}
 
 DEBUG = True
 DEFAULTFONT = "data/DejaVuSans.ttf"
@@ -181,7 +183,8 @@ def load_image(name, colorkey=None):
 		return image, image.get_rect()
 	except FileNotFoundError as e:
 		logger.debug(f"[load_image] {name} {e}")
-
+	except pygame.error as e:
+		logger.debug(f"[load_image] {name} {e}")
 
 def dot_product(v1, v2):
 	r = 0.0
@@ -214,11 +217,11 @@ class BasicThing(pygame.sprite.Sprite):
 		self.radius = 3
 		self.gridpos = gridpos
 		# self.size = BLOCKSIZE
-		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+		# self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.font_color = (255, 255, 255)
 		self.collisions = []
 		self.start_time = pygame.time.get_ticks() / 1000
-		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		# self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.thing_id = ''.join([''.join(str(random.randint(0, 99))) for k in range(10)])
 
 	# def __str__(self):
@@ -239,7 +242,7 @@ class BasicThing(pygame.sprite.Sprite):
 
 
 class Block(BasicThing):
-	def __init__(self, gridpos=None, block_type=None, blockid=None, pos=None, dt=None):
+	def __init__(self, gridpos=None, block_type=None, blockid=None, pos=None):
 		BasicThing.__init__(self)
 		pygame.sprite.Sprite.__init__(self)
 		self.gridpos = gridpos
@@ -247,7 +250,6 @@ class Block(BasicThing):
 		self.blockid = blockid
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.particles = pygame.sprite.Group()
-		self.dt = dt
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.explode = False
 		# self.hit = False
@@ -256,11 +258,13 @@ class Block(BasicThing):
 		self.poweruptime = 10
 		self.pos = Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
 		self.gridpos = Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
-		self.solid = BLOCKTYPES.get(block_type)["solid"]
-		self.permanent = BLOCKTYPES.get(block_type)["permanent"]
-		self.size = BLOCKTYPES.get(block_type)["size"]
-		self.bitmap = BLOCKTYPES.get(block_type)["bitmap"]
-		self.powerup = BLOCKTYPES.get(block_type)["powerup"]
+		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
+		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
+		self.size = BLOCKTYPES.get(self.block_type)["size"]
+
+	def init_image(self):
+		self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
+		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
 		self.image, self.rect = load_image(self.bitmap, -1)
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
@@ -894,3 +898,22 @@ class TextInputVisualizer:
 			cursor_rect = pygame.Rect(cursor_y, 0, self._cursor_width, self.font_object.get_height())
 			self._surface.fill(self._cursor_color, cursor_rect)
 
+
+def check_threads(threads):
+	return True in [t.is_alive() for t in threads]
+
+
+def stop_all_threads(threads):
+	logger.debug(f'stopping {threads}')
+	for t in threads:
+		logger.debug(f'waiting for {t}')
+		t.kill = True
+		t.join(1)
+	sys.exit()
+
+
+def start_all_threads(threads):
+	logger.debug(f'starting {threads}')
+	for t in threads:
+		logger.debug(f'start {t}')
+		t.run()
