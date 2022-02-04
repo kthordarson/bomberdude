@@ -7,12 +7,8 @@ import pygame
 import pygame.locals as pl
 from pygame.math import Vector2
 from loguru import logger
-# from net.bombclient import gen_randid
-# from net.bombclient import UDPClient
+from os import environ
 
-# from pygame.colordict import THECOLORS as colordict
-
-data_identifiers = {'info': 0, 'data': 1, 'image': 2}
 
 DEBUG = True
 DEFAULTFONT = "data/DejaVuSans.ttf"
@@ -121,6 +117,37 @@ BLOCKTYPES = {
 }
 
 
+def env(key, type_, default=None):
+    if key not in environ:
+        return default
+
+    val = environ[key]
+
+    if type_ == str:
+        return val
+    elif type_ == bool:
+        if val.lower() in ["1", "true", "yes", "y", "ok", "on"]:
+            return True
+        if val.lower() in ["0", "false", "no", "n", "nok", "off"]:
+            return False
+        raise ValueError(
+            "Invalid environment variable '%s' (expected a boolean): '%s'" % (key, val)
+        )
+    elif type_ == int:
+        try:
+            return int(val)
+        except ValueError:
+            raise ValueError(
+                "Invalid environment variable '%s' (expected an integer): '%s'" % (key, val)
+            ) from None
+
+LOGURU_FORMAT = env(
+    "LOGURU_FORMAT",
+    str,
+    "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
+    "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+)
+
 def random_velocity(direction=None):
 	while True:
 		vel = Vector2(
@@ -182,9 +209,9 @@ def load_image(name, colorkey=None):
 			image.set_colorkey(colorkey)
 		return image, image.get_rect()
 	except FileNotFoundError as e:
-		logger.debug(f"[load_image] {name} {e}")
+		logger.error(f"[load_image] {name} {e}")
 	except pygame.error as e:
-		logger.debug(f"[load_image] {name} {e}")
+		logger.error(f"[load_image] {name} {e}")
 
 def dot_product(v1, v2):
 	r = 0.0
@@ -523,7 +550,7 @@ class Gamemap:
 			grid[GRIDSIZE[0]][y] = 10
 		return grid
 
-	def place_player(self, location=0):
+	def place_player(self, grid, location=0):
 		# place player somewhere where there is no block
 		# returns the (x,y) coordinate where player is to be placed
 		# random starting point from gridgamemap
@@ -531,35 +558,37 @@ class Gamemap:
 			x = int(GRIDSIZE[0] // 2)  # random.randint(2, GRIDSIZE[0] - 2)
 			y = int(GRIDSIZE[1] // 2)  # random.randint(2, GRIDSIZE[1] - 2)
 			# x = int(x)
-			self.grid[x][y] = 0
+			grid[x][y] = 0
 			# make a clear radius around spawn point
 			for block in list(inside_circle(3, x, y)):
 				try:
 					# if self.grid[clear_bl[0]][clear_bl[1]] > 1:
-					self.grid[block[0]][block[1]] = 0
+					grid[block[0]][block[1]] = 0
 				except Exception as e:
-					logger.debug(f"exception in place_player {block} {e}")
-			return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
+					logger.error(f"exception in place_player {block} {e}")
+			return grid
+			# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
 		if location == 1:  # top left
 			x = 5
 			y = 5
 			# x = int(x)
-			self.grid[x][y] = 0
+			grid[x][y] = 0
 			# make a clear radius around spawn point
 			for block in list(inside_circle(3, x, y)):
 				try:
 					# if self.grid[clear_bl[0]][clear_bl[1]] > 1:
-					self.grid[block[0]][block[1]] = 0
+					grid[block[0]][block[1]] = 0
 				except Exception as e:
-					logger.debug(f"exception in place_player {block} {e}")
-			return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
+					logger.error(f"exception in place_player {block} {e}")
+			return grid
+			# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
 
 	def get_block(self, x, y):
 		# get block inf from grid
 		try:
 			value = self.grid[x][y]
 		except IndexError as e:
-			logger.debug(f"[get_block] {e} x:{x} y:{y}")
+			logger.error(f"[get_block] {e} x:{x} y:{y}")
 			return -1
 		return value
 
@@ -569,7 +598,7 @@ class Gamemap:
 		try:
 			value = self.grid[x][y]
 		except IndexError as e:
-			logger.debug(f"[get_block] {e} x:{x} y:{y}")
+			logger.error(f"[get_block] {e} x:{x} y:{y}")
 			return -1
 		return value
 

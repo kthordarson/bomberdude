@@ -1,6 +1,7 @@
 # bomberdude
 import asyncio
 import random
+from queue import Queue
 from threading import Thread
 from argparse import ArgumentParser
 import pygame
@@ -12,7 +13,7 @@ from debug import (
 	draw_debug_block
 )
 from globals import FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT, BLOCKSIZE, TextInputVisualizer, TextInputManager
-from globals import Block, Bomb, Powerup
+from globals import Block, Bomb, Powerup, Gamemap
 from globals import DEBUG
 from globals import get_angle
 from player import Player
@@ -42,14 +43,22 @@ class Game(Thread):
 		self.get_input = False
 		self.textmanager = TextInputManager(initial='server ip:')
 		self.textinput = TextInputVisualizer(screen=self.screen, font_color=(255,255,255), manager=self.textmanager)
-		self.gamemap = []
+		self.gamemap = Gamemap()
+		self.net_players = []
 		try:
 			self.snd_bombexplode = mixer.Sound('data/bomb.mp3')
 			self.snd_bombdrop = mixer.Sound('data/bombdrop.mp3')
 		except pygame.error as e:
-			logger.debug(f'[bdude] music err {e}')
+			logger.error(f'[bdude] music err {e}')
 			self.snd_bombexplode = None
 			self.snd_bombdrop = None
+
+	def network_handler(self):
+		# self.net_players = []
+		for player in self.players:
+			player.update_net_players()
+			self.net_players = player.get_netplayers()
+			logger.debug(f'nethandler p:{player} np: {len(self.net_players)} pl: {len(self.players)}')
 
 	def update(self):
 		self.players.update(self.blocks)
@@ -111,6 +120,7 @@ class Game(Thread):
 		if self.show_mainmenu and not self.get_input:
 			self.game_menu.draw_mainmenu(self.screen)
 		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=player1, flames=self.flames)
+		self.game_menu.draw_netpanel(self.net_players)
 		# self.game_menu.draw_server_debug(server=self.server)
 		if DEBUG:
 			draw_debug_sprite(self.screen, self.players)
@@ -125,10 +135,14 @@ class Game(Thread):
 			for pl in self.players:
 				pl.request_data(datatype='gamedata')
 				time.sleep(3)
-				self.gamemap = pl.get_gamemap()
+				self.gamemap.grid = pl.get_mapgrid()
+				self.gamemap.grid = self.gamemap.place_player(self.gamemap.grid, 0)				
 				self.blocks = pl.get_blocks()
+				_ = [self.blocks.add(Block(gridpos=(j, k), block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
 				for bl in self.blocks:
 					bl.init_image()
+				pl.connected = True
+
 			self.show_mainmenu ^= True
 
 		if selection == "Restart":
@@ -243,13 +257,15 @@ if __name__ == "__main__":
 	game.start()
 	game.running = True
 	player1 = Player((300,300), game.dt, 'player1.png')
-	player1.start()
 	game.players.add(player1)
+	player1.start()
 	if args.startserver:
 		game.show_mainmenu = False
 	while game.running:
 		# main game loop logic stuff
 		game.handle_input(player1)
+		if player1.connected:
+			game.network_handler()
 		pygame.event.pump()
 		game.update()
 		game.draw()

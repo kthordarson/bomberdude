@@ -3,12 +3,12 @@ import pygame
 from pygame.sprite import Group
 import pickle
 from pygame.math import Vector2
-from globals import BasicThing, load_image, PLAYERSIZE, Block, gen_randid, Bomb
+from globals import BasicThing, load_image, PLAYERSIZE, Block, gen_randid, Bomb, Gamemap
 from loguru import logger
 from threading import Thread
 import socket
-from netutils import receive_data, send_data
-
+from queue import Queue
+from netutils import receive_data, send_data, data_identifiers, data_receiver
 
 
 class Player(BasicThing, Thread):
@@ -48,11 +48,23 @@ class Player(BasicThing, Thread):
 		self.pongcount = 0
 		self.maxping = 10
 		self.buffersize = 9096
+		self.kill = False
 		self.net_players = []
 		self.recv_thread = None
 		self.blocks = Group()
-		self.gamemap = []
+		self.gamemap = Gamemap()
 		logger.debug(f'[player] init pos:{pos} dt:{dt} i:{image}  client_id:{self.client_id}')
+
+	def run(self):
+		self.connect_to_server()
+		self.recv_thread = Thread(target=data_receiver(self.socket))
+		logger.debug(f'player run {self.recv_thread} conn:{self.connected}')
+		self.recv_thread.start()
+		while True:
+			self.ticks += 1
+			if self.kill:
+				logger.debug(f'player quit {self.ticks}')
+				return
 
 	def bombdrop(self):
 		if self.bombs_left > 0:
@@ -63,14 +75,15 @@ class Player(BasicThing, Thread):
 			return bomb
 		else:
 			return 0
-			# mixer.Sound.play(self.snd_bombdrop)
+
+	# mixer.Sound.play(self.snd_bombdrop)
 
 	def __str__(self):
 		return self.client_id
 
 	def __repr__(self):
 		return str(self.client_id)
-		
+
 	def player_action(self, player, action):
 		pass
 
@@ -78,9 +91,25 @@ class Player(BasicThing, Thread):
 		logger.debug(f'get_blocks {type(self.blocks)} {len(self.blocks)}')
 		return self.blocks
 
-	def get_gamemap(self):
-		logger.debug(f'get_gamemap {type(self.gamemap)} {len(self.gamemap)}')
-		return self.gamemap
+	def set_mapgrid(self, mapgrid):
+		logger.debug(f'set_mapgrid {type(self.gamemap.grid)} {len(self.gamemap.grid)}')
+		self.gamemap.grid = mapgrid
+
+	def get_mapgrid(self):
+		logger.debug(f'get_mapgrid {type(self.gamemap.grid)} {len(self.gamemap.grid)}')
+		return self.gamemap.grid
+
+	def update_net_players(self):
+		request = f'getnetplayers:{self.name}:{self.ticks}'
+		send_data(self.socket, request, data_identifiers['player'])
+
+	def set_netplayers(self, netplayers):
+		self.net_players = netplayers
+		logger.debug(f'{type(netplayers)} {len(netplayers)} {type(self.net_players)} {len(self.net_players)}')
+
+	def get_netplayers(self):
+		# logger.debug(f'{type(self.net_players)} {len(self.net_players)}')
+		return self.net_players
 
 	def send(self, data):
 		self.socket.sendto(data, self.server)
@@ -89,57 +118,8 @@ class Player(BasicThing, Thread):
 		self.socket.connect(self.server)
 		hello = f'connect:{self.name}:{self.ticks}'
 		send_data(self.socket, hello)
-		self.connected = True
-	def disconnect(self):
-		disc = f'disconnect:{self.client_id}:0'
-		send_data(self.socket, disc)
-	def get_game_data(self):
-		if self.connected:
-			connstring = f'getgamedata:{self.client_id}:{self.pos}'.encode()
-			while not self.game_ready:
-				self.socket.sendall(connstring, self.server)
-				data = self.socket.recv(1024).decode()
 
-	def data_receiver(self):
-		while self.connected:
-			data_id, payload = receive_data(self.socket)
-			logger.debug(f'data_receiver id: {data_id} payload:{payload[:10]}')
-			if data_id == 1:
-				self.handle_gamedata(payload)		
-			else:
-				data = payload
-				servermsg, servername, serverparams = payload.split(':')
-				if servermsg:
-					# if servermsg == 'gamedata':
-					# 	response = str.encode(f'confirm:{self.name}:{self.ticks}')
-					# 	logger.debug(f'from server:{data} sending:{response}')
-					# 	send_data(self.socket, response)
-					if servermsg == 'connected':
-						response = f'confirm:{self.name}:{self.ticks}'
-						logger.debug(f'from server:{data} sending:{response}')
-						send_data(self.socket, response)
-					if servermsg == 'confirmed':
-						response = f'conndone:{self.name}:{self.ticks}'
-						logger.debug(f'from server:{data} sending:{response}')
-						send_data(self.socket, response)
-					if servermsg == 'stopping':
-						response = f'stopping:{self.name}:{self.ticks}'
-						logger.debug(f'from server:{data} sending:{response}')
-						send_data(self.socket, response)
-						self.pingcount = 0
-					if servermsg == 'ping':
-						response = f'pong:{self.name}:{self.pingcount}'
-						logger.debug(f'from server:{data} sending:{response}')
-						send_data(self.socket, response)
-					if servermsg == 'pong':
-						response = f'ping:{self.name}:{self.pingcount}'
-						logger.debug(f'from server:{data} sending:{response}')
-						self.pingcount += 1
-						if self.pingcount == int(serverparams):
-							pass
-						else:
-							send_data(self.socket, response)
-			#self.socket.close()
+	# self.connected = True
 
 	def request_data(self, datatype):
 		request = f'request:{datatype}:{self.ticks}'
@@ -150,17 +130,18 @@ class Player(BasicThing, Thread):
 		try:
 			data_p = pickle.loads(datafromserver, encoding='utf-8')
 		except pickle.UnpicklingError as e:
-			logger.debug(f'{e} {type(datafromserver)} {len(datafromserver)} {datafromserver[:10]}')
+			logger.error(f'{e} {type(datafromserver)} {len(datafromserver)} {datafromserver[:10]}')
 			data_p = 'None'
 		gamemap = data_p.get('gamemap', 'err')
 		blockdata = data_p.get('blocks', 'err')
 		if gamemap != 'err':
 			self.gamemap = gamemap
-			logger.debug(f'gamemap {len(gamemap)} {type(gamemap)} {len(self.gamemap)} {type(self.gamemap)}')
+			logger.error(f'gamemap {len(gamemap)} {type(gamemap)} {len(self.gamemap)} {type(self.gamemap)}')
 		if blockdata != 'err':
 			self.blocks = blockdata
-			logger.debug(f'blockdata {len(blockdata)} {type(blockdata)} {len(self.blocks)} {type(self.blocks)}')
-		# logger.debug(f'from server {type(datafromserver)} {len(datafromserver)} {type(data_p)} {len(data_p)}')
+			logger.error(f'blockdata {len(blockdata)} {type(blockdata)} {len(self.blocks)} {type(self.blocks)}')
+
+	# logger.debug(f'from server {type(datafromserver)} {len(datafromserver)} {type(data_p)} {len(data_p)}')
 
 	def set_pos(self, pos):
 		self.pos = pos
@@ -168,6 +149,9 @@ class Player(BasicThing, Thread):
 	def update(self, blocks):
 		self.vel += self.accel
 		self.pos.x += self.vel.x
+		if self.connected:
+			data = f'setpos:{self.pos}:{self.ticks}'
+			send_data(self.socket, data)
 		self.rect.x = int(self.pos.x)
 		# self.network_updates.append(['move', (self.pos.x, self.pos.y)])
 		block_hit_list = self.collide(blocks, self.dt)
@@ -187,7 +171,8 @@ class Player(BasicThing, Thread):
 			elif self.vel.y < 0 and block.solid:
 				self.rect.top = block.rect.bottom
 			self.pos.y = self.rect.y
-		# logger.debug(f'[player] move sp:{self.speed} vel:{self.vel} p:{self.pos}')
+
+	# logger.debug(f'[player] move sp:{self.speed} vel:{self.vel} p:{self.pos}')
 
 	def take_powerup(self, powerup=None):
 		# pick up powerups...
@@ -202,20 +187,3 @@ class Player(BasicThing, Thread):
 
 	def add_score(self):
 		self.score += 1
-
-	def run(self):
-		self.connect_to_server()
-		self.recv_thread = Thread(target=self.data_receiver, daemon=True)
-		self.recv_thread.start()
-		logger.debug(f'player run {self.recv_thread} conn:{self.connected}')
-
-		while True:
-			self.ticks += 1
-			if self.kill:
-				logger.debug(f'player quit {self.ticks}')
-				self.disconnect()
-				# self.socket.close()
-				# self.recv_thread.join()
-				return
-			#updatemsg = str.encode(f'playerpos:{self.name}:{self.pos}:')
-			#self.socket.sendall(updatemsg)

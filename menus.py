@@ -88,9 +88,22 @@ class Menu:
 			self.panelfont.render_to(self.screen, (pos.x, pos.y + 25), f"b: {len(blocks)} p: {len(particles)} f: {len(flames)}", self.panelfont_color)
 		# self.screen.blit(self.image, self.rect)
 		except IndexError as e:
-			logger.debug(f"[panel] {e} {player1.gridpos}")
+			logger.error(f"[panel] {e} {player1.gridpos}")
 		except TypeError as e:
-			logger.debug(f"[panel] {e} ")
+			logger.error(f"[panel] {e} ")
+
+	def draw_netpanel(self, net_players):
+		# logger.debug(f'draw_netpanel np: {len(net_players)}')
+		pos = Vector2(100, self.screenh - 40)
+		for player in net_players:
+			# logger.debug(f'draw_netpanel np: {player}')
+			try:
+				self.panelfont.render_to(self.screen, pos, f"player: {player} ", self.panelfont_color)
+				#self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"s: {player.speed} bombs: {player.bombs_left}  bp: {player.bomb_power} score: {player.score}", self.panelfont_color)
+			except IndexError as e:
+				logger.error(f"[panel] {e} {player.gridpos}")
+			except TypeError as e:
+				logger.error(f"[panel] {e} ")
 
 	def get_selection(self):
 		return self.menuitems[self.selected_item]
