@@ -100,32 +100,22 @@ class Player(BasicThing, StoppableThread):
 				# self.rq.task_done()
 				# return
 			if data_id == data_identifiers['player']:
-				clid = 0
-				clpos = Vector2(200,300)
-				try:
-					if payload != 0:
-						clid = [k for k in payload.keys()][0].split(':')[1]
-					else:
-						clid = self.client_id
-						clpos = self.pos
-				except AttributeError as e:
-					logger.error(f'{e} did:{data_id} payload:{payload}')
-					# self.rq.task_done()
-					return
-				if clid != self.client_id:
-					clpos = [k for k in payload.values()][0]
-				# self.net_players[clid] = clpos			
+				logger.debug(f'[{self.client_id}] dataid:{data_id} {payload}')
+				clid = [k for k in payload.keys()][0][0]
+				#if clid != self.client_id:
+				clpos = [k for k in payload.values()][0]
+				self.net_players[clid] = clpos			
 				if clid in self.net_players:
 					self.net_players[clid] = clpos
 					for dp in self.dummies:
 						if dp.dummy_id == clid:
 							dp.pos = clpos
-							logger.debug(f'update dummy clid:{clid} clpos:{clpos} np:{len(self.net_players)} du:{len(self.dummies)}')
+							logger.debug(f'[{self.client_id}] update dummy clid:{clid} clpos:{clpos} np:{len(self.net_players)} du:{len(self.dummies)}')
 				else:
 					d = DummyPlayer(dummy_id=clid, pos=clpos)
 					self.dummies.add(d)
 					self.net_players[d.dummy_id] = clpos
-					logger.debug(f'new dummyid: {d.dummy_id} pos:{d.pos} np:{len(self.net_players)} du:{len(self.dummies)}')
+					logger.debug(f'[{self.client_id}] new dummyid: {d.dummy_id} pos:{d.pos} np:{len(self.net_players)} du:{len(self.dummies)}')
 				#self.rq.task_done()
 				#return
 			# else:
@@ -181,11 +171,6 @@ class Player(BasicThing, StoppableThread):
 	def get_mapgrid(self):
 		logger.debug(f'get_mapgrid gamemap: {type(self.gamemap)} grid:{type(self.gamemap.grid)} ')
 		return self.gamemap.grid
-
-	def update_net_players(self):
-		request = 'getnetplayers'
-		self.sq.put_nowait((data_identifiers['request'], request))
-		return self.net_players
 
 	def set_netplayers(self, netplayers):
 		self.net_players = netplayers

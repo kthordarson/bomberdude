@@ -98,10 +98,12 @@ class ClientThread(StoppableThread):
 #					self.rq.task_done()
 #					return
 				if data_id == data_identifiers['request'] and payload == 'getnetplayers':
-					for np in self.net_players:
-						#pd = {np.client_id:np.pos}
+					self.sq.put_nowait((data_identifiers['player'], self.net_players))
+					logger.debug(f'sending net_players {self.net_players}')
+#					for np in self.net_players:
+#						pd = {np.client_id:np.pos}
 						#send_data(conn=self.clientconnection, payload=pd, data_id=data_identifiers['player'])
-						self.sq.put_nowait((data_identifiers['player'], np))
+						
 #						self.rq.task_done()
 #						return
 
@@ -193,7 +195,7 @@ class ServerThread(StoppableThread):
 			self.clients.append(cl)
 			logger.debug(f'[srv] new client {cl} total: {len(self.clients)}')
 			for client in self.clients:
-				cl.net_players[cl.client_id] = Vector2(222,222)
+				client.net_players[cl.client_id] = cl.pos
 			cl.send_thread.start()
 			cl.recv_thread.start()
 			cl.start()

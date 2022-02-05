@@ -14,6 +14,7 @@ from debug import (
 	debug_dummies
 )
 from globals import FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT, BLOCKSIZE, TextInputVisualizer, TextInputManager
+from netutils import data_identifiers
 from globals import Block, Bomb, Powerup, Gamemap
 from globals import DEBUG
 from globals import get_angle
@@ -61,8 +62,8 @@ class Game(StoppableThread):
 		for np in player1.dummies:
 			debug_dummies(self.screen, np)
 
-	def network_handler(self):
-		pass
+	def network_handler(self, player1):
+		player1.request_data('getnetplayers')
 		# self.net_players = []
 		# for player in self.players:
 		# 	self.net_players = player.update_net_players()
@@ -283,7 +284,7 @@ if __name__ == "__main__":
 		game.handle_input(player1)
 		game.network_debug(player1)
 		if player1.connected:
-			game.network_handler()
+			game.network_handler(player1)
 		pygame.event.pump()
 		game.update()
 		game.draw()
