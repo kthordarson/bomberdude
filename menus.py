@@ -93,7 +93,7 @@ class Menu:
 			logger.error(f"[panel] {e} ")
 
 	def draw_netpanel(self, net_players):
-		# logger.debug(f'draw_netpanel np: {len(net_players)}')
+		logger.debug(f'draw_netpanel np: {len(net_players)}')
 		pos = Vector2(100, self.screenh - 40)
 		for player in net_players:
 			# logger.debug(f'draw_netpanel np: {player}')

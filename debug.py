@@ -7,6 +7,17 @@ from globals import DEFAULTFONT, BLOCKSIZE
 from globals import get_angle
 from loguru import logger
 
+from player import DummyPlayer
+
+def debug_dummies(screen, dummies):
+	DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
+	DEBUGFONTCOLOR = (123, 123, 123)
+	if isinstance(dummies, DummyPlayer):
+		DEBUGFONT.render_to(screen, dummies.rect.center, f"xv:{dummies.pos.x:.0f} yv:{dummies.pos.y:.0f}", DEBUGFONTCOLOR,)
+	else:
+		for dummy in dummies:
+			DEBUGFONT.render_to(screen, dummy.rect.center, f"xv:{dummy.pos.x:.0f} yv:{dummy.pos.y:.0f}", DEBUGFONTCOLOR,)
+
 def draw_debug_sprite(screen, sprites):
 	# DEBUGFONTCOLOR = (255, 255, 255)
 	# DEBUGFONT.fgcolor

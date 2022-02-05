@@ -8,7 +8,7 @@ import pygame.locals as pl
 from pygame.math import Vector2
 from loguru import logger
 from os import environ
-
+from threading import Thread, Event
 
 DEBUG = True
 DEFAULTFONT = "data/DejaVuSans.ttf"
@@ -20,6 +20,7 @@ GRIDSIZE = (20, 20)
 BLOCK = 30
 BLOCKSIZE = (BLOCK, BLOCK)
 PLAYERSIZE = [int(x // 1.5) for x in BLOCKSIZE]
+DUMMYSIZE = [int(x // 2) for x in BLOCKSIZE]
 POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
 BOMBSIZE = [int(x // 2.5) for x in BLOCKSIZE]
 PARTICLESIZE = [int(x // 6) for x in BLOCKSIZE]
@@ -116,37 +117,6 @@ BLOCKTYPES = {
 	},
 }
 
-
-def env(key, type_, default=None):
-    if key not in environ:
-        return default
-
-    val = environ[key]
-
-    if type_ == str:
-        return val
-    elif type_ == bool:
-        if val.lower() in ["1", "true", "yes", "y", "ok", "on"]:
-            return True
-        if val.lower() in ["0", "false", "no", "n", "nok", "off"]:
-            return False
-        raise ValueError(
-            "Invalid environment variable '%s' (expected a boolean): '%s'" % (key, val)
-        )
-    elif type_ == int:
-        try:
-            return int(val)
-        except ValueError:
-            raise ValueError(
-                "Invalid environment variable '%s' (expected an integer): '%s'" % (key, val)
-            ) from None
-
-LOGURU_FORMAT = env(
-    "LOGURU_FORMAT",
-    str,
-    "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-    "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
-)
 
 def random_velocity(direction=None):
 	while True:
@@ -946,3 +916,22 @@ def start_all_threads(threads):
 	for t in threads:
 		logger.debug(f'start {t}')
 		t.run()
+
+
+class StoppableThread(Thread):
+	"""Thread class with a stop() method. The thread itself has to check
+	regularly for the stopped() condition."""
+
+	def __init__(self,  *args, **kwargs):
+		super(StoppableThread, self).__init__(*args, **kwargs)
+		self._stop_event = Event()
+
+	def stop(self):
+		self._stop_event.set()
+
+	def stopped(self):
+		return self._stop_event.is_set()
+
+	def join(self, timeout=None):
+		self._stop_event.set()
+		Thread.join(self, timeout=timeout)

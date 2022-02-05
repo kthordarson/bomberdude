@@ -10,19 +10,21 @@ from pygame import mixer  # Load the popular external library
 from loguru import logger
 from debug import (
 	draw_debug_sprite,
-	draw_debug_block
+	draw_debug_block,
+	debug_dummies
 )
 from globals import FPS, GRIDSIZE, SCREENSIZE, DEFAULTFONT, BLOCKSIZE, TextInputVisualizer, TextInputManager
 from globals import Block, Bomb, Powerup, Gamemap
 from globals import DEBUG
 from globals import get_angle
 from player import Player
+from globals import StoppableThread
 from menus import Menu
 # from net.bombserver import ServerThread
 import time
-class Game(Thread):
+class Game(StoppableThread):
 	def __init__(self, screen, game_dt):
-		Thread.__init__(self)
+		StoppableThread.__init__(self)
 		self.kill = False
 		self.dt = game_dt
 		self.screen = screen
@@ -44,7 +46,7 @@ class Game(Thread):
 		self.textmanager = TextInputManager(initial='server ip:')
 		self.textinput = TextInputVisualizer(screen=self.screen, font_color=(255,255,255), manager=self.textmanager)
 		self.gamemap = Gamemap()
-		self.net_players = []
+		self.net_players = {}
 		try:
 			self.snd_bombexplode = mixer.Sound('data/bomb.mp3')
 			self.snd_bombdrop = mixer.Sound('data/bombdrop.mp3')
@@ -53,12 +55,18 @@ class Game(Thread):
 			self.snd_bombexplode = None
 			self.snd_bombdrop = None
 
+	def network_debug(self, player1):
+		for dummy in player1.dummies:
+			dummy.draw(self.screen)
+		for np in player1.dummies:
+			debug_dummies(self.screen, np)
+
 	def network_handler(self):
+		pass
 		# self.net_players = []
-		for player in self.players:
-			player.update_net_players()
-			self.net_players = player.get_netplayers()
-			logger.debug(f'nethandler p:{player} np: {len(self.net_players)} pl: {len(self.players)}')
+		# for player in self.players:
+		# 	self.net_players = player.update_net_players()
+		# 	logger.debug(f'nethandler p:{player} pnp:{len(player.net_players)} pd:{len(player.dummies)} np: {len(self.net_players)} pl: {len(self.players)}')
 
 	def update(self):
 		self.players.update(self.blocks)
@@ -120,7 +128,7 @@ class Game(Thread):
 		if self.show_mainmenu and not self.get_input:
 			self.game_menu.draw_mainmenu(self.screen)
 		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=player1, flames=self.flames)
-		self.game_menu.draw_netpanel(self.net_players)
+		# self.game_menu.draw_netpanel(self.net_players)
 		# self.game_menu.draw_server_debug(server=self.server)
 		if DEBUG:
 			draw_debug_sprite(self.screen, self.players)
@@ -134,7 +142,7 @@ class Game(Thread):
 		if selection == "Start":
 			for pl in self.players:
 				pl.request_data(datatype='gamedata')
-				time.sleep(3)
+				time.sleep(1)
 				self.gamemap.grid = pl.get_mapgrid()
 				self.gamemap.grid = self.gamemap.place_player(self.gamemap.grid, 0)				
 				self.blocks = pl.get_blocks()
@@ -185,7 +193,10 @@ class Game(Thread):
 				if event.key == pygame.K_ESCAPE:
 					self.show_mainmenu ^= True
 				if event.key == pygame.K_q:
+					# quit game
 					self.running = False
+					#self.player1.stop()
+					self.stop()
 				if event.key == pygame.K_c:
 					pass
 					# self.server.players[0].bomb_power = 100
@@ -207,6 +218,7 @@ class Game(Thread):
 						self.game_menu.menu_down()
 					else:
 						player1.vel.y = player1.speed
+						player1.send_pos()
 						#player1.player_action(player1, action=f'd')
 						# self.server.players[0].vel.y = self.server.players[0].speed
 				if event.key in {pygame.K_UP, pygame.K_w}:
@@ -214,16 +226,19 @@ class Game(Thread):
 						self.game_menu.menu_up()
 					else:
 						player1.vel.y = -player1.speed
+						player1.send_pos()
 						#player1.player_action(player1, action=f'u')
 						# self.server.players[0].vel.y = -self.server.players[0].speed
 				if event.key in {pygame.K_RIGHT, pygame.K_d} and not self.show_mainmenu:
 					# if not self.show_mainmenu:
 					player1.vel.x = player1.speed
+					player1.send_pos()
 					# player1.player_action(player1, action=f'r')
 					# self.server.players[0].vel.x = self.server.players[0].speed
 				if event.key in {pygame.K_LEFT, pygame.K_a} and not self.show_mainmenu:
 					# if not self.show_mainmenu:
 					player1.vel.x = -player1.speed
+					player1.send_pos()
 					#player1.player_action(player1, action=f'l')
 					# self.server.players[0].vel.x = -self.server.players[0].speed
 			if event.type == pygame.KEYUP:
@@ -257,13 +272,16 @@ if __name__ == "__main__":
 	game.start()
 	game.running = True
 	player1 = Player((300,300), game.dt, 'player1.png')
+	pygame.display.set_caption(f'{player1.client_id}')
 	game.players.add(player1)
+	player1.daemon = True
 	player1.start()
 	if args.startserver:
 		game.show_mainmenu = False
 	while game.running:
 		# main game loop logic stuff
 		game.handle_input(player1)
+		game.network_debug(player1)
 		if player1.connected:
 			game.network_handler()
 		pygame.event.pump()
