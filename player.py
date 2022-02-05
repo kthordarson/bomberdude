@@ -1,18 +1,15 @@
-from multiprocessing import dummy
-import time
 import pygame
-from pygame.sprite import Group
-import pickle
 from pygame.sprite import Group
 
 from pygame.math import Vector2
 from globals import BasicThing, load_image, PLAYERSIZE, Block, gen_randid, Bomb, Gamemap
 from loguru import logger
-from threading import Thread
 import socket
 from queue import Queue
-from netutils import receive_data, send_data, DataReceiver, DataSender, data_identifiers
+from netutils import DataReceiver, DataSender, data_identifiers
 from globals import StoppableThread
+
+
 class DummyPlayer(BasicThing):
 	def __init__(self, dummy_id=-1, pos=Vector2(300,300), image='dummyplayer.png'):
 		BasicThing.__init__(self)
@@ -225,7 +222,7 @@ class Player(BasicThing, StoppableThread):
 		if self.connected:
 			self.sq.put_nowait((data_identifiers['send_pos'], {self.client_id:self.pos}))
 		# self.network_updates.append(['move', (self.pos.x, self.pos.y)])
-		block_hit_list = self.collide(blocks, self.dt)
+		block_hit_list = self.collide(blocks)
 		for block in block_hit_list:
 			if isinstance(block, Block):
 				if self.vel.x > 0 and block.solid:

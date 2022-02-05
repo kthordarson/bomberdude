@@ -1,13 +1,7 @@
-import math
-from functools import reduce
-from operator import mul
 import pygame
 import pygame.freetype
 from pygame.math import Vector2
-from globals import BLOCKSIZE
-from globals import Particle
 from globals import DEFAULTFONT
-from globals import get_angle
 from loguru import logger
 
 COLOR_INACTIVE = pygame.Color('lightskyblue3')
@@ -99,7 +93,7 @@ class Menu:
 			# logger.debug(f'draw_netpanel np: {player}')
 			try:
 				self.panelfont.render_to(self.screen, pos, f"player: {player} ", self.panelfont_color)
-				#self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"s: {player.speed} bombs: {player.bombs_left}  bp: {player.bomb_power} score: {player.score}", self.panelfont_color)
+				# self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"s: {player.speed} bombs: {player.bombs_left}  bp: {player.bomb_power} score: {player.score}", self.panelfont_color)
 			except IndexError as e:
 				logger.error(f"[panel] {e} {player.gridpos}")
 			except TypeError as e:

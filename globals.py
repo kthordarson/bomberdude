@@ -1,14 +1,15 @@
-import os, sys
-import random
-import math
 import hashlib
+import math
+import os
+import random
+import sys
 import time
+from threading import Thread, Event
+
 import pygame
 import pygame.locals as pl
-from pygame.math import Vector2
 from loguru import logger
-from os import environ
-from threading import Thread, Event
+from pygame.math import Vector2
 
 DEBUG = True
 DEFAULTFONT = "data/DejaVuSans.ttf"
@@ -183,6 +184,7 @@ def load_image(name, colorkey=None):
 	except pygame.error as e:
 		logger.error(f"[load_image] {name} {e}")
 
+
 def dot_product(v1, v2):
 	r = 0.0
 	for a, b in zip(v1, v2):
@@ -227,7 +229,7 @@ class BasicThing(pygame.sprite.Sprite):
 	# def __repr__(self):
 	# 	return self.thing_id
 
-	def collide(self, items=None, dt=None):
+	def collide(self, items=None):
 		self.collisions = pygame.sprite.spritecollide(self, items, False)
 		return self.collisions
 
@@ -242,6 +244,7 @@ class Block(BasicThing):
 	def __init__(self, gridpos=None, block_type=None, blockid=None, pos=None):
 		BasicThing.__init__(self)
 		pygame.sprite.Sprite.__init__(self)
+		self.pos = pos
 		self.gridpos = gridpos
 		self.block_type = block_type
 		self.blockid = blockid
@@ -281,7 +284,8 @@ class Block(BasicThing):
 			self.rect = self.image.get_rect(topleft=self.pos)
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y
-		# self.rect = self.image.get_rect()
+
+	# self.rect = self.image.get_rect()
 
 	def get_type(self):
 		return self.block_type
@@ -395,8 +399,7 @@ class Particle(BasicThing):
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 
-	def collide_blocks(self, blocks, dt):
-		pass
+
 # for block in blocks:
 #     if self.surface_distance(block, dt) <= 0:
 #         collision_vector = self.pos - block.pos
@@ -461,8 +464,8 @@ class Flame(BasicThing):
 				self.kill()
 			if self.dt - self.start_time >= self.timer:
 				pass
-			# logger.debug(f'[flame] time {self.dt - self.start_time} >= {self.timer}')
-			# self.kill()
+	# logger.debug(f'[flame] time {self.dt - self.start_time} >= {self.timer}')
+	# self.kill()
 
 
 class Bomb(BasicThing):
@@ -537,7 +540,7 @@ class Gamemap:
 				except Exception as e:
 					logger.error(f"exception in place_player {block} {e}")
 			return grid
-			# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
+		# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
 		if location == 1:  # top left
 			x = 5
 			y = 5
@@ -551,7 +554,8 @@ class Gamemap:
 				except Exception as e:
 					logger.error(f"exception in place_player {block} {e}")
 			return grid
-			# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
+
+	# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
 
 	def get_block(self, x, y):
 		# get block inf from grid
@@ -576,18 +580,11 @@ class Gamemap:
 		self.grid[x][y] = value
 
 
-def xxgen_randid(seed=None):
-	randid = []
-	for k in range(0, 7):
-		n = random.randint(1, 99)
-		randid.append(n)
-	return randid
-
-
 def gen_randid():
 	hashid = hashlib.sha1()
 	hashid.update(str(time.time()).encode("utf-8"))
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
+
 
 # class NetworkEntity():
 # 	def __init__(self, identifier):
@@ -603,42 +600,39 @@ def gen_randid():
 # 		self.x += x
 # 		self.y += y
 class TextInputManager:
-	'''
+	"""
 	Keeps track of text inputted, cursor position, etc.
 	Pass a validator function returning if a string is valid,
 	and the string will only be updated if the validator function
-	returns true. 
+	returns true.
 
 	For example, limit input to 5 characters:
 	```
 	limit_5 = lambda x: len(x) <= 5
 	manager = TextInputManager(validator=limit_5)
 	```
-	
+
 	:param initial: The initial string
 	:param validator: A function string -> bool defining valid input
-	'''
+	"""
 
-	def __init__(self,
-				initial = "",
-				validator = lambda x: True):
-		
-		self.left = initial # string to the left of the cursor
-		self.right = "" # string to the right of the cursor
+	def __init__(self, initial="", validator=lambda x: True):
+
+		self.left = initial  # string to the left of the cursor
+		self.right = ""  # string to the right of the cursor
 		self.validator = validator
-		
 
 	@property
 	def value(self):
 		""" Get / set the value currently inputted. Doesn't change cursor position if possible."""
 		return self.left + self.right
-	
+
 	@value.setter
 	def value(self, value):
 		cursor_pos = self.cursor_pos
 		self.left = value[:cursor_pos]
 		self.right = value[cursor_pos:]
-	
+
 	@property
 	def cursor_pos(self):
 		""" Get / set the position of the cursor. Will clamp to [0, length of input]. """
@@ -649,7 +643,7 @@ class TextInputManager:
 		complete = self.value
 		self.left = complete[:value]
 		self.right = complete[value:]
-	
+
 	def update(self, events):
 		"""
 		Update the interal state with fresh pygame events.
@@ -673,27 +667,28 @@ class TextInputManager:
 
 	def _process_delete(self):
 		self.right = self.right[1:]
-	
+
 	def _process_backspace(self):
 		self.left = self.left[:-1]
-	
+
 	def _process_right(self):
 		self.cursor_pos += 1
-	
+
 	def _process_left(self):
 		self.cursor_pos -= 1
 
 	def _process_end(self):
 		self.cursor_pos = len(self.value)
-	
+
 	def _process_home(self):
 		self.cursor_pos = 0
-	
+
 	def _process_return(self):
 		pass
 
 	def _process_other(self, event):
 		self.left += event.unicode
+
 
 class TextInputVisualizer:
 	"""
@@ -714,26 +709,18 @@ class TextInputVisualizer:
 	:param font_object: a pygame.font.Font object used for rendering
 	:param antialias: whether to render the font antialiased or not
 	:param font_color: color of font rendered
-	:param cursor_blink_interal: the interval of the cursor blinking, in ms
+	:param cursor_blink_interval: the interval of the cursor blinking, in ms
 	:param cursor_width: The width of the cursor, in pixels
 	:param cursor_color: The color of the cursor
 	"""
-	def __init__(self,
-			screen = None,
-			manager = None,
-			font_object = None,
-			antialias = True,
-			font_color = (0, 0, 0),
-			cursor_blink_interval = 300,
-			cursor_width = 3,
-			cursor_color = (0, 0, 0)
-			):
+
+	def __init__(self, screen=None, manager=None, font_object=None, antialias=True, font_color=(0, 0, 0), cursor_blink_interval=300, cursor_width=3, cursor_color=(0, 0, 0)):
 		self.screen = screen
 		self._manager = TextInputManager() if manager is None else manager
 		self._font_object = pygame.font.Font(pygame.font.get_default_font(), 25) if font_object is None else font_object
 		self._antialias = antialias
 		self._font_color = font_color
-		
+
 		self._clock = pygame.time.Clock()
 		self._cursor_blink_interval = cursor_blink_interval
 		self._cursor_visible = False
@@ -744,25 +731,25 @@ class TextInputVisualizer:
 
 		self._surface = pygame.Surface((self._cursor_width, self._font_object.get_height()))
 		self._rerender_required = True
-	
+
 	@property
 	def value(self):
 		""" Get / set the value of text alreay inputted. Doesn't change cursor position if possible."""
 		return self.manager.value
-	
+
 	@value.setter
 	def value(self, v):
 		self.manager.value = v
-	
+
 	@property
 	def manager(self):
 		""" Get / set the underlying `TextInputManager` for this instance"""
 		return self._manager
-	
+
 	@manager.setter
 	def manager(self, v):
 		self._manager = v
-	
+
 	@property
 	def surface(self):
 		""" Get the surface with the rendered user input """
@@ -770,7 +757,7 @@ class TextInputVisualizer:
 			self._rerender()
 			self._rerender_required = False
 		return self._surface
-	
+
 	@property
 	def antialias(self):
 		""" Get / set antialias of the render """
@@ -805,28 +792,28 @@ class TextInputVisualizer:
 	def cursor_visible(self):
 		""" Get / set cursor visibility (flips again after `.cursor_interval` if continuously update)"""
 		return self._cursor_visible
-	
+
 	@cursor_visible.setter
 	def cursor_visible(self, v):
 		self._cursor_visible = v
 		self._last_blink_toggle = 0
 		self._require_rerender()
-	
+
 	@property
 	def cursor_width(self):
 		""" Get / set width in pixels of the cursor """
 		return self._cursor_width
-	
+
 	@cursor_width.setter
 	def cursor_width(self, v):
 		self._cursor_width = v
 		self._require_rerender()
-	
+
 	@property
 	def cursor_color(self):
 		""" Get / set the color of the cursor """
 		return self._cursor_color
-	
+
 	@cursor_color.setter
 	def cursor_color(self, v):
 		self._cursor_color = v
@@ -836,7 +823,7 @@ class TextInputVisualizer:
 	def cursor_blink_interval(self):
 		""" Get / set the interval of time with which the cursor blinks (toggles), in ms"""
 		return self._cursor_blink_interval
-	
+
 	@cursor_blink_interval.setter
 	def cursor_blink_interval(self, v):
 		self._cursor_blink_interval = v
@@ -872,7 +859,6 @@ class TextInputVisualizer:
 			self._cursor_visible = True
 			self._require_rerender()
 
-
 	def _require_rerender(self):
 		"""
 		Trigger a re-render of the surface the next time the surface is accessed.
@@ -882,15 +868,13 @@ class TextInputVisualizer:
 	def _rerender(self):
 		""" Rerender self._surface."""
 		# Final surface is slightly larger than font_render itself, to accomodate for cursor
-		rendered_surface = self.font_object.render(self.manager.value + " ",
-												self.antialias,
-												self.font_color)
+		rendered_surface = self.font_object.render(self.manager.value + " ", self.antialias, self.font_color)
 		w, h = rendered_surface.get_size()
 		self._surface = pygame.Surface((w + self._cursor_width, h))
 		self._surface = self._surface.convert_alpha(rendered_surface)
 		self._surface.fill((0, 0, 0, 0))
 		self._surface.blit(rendered_surface, (0, 0))
-		
+
 		if self._cursor_visible:
 			str_left_of_cursor = self.manager.value[:self.manager.cursor_pos]
 			cursor_y = self.font_object.size(str_left_of_cursor)[0]
@@ -922,7 +906,7 @@ class StoppableThread(Thread):
 	"""Thread class with a stop() method. The thread itself has to check
 	regularly for the stopped() condition."""
 
-	def __init__(self,  *args, **kwargs):
+	def __init__(self, *args, **kwargs):
 		super(StoppableThread, self).__init__(*args, **kwargs)
 		self._stop_event = Event()
 
