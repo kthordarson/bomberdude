@@ -74,12 +74,13 @@ class Menu:
 			self.panelfont.render_to(self.screen, (pos.x, pos.y), player_text, self.panelfont_color)
 			
 
-	def draw_panel(self, blocks, particles, player1, flames):
-		pos = Vector2(10, self.screenh - 40)
+	def draw_panel(self, blocks, particles, player1, flames, dummies):
+		pos = Vector2(10, self.screenh - 50)
 		try:
-			self.panelfont.render_to(self.screen, pos, f"player pos x:{player1.rect} vel:{player1.vel} ", self.panelfont_color)
+			self.panelfont.render_to(self.screen, pos, f"playerid: {player1.client_id} pos x:{player1.rect} vel:{player1.vel} d:{len(dummies)} np:{len(player1.net_players)} conn:{player1.connected}/{player1.connecting} q:{player1.sq.qsize()}:{player1.rq.qsize()}", self.panelfont_color)
 			self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"s: {player1.speed} bombs: {player1.bombs_left}  bp: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
 			self.panelfont.render_to(self.screen, (pos.x, pos.y + 25), f"b: {len(blocks)} p: {len(particles)} f: {len(flames)}", self.panelfont_color)
+			self.panelfont.render_to(self.screen, (pos.x, pos.y + 38), f"blocks: {player1.got_blocks} grid: {player1.got_gamemap}", self.panelfont_color)
 		# self.screen.blit(self.image, self.rect)
 		except IndexError as e:
 			logger.error(f"[panel] {e} {player1.gridpos}")

@@ -1,6 +1,10 @@
 import socket
+from signal import signal, SIGPIPE, SIG_DFL
+# Ignore SIG_PIPE and don't throw exceptions on it... (http://docs.python.org/library/signal.html)
+# signal(SIGPIPE,SIG_DFL)
+
 import sys
-from queue import Queue
+from queue import Empty, Queue
 
 from loguru import logger
 from pygame.math import Vector2
@@ -12,21 +16,30 @@ from globals import Gamemap
 from globals import StoppableThread
 from globals import gen_randid
 from netutils import data_identifiers, DataReceiver, DataSender
+from threading import enumerate, Thread
 
 
 # fmt = "{time} | {level: <8} | {name: ^15} | {function: ^15} | {line: >3} | {message}"
 # logger.add(sys.stdout, format=fmt)
 
+def empty_queue(queue_to_empty: Queue):
+	while queue_to_empty.qsize() != 0:
+		try:
+			queue_to_empty.get_nowait()
+			queue_to_empty.task_done()
+		except Empty:
+			pass
+		except ValueError:
+			pass
 
-class ClientThread(StoppableThread):
-	def __init__(self, clientaddr=None, clientconnection=None, blocks=None, gamemap=None, queue=None):
-		StoppableThread.__init__(self)
-		self.name = f'ct {clientaddr}'
+
+class ClientThread(Thread):
+	def __init__(self, clientaddr=None, clientconnection=None, blocks=None, gamemap=None, client_q=None):
+		Thread.__init__(self, name='clthread')
 		self.client_id = gen_randid()
-		self.queue = queue
-		self.gamemap = Gamemap()
-		if gamemap is not None:
-			self.gamemap.grid = gamemap.grid
+		# StoppableThread.__init__(self, name=self.client_id)
+		self.name = self.client_id
+		self.gamemap = gamemap
 		self.blocks = blocks
 		self.clientconnection = clientconnection
 		self.clientaddr = clientaddr
@@ -38,91 +51,164 @@ class ClientThread(StoppableThread):
 		self.buffersize = 9096
 		self.net_players = {}
 		self.hbcount = 0
-		self.pos = Vector2((300, 300))
+		self.pos = Vector2()
 		self.rq = Queue()
 		self.sq = Queue()
-		self.recv_thread = DataReceiver(self.clientconnection, self.rq)
-		self.send_thread = DataSender(self.clientconnection, self.sq)
-		self.recv_thread.daemon = True
-		self.send_thread.daemon = True
-
-	def server_init(self, clients):
-		self.clients = clients
-		logger.debug(f'client init, got {clients} from server')
-
-	def process_recvq_foo(self):
-		pass
+		self.client_q = client_q
+		self.recv_thread = DataReceiver(r_socket=self.clientconnection, queue=self.rq, name=self.client_id)
+		self.send_thread = DataSender(s_socket=self.clientconnection, queue=self.sq, name=self.client_id)
+		self.tlist = []
+		logger.debug(f'clientthread: {self.client_id} init ')
 
 	def run(self):
+		self.tlist.append(self.recv_thread)
+		self.tlist.append(self.send_thread)
+		self.recv_thread.start()
+		self.send_thread.start()
+		self.send_clientid()
 		while True:
 			if self.kill:
-				return
+				logger.debug(f'killing self:{self.name}')
+				for t in self.tlist:
+					logger.debug(f'killing self:{self.name} {t}')
+					t.kill = True
+				break
 			self.process_recvq()
+			srv_q_cmd = None
+			try:
+				srv_q_cmd = self.client_q.get()
+				self.client_q.task_done()
+			except Empty:
+				pass
+			if srv_q_cmd:
+				if 'player' in srv_q_cmd:
+					self.add_net_player(srv_q_cmd)
+					self.client_q.task_done()
+
+	def get_pos(self):
+		return self.pos
+
+	def add_net_player(self, playerdata):
+		logger.debug(f'addnetplayer {playerdata}')
+
+	def send_clientid(self):
+		self.sq.put((data_identifiers['setclientid'], self.client_id))
+		logger.debug(f'[{self.client_id}] send_clientid sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()}')
+
+	def handle_connection(self, payload):
+		logger.debug(f'[{self.client_id}] connection payload: {payload}')
+		payload_pid = payload.split(':')[0]
+		self.pos = payload.split(':')[2]
+		if payload_pid == '-2':
+			self.sq.put((data_identifiers['setclientid'], self.client_id))
+			logger.debug(f'sending setclientid: {self.client_id} sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()} pos:{self.pos}')
+
+	def send_gameblocks(self):
+		# data = {'blocks': self.blocks, 'mapgrid': self.gamemap.grid}
+		logger.debug(f'sending gamedata blocks {len(self.blocks)} sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()}')
+		# send_data(conn=self.clientconnection, payload=data, data_id=data_identifiers['data'])
+		self.sq.put((data_identifiers['blockdata'], self.blocks))
+
+	def send_gamemapgrid(self):
+		logger.debug(f'sending gamedata mapgrid {len(self.gamemap.grid)} sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()}')
+		# send_data(conn=self.clientconnection, payload=data, data_id=data_identifiers['data'])
+		self.sq.put((data_identifiers['mapdata'], self.gamemap.grid))
+
+	def handle_posdata(self, payload):
+		# logger.debug(payload)
+		# self.pos = [k for k in payload.values()][0]
+		clid = payload.split(':')[0]
+		if clid == '-2':
+			return
+		if clid is None:
+			logger.error(f'[{self.client_id}] no client id in payload: {payload}')
+			return
+		clpos = payload.split(':')[1]
+		if self.client_id != clid:
+			logger.error(f'[{self.client_id}] from payload clid:{clid} clp:{clpos} sq:{self.sq.qsize()} rq:{self.rq.qsize()}')
+		# self.client_id = clid
+		self.pos = clpos
+
+	def send_net_players(self, payload):
+		idx = 0
+		# logger.debug(f'client {payload} requesting net_players')
+		for player in list(self.net_players):
+			pd = f'{player}:{self.net_players[player]}:{idx}'
+			idx += 1
+			# logger.debug(f'[{self.client_id}] send netplayer nr:{idx}/{len(self.net_players)} pd:{pd}')
+			self.sq.put((data_identifiers['player'], pd))
+		# self.sq.put((data_identifiers['player'], pd))
 
 	def process_recvq(self):
-		if not self.rq.empty():
-			data_id, payload = self.rq.get()
-			if self.kill:
-				return
-			if payload:
-				if data_id == data_identifiers['connect']:
-					self.client_id = payload
-					logger.debug(f'clientid:{payload} connected. {self.client_id}')
-				if payload == 'gamedata':
-					data = {'blocks': self.blocks, 'mapgrid': self.gamemap.grid}
-					logger.debug(f'sending gamedata {len(payload)}')
-					# send_data(conn=self.clientconnection, payload=data, data_id=data_identifiers['data'])
-					self.sq.put_nowait((data_identifiers['data'], data))
-				if data_id == data_identifiers['heartbeat'] and payload[:9] == 'heartbeat':
-					self.hbcount = int(payload[10:])
-					# logger.debug(f'client heartbeat {self.hbcount} id:{data_id} type: {type(payload)} size: {len(payload)}')
-					# send_data(conn=self.clientconnection, payload='beatheart', data_id=data_identifiers['heartbeat'])
-					self.sq.put_nowait((data_identifiers['heartbeat'], 'beatheart'))
-				if data_id == data_identifiers['send_pos']:
-					self.pos = [k for k in payload.values()][0]
-				# logger.debug(f'pos {self.pos} payloadpos {payload}')
-				if data_id == data_identifiers['request'] and payload == 'getnetplayers':
-					self.sq.put_nowait((data_identifiers['player'], self.net_players))
-					logger.debug(f'sending net_players {self.net_players}')
+		# if not self.rq.empty():
+		while True:
+			data_id = None
+			payload = None
+			try:
+				data_id, payload = self.rq.get()
+			except Empty:
+				pass
+			# self.rq.task_done()
+			if data_id == data_identifiers['connect']:
+				self.handle_connection(payload)
+			# return self.rq.qsize(), self.sq.qsize()
+			if data_id == data_identifiers['request'] and payload == 'getclientid':
+				self.send_clientid()
+			# return self.rq.qsize(), self.sq.qsize()
+			if data_id == data_identifiers['request'] and payload == 'gameblocks':
+				self.send_gameblocks()
+			# return self.rq.qsize(), self.sq.qsize()
+			if data_id == data_identifiers['request'] and payload == 'gamemapgrid':
+				self.send_gamemapgrid()
+			# return self.rq.qsize(), self.sq.qsize()
+			if data_id == data_identifiers['send_pos']:
+				self.handle_posdata(payload)
+			# return self.rq.qsize(), self.sq.qsize()
+			if data_id == data_identifiers['request'] and payload == 'get_net_players':
+				self.send_net_players(payload)
+			# return self.rq.qsize(), self.sq.qsize()
+			if data_id == data_identifiers['heartbeat'] and payload[:9] == 'heartbeat':
+				self.hbcount = int(payload[10:])
+				self.sq.put((data_identifiers['heartbeat'], 'beatheart'))
+			# return self.rq.qsize(), self.sq.qsize()
 
-	def get_netplayers(self):
-		return self.net_players
 
-	def new_player(self, player):
-		self.net_players.append(player)
-
-
-class Serverq_Handler(StoppableThread):
-	def __init__(self, queue):
-		StoppableThread.__init__(self)
-		self.queue = queue
+class ConnectionHandler(Thread):
+	def __init__(self, name='connhandler', socket=None, serverqueue=None, localaddr=None):
+		# StoppableThread.__init__(self, name='connhandler')
+		Thread.__init__(self, name='connhandler')
+		self.name = name
+		self.socket = socket  # socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+		# self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.serverqueue = serverqueue
+		self.localaddr = localaddr
 		self.kill = False
 
-	def process_q(self):
-		if not self.queue.empty():
-			qdata = self.queue.get()
-			params = qdata['servercmd']
-			logger.debug(f'serverq: {qdata["servercmd"]} p:{params}')
-			# send_data(self.socket, payload, data_id)
-			if params == 'killserver':
-				self.kill = True
-				logger.debug(f'killing self')
-			self.queue.task_done()
-
 	def run(self):
-		while not self.kill:
+		# self.connsocket.bind(4)
+		# self.socket.bind(self.localaddr)
+		while True:
+			clientconn = None
+			clientaddr = None
+			# self.socket.listen(1)
 			if self.kill:
-				logger.debug(f'server qthread killed')
-				return
-			self.process_q()
-		logger.debug(f'server qthread run end')
+				logger.debug(f'{self.name} kill {self.kill}')
+				break
+			try:
+				clientconn, clientaddr = self.socket.accept()
+				self.serverqueue.put(('socket', clientconn))
+			except Exception as e:
+				logger.error(f'[srv] Err {e} cs:{clientconn} ca:{clientaddr}')
+		# clientconn.close()
 
 
-class ServerThread(StoppableThread):
-	def __init__(self, name='serverthread', listenaddr='127.0.0.1', port=6666, queue=None):
-		StoppableThread.__init__(self)
+class ServerThread(Thread):
+	def __init__(self, name='serverthread', listenaddr='127.0.0.1', port=6666, serverqueue=None):
+		Thread.__init__(self, name='serverthread')
+		# StoppableThread.__init__(self, name='serverthread')
 		self.name = name
-		self.queue = queue
+		self.serverqueue = serverqueue
+		self.client_q = Queue()
 		self.localaddr = (listenaddr, port)
 		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -130,54 +216,63 @@ class ServerThread(StoppableThread):
 		self.blocks = Group()
 		self.players = Group()
 		self.gamemap = Gamemap()
+		self.gamemap.grid = self.gamemap.place_player(self.gamemap.grid, 0)
 		self.clients = []
-		self.qthread = Serverq_Handler(self.queue)
+		self.net_players = {}
+		self.connhandler = ConnectionHandler(name='connhandler', socket=self.socket, serverqueue=self.serverqueue, localaddr=self.localaddr)
 
 	def kill_server(self):
-		self.kill = True
-		logger.debug(f'[srv] kill {self.kill}')
+		logger.debug(f'[srv] kill self: {self.name}')
+		idx = 0
+		totcl = len(self.clients)
 		for cl in self.clients:
-			logger.debug(f'[srv] stopping {cl}')
-			cl.stop()
+			logger.debug(f'{self.name} killing clients {idx}/{totcl} sending kill signal to {cl}')
+			idx += 1
 			cl.kill = True
-		# cl.join()
-		logger.debug('[srv] stopping queuethread')
-		self.qthread.stop()
+		self.kill = True
 
 	def run(self):
 		self.socket.bind(self.localaddr)
-		# self.qthread.daemon = True
-		self.qthread.start()
-		while True:
-			clientconn = None
-			clientaddr = None
-			self.socket.listen(2)
+		self.socket.listen(0)
+		self.connhandler.start()
+		self.kill = False
+		while not self.kill:
 			if self.kill:
-				logger.debug(f'[srv] kill {self.kill}')
-				for cl in self.clients:
-					cl.stop()
-					cl.kill = True
-				self.qthread.stop()
+				logger.debug(f'server killing self:{self.name} k:{self.kill}')
+				self.connhandler.kill = True
+				logger.debug(f'server stopped k:{self.kill}')
+				self.socket.close()
+				self.kill = True
 				break
+			clientconn = ''
+			clientaddr = None
+			sqdata = ''
 			try:
-				clientconn, clientaddr = self.socket.accept()
-			except Exception as e:
-				logger.error(f'[srv] Err {e} cs:{clientconn} ca:{clientaddr}')
-				clientconn.close()
-			cl = ClientThread(clientaddr, clientconn, self.blocks, self.gamemap, self.queue)
-			self.clients.append(cl)
-			logger.debug(f'[srv] new client {cl} total: {len(self.clients)}')
-			for client in self.clients:
-				client.net_players[cl.client_id] = cl.pos
-			cl.send_thread.start()
-			cl.recv_thread.start()
-			cl.start()
-		# self.socket.close()
+				sqdata = self.serverqueue.get()
+			except Empty:
+				pass
+			if 'socket' in sqdata:
+				clientconn = sqdata[1]
+				cl = ClientThread(clientaddr, clientconn, self.blocks, self.gamemap, self.client_q)
+				self.clients.append(cl)
+				self.net_players[cl.client_id] = Vector2()
+				cl.net_players = self.net_players
+				cl.start()
+				for cl in self.clients:
+					cl.net_players = self.net_players
+				self.serverqueue.task_done()
+				logger.debug(f'[srv] new client id:{cl.client_id} total: {len(self.clients)} sq:{cl.client_q.qsize()}')
+			for cl in self.clients:
+				self.net_players[cl.client_id] = cl.get_pos()
 
-	# self.socket.close()
+	#			for np in self.net_players:
+	#				data = f'player:{self.net_players[np]}'
+	#				self.client_q.put(data)
 
 	def init_blocks(self):
-		_ = [self.blocks.add(Block(gridpos=(j, k), block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
+		pass
+
+	# _ = [self.blocks.add(Block(gridpos=(j, k), block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
 
 	def player_action(self, player, action):
 		pass
@@ -185,12 +280,13 @@ class ServerThread(StoppableThread):
 
 if __name__ == '__main__':
 	mainthreads = []
-	serverq = Queue()
-	server = ServerThread(name='fooserver', queue=serverq)
-	server.daemon = True
+	serverqueue = Queue()
+	server = ServerThread(name='bombserver', serverqueue=serverqueue)
 	mainthreads.append(server)
-	# server.daemon = True
+	server.daemon = True
+	server.connhandler.daemon = True
 	server.start()
+
 	server.gamemap.grid = server.gamemap.generate()
 	server.init_blocks()
 	logger.debug(f'gamemap {len(server.gamemap.grid)} blocks {len(server.blocks)}')
@@ -199,34 +295,45 @@ if __name__ == '__main__':
 		try:
 			cmd = input(':')
 			if cmd[:1] == 'q':
-				# sys.exit()
-				server.queue.put_nowait({'servercmd': 'killserver'})
-				server.stop()
-				server.kill_server()
+				# server.kill_server()
+				logger.debug('quitting')
+				server.connhandler.kill = True
+				logger.debug('connhandler killed')
 				server.kill = True
+				logger.debug('server killed')
 				server_running = False
 			# stop_all_threads(mainthreads)
 			if cmd[:1] == 'd':
-				logger.debug(f'[d] server {server} cl:{len(server.clients)}')
+				t_count = len(enumerate())
+				logger.debug(f'[d] server {server.name} threads:{t_count} severclients:{len(server.clients)} msq:{server.serverqueue.qsize()}')
+				idx1 = 0
 				for cl in server.clients:
-					logger.debug(f'[d] {cl.clientaddr} hbc:{cl.hbcount} pos:{cl.pos} netp:{len(cl.net_players)}')
+					logger.debug(f'[d {idx1}/{len(server.clients)}] {cl.client_id} pos:{cl.pos} netp:{len(cl.net_players)} clsq:{cl.sq.qsize()} clrq:{cl.rq.qsize()} clsvrq:{cl.client_q.qsize()}')
+					idx1 += 1
+					idxnp = 0
 					for np in cl.net_players:
-						logger.debug(f'[dnp] {cl.clientaddr} hbc:{cl.hbcount} pos:{cl.pos} netp:{len(cl.net_players)} {np}')
+						logger.debug(f'[d {idx1}/{len(server.clients)}] {cl.client_id} n:{idxnp}/{len(cl.net_players)} netp: {np} {cl.net_players[np]} clsq:{cl.sq.qsize()} clrq:{cl.rq.qsize()} clsvrq:{cl.client_q.qsize()}')
+						idxnp += 1
 			if cmd[:1] == 'p':
-				server.queue.put_nowait(({'servercmd': 'pingall'}))
-			# logger.debug(f'{server.backend}')
+				server.serverqueue.put(({'servercmd': 'pingall'}))
+			if cmd[:1] == 't':
+				all_threads = enumerate()
+				idx = 0
+				logger.debug(f'Thread dump total threads {len(all_threads)}')
+				for t in all_threads:
+					logger.debug(f'[{idx}/{len(all_threads)}] {t}')
+					idx += 1
 			if cmd[:1] == '1':
 				pass
 			if cmd[:1] == '2':
 				pass
 			if cmd[:1] == '3':
 				pass
-			# m.send_items_to_q()
-
 		except KeyboardInterrupt as e:
-			logger.debug(f'KeyboardInterrupt {e}')
-		# stop_all_threads(mainthreads)
+			logger.error(f'KeyboardInterrupt {e}')
+			sys.exit()
 		except Exception as e:
 			logger.error(f'E in main {e}')
-		# stop_all_threads(mainthreads)
+			sys.exit()
+
 	sys.exit()

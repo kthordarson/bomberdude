@@ -8,6 +8,7 @@ from threading import Thread, Event
 
 import pygame
 import pygame.locals as pl
+from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
@@ -204,9 +205,9 @@ def normalize(v):
 	return [spam / m for spam in v]
 
 
-class BasicThing(pygame.sprite.Sprite):
+class BasicThing(Sprite):
 	def __init__(self, screen=None, gridpos=None, color=None, vel=Vector2(), accel=Vector2(), dt=None):
-		pygame.sprite.Sprite.__init__(self)
+		Sprite.__init__(self)
 		self.color = color
 		self.screen = screen
 		self.vel = vel
@@ -230,7 +231,7 @@ class BasicThing(pygame.sprite.Sprite):
 	# 	return self.thing_id
 
 	def collide(self, items=None):
-		self.collisions = pygame.sprite.spritecollide(self, items, False)
+		self.collisions = spritecollide(self, items, False)
 		return self.collisions
 
 	def set_vel(self, vel):
@@ -243,13 +244,13 @@ class BasicThing(pygame.sprite.Sprite):
 class Block(BasicThing):
 	def __init__(self, gridpos=None, block_type=None, blockid=None, pos=None):
 		BasicThing.__init__(self)
-		pygame.sprite.Sprite.__init__(self)
+		Sprite.__init__(self)
 		self.pos = pos
 		self.gridpos = gridpos
 		self.block_type = block_type
 		self.blockid = blockid
 		self.start_time = pygame.time.get_ticks() / 1000
-		self.particles = pygame.sprite.Group()
+		self.particles = Group()
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.explode = False
 		# self.hit = False
@@ -261,8 +262,6 @@ class Block(BasicThing):
 		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
 		self.size = BLOCKTYPES.get(self.block_type)["size"]
-
-	def init_image(self):
 		self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
 		self.image, self.rect = load_image(self.bitmap, -1)
@@ -272,6 +271,18 @@ class Block(BasicThing):
 		self.rect.y = self.pos.y
 		self.image.set_alpha(255)
 		self.image.set_colorkey((0, 0, 0))
+
+	def init_image(self):
+		pass
+		# self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
+		# self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
+		# self.image, self.rect = load_image(self.bitmap, -1)
+		# self.image = pygame.transform.scale(self.image, self.size)
+		# self.rect = self.image.get_rect(topleft=self.pos)
+		# self.rect.x = self.pos.x
+		# self.rect.y = self.pos.y
+		# self.image.set_alpha(255)
+		# self.image.set_colorkey((0, 0, 0))
 
 	def hit(self):
 		if not self.permanent:
@@ -305,7 +316,7 @@ class Block(BasicThing):
 	def gen_particles(self, flame):
 		# called when block is hit by a flame
 		# generate particles and set initial velocity based on direction of flame impact
-		self.particles = pygame.sprite.Group()
+		self.particles = Group()
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		# flame.vel = Vector2(flame.vel[0], flame.vel[1])
@@ -329,7 +340,7 @@ class Powerup(BasicThing):
 	def __init__(self, pos=None, vel=None, dt=None):
 		# super().__init__()
 		BasicThing.__init__(self)
-		pygame.sprite.Sprite.__init__(self)
+		Sprite.__init__(self)
 		self.dt = dt
 		self.image, self.rect = load_image("heart.png", -1)
 		self.size = POWERUPSIZE
@@ -353,7 +364,7 @@ class Particle(BasicThing):
 	def __init__(self, pos=None, vel=None, dt=None):
 		# super().__init__()
 		BasicThing.__init__(self)
-		pygame.sprite.Sprite.__init__(self)
+		Sprite.__init__(self)
 		self.dt = dt
 		self.pos = Vector2(pos)
 		self.image, self.rect = load_image("greenorb.png", -1)
@@ -413,7 +424,7 @@ class Flame(BasicThing):
 	def __init__(self, pos=None, vel=None, direction=None, dt=None, flame_length=None):
 		# super().__init__()
 		BasicThing.__init__(self)
-		pygame.sprite.Sprite.__init__(self)
+		Sprite.__init__(self)
 		self.dt = dt
 		if vel[0] == -1 or vel[0] == 1:
 			self.image, self.rect = load_image("flame4.png", -1)
@@ -470,7 +481,7 @@ class Flame(BasicThing):
 
 class Bomb(BasicThing):
 	def __init__(self, pos=None, bomber_id=None, bomb_power=None, dt=None):
-		pygame.sprite.Sprite.__init__(self)
+		Sprite.__init__(self)
 		BasicThing.__init__(self)
 		self.dt = dt
 		self.pos = pos
@@ -494,11 +505,11 @@ class Bomb(BasicThing):
 		self.flame_len = bomb_power
 		self.flame_width = 10
 		self.flamesout = False
-		self.flames = pygame.sprite.Group()
+		self.flames = Group()
 
 	def gen_flames(self):
 		if not self.flamesout:
-			self.flames = pygame.sprite.Group()
+			self.flames = Group()
 			dirs = [Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1), Vector2(0, -1)]
 			flex = [Flame(pos=Vector2(self.pos), vel=k, dt=self.dt, flame_length=self.flame_len) for k in dirs]
 			for f in flex:
@@ -508,8 +519,11 @@ class Bomb(BasicThing):
 
 
 class Gamemap:
-	def __init__(self):
-		self.grid = self.generate()
+	def __init__(self, genmap=True):
+		if genmap:
+			self.grid = self.generate()
+		else:
+			self.grid = []
 
 	# @staticmethod
 	def generate(self):
@@ -906,16 +920,21 @@ class StoppableThread(Thread):
 	"""Thread class with a stop() method. The thread itself has to check
 	regularly for the stopped() condition."""
 
-	def __init__(self, *args, **kwargs):
+	def __init__(self, name=None, *args, **kwargs):
 		super(StoppableThread, self).__init__(*args, **kwargs)
 		self._stop_event = Event()
+		self.name = name
+		logger.debug(f'{self.name} init ')
 
 	def stop(self):
+		logger.debug(f'{self.name} stop event')
 		self._stop_event.set()
 
 	def stopped(self):
+		# logger.debug(f'{self.name} stopped check')
 		return self._stop_event.is_set()
 
 	def join(self, timeout=None):
+		logger.debug(f'{self.name} join')
 		self._stop_event.set()
 		Thread.join(self, timeout=timeout)
