@@ -12,113 +12,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
-DEBUG = True
-DEFAULTFONT = "data/DejaVuSans.ttf"
-
-# global constants
-# GRIDSIZE[0] = 15
-# GRIDSIZE[1] = 15
-GRIDSIZE = (20, 20)
-BLOCK = 30
-BLOCKSIZE = (BLOCK, BLOCK)
-PLAYERSIZE = [int(x // 1.5) for x in BLOCKSIZE]
-DUMMYSIZE = [int(x // 2) for x in BLOCKSIZE]
-POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
-BOMBSIZE = [int(x // 2.5) for x in BLOCKSIZE]
-PARTICLESIZE = [int(x // 6) for x in BLOCKSIZE]
-FLAMESIZE = [10, 5]
-# FLAMESIZE = [int(x // 6) for x in BLOCKSIZE]
-
-# POWERUPSIZE = (12, 12)
-# BOMBSIZE = (16, 16)
-# FLAMESIZE = (8,8)
-# FLAMELENGTH = 20
-# PARTICLESIZE = (3,3)
-SCREENSIZE = (BLOCKSIZE[0] * (GRIDSIZE[0] + 1), BLOCKSIZE[1] * GRIDSIZE[1] + 100)
-# SCREENSIZE = (700, 700)
-FPS = 30
-POWERUPS = {
-	"bombpower": 11,
-	"speedup": 12,
-	"addbomb": 13,
-	"healthup": 14,
-}
-
-BLOCKTYPES = {
-	"0": {
-		"solid": False,
-		"permanent": False,
-		"size": BLOCKSIZE,
-		"bitmap": "blackfloor.png",
-		"bgbitmap": "black.png",
-		"powerup": False,
-	},
-	"1": {
-		"solid": True,
-		"permanent": False,
-		"size": BLOCKSIZE,
-		"bitmap": "blocksprite5a.png",
-		"bgbitmap": "black.png",
-		"powerup": False,
-	},
-	"11": {
-		"solid": False,
-		"permanent": False,
-		"size": BLOCKSIZE,
-		"bitmap": "black.png",
-		"bgbitmap": "black.png",
-		"powerup": False,
-	},
-	"2": {
-		"solid": True,
-		"permanent": False,
-		"size": BLOCKSIZE,
-		"bitmap": "blocksprite3b.png",
-		"bgbitmap": "black.png",
-		"powerup": False,
-	},
-	"3": {
-		"solid": True,
-		"permanent": False,
-		"size": BLOCKSIZE,
-		"bitmap": "blocksprite6.png",
-		"bgbitmap": "black.png",
-		"powerup": False,
-	},
-	"4": {
-		"solid": True,
-		"permanent": False,
-		"size": BLOCKSIZE,
-		"bitmap": "blocksprite3.png",
-		"bgbitmap": "black.png",
-		"powerup": False,
-	},
-	"5": {
-		"solid": True,
-		"permanent": True,
-		"size": BLOCKSIZE,
-		"bitmap": "blocksprite1b.png",
-		"bgbitmap": "black.png",
-		"powerup": False,
-	},
-	"10": {
-		"solid": True,
-		"permanent": True,
-		"size": BLOCKSIZE,
-		"bitmap": "blocksprite1.png",
-		"bgbitmap": "black.png",
-		"powerup": False,
-	},
-	"20": {
-		"solid": False,
-		"permanent": False,
-		"size": POWERUPSIZE,
-		"bitmap": "heart.png",
-		"bgbitmap": "blackfloor.png",
-		"powerup": True,
-	},
-}
-
+from constants import *
 
 def random_velocity(direction=None):
 	while True:
@@ -158,10 +52,6 @@ def get_angle(pos_1, pos_2):
 	return math.atan2(dif_y, dif_x)
 
 
-def limit(num, minimum=1, maximum=255):
-	return max(min(num, maximum), minimum)
-
-
 def inside_circle(radius, pos_x, pos_y):
 	x = int(radius)  # radius is the radius
 	for x in range(-x, x + 1):
@@ -172,42 +62,37 @@ def inside_circle(radius, pos_x, pos_y):
 
 def load_image(name, colorkey=None):
 	fullname = os.path.join("data", name)
-	try:
-		image = pygame.image.load(fullname)
-		image = image.convert()
-		if colorkey is not None:
-			if colorkey == -1:
-				colorkey = image.get_at((0, 0))
-			image.set_colorkey(colorkey)
-		return image, image.get_rect()
-	except FileNotFoundError as e:
-		logger.error(f"[load_image] {name} {e}")
-	except pygame.error as e:
-		logger.error(f"[load_image] {name} {e}")
+	image = pygame.image.load(fullname)
+	#image = image.convert()
+	return image, image.get_rect()
 
+class ResourceHandler:
+	def __init__(self):
+		self.name = 'ResourceHandler'
+		self.__images = {}
+	
+	def get_image(self, filename=None, force=False):
+		if force or filename not in list(self.__images.keys()):
+			img = pygame.image.load(filename)
+			rect = img.get_rect()
+			self.__images[filename] = (img, rect)
+			return img, rect
+		else:
+			return self.__images[filename]
+	
+	def has_image(self, filename=None):
+		return filename in self.__images
 
-def dot_product(v1, v2):
-	r = 0.0
-	for a, b in zip(v1, v2):
-		r += a * b
-	return r
+	def set_image_path(self, imgpath=None):
+		self.__imgpath = imgpath
 
-
-def scalar_product(v, n):
-	return [i * n for i in v]
-
-
-def normalize(v):
-	m = 0.0
-	for spam in v:
-		m += spam ** 2.0
-	m = m ** 0.5
-	return [spam / m for spam in v]
-
+	def get_image_path(self):
+		return self.__imgpath
 
 class BasicThing(Sprite):
-	def __init__(self, screen=None, gridpos=None, color=None, vel=Vector2(), accel=Vector2(), dt=None):
+	def __init__(self, screen=None, gridpos=None, color=None, vel=Vector2(), accel=Vector2(), dt=None, pos=Vector2()):
 		Sprite.__init__(self)
+		self.pos = pos
 		self.color = color
 		self.screen = screen
 		self.vel = vel
@@ -242,7 +127,7 @@ class BasicThing(Sprite):
 
 
 class Block(BasicThing):
-	def __init__(self, gridpos=None, block_type=None, blockid=None, pos=None):
+	def __init__(self, gridpos=None, block_type=None, blockid=None, pos=None, reshandler=None):
 		BasicThing.__init__(self)
 		Sprite.__init__(self)
 		self.pos = pos
@@ -257,14 +142,15 @@ class Block(BasicThing):
 		self.timer = 10
 		self.bomb_timer = 1
 		self.poweruptime = 10
-		self.pos = Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
 		self.gridpos = Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
+		# self.pos = Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
 		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
 		self.size = BLOCKTYPES.get(self.block_type)["size"]
 		self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
-		self.image, self.rect = load_image(self.bitmap, -1)
+		self.rm = reshandler
+		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False) #load_image(self.bitmap, -1)
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos.x
@@ -274,19 +160,20 @@ class Block(BasicThing):
 
 	def init_image(self):
 		pass
-		# self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
-		# self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
-		# self.image, self.rect = load_image(self.bitmap, -1)
-		# self.image = pygame.transform.scale(self.image, self.size)
-		# self.rect = self.image.get_rect(topleft=self.pos)
-		# self.rect.x = self.pos.x
-		# self.rect.y = self.pos.y
-		# self.image.set_alpha(255)
-		# self.image.set_colorkey((0, 0, 0))
 
 	def hit(self):
 		if not self.permanent:
-			self.block_type = '0'
+			self.block_type = 0
+			self.solid = False
+			self.image.set_alpha(255)
+			self.image.set_colorkey((0, 0, 0))
+			self.rect = self.image.get_rect(topleft=self.pos)
+			self.rect.x = self.pos.x
+			self.rect.y = self.pos.y
+
+	def _hit(self):
+		if not self.permanent:
+			self.block_type = 0
 			self.solid = False
 			self.image, self.rect = load_image('blackfloor.png', -1)
 			self.image = pygame.transform.scale(self.image, self.size)
@@ -296,19 +183,6 @@ class Block(BasicThing):
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y
 
-	# self.rect = self.image.get_rect()
-
-	def get_type(self):
-		return self.block_type
-
-	def set_type(self, block_type="0"):
-		pass
-
-	def update(self, items=None):
-		pass
-
-	# if len(self.particles) <= 0:
-	#   self.hit = False
 
 	def get_particles(self):
 		return self.particles
@@ -520,10 +394,8 @@ class Bomb(BasicThing):
 
 class Gamemap:
 	def __init__(self, genmap=True):
-		if genmap:
-			self.grid = self.generate()
-		else:
-			self.grid = []
+		self.grid = self.generate()
+		#self.clear_center()
 
 	# @staticmethod
 	def generate(self):
@@ -536,6 +408,16 @@ class Gamemap:
 			grid[0][y] = 10
 			grid[GRIDSIZE[0]][y] = 10
 		return grid
+
+	def clear_center(self):
+		x = int(GRIDSIZE[0] // 2)  # random.randint(2, GRIDSIZE[0] - 2)
+		y = int(GRIDSIZE[1] // 2)  # random.randint(2, GRIDSIZE[1] - 2)
+		# x = int(x)
+		self.grid[x][y] = 0
+		# make a clear radius around spawn point
+		for block in list(inside_circle(3, x, y)):
+			self.grid[block[0]][block[1]] = 0
+		# return grid
 
 	def place_player(self, grid, location=0):
 		# place player somewhere where there is no block
@@ -598,306 +480,6 @@ def gen_randid():
 	hashid = hashlib.sha1()
 	hashid.update(str(time.time()).encode("utf-8"))
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
-
-
-# class NetworkEntity():
-# 	def __init__(self, identifier):
-# 		super(NetworkEntity, self).__init__()
-# 		self.identifier = identifier
-# 		self.x = 0
-# 		self.y = 0
-
-# 	def update(self):
-# 		pass
-
-# 	def move(self, x, y):
-# 		self.x += x
-# 		self.y += y
-class TextInputManager:
-	"""
-	Keeps track of text inputted, cursor position, etc.
-	Pass a validator function returning if a string is valid,
-	and the string will only be updated if the validator function
-	returns true.
-
-	For example, limit input to 5 characters:
-	```
-	limit_5 = lambda x: len(x) <= 5
-	manager = TextInputManager(validator=limit_5)
-	```
-
-	:param initial: The initial string
-	:param validator: A function string -> bool defining valid input
-	"""
-
-	def __init__(self, initial="", validator=lambda x: True):
-
-		self.left = initial  # string to the left of the cursor
-		self.right = ""  # string to the right of the cursor
-		self.validator = validator
-
-	@property
-	def value(self):
-		""" Get / set the value currently inputted. Doesn't change cursor position if possible."""
-		return self.left + self.right
-
-	@value.setter
-	def value(self, value):
-		cursor_pos = self.cursor_pos
-		self.left = value[:cursor_pos]
-		self.right = value[cursor_pos:]
-
-	@property
-	def cursor_pos(self):
-		""" Get / set the position of the cursor. Will clamp to [0, length of input]. """
-		return len(self.left)
-
-	@cursor_pos.setter
-	def cursor_pos(self, value):
-		complete = self.value
-		self.left = complete[:value]
-		self.right = complete[value:]
-
-	def update(self, events):
-		"""
-		Update the interal state with fresh pygame events.
-		Call this every frame with all events returned by `pygame.event.get()`.
-		"""
-		for event in events:
-			if event.type == pl.KEYDOWN:
-				v_before = self.value
-				c_before = self.cursor_pos
-				self._process_keydown(event)
-				if not self.validator(self.value):
-					self.value = v_before
-					self.cursor_pos = c_before
-
-	def _process_keydown(self, ev):
-		attrname = f"_process_{pygame.key.name(ev.key)}"
-		if hasattr(self, attrname):
-			getattr(self, attrname)()
-		else:
-			self._process_other(ev)
-
-	def _process_delete(self):
-		self.right = self.right[1:]
-
-	def _process_backspace(self):
-		self.left = self.left[:-1]
-
-	def _process_right(self):
-		self.cursor_pos += 1
-
-	def _process_left(self):
-		self.cursor_pos -= 1
-
-	def _process_end(self):
-		self.cursor_pos = len(self.value)
-
-	def _process_home(self):
-		self.cursor_pos = 0
-
-	def _process_return(self):
-		pass
-
-	def _process_other(self, event):
-		self.left += event.unicode
-
-
-class TextInputVisualizer:
-	"""
-	Utility class to quickly visualize textual input, like a message or username.
-	Pass events every frame to the `.update` method, then get the surface
-	of the rendered font using the `.surface` attribute.
-
-	All arguments of constructor can also be set via attributes, so e.g.
-	to change `font_color` do
-	```
-	inputVisualizer.font_color = (255, 100, 0)
-	```
-	The surface itself is lazily re-rendered only when the `.surface` field is 
-	accessed, and if any parameters changed since the last `.surface` access, so
-	values can freely be changed between renders without performance overhead.
-
-	:param manager: The TextInputManager used to manage the user input
-	:param font_object: a pygame.font.Font object used for rendering
-	:param antialias: whether to render the font antialiased or not
-	:param font_color: color of font rendered
-	:param cursor_blink_interval: the interval of the cursor blinking, in ms
-	:param cursor_width: The width of the cursor, in pixels
-	:param cursor_color: The color of the cursor
-	"""
-
-	def __init__(self, screen=None, manager=None, font_object=None, antialias=True, font_color=(0, 0, 0), cursor_blink_interval=300, cursor_width=3, cursor_color=(0, 0, 0)):
-		self.screen = screen
-		self._manager = TextInputManager() if manager is None else manager
-		self._font_object = pygame.font.Font(pygame.font.get_default_font(), 25) if font_object is None else font_object
-		self._antialias = antialias
-		self._font_color = font_color
-
-		self._clock = pygame.time.Clock()
-		self._cursor_blink_interval = cursor_blink_interval
-		self._cursor_visible = False
-		self._last_blink_toggle = 0
-
-		self._cursor_width = cursor_width
-		self._cursor_color = cursor_color
-
-		self._surface = pygame.Surface((self._cursor_width, self._font_object.get_height()))
-		self._rerender_required = True
-
-	@property
-	def value(self):
-		""" Get / set the value of text alreay inputted. Doesn't change cursor position if possible."""
-		return self.manager.value
-
-	@value.setter
-	def value(self, v):
-		self.manager.value = v
-
-	@property
-	def manager(self):
-		""" Get / set the underlying `TextInputManager` for this instance"""
-		return self._manager
-
-	@manager.setter
-	def manager(self, v):
-		self._manager = v
-
-	@property
-	def surface(self):
-		""" Get the surface with the rendered user input """
-		if self._rerender_required:
-			self._rerender()
-			self._rerender_required = False
-		return self._surface
-
-	@property
-	def antialias(self):
-		""" Get / set antialias of the render """
-		return self._antialias
-
-	@antialias.setter
-	def antialias(self, v):
-		self._antialias = v
-		self._require_rerender()
-
-	@property
-	def font_color(self):
-		""" Get / set color of rendered font """
-		return self._font_color
-
-	@font_color.setter
-	def font_color(self, v):
-		self._font_color = v
-		self._require_rerender()
-
-	@property
-	def font_object(self):
-		""" Get / set the font object used to render the text """
-		return self._font_object
-
-	@font_object.setter
-	def font_object(self, v):
-		self._font_object = v
-		self._require_rerender()
-
-	@property
-	def cursor_visible(self):
-		""" Get / set cursor visibility (flips again after `.cursor_interval` if continuously update)"""
-		return self._cursor_visible
-
-	@cursor_visible.setter
-	def cursor_visible(self, v):
-		self._cursor_visible = v
-		self._last_blink_toggle = 0
-		self._require_rerender()
-
-	@property
-	def cursor_width(self):
-		""" Get / set width in pixels of the cursor """
-		return self._cursor_width
-
-	@cursor_width.setter
-	def cursor_width(self, v):
-		self._cursor_width = v
-		self._require_rerender()
-
-	@property
-	def cursor_color(self):
-		""" Get / set the color of the cursor """
-		return self._cursor_color
-
-	@cursor_color.setter
-	def cursor_color(self, v):
-		self._cursor_color = v
-		self._require_rerender()
-
-	@property
-	def cursor_blink_interval(self):
-		""" Get / set the interval of time with which the cursor blinks (toggles), in ms"""
-		return self._cursor_blink_interval
-
-	@cursor_blink_interval.setter
-	def cursor_blink_interval(self, v):
-		self._cursor_blink_interval = v
-
-	def draw(self, screen):
-		screen.blit(self.surface, (100, 300))
-
-	def update(self, events: pygame.event.Event):
-		"""
-		Update internal state.
-		
-		Call this once every frame with all events returned by `pygame.event.get()`
-		"""
-
-		# Update self.manager internal state, rerender if value changes
-		value_before = self.manager.value
-		self.manager.update(events)
-		if self.manager.value != value_before:
-			self._require_rerender()
-
-		# Update cursor visibility after self._blink_interval milliseconds
-		self._clock.tick()
-		self._last_blink_toggle += self._clock.get_time()
-		if self._last_blink_toggle > self._cursor_blink_interval:
-			self._last_blink_toggle %= self._cursor_blink_interval
-			self._cursor_visible = not self._cursor_visible
-
-			self._require_rerender()
-
-		# Make cursor visible when something is pressed
-		if [event for event in events if event.type == pl.KEYDOWN]:
-			self._last_blink_toggle = 0
-			self._cursor_visible = True
-			self._require_rerender()
-
-	def _require_rerender(self):
-		"""
-		Trigger a re-render of the surface the next time the surface is accessed.
-		"""
-		self._rerender_required = True
-
-	def _rerender(self):
-		""" Rerender self._surface."""
-		# Final surface is slightly larger than font_render itself, to accomodate for cursor
-		rendered_surface = self.font_object.render(self.manager.value + " ", self.antialias, self.font_color)
-		w, h = rendered_surface.get_size()
-		self._surface = pygame.Surface((w + self._cursor_width, h))
-		self._surface = self._surface.convert_alpha(rendered_surface)
-		self._surface.fill((0, 0, 0, 0))
-		self._surface.blit(rendered_surface, (0, 0))
-
-		if self._cursor_visible:
-			str_left_of_cursor = self.manager.value[:self.manager.cursor_pos]
-			cursor_y = self.font_object.size(str_left_of_cursor)[0]
-			cursor_rect = pygame.Rect(cursor_y, 0, self._cursor_width, self.font_object.get_height())
-			self._surface.fill(self._cursor_color, cursor_rect)
-
-
-def check_threads(threads):
-	return True in [t.is_alive() for t in threads]
 
 
 def stop_all_threads(threads):

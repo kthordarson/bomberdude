@@ -1,7 +1,5 @@
 import socket
 from signal import signal, SIGPIPE, SIG_DFL
-# Ignore SIG_PIPE and don't throw exceptions on it... (http://docs.python.org/library/signal.html)
-# signal(SIGPIPE,SIG_DFL)
 
 import sys
 from queue import Empty, Queue
@@ -17,10 +15,6 @@ from globals import StoppableThread
 from globals import gen_randid
 from netutils import data_identifiers, DataReceiver, DataSender
 from threading import enumerate, Thread
-
-
-# fmt = "{time} | {level: <8} | {name: ^15} | {function: ^15} | {line: >3} | {message}"
-# logger.add(sys.stdout, format=fmt)
 
 def empty_queue(queue_to_empty: Queue):
 	while queue_to_empty.qsize() != 0:
