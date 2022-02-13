@@ -13,7 +13,9 @@ from constants import *
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread, enumerate
-
+from queue import Empty, Queue
+from netutils import DataReceiver, DataSender
+from bombserver import ServerThread
 class Game(Thread):
 	def __init__(self, screen, game_dt):
 		Thread.__init__(self, name='game')
@@ -39,6 +41,8 @@ class Game(Thread):
 		self.DEBUGFONTCOLOR = (123, 123, 123)
 		self.DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
 		self.rm = ResourceHandler()
+		self.main_queue = Queue()
+		self.server = ServerThread(blocks=self.blocks, players=self.players, gamemap=self.gamemap, serverqueue=self.main_queue)
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -59,7 +63,7 @@ class Game(Thread):
 			flame_coll = spritecollide(flame, self.blocks, False)
 			for block in flame_coll:
 				if block.block_type == 1 or block.block_type == 2:  # or block.block_type == '3' or block.block_type == '4':
-					powerup = Powerup(pos=block.rect.center, dt=dt)
+					powerup = Powerup(pos=block.rect.center, dt=dt, reshandler=self.rm)
 					self.powerups.add(powerup)
 					draw_debug_block(self.screen, block)
 				if block.solid:
@@ -77,17 +81,17 @@ class Game(Thread):
 					particle.kill()
 					self.particles.remove(particle)
 
-	def update(self):		
+	def update(self, player1):
 		self.players.update(self.blocks)
 		self.blocks.update()
 		self.update_bombs()
 		self.update_flames()
 		self.update_particles()
 
-		# powerblock_coll = [spritecollide(player, self.powerups, False) for player in self.players]
-		# for pc in powerblock_coll:
-		# 	[player.take_powerup(powerup=random.choice([1, 2, 3])) for player in self.players]
-		# 	#pc.kill()
+		powerblock_coll = spritecollide(player1, self.powerups, False)
+		for pc in powerblock_coll:
+			player1.take_powerup(powerup=random.choice([1, 2, 3]))
+			pc.kill()
 		self.blocks.update(self.blocks)
 		self.powerups.update()
 
@@ -100,14 +104,17 @@ class Game(Thread):
 		self.blocks.empty()
 		logger.debug(f'mapreset blocks cleared')
 		idx = 0
-		for k in range(0, GRIDSIZE[0] + 1): 
+		for k in range(0, GRIDSIZE[0] + 1):
 			for j in range(0, GRIDSIZE[1] + 1):
 				newblock = Block(pos=Vector2(j*BLOCKSIZE[0], k*BLOCKSIZE[1]), gridpos=(j, k), block_type=self.gamemap.grid[j][k], reshandler=self.rm)
 				self.blocks.add(newblock)
 				idx += 1
 		logger.debug(f'mapreset {idx} blocks loaded')
+		self.server.set_blocks(self.blocks)
+		self.server.set_gamemap(self.gamemap)
+		
 
-	def draw(self):
+	def draw(self, player1):
 		# draw on screen
 		pygame.display.flip()
 		self.screen.fill(self.bg_color)
@@ -117,8 +124,6 @@ class Game(Thread):
 		self.particles.draw(self.screen)
 		self.players.draw(self.screen)
 		self.flames.draw(self.screen)
-
-
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
 		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=player1, flames=self.flames)
@@ -126,6 +131,8 @@ class Game(Thread):
 			draw_debug_sprite(self.screen, self.players, self.DEBUGFONT)
 		if self.show_debug_diaglog:
 			self.debug_dialog.draw_debug_players(players=self.players)
+		self.debug_dialog.draw_mouse_pos()
+		self.debug_dialog.draw_server_debug(server=self.server, player1=player1)
 
 	def handle_menu(self, selection, player1):
 		# mainmenu
@@ -136,17 +143,20 @@ class Game(Thread):
 			self.show_mainmenu ^= True
 
 		if selection == "Start":
-			# self.gamemap.grid = self.gamemap.place_player(location=0, grid=self.gamemap.grid)
 			self.show_mainmenu ^= True
 			self.reset_map()
-			# self.blocks.empty()
-			#_ = [self.blocks.add(Block(gridpos=(j, k), block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
-			
+			player1.connect_server()
+
+
+
 		if selection == "Restart":
 			self.show_mainmenu ^= True
 
 		if selection == "Start server":
-			logger.debug(f'Starting server ...')
+			if not self.server.is_alive():
+				self.server.start()
+				logger.debug(f'Starting server ...')
+				pygame.display.set_caption(f'servermode')
 
 		if selection == "Connect to server":
 			self.show_mainmenu = False
@@ -167,12 +177,15 @@ class Game(Thread):
 					self.show_mainmenu ^= True
 				if event.key == pygame.K_q:
 					# quit game
+					if self.server.is_alive():
+						logger.debug(f'server running:{self.server.is_alive()} killing')
+						self.server.kill = True
+						self.server.join(timeout=1)
 					player1.kill = True
 					self.running = False
 					# self.player1.stop()
 				if event.key == pygame.K_2:
-					logger.debug(f'mapreset')
-					self.reset_map()
+					pass
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
@@ -180,9 +193,10 @@ class Game(Thread):
 				if event.key == pygame.K_p:
 					self.show_panel ^= True
 				if event.key == pygame.K_m:
-					pass
-				if event.key == pygame.K_q:
-					pass
+					logger.debug(f'mapreset')
+					self.reset_map()
+				if event.key == pygame.K_n:
+					self.server.start()
 				if event.key == pygame.K_g:
 					pass
 				if event.key == pygame.K_r:
@@ -209,7 +223,7 @@ class Game(Thread):
 				if event.key == pygame.K_d:
 					pass
 				if event.key in {pygame.K_DOWN, pygame.K_s}:
-					player1.vel.y = 0					
+					player1.vel.y = 0
 				if event.key in {pygame.K_UP, pygame.K_w}:
 					player1.vel.y = 0
 				if event.key in {pygame.K_RIGHT, pygame.K_d}:
@@ -218,6 +232,8 @@ class Game(Thread):
 					player1.vel.x = 0
 			if event.type == pygame.QUIT:
 				self.running = False
+			# if event_type == pygame.MOUSEBUTTONDOWN:
+			#	mousex, mousey = pygame.mouse.get_pos()
 
 
 if __name__ == "__main__":
@@ -244,8 +260,30 @@ if __name__ == "__main__":
 		# main game loop logic stuff
 		game.handle_input(player1)
 		pygame.event.pump()
-		game.update()
-		game.draw()
+		game.update(player1)
+		game.draw(player1)
+		if player1.connected:
+			for npl in player1.net_players:
+				try:
+					data = player1.net_players[npl].split(',')
+					cx, cy, *rest = data
+					cx = int(cx.strip('['))
+					cy = int(cy.strip(']'))
+					pygame.draw.circle(pyscreen, color=(255,255,255), center=(cx, cy), radius=10)
+				except (TypeError, ValueError) as e:
+					logger.error(f'Err: {e} npl:{npl} p1npl:{player1.net_players[npl]} cx:{cx} cy:{cy} rest:{rest}')
+			player1.send_pos()
+			npc = len(list(game.server.net_players))
+			idx = 0
+			for cl in game.server.clients:
+				game.server.net_players[cl.client_id] = cl.pos
+			for net_player in list(game.server.net_players):
+				playerdata = f'{net_player}:{game.server.net_players[net_player]}'
+				for cl in game.server.clients:
+					cl.send_net_players(playerdata)
+					#logger.debug(f'[{idx}/{npc}]sending net_player: {playerdata} to {cl.client_id}')
+					idx += 1
+
 	logger.debug(f'game end {game.running} {player1.kill}')
 	player1.kill = True
 	pygame.quit()

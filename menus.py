@@ -9,14 +9,40 @@ class DebugDialog:
 	def __init__(self, screen):
 		self.screen = screen
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
-		self.menusize = (250, 180)
+		self.menusize = (200, 80)
 		self.image = pygame.Surface(self.menusize)
-	
+		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+		self.font_color = (255, 255, 255)
+		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		self.pos = Vector2(self.screenw-self.menusize[0],self.screenh-80)
+		self.rect = self.image.get_rect(topleft=self.pos)
+		
+	def draw_menubg(self):
+		self.bordercolor = pygame.Color("white")
+		bordersize = 1
+		menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
+		#pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1]))  # background
+		pygame.draw.line(self.screen, self.bordercolor, menupos ,(menupos[0], menupos[1] + self.menusize[1]), bordersize)  # left border
+		pygame.draw.line(self.screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # right border
+		pygame.draw.line(self.screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize)  # top border
+		pygame.draw.line(self.screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # bottom border
+		self.bordercolor = pygame.Color("black")
+		#pass
+
+
 	def draw_debug_info(self, debuginfo=None):
 		pass
 
 	def draw_debug_players(self, players=None):
 		pass
+
+	def draw_mouse_pos(self):
+		self.draw_menubg()
+		# self.font.render_to(self.screen, self.pos, f'm:{pygame.mouse.get_pos()}', self.font_color)
+	
+	def draw_server_debug(self, server=None, player1=None):
+		self.font.render_to(self.screen, self.pos, f'skill:{server.kill} a:{server.is_alive()} bl:{len(server.blocks)} pl:{len(server.players)} cl:{len(server.clients)}', self.font_color)
+		self.font.render_to(self.screen, self.pos +(0,12) , f'p1conn:{player1.connected} spc:{player1.send_pos_count}', self.font_color)
 class Menu:
 	def __init__(self, screen):
 		self.screen = screen
@@ -39,6 +65,9 @@ class Menu:
 		# self.menufont.bgcolor = (44,55,66)
 		self.menuitems = ['Start','Connect to server','Start server','Stop server','Pause','Restart','Quit']
 		self.selected_item = 0
+
+	def set_pos(self, newpos: Vector2):
+		self.pos = newpos
 
 	def get_menuitems(self):
 		return self.menuitems

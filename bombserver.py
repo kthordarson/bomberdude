@@ -104,33 +104,21 @@ class ClientThread(Thread):
 		self.sq.put((data_identifiers['blockdata'], self.blocks))
 
 	def send_gamemapgrid(self):
-		logger.debug(f'sending gamedata mapgrid {len(self.gamemap.grid)} sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()}')
+		logger.debug(f'[{self.client_id}] sending gamedata mapgrid {len(self.gamemap.grid)} sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()}')
 		# send_data(conn=self.clientconnection, payload=data, data_id=data_identifiers['data'])
 		self.sq.put((data_identifiers['mapdata'], self.gamemap.grid))
 
 	def handle_posdata(self, payload):
-		# logger.debug(payload)
+		# logger.debug(f'[{self.client_id}] got pos {payload}')
+		self.pos = payload
 		# self.pos = [k for k in payload.values()][0]
-		clid = payload.split(':')[0]
-		if clid == '-2':
-			return
-		if clid is None:
-			logger.error(f'[{self.client_id}] no client id in payload: {payload}')
-			return
-		clpos = payload.split(':')[1]
-		if self.client_id != clid:
-			logger.error(f'[{self.client_id}] from payload clid:{clid} clp:{clpos} sq:{self.sq.qsize()} rq:{self.rq.qsize()}')
-		# self.client_id = clid
-		self.pos = clpos
 
-	def send_net_players(self, payload):
-		idx = 0
-		# logger.debug(f'client {payload} requesting net_players')
-		for player in list(self.net_players):
-			pd = f'{player}:{self.net_players[player]}:{idx}'
-			idx += 1
-			# logger.debug(f'[{self.client_id}] send netplayer nr:{idx}/{len(self.net_players)} pd:{pd}')
-			self.sq.put((data_identifiers['player'], pd))
+	def send_net_players(self, playerdata):
+		playerid = playerdata.split(':')[0]
+		playerpos = playerdata.split(':')[1]
+		pd = f'{playerid}:{playerpos}'
+		#logger.debug(f'[{self.client_id}] send netplayer pd:{pd}')
+		self.sq.put((data_identifiers['player'], pd))
 		# self.sq.put((data_identifiers['player'], pd))
 
 	def process_recvq(self):
@@ -158,8 +146,8 @@ class ClientThread(Thread):
 			if data_id == data_identifiers['send_pos']:
 				self.handle_posdata(payload)
 			# return self.rq.qsize(), self.sq.qsize()
-			if data_id == data_identifiers['request'] and payload == 'get_net_players':
-				self.send_net_players(payload)
+			# if data_id == data_identifiers['request'] and payload == 'get_net_players':
+			#	self.send_net_players(payload)
 			# return self.rq.qsize(), self.sq.qsize()
 			if data_id == data_identifiers['heartbeat'] and payload[:9] == 'heartbeat':
 				self.hbcount = int(payload[10:])
@@ -169,18 +157,14 @@ class ClientThread(Thread):
 
 class ConnectionHandler(Thread):
 	def __init__(self, name='connhandler', socket=None, serverqueue=None, localaddr=None):
-		# StoppableThread.__init__(self, name='connhandler')
 		Thread.__init__(self, name='connhandler')
 		self.name = name
-		self.socket = socket  # socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-		# self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.socket = socket
 		self.serverqueue = serverqueue
 		self.localaddr = localaddr
 		self.kill = False
 
 	def run(self):
-		# self.connsocket.bind(4)
-		# self.socket.bind(self.localaddr)
 		while True:
 			clientconn = None
 			clientaddr = None
@@ -197,9 +181,8 @@ class ConnectionHandler(Thread):
 
 
 class ServerThread(Thread):
-	def __init__(self, name='serverthread', listenaddr='127.0.0.1', port=6666, serverqueue=None):
+	def __init__(self, name='serverthread', listenaddr='127.0.0.1', port=6666, serverqueue=None, blocks=None, players=None, gamemap=None):
 		Thread.__init__(self, name='serverthread')
-		# StoppableThread.__init__(self, name='serverthread')
 		self.name = name
 		self.serverqueue = serverqueue
 		self.client_q = Queue()
@@ -207,13 +190,22 @@ class ServerThread(Thread):
 		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.kill = False
-		self.blocks = Group()
-		self.players = Group()
-		self.gamemap = Gamemap()
-		self.gamemap.grid = self.gamemap.place_player(self.gamemap.grid, 0)
+		self.blocks = blocks
+		self.players = players
+		self.gamemap = gamemap
 		self.clients = []
 		self.net_players = {}
 		self.connhandler = ConnectionHandler(name='connhandler', socket=self.socket, serverqueue=self.serverqueue, localaddr=self.localaddr)
+		self.daemon = True
+		self.connhandler.daemon = True
+
+	def set_blocks(self, blocks):
+		logger.debug(f'{self.name} got {len(blocks)} blocks')
+		self.blocks = blocks
+
+	def set_gamemap(self, gamemap):
+		logger.debug(f'{self.name} got gamemap')
+		self.gamemap = gamemap
 
 	def kill_server(self):
 		logger.debug(f'[srv] kill self: {self.name}')
@@ -230,7 +222,7 @@ class ServerThread(Thread):
 		self.socket.listen(0)
 		self.connhandler.start()
 		self.kill = False
-		while not self.kill:
+		while True:
 			if self.kill:
 				logger.debug(f'server killing self:{self.name} k:{self.kill}')
 				self.connhandler.kill = True
@@ -256,20 +248,7 @@ class ServerThread(Thread):
 					cl.net_players = self.net_players
 				self.serverqueue.task_done()
 				logger.debug(f'[srv] new client id:{cl.client_id} total: {len(self.clients)} sq:{cl.client_q.qsize()}')
-			for cl in self.clients:
-				self.net_players[cl.client_id] = cl.get_pos()
 
-	#			for np in self.net_players:
-	#				data = f'player:{self.net_players[np]}'
-	#				self.client_q.put(data)
-
-	def init_blocks(self):
-		pass
-
-	# _ = [self.blocks.add(Block(gridpos=(j, k), block_type=str(self.gamemap.grid[j][k]))) for k in range(0, GRIDSIZE[0] + 1) for j in range(0, GRIDSIZE[1] + 1)]
-
-	def player_action(self, player, action):
-		pass
 
 
 if __name__ == '__main__':

@@ -150,7 +150,7 @@ class Block(BasicThing):
 		self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
 		self.rm = reshandler
-		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False) #load_image(self.bitmap, -1)
+		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos.x
@@ -171,18 +171,6 @@ class Block(BasicThing):
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y
 
-	def _hit(self):
-		if not self.permanent:
-			self.block_type = 0
-			self.solid = False
-			self.image, self.rect = load_image('blackfloor.png', -1)
-			self.image = pygame.transform.scale(self.image, self.size)
-			self.image.set_alpha(255)
-			self.image.set_colorkey((0, 0, 0))
-			self.rect = self.image.get_rect(topleft=self.pos)
-			self.rect.x = self.pos.x
-			self.rect.y = self.pos.y
-
 
 	def get_particles(self):
 		return self.particles
@@ -196,27 +184,24 @@ class Block(BasicThing):
 		# flame.vel = Vector2(flame.vel[0], flame.vel[1])
 		for k in range(1, 10):
 			if flame.vel.x < 0:  # flame come from left
-				self.particles.add(
-					Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
+				self.particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right"), reshandler=self.rm))  # make particle go right
 			elif flame.vel.x > 0:  # right
-				self.particles.add(
-					Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left")))  # for k in range(1,2)]
+				self.particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left"), reshandler=self.rm))  # for k in range(1,2)]
 			elif flame.vel.y > 0:  # down
-				self.particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(
-					direction="up")))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
+				self.particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up"), reshandler=self.rm))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
 			elif flame.vel.y < 0:  # up
-				self.particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(
-					direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
+				self.particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down"), reshandler=self.rm))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
 		return self.particles
 
 
 class Powerup(BasicThing):
-	def __init__(self, pos=None, vel=None, dt=None):
+	def __init__(self, pos=None, vel=None, dt=None, reshandler=None):
 		# super().__init__()
 		BasicThing.__init__(self)
 		Sprite.__init__(self)
+		self.rm = reshandler
 		self.dt = dt
-		self.image, self.rect = load_image("heart.png", -1)
+		self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
 		self.size = POWERUPSIZE
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect()
@@ -235,13 +220,14 @@ class Powerup(BasicThing):
 
 
 class Particle(BasicThing):
-	def __init__(self, pos=None, vel=None, dt=None):
+	def __init__(self, pos=None, vel=None, dt=None, reshandler=None):
 		# super().__init__()
 		BasicThing.__init__(self)
 		Sprite.__init__(self)
+		self.rm = reshandler
 		self.dt = dt
 		self.pos = Vector2(pos)
-		self.image, self.rect = load_image("greenorb.png", -1)
+		self.image, self.rect = self.rm.get_image(filename='data/greenorb.png', force=False)
 		self.size = PARTICLESIZE
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.alpha = 255
@@ -295,15 +281,16 @@ class Particle(BasicThing):
 
 
 class Flame(BasicThing):
-	def __init__(self, pos=None, vel=None, direction=None, dt=None, flame_length=None):
+	def __init__(self, pos=None, vel=None, direction=None, dt=None, flame_length=None, reshandler=None):
 		# super().__init__()
 		BasicThing.__init__(self)
 		Sprite.__init__(self)
+		self.rm = reshandler
 		self.dt = dt
 		if vel[0] == -1 or vel[0] == 1:
-			self.image, self.rect = load_image("flame4.png", -1)
+			self.image, self.rect = self.rm.get_image(filename='data/flame4.png', force=False)
 		elif vel[1] == -1 or vel[1] == 1:
-			self.image, self.rect = load_image("flame3.png", -1)
+			self.image, self.rect = self.rm.get_image(filename='data/flame3.png', force=False)
 		self.image = pygame.transform.scale(self.image, FLAMESIZE)
 		# dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]
 		self.size = FLAMESIZE
@@ -354,12 +341,13 @@ class Flame(BasicThing):
 
 
 class Bomb(BasicThing):
-	def __init__(self, pos=None, bomber_id=None, bomb_power=None, dt=None):
+	def __init__(self, pos=None, bomber_id=None, bomb_power=None, dt=None, reshandler=None):
 		Sprite.__init__(self)
 		BasicThing.__init__(self)
+		self.rm = reshandler
 		self.dt = dt
 		self.pos = pos
-		self.image, self.rect = load_image("bomb.png", -1)
+		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		# self.gridpos = gridpos
 		self.bomber_id = bomber_id
@@ -385,7 +373,7 @@ class Bomb(BasicThing):
 		if not self.flamesout:
 			self.flames = Group()
 			dirs = [Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1), Vector2(0, -1)]
-			flex = [Flame(pos=Vector2(self.pos), vel=k, dt=self.dt, flame_length=self.flame_len) for k in dirs]
+			flex = [Flame(pos=Vector2(self.pos), vel=k, dt=self.dt, flame_length=self.flame_len, reshandler=self.rm) for k in dirs]
 			for f in flex:
 				self.flames.add(f)
 			self.flamesout = True
