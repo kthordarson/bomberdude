@@ -41,8 +41,9 @@ class DebugDialog:
 		# self.font.render_to(self.screen, self.pos, f'm:{pygame.mouse.get_pos()}', self.font_color)
 	
 	def draw_server_debug(self, server=None, player1=None):
-		self.font.render_to(self.screen, self.pos, f'skill:{server.kill} a:{server.is_alive()} bl:{len(server.blocks)} pl:{len(server.players)} cl:{len(server.clients)}', self.font_color)
-		self.font.render_to(self.screen, self.pos +(0,12) , f'p1conn:{player1.connected} spc:{player1.send_pos_count}', self.font_color)
+		pass
+		#self.font.render_to(self.screen, self.pos, f'skill:{server.kill} a:{server.is_alive()} bl:{len(server.blocks)} pl:{len(server.players)} cl:{len(server.clients)}', self.font_color)
+		#self.font.render_to(self.screen, self.pos +(0,12) , f'p1conn:{player1.connected} spc:{player1.send_pos_count}', self.font_color)
 class Menu:
 	def __init__(self, screen):
 		self.screen = screen

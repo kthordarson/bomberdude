@@ -17,7 +17,7 @@ from queue import Empty, Queue
 from netutils import DataReceiver, DataSender
 from bombserver import ServerThread
 class Game(Thread):
-	def __init__(self, screen, game_dt):
+	def __init__(self, screen=None, game_dt=None, server=None):
 		Thread.__init__(self, name='game')
 		# StoppableThread.__init__(self, name='Game')
 		self.kill = False
@@ -42,7 +42,7 @@ class Game(Thread):
 		self.DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
 		self.rm = ResourceHandler()
 		self.main_queue = Queue()
-		self.server = ServerThread(blocks=self.blocks, players=self.players, gamemap=self.gamemap, serverqueue=self.main_queue)
+		self.server = server # ServerThread(blocks=self.blocks, players=self.players, mainmap=self.gamemap, serverqueue=self.main_queue)
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -246,7 +246,10 @@ if __name__ == "__main__":
 	pyscreen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 	mainClock = pygame.time.Clock()
 	dt = mainClock.tick(FPS) / 1000
-	game = Game(pyscreen, dt)
+	mainmap = Gamemap()
+	serverqueue = Queue()
+	server = ServerThread(name='bombserver', serverqueue=serverqueue, mainmap=mainmap)
+	game = Game(screen=pyscreen, game_dt=dt, server=server)
 	game.start()
 	game.running = True
 	player1 = Player(pos=(300, 300), dt=game.dt, image='data/player1.png')

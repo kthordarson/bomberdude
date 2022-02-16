@@ -181,7 +181,7 @@ class ConnectionHandler(Thread):
 
 
 class ServerThread(Thread):
-	def __init__(self, name='serverthread', listenaddr='127.0.0.1', port=6666, serverqueue=None, blocks=None, players=None, gamemap=None):
+	def __init__(self, name='serverthread', listenaddr='127.0.0.1', port=6666, serverqueue=None, blocks=None, players=None, mainmap=None):
 		Thread.__init__(self, name='serverthread')
 		self.name = name
 		self.serverqueue = serverqueue
@@ -192,7 +192,7 @@ class ServerThread(Thread):
 		self.kill = False
 		self.blocks = blocks
 		self.players = players
-		self.gamemap = gamemap
+		self.gamemap = mainmap
 		self.clients = []
 		self.net_players = {}
 		self.connhandler = ConnectionHandler(name='connhandler', socket=self.socket, serverqueue=self.serverqueue, localaddr=self.localaddr)
@@ -254,15 +254,15 @@ class ServerThread(Thread):
 if __name__ == '__main__':
 	mainthreads = []
 	serverqueue = Queue()
-	server = ServerThread(name='bombserver', serverqueue=serverqueue)
+	mainmap = Gamemap()
+	server = ServerThread(name='bombserver', serverqueue=serverqueue, mainmap=mainmap)
 	mainthreads.append(server)
 	server.daemon = True
 	server.connhandler.daemon = True
 	server.start()
 
 	server.gamemap.grid = server.gamemap.generate()
-	server.init_blocks()
-	logger.debug(f'gamemap {len(server.gamemap.grid)} blocks {len(server.blocks)}')
+	logger.debug(f'gamemap {len(server.gamemap.grid)} ')
 	server_running = True
 	while server_running:
 		try:
