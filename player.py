@@ -47,6 +47,7 @@ class Player(BasicThing, Thread):
 		self.recv_thread = DataReceiver(r_socket=self.socket, queue=self.rq, name=self.client_id)
 		self.send_thread = DataSender(s_socket=self.socket, queue=self.sq, name=self.client_id)
 		self.connected = False
+		self.got_server_data = False
 		self.send_pos_count = 0
 		self.net_players = {}
 		logger.debug(f'[player] init pos:{pos} dt:{dt} i:{image}  client_id:{self.client_id}')
@@ -67,6 +68,9 @@ class Player(BasicThing, Thread):
 		self.send_thread.start()
 		self.get_server_map()
 		self.connected = True
+	
+	def get_server_data(self):
+		pass
 
 	def get_server_blocks(self):
 		self.sq.put((data_identifiers['request'], 'gameblocks'))
@@ -84,6 +88,7 @@ class Player(BasicThing, Thread):
 
 	def run(self):
 		self.kill = False
+		logger.debug(f'Player {self.client_id} start')
 		while True:
 			data_id = None
 			payload = None
@@ -91,25 +96,45 @@ class Player(BasicThing, Thread):
 				logger.debug(f'player kill')
 				break
 			try:
-				data_id, payload = self.rq.get()
+				data_id, payload = self.rq.get(block=False)
 			except Empty:
 				pass
 			if data_id:
+				data_id = int(data_id)
 				if data_id == -1:
 					pass
-				if data_id == 2:
+				elif data_id == data_identifiers['sendyourpos']:
+					self.sq.put_nowait((data_identifiers['posupdate'], self.pos))
+				elif data_id == data_identifiers['debugdump'] or data_id == 16:
+					pass
+					# self.debugdump(payload)
+				elif data_id == data_identifiers['nplpos']:
+					pass
+					# logger.debug(f'npl: {payload}')
+				elif data_id == data_identifiers['bcastmsg']:
+					logger.debug(f'bcastmsg: {payload}')
+				elif data_id == data_identifiers['player']:
 					playerid = payload.split(':')[0]
 					playerpos = payload.split(':')[1]
 					self.net_players[playerid] = playerpos
-					# logger.debug(f'[{self.client_id}] npl:{len(self.net_players)} got playerdata dataid: {data_id} payload: {payload} playerid:{playerid} playerpos:{playerpos}')
-				elif data_id == 6:
+					logger.debug(f'[{self.client_id}] npl:{len(self.net_players)} got playerdata dataid: {data_id} payload: {payload} playerid:{playerid} playerpos:{playerpos}')
+				elif data_id == data_identifiers['send_pos']:
+					logger.debug(f'[{self.client_id}] got {data_id} {payload}')				
+				elif data_id == data_identifiers['setclientid']:
 					logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload}')
 					self.client_id = payload
 					logger.debug(f'[{self.client_id}] client_id set')
+				elif data_id == data_identifiers['mapdata'] or data_id == 10:
+					self.mapgrid = payload
+					self.got_server_data = True
+					self.connected = True
+					logger.debug(f'gotmapgrid: {len(self.mapgrid)} gd:{self.got_server_data} c:{self.connected}')
 				else:
-					pass
-					#logger.error(f'[{self.client_id}] got unknown dataid: {data_id} payload: {payload}')
-				self.rq.task_done()
+					# pass
+					logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload}')
+				if not self.got_server_data:
+					self.get_server_map()
+				self.send_pos()
 
 	def bombdrop(self):
 		if self.bombs_left > 0:

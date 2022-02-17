@@ -9,12 +9,13 @@ class DebugDialog:
 	def __init__(self, screen):
 		self.screen = screen
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
-		self.menusize = (200, 80)
+		self.menusize = (400, 80)
 		self.image = pygame.Surface(self.menusize)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.font_color = (255, 255, 255)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
-		self.pos = Vector2(self.screenw-self.menusize[0],self.screenh-80)
+		# self.pos = Vector2(self.screenw-self.menusize[0],self.screenh-80)
+		self.pos = Vector2(10,500)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		
 	def draw_menubg(self):
@@ -41,9 +42,10 @@ class DebugDialog:
 		# self.font.render_to(self.screen, self.pos, f'm:{pygame.mouse.get_pos()}', self.font_color)
 	
 	def draw_server_debug(self, server=None, player1=None):
-		pass
-		#self.font.render_to(self.screen, self.pos, f'skill:{server.kill} a:{server.is_alive()} bl:{len(server.blocks)} pl:{len(server.players)} cl:{len(server.clients)}', self.font_color)
-		#self.font.render_to(self.screen, self.pos +(0,12) , f'p1conn:{player1.connected} spc:{player1.send_pos_count}', self.font_color)
+		self.font.render_to(self.screen, self.pos, f'skill:{server.kill} a:{server.is_alive()} p1sendpos:{player1.send_pos_count}', self.font_color)
+		self.font.render_to(self.screen, self.pos + Vector2(0, 12), f'p1conn:{player1.connected} d:{player1.got_server_data} sq:{player1.sq.qsize()} rq:{player1.rq.qsize()}', self.font_color)
+		self.font.render_to(self.screen, self.pos + Vector2(0, 24), f's: {server.name} scl:{len(server.clients)} snp:{len(server.net_players)} sconnh:{len(server.connhandler.connections)} clql:{server.client_q.qsize()} n1:{server.get_net_players_count()} n2:{server.get_client_count()} n3:{server.get_connh_count()}', self.font_color)
+
 class Menu:
 	def __init__(self, screen):
 		self.screen = screen

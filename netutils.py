@@ -7,7 +7,29 @@ from threading import Thread
 from globals import StoppableThread
 import socket
 
-data_identifiers = {'info': 0, 'data': 1, 'player': 2, 'netupdate': 3, 'request': 4, 'connect': 5, 'setclientid': 6, 'heartbeat': 7, 'send_pos': 8, 'getclientid': 9, 'mapdata': 10, 'blockdata':11, 'get_net_players':12, 'newplayer':13, 'gamemapgrid':14, 'gameblocks':15}
+data_identifiers = {
+	'info': 0,
+	'data': 1,
+	'player': 2,
+	'netupdate': 3,
+	'request': 4,
+	'connect': 5,
+	'setclientid': 6,
+	'heartbeat': 7,
+	'send_pos': 8,
+	'getclientid': 9,
+	'mapdata': 10,
+	'blockdata': 11,
+	'get_net_players': 12,
+	'newplayer': 13,
+	'gamemapgrid': 14,
+	'gameblocks': 15,
+	'debugdump': 16,
+	'nplpos': 17,
+	'bcastmsg': 18,
+	'sendyourpos': 19,
+	'posupdate': 20
+}
 
 
 def send_data(conn=None, payload=None, data_id=0):
@@ -88,8 +110,14 @@ class DataReceiver(Thread):
 
 	def run(self):
 		while True:
+			data_id = None
+			payload = None
 			if self.kill:
 				break
-			data_id, payload = receive_data(self.socket)
-			self.queue.put((data_id, payload))
+			try:
+				data_id, payload = receive_data(self.socket)
+			except ConnectionResetError as e:
+				logger.error(f'{e}')
+			if data_id:
+				self.queue.put((data_id, payload))
 			# self.queue.task_done()

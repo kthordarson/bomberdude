@@ -161,7 +161,7 @@ class Game(Thread):
 		if selection == "Connect to server":
 			self.show_mainmenu = False
 
-	def handle_input(self, player1):
+	def handle_input(self, server=None, player1=None):
 		events = pygame.event.get()
 		for event in events:
 			if event.type == pygame.KEYDOWN:
@@ -185,7 +185,7 @@ class Game(Thread):
 					self.running = False
 					# self.player1.stop()
 				if event.key == pygame.K_2:
-					pass
+					debugdump(server, player1)
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
@@ -235,6 +235,25 @@ class Game(Thread):
 			# if event_type == pygame.MOUSEBUTTONDOWN:
 			#	mousex, mousey = pygame.mouse.get_pos()
 
+def debugdump(server, player1):
+	logger.debug(f'[debugstart]')
+	logger.debug(f's:{server.name}  p1:{player1} p1np:{len(player1.net_players)}')
+	logger.debug(server.clients)
+	logger.debug(server.net_players)
+	for pl in player1.net_players:
+		logger.debug(f'p1: netpl: {pl}')
+	for cl in server.clients:
+		logger.debug(f'cl: {cl}')
+	for clnp in server.net_players:
+		logger.debug(f'cl: {clnp}')
+	for cl in server.clients:
+		logger.debug(f'cl: {cl}')
+	for clnp in server.net_players:
+		logger.debug(f'cl: {clnp}')
+	logger.debug(f'[debugend]')
+
+
+
 
 if __name__ == "__main__":
 	parser = ArgumentParser(description='bomberdude')
@@ -261,7 +280,7 @@ if __name__ == "__main__":
 	#	game.show_mainmenu = False
 	while game.running:
 		# main game loop logic stuff
-		game.handle_input(player1)
+		game.handle_input(server=server, player1=player1)
 		pygame.event.pump()
 		game.update(player1)
 		game.draw(player1)

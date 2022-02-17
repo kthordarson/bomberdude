@@ -163,6 +163,7 @@ class ConnectionHandler(Thread):
 		self.serverqueue = serverqueue
 		self.localaddr = localaddr
 		self.kill = False
+		self.connections = []
 
 	def run(self):
 		while True:
@@ -198,6 +199,28 @@ class ServerThread(Thread):
 		self.connhandler = ConnectionHandler(name='connhandler', socket=self.socket, serverqueue=self.serverqueue, localaddr=self.localaddr)
 		self.daemon = True
 		self.connhandler.daemon = True
+
+	def get_net_players(self):
+		return self.net_players
+	
+	def get_clients(self):
+		return self.clients
+
+	def get_connh_connections(self):
+		return self.connhandler.clients
+
+	def get_net_players_count(self):
+		return len(self.net_players)
+	
+	def get_client_count(self):
+		return len(self.clients)
+		# if len(self.clients) >= 2:
+		# 	# logger.debug(f'[get_client_count] clients: {len(self.clients)}')
+		# 	for cl in self.clients:
+		# 		logger.debug(f'[get_client_count] cl: {cl} {cl.client_id} {cl.pos}')
+
+	def get_connh_count(self):
+		return len(self.connhandler.connections)
 
 	def set_blocks(self, blocks):
 		logger.debug(f'{self.name} got {len(blocks)} blocks')
