@@ -32,7 +32,7 @@ class ClientThread(Thread):
 		Thread.__init__(self, name='clthread')
 		self.client_id = gen_randid()
 		# StoppableThread.__init__(self, name=self.client_id)
-		self.name = self.client_id
+		self.name = f'clthread-{self.client_id}'
 		self.gamemap = gamemap
 		self.blocks = blocks
 		self.clientconnection = clientconnection
@@ -67,17 +67,22 @@ class ClientThread(Thread):
 					logger.debug(f'killing self:{self.name} {t}')
 					t.kill = True
 				break
-			self.process_recvq()
+			data_id = None
+			payload = None
+			try:
+				data_id, payload = self.rq.get_nowait()
+			except Empty:
+				pass
+			if data_id:
+				self.process_data(data_id=data_id, payload=payload)
 			srv_q_cmd = None
 			try:
 				srv_q_cmd = self.client_q.get()
-				self.client_q.task_done()
 			except Empty:
 				pass
 			if srv_q_cmd:
 				if 'player' in srv_q_cmd:
 					self.add_net_player(srv_q_cmd)
-					self.client_q.task_done()
 
 	def get_pos(self):
 		return self.pos
@@ -86,7 +91,7 @@ class ClientThread(Thread):
 		logger.debug(f'addnetplayer {playerdata}')
 
 	def send_clientid(self):
-		self.sq.put((data_identifiers['setclientid'], self.client_id))
+		self.sq.put_nowait((data_identifiers['setclientid'], self.client_id))
 		logger.debug(f'[{self.client_id}] send_clientid sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()}')
 
 	def handle_connection(self, payload):
@@ -94,65 +99,31 @@ class ClientThread(Thread):
 		payload_pid = payload.split(':')[0]
 		self.pos = payload.split(':')[2]
 		if payload_pid == '-2':
-			self.sq.put((data_identifiers['setclientid'], self.client_id))
+			self.sq.put_nowait((data_identifiers['setclientid'], self.client_id))
 			logger.debug(f'sending setclientid: {self.client_id} sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()} pos:{self.pos}')
-
-	def send_gameblocks(self):
-		# data = {'blocks': self.blocks, 'mapgrid': self.gamemap.grid}
-		logger.debug(f'sending gamedata blocks {len(self.blocks)} sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()}')
-		# send_data(conn=self.clientconnection, payload=data, data_id=data_identifiers['data'])
-		self.sq.put((data_identifiers['blockdata'], self.blocks))
 
 	def send_gamemapgrid(self):
 		logger.debug(f'[{self.client_id}] sending gamedata mapgrid {len(self.gamemap.grid)} sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()}')
 		# send_data(conn=self.clientconnection, payload=data, data_id=data_identifiers['data'])
-		self.sq.put((data_identifiers['mapdata'], self.gamemap.grid))
+		self.sq.put_nowait((data_identifiers['mapdata'], self.gamemap.grid))
 
 	def handle_posdata(self, payload):
 		# logger.debug(f'[{self.client_id}] got pos {payload}')
 		self.pos = payload
 		# self.pos = [k for k in payload.values()][0]
 
-	def send_net_players(self, playerdata):
-		playerid = playerdata.split(':')[0]
-		playerpos = playerdata.split(':')[1]
-		pd = f'{playerid}:{playerpos}'
-		#logger.debug(f'[{self.client_id}] send netplayer pd:{pd}')
-		self.sq.put((data_identifiers['player'], pd))
-		# self.sq.put((data_identifiers['player'], pd))
-
-	def process_recvq(self):
-		# if not self.rq.empty():
-		while True:
-			data_id = None
-			payload = None
-			try:
-				data_id, payload = self.rq.get()
-			except Empty:
-				pass
-			# self.rq.task_done()
-			if data_id == data_identifiers['connect']:
-				self.handle_connection(payload)
-			# return self.rq.qsize(), self.sq.qsize()
-			if data_id == data_identifiers['request'] and payload == 'getclientid':
-				self.send_clientid()
-			# return self.rq.qsize(), self.sq.qsize()
-			if data_id == data_identifiers['request'] and payload == 'gameblocks':
-				self.send_gameblocks()
-			# return self.rq.qsize(), self.sq.qsize()
-			if data_id == data_identifiers['request'] and payload == 'gamemapgrid':
-				self.send_gamemapgrid()
-			# return self.rq.qsize(), self.sq.qsize()
-			if data_id == data_identifiers['send_pos']:
-				self.handle_posdata(payload)
-			# return self.rq.qsize(), self.sq.qsize()
-			# if data_id == data_identifiers['request'] and payload == 'get_net_players':
-			#	self.send_net_players(payload)
-			# return self.rq.qsize(), self.sq.qsize()
-			if data_id == data_identifiers['heartbeat'] and payload[:9] == 'heartbeat':
-				self.hbcount = int(payload[10:])
-				self.sq.put((data_identifiers['heartbeat'], 'beatheart'))
-			# return self.rq.qsize(), self.sq.qsize()
+	def process_data(self, data_id=None, payload = None):
+		if data_id == data_identifiers['connect']:
+			self.handle_connection(payload)
+		if data_id == data_identifiers['request'] and payload == 'getclientid':
+			self.send_clientid()
+		if data_id == data_identifiers['request'] and payload == 'gamemapgrid':
+			self.send_gamemapgrid()
+		if data_id == data_identifiers['send_pos']:
+			self.handle_posdata(payload)
+		if data_id == data_identifiers['heartbeat'] and payload[:9] == 'heartbeat':
+			self.hbcount = int(payload[10:])
+			self.sq.put_nowait((data_identifiers['heartbeat'], 'beatheart'))
 
 
 class ConnectionHandler(Thread):
@@ -214,10 +185,6 @@ class ServerThread(Thread):
 	
 	def get_client_count(self):
 		return len(self.clients)
-		# if len(self.clients) >= 2:
-		# 	# logger.debug(f'[get_client_count] clients: {len(self.clients)}')
-		# 	for cl in self.clients:
-		# 		logger.debug(f'[get_client_count] cl: {cl} {cl.client_id} {cl.pos}')
 
 	def get_connh_count(self):
 		return len(self.connhandler.connections)
@@ -269,7 +236,6 @@ class ServerThread(Thread):
 				cl.start()
 				for cl in self.clients:
 					cl.net_players = self.net_players
-				self.serverqueue.task_done()
 				logger.debug(f'[srv] new client id:{cl.client_id} total: {len(self.clients)} sq:{cl.client_q.qsize()}')
 
 
@@ -329,7 +295,7 @@ if __name__ == '__main__':
 			logger.error(f'KeyboardInterrupt {e}')
 			sys.exit()
 		except Exception as e:
-			logger.error(f'E in main {e}')
+			logger.error(f'Exception in main {e}')
 			sys.exit()
 
 	sys.exit()

@@ -15,9 +15,9 @@ from player import Player
 from threading import Thread, enumerate
 from queue import Empty, Queue
 from netutils import DataReceiver, DataSender
-from bombserver import ServerThread
+
 class Game(Thread):
-	def __init__(self, screen=None, game_dt=None, server=None):
+	def __init__(self, screen=None, game_dt=None, gamemap=None):
 		Thread.__init__(self, name='game')
 		# StoppableThread.__init__(self, name='Game')
 		self.kill = False
@@ -42,7 +42,6 @@ class Game(Thread):
 		self.DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
 		self.rm = ResourceHandler()
 		self.main_queue = Queue()
-		self.server = server # ServerThread(blocks=self.blocks, players=self.players, mainmap=self.gamemap, serverqueue=self.main_queue)
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -54,9 +53,7 @@ class Game(Thread):
 				bomb.bomber_id.bombs_left += 1
 				bomb.kill()
 				self.bombs.remove(bomb)
-			# try:
-			# 	mixer.Sound.play(self.snd_bombexplode)q
-			# except (AttributeError, TypeError) as e: logger.debug(f'[bdude] {e}')
+
 	def update_flames(self):
 		self.flames.update()
 		for flame in self.flames:
@@ -72,6 +69,7 @@ class Game(Thread):
 					self.particles.add(block.particles)
 					flame.kill()
 					self.blocks.remove(block)
+
 	def update_particles(self):
 		self.particles.update(self.blocks)
 		for particle in self.particles:
@@ -110,9 +108,7 @@ class Game(Thread):
 				self.blocks.add(newblock)
 				idx += 1
 		logger.debug(f'mapreset {idx} blocks loaded')
-		self.server.set_blocks(self.blocks)
-		self.server.set_gamemap(self.gamemap)
-		
+
 
 	def draw(self, player1):
 		# draw on screen
@@ -131,37 +127,49 @@ class Game(Thread):
 			draw_debug_sprite(self.screen, self.players, self.DEBUGFONT)
 		if self.show_debug_diaglog:
 			self.debug_dialog.draw_debug_players(players=self.players)
-		self.debug_dialog.draw_mouse_pos()
-		self.debug_dialog.draw_server_debug(server=self.server, player1=player1)
+
+	def pause_game(self):
+		pass
+
+	def restart_game(self):
+		pass
+
+	def start_server(self):
+		pass
+
+	def connect_to_server(self, player1):
+		player1.connect_server()
+
+	def request_servermap(self, player=None):
+		pass
 
 	def handle_menu(self, selection, player1):
 		# mainmenu
+		if selection == "Start":
+			self.show_mainmenu ^= True
+			self.reset_map()
+
+		if selection == "Connect to server":
+			self.show_mainmenu = False
+			self.connect_to_server(player1)
+			self.request_servermap(player=player1)
+
 		if selection == "Quit":
 			self.running = False
 
 		if selection == "Pause":
 			self.show_mainmenu ^= True
-
-		if selection == "Start":
-			self.show_mainmenu ^= True
-			self.reset_map()
-			player1.connect_server()
-
-
+			self.pause_game()
 
 		if selection == "Restart":
 			self.show_mainmenu ^= True
+			self.restart_game()
 
 		if selection == "Start server":
-			if not self.server.is_alive():
-				self.server.start()
-				logger.debug(f'Starting server ...')
-				pygame.display.set_caption(f'servermode')
+			self.start_server()
 
-		if selection == "Connect to server":
-			self.show_mainmenu = False
 
-	def handle_input(self, server=None, player1=None):
+	def handle_input(self, player1=None):
 		events = pygame.event.get()
 		for event in events:
 			if event.type == pygame.KEYDOWN:
@@ -177,26 +185,22 @@ class Game(Thread):
 					self.show_mainmenu ^= True
 				if event.key == pygame.K_q:
 					# quit game
-					if self.server.is_alive():
-						logger.debug(f'server running:{self.server.is_alive()} killing')
-						self.server.kill = True
-						self.server.join(timeout=1)
 					player1.kill = True
 					self.running = False
 					# self.player1.stop()
 				if event.key == pygame.K_2:
-					debugdump(server, player1)
+					pass
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
-					self.show_debug_dialog = True
+					self.show_debug_dialog ^= True
 				if event.key == pygame.K_p:
 					self.show_panel ^= True
 				if event.key == pygame.K_m:
 					logger.debug(f'mapreset')
 					self.reset_map()
 				if event.key == pygame.K_n:
-					self.server.start()
+					pass
 				if event.key == pygame.K_g:
 					pass
 				if event.key == pygame.K_r:
@@ -235,25 +239,8 @@ class Game(Thread):
 			# if event_type == pygame.MOUSEBUTTONDOWN:
 			#	mousex, mousey = pygame.mouse.get_pos()
 
-def debugdump(server, player1):
+def debugdump(player1):
 	logger.debug(f'[debugstart]')
-	logger.debug(f's:{server.name}  p1:{player1} p1np:{len(player1.net_players)}')
-	logger.debug(server.clients)
-	logger.debug(server.net_players)
-	for pl in player1.net_players:
-		logger.debug(f'p1: netpl: {pl}')
-	for cl in server.clients:
-		logger.debug(f'cl: {cl}')
-	for clnp in server.net_players:
-		logger.debug(f'cl: {clnp}')
-	for cl in server.clients:
-		logger.debug(f'cl: {cl}')
-	for clnp in server.net_players:
-		logger.debug(f'cl: {clnp}')
-	logger.debug(f'[debugend]')
-
-
-
 
 if __name__ == "__main__":
 	parser = ArgumentParser(description='bomberdude')
@@ -266,9 +253,7 @@ if __name__ == "__main__":
 	mainClock = pygame.time.Clock()
 	dt = mainClock.tick(FPS) / 1000
 	mainmap = Gamemap()
-	serverqueue = Queue()
-	server = ServerThread(name='bombserver', serverqueue=serverqueue, mainmap=mainmap)
-	game = Game(screen=pyscreen, game_dt=dt, server=server)
+	game = Game(screen=pyscreen, game_dt=dt, gamemap=mainmap)
 	game.start()
 	game.running = True
 	player1 = Player(pos=(300, 300), dt=game.dt, image='data/player1.png')
@@ -276,35 +261,11 @@ if __name__ == "__main__":
 	game.players.add(player1)
 	player1.daemon = True
 	player1.start()
-	# if args.startserver:
-	#	game.show_mainmenu = False
 	while game.running:
 		# main game loop logic stuff
-		game.handle_input(server=server, player1=player1)
-		pygame.event.pump()
+		game.handle_input(player1=player1)
 		game.update(player1)
 		game.draw(player1)
-		if player1.connected:
-			for npl in player1.net_players:
-				try:
-					data = player1.net_players[npl].split(',')
-					cx, cy, *rest = data
-					cx = int(cx.strip('['))
-					cy = int(cy.strip(']'))
-					pygame.draw.circle(pyscreen, color=(255,255,255), center=(cx, cy), radius=10)
-				except (TypeError, ValueError) as e:
-					logger.error(f'Err: {e} npl:{npl} p1npl:{player1.net_players[npl]} cx:{cx} cy:{cy} rest:{rest}')
-			player1.send_pos()
-			npc = len(list(game.server.net_players))
-			idx = 0
-			for cl in game.server.clients:
-				game.server.net_players[cl.client_id] = cl.pos
-			for net_player in list(game.server.net_players):
-				playerdata = f'{net_player}:{game.server.net_players[net_player]}'
-				for cl in game.server.clients:
-					cl.send_net_players(playerdata)
-					#logger.debug(f'[{idx}/{npc}]sending net_player: {playerdata} to {cl.client_id}')
-					idx += 1
 
 	logger.debug(f'game end {game.running} {player1.kill}')
 	player1.kill = True

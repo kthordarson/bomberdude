@@ -8,7 +8,6 @@ import socket
 from signal import signal, SIGPIPE, SIG_DFL 
 from queue import Queue, Empty
 from netutils import DataReceiver, DataSender, data_identifiers
-from globals import StoppableThread
 from globals import ResourceHandler
 from threading import Thread
 from constants import *
@@ -25,6 +24,7 @@ class Player(BasicThing, Thread):
 		self.image, self.rect = self.rm.get_image(filename=image, force=False)
 		self.pos = Vector2(pos)
 		self.vel = Vector2(0, 0)
+		self.accel = Vector2(0, 0)
 		self.size = PLAYERSIZE
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
@@ -34,21 +34,20 @@ class Player(BasicThing, Thread):
 		self.bombs_left = self.max_bombs
 		self.bomb_power = 15
 		self.speed = 5
-		self.accel = Vector2(0, 0)
 		self.health = 100
-		self.dead = False
 		self.score = 0
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.kill = False
 		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.send_pos_count = 0
 		self.rq = Queue()
 		self.sq = Queue()
-		self.recv_thread = DataReceiver(r_socket=self.socket, queue=self.rq, name=self.client_id)
-		self.send_thread = DataSender(s_socket=self.socket, queue=self.sq, name=self.client_id)
+		self.recv_thread = DataReceiver(r_socket=self.socket, queue=self.rq, name=self.name)
+		self.send_thread = DataSender(s_socket=self.socket, queue=self.sq, name=self.name)
 		self.connected = False
-		self.got_server_data = False
-		self.send_pos_count = 0
+		self.gotmap = False
+		self.kill = False
+		self.dead = False
 		self.net_players = {}
 		logger.debug(f'[player] init pos:{pos} dt:{dt} i:{image}  client_id:{self.client_id}')
 
@@ -66,25 +65,60 @@ class Player(BasicThing, Thread):
 		self.send_thread.daemon = True
 		self.recv_thread.start()
 		self.send_thread.start()
-		self.get_server_map()
 		self.connected = True
 	
 	def get_server_data(self):
 		pass
 
 	def get_server_blocks(self):
-		self.sq.put((data_identifiers['request'], 'gameblocks'))
+		self.sq.put_nowait((data_identifiers['request'], 'gameblocks'))
 
 	def get_server_map(self):
-		self.sq.put((data_identifiers['request'], 'gamemap'))
+		self.sq.put_nowait((data_identifiers['request'], 'gamemap'))
 
 	def send_pos(self):
 		self.send_pos_count += 1
-		self.sq.put((data_identifiers['send_pos'], self.pos))
+		self.sq.put_nowait((data_identifiers['send_pos'], self.pos))
 		# logger.debug(f'[{self.client_id}] send_pos {self.pos}')
 
 	def get_net_players(self):
 		return self.net_players
+
+	def handle_data(self, data_id=None, payload=None):
+		if data_id == -1:
+			pass
+		elif data_id == data_identifiers['sendyourpos']:
+			self.sq.put_nowait_nowait((data_identifiers['posupdate'], self.pos))
+		elif data_id == data_identifiers['debugdump'] or data_id == 16:
+			pass
+			# self.debugdump(payload)
+		elif data_id == data_identifiers['nplpos']:
+			pass
+			# logger.debug(f'npl: {payload}')
+		elif data_id == data_identifiers['bcastmsg']:
+			logger.debug(f'bcastmsg: {payload}')
+		elif data_id == data_identifiers['player']:
+			playerid = payload.split(':')[0]
+			playerpos = payload.split(':')[1]
+			self.net_players[playerid] = playerpos
+			logger.debug(f'[{self.client_id}] npl:{len(self.net_players)} got playerdata dataid: {data_id} payload: {payload} playerid:{playerid} playerpos:{playerpos}')
+		elif data_id == data_identifiers['send_pos']:
+			logger.debug(f'[{self.client_id}] got {data_id} {payload}')				
+		elif data_id == data_identifiers['setclientid']:
+			logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload}')
+			self.client_id = payload
+			logger.debug(f'[{self.client_id}] client_id set')
+		elif data_id == data_identifiers['gamemapgrid'] or data_id == 14:
+			self.mapgrid = payload
+			logger.debug(f'gotmapgrid: {len(self.mapgrid)} c:{self.connected}')
+			self.connected = True
+			self.gotmap = True
+		else:
+			# pass
+			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload}')
+	
+	def server_request(self, request=None):
+		self.sq.put_nowait((data_identifiers['request'], request))
 
 	def run(self):
 		self.kill = False
@@ -96,45 +130,12 @@ class Player(BasicThing, Thread):
 				logger.debug(f'player kill')
 				break
 			try:
-				data_id, payload = self.rq.get(block=False)
+				data_id, payload = self.rq.get_nowait()
 			except Empty:
 				pass
 			if data_id:
-				data_id = int(data_id)
-				if data_id == -1:
-					pass
-				elif data_id == data_identifiers['sendyourpos']:
-					self.sq.put_nowait((data_identifiers['posupdate'], self.pos))
-				elif data_id == data_identifiers['debugdump'] or data_id == 16:
-					pass
-					# self.debugdump(payload)
-				elif data_id == data_identifiers['nplpos']:
-					pass
-					# logger.debug(f'npl: {payload}')
-				elif data_id == data_identifiers['bcastmsg']:
-					logger.debug(f'bcastmsg: {payload}')
-				elif data_id == data_identifiers['player']:
-					playerid = payload.split(':')[0]
-					playerpos = payload.split(':')[1]
-					self.net_players[playerid] = playerpos
-					logger.debug(f'[{self.client_id}] npl:{len(self.net_players)} got playerdata dataid: {data_id} payload: {payload} playerid:{playerid} playerpos:{playerpos}')
-				elif data_id == data_identifiers['send_pos']:
-					logger.debug(f'[{self.client_id}] got {data_id} {payload}')				
-				elif data_id == data_identifiers['setclientid']:
-					logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload}')
-					self.client_id = payload
-					logger.debug(f'[{self.client_id}] client_id set')
-				elif data_id == data_identifiers['mapdata'] or data_id == 10:
-					self.mapgrid = payload
-					self.got_server_data = True
-					self.connected = True
-					logger.debug(f'gotmapgrid: {len(self.mapgrid)} gd:{self.got_server_data} c:{self.connected}')
-				else:
-					# pass
-					logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload}')
-				if not self.got_server_data:
-					self.get_server_map()
-				self.send_pos()
+				self.handle_data(data_id=data_id, payload=payload)
+			self.send_pos()
 
 	def bombdrop(self):
 		if self.bombs_left > 0:
