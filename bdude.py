@@ -1,4 +1,5 @@
 # bomberdude
+import socket
 import time
 import random
 from argparse import ArgumentParser
@@ -6,15 +7,16 @@ from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
 import pygame
 from loguru import logger
+from aiohttp import request
 # from pygame import mixer  # Load the popular external library
 from debug import draw_debug_sprite, draw_debug_block
 from globals import Block, Powerup, Gamemap, BasicThing, ResourceHandler
 from constants import *
 from menus import Menu, DebugDialog
 from player import Player
-from threading import Thread, enumerate
+from threading import Thread
 from queue import Empty, Queue
-from netutils import DataReceiver, DataSender
+from netutils import DataReceiver, DataSender, data_identifiers
 
 class Game(Thread):
 	def __init__(self, screen=None, game_dt=None, gamemap=None):
@@ -37,11 +39,22 @@ class Game(Thread):
 		self.game_menu = Menu(self.screen)
 		self.debug_dialog = DebugDialog(self.screen)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
-		self.gamemap = Gamemap()
+		if gamemap:
+			logger.debug(f'mainmap {gamemap}')
+			self.gamemap = gamemap
+		else:
+			self.gamemap = Gamemap()
 		self.DEBUGFONTCOLOR = (123, 123, 123)
 		self.DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
 		self.rm = ResourceHandler()
 		self.main_queue = Queue()
+		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.rq = Queue()
+		self.sq = Queue()
+		self.recv_thread = DataReceiver(r_socket=self.socket, queue=self.rq, name=self.name)
+		self.send_thread = DataSender(s_socket=self.socket, queue=self.sq, name=self.name)
+		self.connected = False
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -93,6 +106,17 @@ class Game(Thread):
 		self.blocks.update(self.blocks)
 		self.powerups.update()
 
+	def reset_blocks(self, newgrid=[]):
+		self.grid = newgrid
+		self.blocks.empty()
+		logger.debug(f'mapreset blocks cleared')
+		idx = 0
+		for k in range(0, GRIDSIZE[0] + 1):
+			for j in range(0, GRIDSIZE[1] + 1):
+				newblock = Block(pos=Vector2(j*BLOCKSIZE[0], k*BLOCKSIZE[1]), gridpos=(j, k), block_type=self.gamemap.grid[j][k], reshandler=self.rm)
+				self.blocks.add(newblock)
+				idx += 1
+
 	def reset_map(self):
 		# Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
 		logger.debug(f'mapreset start')
@@ -122,7 +146,7 @@ class Game(Thread):
 		self.flames.draw(self.screen)
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
-		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=player1, flames=self.flames)
+		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=player1, flames=self.flames, sq=self.sq, rq=self.rq)
 		if DEBUG:
 			draw_debug_sprite(self.screen, self.players, self.DEBUGFONT)
 		if self.show_debug_diaglog:
@@ -138,16 +162,33 @@ class Game(Thread):
 		pass
 
 	def connect_to_server(self, player1):
-		player1.connect_server()
+		self.connect_server()
+
+	def connect_server(self):
+		server = ('127.0.0.1', 6666)
+		logger.debug(f'connecting to {server}')
+		self.socket.connect(server)
+		self.recv_thread.daemon = True
+		self.send_thread.daemon = True
+		self.recv_thread.start()
+		self.send_thread.start()
+		self.connected = True
 
 	def request_servermap(self, player=None):
-		pass
+		logger.debug(f'p:{player}')
+		self.sq.put((data_identifiers['request'], 'gamemap'))
+		logger.debug(f'p:{player} sq:{self.sq.qsize()} rq:{self.rq.qsize()}')
+
+	def get_server_map(self):
+		self.sq.put((data_identifiers['request'], 'gamemap'))
 
 	def handle_menu(self, selection, player1):
 		# mainmenu
 		if selection == "Start":
 			self.show_mainmenu ^= True
-			self.reset_map()
+			self.connect_to_server(player1)
+			self.request_servermap(player=player1)
+#			self.reset_map()
 
 		if selection == "Connect to server":
 			self.show_mainmenu = False
@@ -188,6 +229,8 @@ class Game(Thread):
 					player1.kill = True
 					self.running = False
 					# self.player1.stop()
+				if event.key == pygame.K_1:
+					self.request_servermap(player=player1)
 				if event.key == pygame.K_2:
 					pass
 				if event.key == pygame.K_c:
@@ -256,7 +299,7 @@ if __name__ == "__main__":
 	game = Game(screen=pyscreen, game_dt=dt, gamemap=mainmap)
 	game.start()
 	game.running = True
-	player1 = Player(pos=(300, 300), dt=game.dt, image='data/player1.png')
+	player1 = Player(pos=(300, 300), dt=game.dt, image='data/player1.png', sq=game.sq, rq=game.rq)
 
 	game.players.add(player1)
 	player1.daemon = True
@@ -266,6 +309,36 @@ if __name__ == "__main__":
 		game.handle_input(player1=player1)
 		game.update(player1)
 		game.draw(player1)
+		data_id = None
+		payload = None
+		try:
+			data_id, payload = game.rq.get_nowait()
+		except Empty:
+			pass
+		if data_id:
+			# logger.debug(f'[bdude] d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
+			if data_id == data_identifiers['mapdata']:
+				game.gamemap.set_grid(newgrid=payload)
+				logger.debug(f'[bdude] mapgrid id:{data_id} p:{len(payload)} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
+				game.reset_blocks(newgrid=payload)
+			if data_id == data_identifiers['netplayer']:
+				playerid = payload.split(':')[0]
+				if player1.client_id != playerid:
+					npl_id = payload.split(':')[1]
+					x, y = payload.split("[")[1][:-1].split(",")
+					playerpos = Vector2(int(x), int(y))
+					# self.net_players[playerid] = playerpos
+					player1.net_players[npl_id] = playerpos
+					player1.net_players[player1.client_id] = player1.pos
+					logger.debug(f'[{player1.client_id}] npl:{len(player1.net_players)} dataid: {data_id} p: {payload} npl:{npl_id} playerid:{playerid} playerpos:{playerpos} rq:{player1.rq.qsize()} sq:{player1.sq.qsize()}  ')
+			# player1.handle_data(data_id=data_id, payload=payload)
+			game.rq.task_done()
+		player1.net_players[player1.client_id] = player1.pos
+		for idx, npl in enumerate(player1.net_players):
+			npl_pos = Vector2(player1.net_players[npl])
+			# logger.debug(f'[dnpl] {idx} {npl_pos} {player1.net_players[npl]} {player1.net_players[player1.client_id]}')
+			pygame.draw.circle(surface=pyscreen, color=(255,255,255), center=npl_pos, radius=10)
+			# pygame.draw.circle(surface=pyscreen, color=(255,255,55), center=player1.net_players[npl], radius=10)
 
 	logger.debug(f'game end {game.running} {player1.kill}')
 	player1.kill = True

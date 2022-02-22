@@ -462,6 +462,10 @@ class Gamemap:
 
 	def set_block(self, x, y, value):
 		self.grid[x][y] = value
+	
+	def set_grid(self, newgrid):
+		logger.debug(f'[map] setting newgrid')
+		self.grid = newgrid
 
 
 def gen_randid():

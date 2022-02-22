@@ -59,7 +59,6 @@ class ClientThread(Thread):
 		self.tlist.append(self.send_thread)
 		self.recv_thread.start()
 		self.send_thread.start()
-		self.send_clientid()
 		while True:
 			if self.kill:
 				logger.debug(f'killing self:{self.name}')
@@ -73,16 +72,23 @@ class ClientThread(Thread):
 				data_id, payload = self.rq.get_nowait()
 			except Empty:
 				pass
+				# logger.debug(f'[{self.name}] rq:{self.rq.qsize()} ')
 			if data_id:
+				# logger.debug(f'[{self.name}] rq:{self.rq.qsize()} got id:{data_id} p:{payload}')
 				self.process_data(data_id=data_id, payload=payload)
-			srv_q_cmd = None
 			try:
-				srv_q_cmd = self.client_q.get()
-			except Empty:
+				self.rq.task_done()
+			except ValueError as e:
 				pass
-			if srv_q_cmd:
-				if 'player' in srv_q_cmd:
-					self.add_net_player(srv_q_cmd)
+			# 	logger.error(f'[{self.client_id}] {e} rq:{self.rq.qsize()} ')
+			# srv_q_cmd = None
+			# try:
+			# 	srv_q_cmd = self.client_q.get_nowait()
+			# except Empty:
+			# 	pass
+			# if srv_q_cmd:
+			# 	if 'player' in srv_q_cmd:
+			# 		self.add_net_player(srv_q_cmd)
 
 	def get_pos(self):
 		return self.pos
@@ -108,8 +114,20 @@ class ClientThread(Thread):
 		self.sq.put_nowait((data_identifiers['mapdata'], self.gamemap.grid))
 
 	def handle_posdata(self, payload):
-		# logger.debug(f'[{self.client_id}] got pos {payload}')
-		self.pos = payload
+		playerid = payload.split(':')[0]
+		x, y = payload.split("[")[1][:-1].split(",")
+		playerpos = Vector2(int(x), int(y))
+		self.net_players[playerid] = playerpos
+		newpayload = f'{self.client_id}:{self.client_id}:{playerpos}'
+		self.sq.put_nowait((data_identifiers['netplayer'], newpayload))
+		# logger.debug(f'[{self.client_id}]{x} {y} payload:{payload} self.pos: {self.pos} np:{len(self.net_players)} pid:{playerid} plpos:{playerpos}')
+
+		# self.pos = payload
+		#self.net_players[self.client_id] = playerpos
+		# self.net_players[]
+		#for np in self.net_players:
+		#	newpayload = f'{self.client_id}:{np}:{playerpos}'
+		#	self.sq.put_nowait((data_identifiers['netplayer'], newpayload))
 		# self.pos = [k for k in payload.values()][0]
 
 	def process_data(self, data_id=None, payload = None):
@@ -119,11 +137,14 @@ class ClientThread(Thread):
 			self.send_clientid()
 		if data_id == data_identifiers['request'] and payload == 'gamemapgrid':
 			self.send_gamemapgrid()
+		if data_id == data_identifiers['request'] and payload == 'gamemap':
+			self.send_gamemapgrid()
 		if data_id == data_identifiers['send_pos']:
 			self.handle_posdata(payload)
 		if data_id == data_identifiers['heartbeat'] and payload[:9] == 'heartbeat':
 			self.hbcount = int(payload[10:])
 			self.sq.put_nowait((data_identifiers['heartbeat'], 'beatheart'))
+		# self.sq.all_tasks_done()
 
 
 class ConnectionHandler(Thread):
@@ -234,8 +255,8 @@ class ServerThread(Thread):
 				self.net_players[cl.client_id] = Vector2()
 				cl.net_players = self.net_players
 				cl.start()
-				for cl in self.clients:
-					cl.net_players = self.net_players
+				#for cl in self.clients:
+				#	cl.net_players = self.net_players
 				logger.debug(f'[srv] new client id:{cl.client_id} total: {len(self.clients)} sq:{cl.client_q.qsize()}')
 
 
@@ -266,15 +287,15 @@ if __name__ == '__main__':
 				server_running = False
 			# stop_all_threads(mainthreads)
 			if cmd[:1] == 'd':
-				t_count = len(enumerate())
-				logger.debug(f'[d] server {server.name} threads:{t_count} severclients:{len(server.clients)} msq:{server.serverqueue.qsize()}')
+				# t_count = len(enumerate())
+				logger.debug(f'[d] server {server.name} severclients:{len(server.clients)} msq:{server.serverqueue.qsize()}')
 				idx1 = 0
 				for cl in server.clients:
-					logger.debug(f'[d {idx1}/{len(server.clients)}] {cl.client_id} pos:{cl.pos} netp:{len(cl.net_players)} clsq:{cl.sq.qsize()} clrq:{cl.rq.qsize()} clsvrq:{cl.client_q.qsize()}')
+					logger.debug(f'[client {idx1}/{len(server.clients)}] {cl.client_id} pos:{cl.pos} netp:{len(cl.net_players)} clsq:{cl.sq.qsize()} clrq:{cl.rq.qsize()} clsvrq:{cl.client_q.qsize()}')
 					idx1 += 1
 					idxnp = 0
 					for np in cl.net_players:
-						logger.debug(f'[d {idx1}/{len(server.clients)}] {cl.client_id} n:{idxnp}/{len(cl.net_players)} netp: {np} {cl.net_players[np]} clsq:{cl.sq.qsize()} clrq:{cl.rq.qsize()} clsvrq:{cl.client_q.qsize()}')
+						logger.debug(f'[clnp {idx1}/{len(server.clients)}] {cl.client_id} n:{idxnp}/{len(cl.net_players)} netp: {np} {cl.net_players[np]} clsq:{cl.sq.qsize()} clrq:{cl.rq.qsize()} clsvrq:{cl.client_q.qsize()}')
 						idxnp += 1
 			if cmd[:1] == 'p':
 				server.serverqueue.put(({'servercmd': 'pingall'}))
