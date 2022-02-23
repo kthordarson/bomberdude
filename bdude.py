@@ -1,4 +1,6 @@
+#!/bin/python3.9
 # bomberdude
+import os
 import socket
 import time
 import random
@@ -17,6 +19,7 @@ from player import Player
 from threading import Thread
 from queue import Empty, Queue
 from netutils import DataReceiver, DataSender, data_identifiers
+from globals import empty_queue
 
 class Game(Thread):
 	def __init__(self, screen=None, game_dt=None, gamemap=None):
@@ -55,6 +58,8 @@ class Game(Thread):
 		self.recv_thread = DataReceiver(r_socket=self.socket, queue=self.rq, name=self.name)
 		self.send_thread = DataSender(s_socket=self.socket, queue=self.sq, name=self.name)
 		self.connected = False
+		self.gameserver = None
+		self.server_mode = False
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -159,7 +164,17 @@ class Game(Thread):
 		pass
 
 	def start_server(self):
-		pass
+		from bombserver import ServerThread
+		serverqueue = Queue()
+		mainmap = Gamemap()
+		server = ServerThread(name='bombserver', serverqueue=serverqueue, mainmap=mainmap)
+		server.daemon = True
+		server.connhandler.daemon = True
+		server.start()
+		server.gamemap.grid = server.gamemap.generate()
+		logger.debug(f'gamemap {len(server.gamemap.grid)} ')
+		server_running = True
+		return server
 
 	def connect_to_server(self, player1):
 		self.connect_server()
@@ -167,7 +182,11 @@ class Game(Thread):
 	def connect_server(self):
 		server = ('127.0.0.1', 6666)
 		logger.debug(f'connecting to {server}')
-		self.socket.connect(server)
+		try:
+			self.socket.connect(server)
+		except ConnectionRefusedError as e:
+			logger.error(f'{e}')
+			return
 		self.recv_thread.daemon = True
 		self.send_thread.daemon = True
 		self.recv_thread.start()
@@ -178,9 +197,6 @@ class Game(Thread):
 		logger.debug(f'p:{player}')
 		self.sq.put((data_identifiers['request'], 'gamemap'))
 		logger.debug(f'p:{player} sq:{self.sq.qsize()} rq:{self.rq.qsize()}')
-
-	def get_server_map(self):
-		self.sq.put((data_identifiers['request'], 'gamemap'))
 
 	def handle_menu(self, selection, player1):
 		# mainmenu
@@ -207,7 +223,9 @@ class Game(Thread):
 			self.restart_game()
 
 		if selection == "Start server":
-			self.start_server()
+			self.gameserver = self.start_server()
+			self.server_mode = True
+			pygame.display.set_caption('server')
 
 
 	def handle_input(self, player1=None):
@@ -236,7 +254,8 @@ class Game(Thread):
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
-					self.show_debug_dialog ^= True
+					pass
+					# self.show_debug_dialog ^= True
 				if event.key == pygame.K_p:
 					self.show_panel ^= True
 				if event.key == pygame.K_m:
@@ -286,6 +305,7 @@ def debugdump(player1):
 	logger.debug(f'[debugstart]')
 
 if __name__ == "__main__":
+
 	parser = ArgumentParser(description='bomberdude')
 	parser.add_argument('--server', default=False, action='store_true', dest='startserver')
 	args = parser.parse_args()
@@ -312,9 +332,15 @@ if __name__ == "__main__":
 		data_id = None
 		payload = None
 		try:
-			data_id, payload = game.rq.get_nowait()
+			data_id, payload = game.rq.get(block=None)
+			#if not game.server_mode:
+			#	logger.debug(f'[bdude] eq d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
 		except Empty:
 			pass
+		#if player1.sq.qsize() <= 2000:
+		#	logger.debug(f'[bdude] eq d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
+			# empty_queue(player1.sq)
+			# logger.debug(f'[bdude] eq d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
 		if data_id:
 			# logger.debug(f'[bdude] d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
 			if data_id == data_identifiers['mapdata']:
@@ -324,15 +350,19 @@ if __name__ == "__main__":
 			if data_id == data_identifiers['netplayer']:
 				playerid = payload.split(':')[0]
 				if player1.client_id != playerid:
-					npl_id = payload.split(':')[1]
+					npl_id = payload.split(':')[0]
 					x, y = payload.split("[")[1][:-1].split(",")
-					playerpos = Vector2(int(x), int(y))
+					x = int(x)
+					y = int(y)
+					playerpos = Vector2((x, y))
 					# self.net_players[playerid] = playerpos
 					player1.net_players[npl_id] = playerpos
 					player1.net_players[player1.client_id] = player1.pos
-					logger.debug(f'[{player1.client_id}] npl:{len(player1.net_players)} dataid: {data_id} p: {payload} npl:{npl_id} playerid:{playerid} playerpos:{playerpos} rq:{player1.rq.qsize()} sq:{player1.sq.qsize()}  ')
+					# if x != 300:
+					#	logger.debug(f'[{player1.client_id}] x:{x} {x == 300} y:{y} npl:{len(player1.net_players)} dataid: {data_id} p: {payload} npl:{npl_id} playerid:{playerid} playerpos:{playerpos} rq:{player1.rq.qsize()} sq:{player1.sq.qsize()}  ')
 			# player1.handle_data(data_id=data_id, payload=payload)
-			game.rq.task_done()
+		pospayload = f'{player1.client_id}:({int(player1.pos.x)}, {int(player1.pos.y)})'
+		game.sq.put((data_identifiers['send_pos'], pospayload))
 		player1.net_players[player1.client_id] = player1.pos
 		for idx, npl in enumerate(player1.net_players):
 			npl_pos = Vector2(player1.net_players[npl])

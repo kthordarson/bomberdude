@@ -108,9 +108,11 @@ class Menu:
 
 	def draw_panel(self, blocks, particles, player1, flames, sq, rq):
 		pos = Vector2(10, 100)
-		for pl in player1.net_players:
-			self.panelfont.render_to(self.screen, pos, f"playerid: {player1.client_id} pos x:{player1.rect} vel:{player1.vel} accel:{player1.accel} ", self.panelfont_color)
+		idx = 0
+		self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id}  sq:{player1.sq.qsize()} rq:{player1.rq.qsize()}", self.panelfont_color)
+		for npl in list(player1.net_players):			
 			pos.y += 13
+			self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} npl:{npl} {player1.net_players[npl]}", self.panelfont_color)
 		pos = Vector2(10, self.screenh - 50)
 		try:
 			self.panelfont.render_to(self.screen, pos, f"playerid: {player1.client_id} pos x:{player1.rect} vel:{player1.vel} accel:{player1.accel} ", self.panelfont_color)

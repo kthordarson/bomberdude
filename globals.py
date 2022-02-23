@@ -5,7 +5,7 @@ import random
 import sys
 import time
 from threading import Thread, Event
-
+from queue import Queue, Empty
 import pygame
 import pygame.locals as pl
 from pygame.sprite import Group, spritecollide, Sprite
@@ -512,3 +512,13 @@ class StoppableThread(Thread):
 		logger.debug(f'{self.name} join')
 		self._stop_event.set()
 		Thread.join(self, timeout=timeout)
+
+def empty_queue(queue_to_empty: Queue):
+	while queue_to_empty.qsize() != 0:
+		try:
+			queue_to_empty.get_nowait()
+			queue_to_empty.task_done()
+		except Empty:
+			pass
+		except ValueError:
+			pass

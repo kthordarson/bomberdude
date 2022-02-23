@@ -73,11 +73,19 @@ def receive_data(conn=None):
 		conn.close()
 		return None
 	# receive next 4 bytes of data as data identifier
-	data_id = unpack('>I', conn.recv(4))[0]
+	try:
+		data_id = unpack('>I', conn.recv(4))[0]
+	except OSError as e:
+		logger.error(f'recv err: {e} size:{data_size}')
+		raise e
 	# receive payload till received payload size is equal to data_size received		
 	reamining_payload_size = data_size
 	while reamining_payload_size != 0:
-		received_payload += conn.recv(reamining_payload_size)
+		try:
+			received_payload += conn.recv(reamining_payload_size)
+		except OSError as e:
+			logger.error(f'recv err: {e} size:{data_size}/{reamining_payload_size} id:{data_id} p:{received_payload}')
+			raise e
 		reamining_payload_size = data_size - len(received_payload)
 	payload = 0
 	try:
@@ -97,29 +105,6 @@ class DataSender(Thread):
 		self.queue = queue
 		self.kill = False
 
-	def process_queue(self):
-		data_id = None
-		payload = None
-		
-		if data_id:
-			if data_id not in data_identifiers.values():
-				logger.error(f'unknown data_id id: {data_id} payload:{payload}')
-			else:
-				# logger.debug(f'[{self.name}] gotid:{data_id}  payload:{payload}') # {data_identifiers[data_id]}
-				try:
-					send_data(self.socket, payload=payload, data_id=data_id)
-					if not self.queue.empty():
-						self.queue.task_done()
-				except OSError as oserr:
-					logger.error(f'[{self.name}] oserr:{oserr} {data_id} payload:{payload}')
-					if oserr.errno == 9:
-						self.socket.close()
-						self.kill = True
-					if oserr.errno == 32:
-						self.kill = True
-				except Exception as e:
-					logger.error(f'[{self.name}] err:{e} {data_id} payload:{payload}')
-					raise e
 
 	def run(self):
 		while True:
@@ -128,12 +113,8 @@ class DataSender(Thread):
 			if self.kill:
 				break
 			try:
-				data_id, payload = self.queue.get()
+				data_id, payload = self.queue.get(block=None)
 			except Empty:
-				pass
-			try:
-				self.queue.task_done()
-			except ValueError as e:
 				pass
 			if data_id:
 				try:
