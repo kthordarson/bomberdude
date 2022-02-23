@@ -67,6 +67,7 @@ class ClientThread(Thread):
 			if data_id:
 				# logger.debug(f'[{self.name}] rq:{self.rq.qsize()} got id:{data_id} p:{payload}')
 				self.process_data(data_id=data_id, payload=payload)
+				self.rq.task_done()
 			# 	logger.error(f'[{self.client_id}] {e} rq:{self.rq.qsize()} ')
 			# srv_q_cmd = None
 			# try:
@@ -251,12 +252,13 @@ class ServerThread(Thread):
 				#for cl in self.clients:
 				#	cl.net_players = self.net_players
 				logger.debug(f'[srv] new client id:{cl.client_id} total: {len(self.clients)} sq:{cl.client_q.qsize()}')
-			client_qdata = None
+			data_id = None
+			payload = None
 			try:
 				data_id, payload = self.client_q.get_nowait()
 			except Empty:
 				pass
-			if client_qdata:
+			if data_id:
 				self.client_q.task_done()
 				# logger.debug(f'client_qdata: {payload} {self.client_q.qsize()}')
 				if data_id == data_identifiers['netplayer']:
@@ -267,8 +269,9 @@ class ServerThread(Thread):
 					y = int(y)
 					playerpos = Vector2((x, y))
 					for cl in self.clients:
-						cl.net_players[playerid] = playerpos
-						logger.debug(f'client_qdata: {payload} {self.client_q.qsize()} {cl} {playerid} {playerpos}')
+						# cl.net_players[playerid] = playerpos
+						cl.sq.put_nowait((data_identifiers['netplayer'], f'{playerid}:{playerpos}'))
+						# logger.debug(f'send to {cl.client_id}: payload: {payload} qs:{self.client_q.qsize()} plid:{playerid} pos:{playerpos} clp:{cl.net_players[playerid]} clnp:{len(cl.net_players)}')
 					# self.net_players[playerid] = playerpos
 					# player1.net_players[npl_id] = playerpos
 					# player1.net_players[player1.client_id] = player1.pos
@@ -305,7 +308,7 @@ if __name__ == '__main__':
 				logger.debug(f'[d] server {server.name} severclients:{len(server.clients)} msq:{server.serverqueue.qsize()}')
 				idx1 = 0
 				for cl in server.clients:
-					logger.debug(f'[client {idx1}/{len(server.clients)}] {cl.client_id} pos:{cl.pos} netp:{len(cl.net_players)} clsq:{cl.sq.qsize()} clrq:{cl.rq.qsize()} clsvrq:{cl.client_q.qsize()}')
+					#logger.debug(f'[client {idx1}/{len(server.clients)}] {cl.client_id} pos:{cl.pos} netp:{len(cl.net_players)} clsq:{cl.sq.qsize()} clrq:{cl.rq.qsize()} clsvrq:{cl.client_q.qsize()}')
 					idx1 += 1
 					idxnp = 0
 					for np in cl.net_players:

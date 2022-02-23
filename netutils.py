@@ -152,5 +152,5 @@ class DataReceiver(Thread):
 				self.socket.close()
 				self.kill = True
 			if data_id:
-				self.queue.put_nowait((data_id, payload))
+				self.queue.put((data_id, payload))
 				# logger.debug(f'[{self.name}] recv {data_id} p:{payload} src:{self.socket.getsockname()} dst:{self.socket.getpeername()} qs:{self.queue.qsize()}')

@@ -84,6 +84,17 @@ class Player(BasicThing, Thread):
 			self.mapgrid = payload
 			self.gotmap = True
 			logger.debug(f'gotmapgrid: {len(self.mapgrid)} c:{self.connected} m:{self.gotmap}')
+		elif data_id == data_identifiers['netplayer']:
+			playerid = payload.split(':')[0]
+			if self.client_id != playerid:
+				npl_id = payload.split(':')[0]
+				x, y = payload.split("[")[1][:-1].split(",")
+				x = int(x)
+				y = int(y)
+				playerpos = Vector2((x, y))
+				# self.net_players[playerid] = playerpos
+				self.net_players[npl_id] = playerpos
+				self.net_players[self.client_id] = self.pos
 		else:
 			# pass
 			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload} rq:{self.rq.qsize()} sq:{self.sq.qsize()}  ')
@@ -97,6 +108,13 @@ class Player(BasicThing, Thread):
 		while True:
 			data_id = None
 			payload = None
+			try:
+				data_id, payload = self.rq.get_nowait()
+			except Empty:
+				pass
+			if data_id:
+				self.handle_data(data_id=data_id, payload=payload)
+				self.rq.task_done()
 			if self.kill:
 				logger.debug(f'player kill rq:{self.rq.qsize()} sq:{self.sq.qsize()}  ')
 				break

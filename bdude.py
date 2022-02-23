@@ -250,7 +250,7 @@ class Game(Thread):
 				if event.key == pygame.K_1:
 					self.request_servermap(player=player1)
 				if event.key == pygame.K_2:
-					pass
+					debugdump(player1=player1, game=self)
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
@@ -301,8 +301,19 @@ class Game(Thread):
 			# if event_type == pygame.MOUSEBUTTONDOWN:
 			#	mousex, mousey = pygame.mouse.get_pos()
 
-def debugdump(player1):
-	logger.debug(f'[debugstart]')
+def debugdump(player1=None, game=None):
+	logger.debug(f'[debugstart] player:{player1.client_id} pos:{player1.pos} npc:{len(player1.net_players)} sq:{player1.sq.qsize()} rq:{player1.rq.qsize()}')
+	for npl in player1.net_players:
+		logger.debug(f'[debug] npl:{npl} {player1.net_players[npl]}')
+	if game.server_mode:
+		# logger.debug(f'[serverdump] {game.gameserver.name} servq:{game.gameserver.serverqueue.qsize()} serclq:{game.gameserver.client_q.qsize()} sp:{len(game.gameserver.players)} sc:{len(game.gameserver.clients)} snp:{len(game.gameserver.net_players)}  ssq:{game.gameserver.sq.qsize()} srq:{game.gameserver.rq.qsize()} ')
+		logger.debug(f'[serverdump] {game.gameserver.name} servq:{game.gameserver.serverqueue.qsize()} serclq:{game.gameserver.client_q.qsize()} sc:{len(game.gameserver.clients)} snp:{len(game.gameserver.net_players)}')
+		logger.debug(f'[serverdump] clients')
+		for cl in game.gameserver.clients:
+			logger.debug(f'[serverdump] cl:{cl.client_id} clpos:{cl.pos} clnp:{len(cl.net_players)}')
+			for clnp in cl.net_players:
+				logger.debug(f'[serverdump] cl:{cl.client_id} clnp:{clnp} clnppos:{cl.net_players[clnp]}')
+			# logger.debug(f'[debug] sq:{player1.sq.qsize()} rq:{player1.rq.qsize()} ssq:{server.sq.qsize()} srq:{server.rq.qsize()}')
 
 if __name__ == "__main__":
 
@@ -332,7 +343,7 @@ if __name__ == "__main__":
 		data_id = None
 		payload = None
 		try:
-			data_id, payload = game.rq.get(block=None)
+			data_id, payload = game.rq.get_nowait()
 			#if not game.server_mode:
 			#	logger.debug(f'[bdude] eq d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
 		except Empty:
@@ -341,12 +352,13 @@ if __name__ == "__main__":
 		#	logger.debug(f'[bdude] eq d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
 			# empty_queue(player1.sq)
 			# logger.debug(f'[bdude] eq d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
-		if data_id:
+		if data_id:			
 			# logger.debug(f'[bdude] d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
 			if data_id == data_identifiers['mapdata']:
 				game.gamemap.set_grid(newgrid=payload)
 				logger.debug(f'[bdude] mapgrid id:{data_id} p:{len(payload)} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
 				game.reset_blocks(newgrid=payload)
+				game.rq.task_done()
 			if data_id == data_identifiers['netplayer']:
 				playerid = payload.split(':')[0]
 				if player1.client_id != playerid:
@@ -358,6 +370,7 @@ if __name__ == "__main__":
 					# self.net_players[playerid] = playerpos
 					player1.net_players[npl_id] = playerpos
 					player1.net_players[player1.client_id] = player1.pos
+					game.rq.task_done()
 					# if x != 300:
 					#	logger.debug(f'[{player1.client_id}] x:{x} {x == 300} y:{y} npl:{len(player1.net_players)} dataid: {data_id} p: {payload} npl:{npl_id} playerid:{playerid} playerpos:{playerpos} rq:{player1.rq.qsize()} sq:{player1.sq.qsize()}  ')
 			# player1.handle_data(data_id=data_id, payload=payload)
