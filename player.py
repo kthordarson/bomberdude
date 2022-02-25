@@ -45,6 +45,8 @@ class Player(BasicThing, Thread):
 		self.gotmap = False
 		self.connected = False
 		self.net_players = {}
+		self.cnt_sq_request = 0
+		self.cnt_sq_sendyourpos = 0
 		logger.debug(f'[player] init pos:{pos} dt:{dt} i:{image}  client_id:{self.client_id}')
 
 	def __str__(self):
@@ -65,6 +67,7 @@ class Player(BasicThing, Thread):
 		if data_id == -1:
 			pass
 		elif data_id == data_identifiers['sendyourpos']:
+			self.cnt_sq_sendyourpos += 1
 			self.sq.put((data_identifiers['posupdate'], self.pos))
 		elif data_id == data_identifiers['debugdump'] or data_id == 16:
 			pass
@@ -100,6 +103,7 @@ class Player(BasicThing, Thread):
 			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload} rq:{self.rq.qsize()} sq:{self.sq.qsize()}  ')
 	
 	def server_request(self, request=None):
+		self.cnt_sq_request += 1
 		self.sq.put((data_identifiers['request'], request))
 
 	def run(self):

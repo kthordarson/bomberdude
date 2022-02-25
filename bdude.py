@@ -194,9 +194,10 @@ class Game(Thread):
 		self.connected = True
 
 	def request_servermap(self, player=None):
-		logger.debug(f'p:{player}')
+		# logger.debug(f'p:{player}')
 		self.sq.put((data_identifiers['request'], 'gamemap'))
-		logger.debug(f'p:{player} sq:{self.sq.qsize()} rq:{self.rq.qsize()}')
+		player.cnt_sq_request += 1
+		logger.debug(f'p:{player} sq:{self.sq.qsize()} rq:{self.rq.qsize()} player.cnt_sq_request:{player.cnt_sq_request}')
 
 	def handle_menu(self, selection, player1):
 		# mainmenu
