@@ -176,12 +176,9 @@ class Game(Thread):
 		server_running = True
 		return server
 
-	def connect_to_server(self, player1):
-		self.connect_server()
-
-	def connect_server(self):
+	def connect_server(self, player1):
 		server = ('127.0.0.1', 6666)
-		logger.debug(f'connecting to {server}')
+		logger.debug(f'[{player1.client_id}] connecting to {server}')
 		try:
 			self.socket.connect(server)
 		except ConnectionRefusedError as e:
@@ -192,6 +189,7 @@ class Game(Thread):
 		self.recv_thread.start()
 		self.send_thread.start()
 		self.connected = True
+		player1.connected = True
 
 	def request_servermap(self, player=None):
 		# logger.debug(f'p:{player}')
@@ -203,13 +201,13 @@ class Game(Thread):
 		# mainmenu
 		if selection == "Start":
 			self.show_mainmenu ^= True
-			self.connect_to_server(player1)
+			self.connect_server(player1)
 			self.request_servermap(player=player1)
 #			self.reset_map()
 
 		if selection == "Connect to server":
 			self.show_mainmenu = False
-			self.connect_to_server(player1)
+			self.connect_server(player1)
 			self.request_servermap(player=player1)
 
 		if selection == "Quit":
@@ -336,6 +334,8 @@ if __name__ == "__main__":
 	game.players.add(player1)
 	player1.daemon = True
 	player1.start()
+	font = pygame.freetype.Font(DEFAULTFONT, 12)
+	font_color = (255, 255, 255)
 	while game.running:
 		# main game loop logic stuff
 		game.handle_input(player1=player1)
@@ -343,18 +343,13 @@ if __name__ == "__main__":
 		game.draw(player1)
 		data_id = None
 		payload = None
-		try:
-			data_id, payload = game.rq.get_nowait()
-			#if not game.server_mode:
-			#	logger.debug(f'[bdude] eq d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
-		except Empty:
-			pass
-		#if player1.sq.qsize() <= 2000:
-		#	logger.debug(f'[bdude] eq d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
-			# empty_queue(player1.sq)
-			# logger.debug(f'[bdude] eq d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
+		player1.net_players[player1.client_id] = player1.pos
+		if player1.connected:
+			try:
+				data_id, payload = game.rq.get_nowait()
+			except Empty:
+				pass
 		if data_id:			
-			# logger.debug(f'[bdude] d:{data_id} p:{payload} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
 			if data_id == data_identifiers['mapdata']:
 				game.gamemap.set_grid(newgrid=payload)
 				logger.debug(f'[bdude] mapgrid id:{data_id} p:{len(payload)} sq:{game.sq.qsize()} rq:{game.rq.qsize()}')
@@ -368,21 +363,17 @@ if __name__ == "__main__":
 					x = int(x)
 					y = int(y)
 					playerpos = Vector2((x, y))
-					# self.net_players[playerid] = playerpos
 					player1.net_players[npl_id] = playerpos
-					player1.net_players[player1.client_id] = player1.pos
 					game.rq.task_done()
-					# if x != 300:
-					#	logger.debug(f'[{player1.client_id}] x:{x} {x == 300} y:{y} npl:{len(player1.net_players)} dataid: {data_id} p: {payload} npl:{npl_id} playerid:{playerid} playerpos:{playerpos} rq:{player1.rq.qsize()} sq:{player1.sq.qsize()}  ')
-			# player1.handle_data(data_id=data_id, payload=payload)
-		pospayload = f'{player1.client_id}:({int(player1.pos.x)}, {int(player1.pos.y)})'
-		game.sq.put((data_identifiers['send_pos'], pospayload))
-		player1.net_players[player1.client_id] = player1.pos
-		for idx, npl in enumerate(player1.net_players):
-			npl_pos = Vector2(player1.net_players[npl])
-			# logger.debug(f'[dnpl] {idx} {npl_pos} {player1.net_players[npl]} {player1.net_players[player1.client_id]}')
-			pygame.draw.circle(surface=pyscreen, color=(255,255,255), center=npl_pos, radius=10)
-			# pygame.draw.circle(surface=pyscreen, color=(255,255,55), center=player1.net_players[npl], radius=10)
+		if player1.connected:
+			pospayload = f'{player1.client_id}:({int(player1.pos.x)}, {int(player1.pos.y)})'
+			game.sq.put((data_identifiers['send_pos'], pospayload))
+			for idx, npl in enumerate(player1.net_players):
+				npl_pos = Vector2(player1.net_players[npl])
+				# logger.debug(f'[dnpl] {idx} {npl_pos} {player1.net_players[npl]} {player1.net_players[player1.client_id]}')
+				font.render_to(pyscreen, npl_pos, f'{npl} {npl_pos}', font_color)
+				pygame.draw.circle(surface=pyscreen, color=(255,255,255), center=npl_pos, radius=10)
+				# pygame.draw.circle(surface=pyscreen, color=(255,255,55), center=player1.net_players[npl], radius=10)
 
 	logger.debug(f'game end {game.running} {player1.kill}')
 	player1.kill = True

@@ -42,6 +42,9 @@ protocols = get_constants('IPPROTO_')
 
 
 def send_data(conn=socket, payload=None, data_id=0):
+	if not payload or data_id == 0:
+		logger.error(f'[sender] invalid data conn: {type(conn)} {conn} id:{data_id} payload:{payload}')
+		return
 	if not isinstance(conn, socket.socket):
 		logger.error(f'[sender] err! conn: {type(conn)} {conn} payload {payload}')
 		return
