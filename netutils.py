@@ -79,8 +79,11 @@ def receive_data(conn=None):
 	try:
 		data_id = unpack('>I', conn.recv(4))[0]
 	except OSError as e:
-		logger.error(f'recv err: {e} size:{data_size}')
-		raise e
+		logger.error(f'recv err: {e} conn:{conn.fileno()} ')
+		conn.close()
+		return None
+		# logger.error(f'recv err: {e} size:{data_size}')
+		# raise e
 	# receive payload till received payload size is equal to data_size received		
 	reamining_payload_size = data_size
 	while reamining_payload_size != 0:
@@ -88,7 +91,9 @@ def receive_data(conn=None):
 			received_payload += conn.recv(reamining_payload_size)
 		except OSError as e:
 			logger.error(f'recv err: {e} size:{data_size}/{reamining_payload_size} id:{data_id} p:{received_payload}')
-			raise e
+			conn.close()
+			return None
+			# raise e
 		reamining_payload_size = data_size - len(received_payload)
 	payload = 0
 	try:

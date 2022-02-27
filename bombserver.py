@@ -8,14 +8,14 @@ from loguru import logger
 from pygame.math import Vector2
 from pygame.sprite import Group
 
-from globals import Block
+from globals import Block, empty_queue
 from globals import GRIDSIZE
 from globals import Gamemap
 from globals import StoppableThread
 from globals import gen_randid
 from netutils import data_identifiers, DataReceiver, DataSender
-from threading import enumerate, Thread
-
+from threading import Thread
+from threading import enumerate as t_enumerate
 
 
 class ClientThread(Thread):
@@ -38,8 +38,11 @@ class ClientThread(Thread):
 		self.hbcount = 0
 		self.pos = Vector2()
 		self.rq = Queue()
+		self.rq.name = f'clienthread-{self.client_id}-rq'
 		self.sq = Queue()
+		self.sq.name = f'clienthread-{self.client_id}-sq'
 		self.client_q = client_q
+		self.client_q.name = f'clienthread-{self.client_id}-clientq'
 		self.recv_thread = DataReceiver(r_socket=self.clientconnection, queue=self.rq, name=self.client_id)
 		self.send_thread = DataSender(s_socket=self.clientconnection, queue=self.sq, name=self.client_id)
 		self.tlist = []
@@ -83,7 +86,7 @@ class ClientThread(Thread):
 
 	def send_clientid(self):
 		self.sq.put((data_identifiers['setclientid'], self.client_id))
-		logger.debug(f'[{self.client_id}] send_clientid sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()}')
+		logger.debug(f'[{self.client_id}] send_clientid {self.sq.name}:{self.sq.qsize()} {self.rq.name}:{self.rq.qsize()} {self.client_q.name}:{self.client_q.qsize()}')
 
 	def handle_connection(self, payload):
 		logger.debug(f'[{self.client_id}] connection payload: {payload}')
@@ -91,10 +94,10 @@ class ClientThread(Thread):
 		self.pos = payload.split(':')[2]
 		if payload_pid == '-2':
 			self.sq.put((data_identifiers['setclientid'], self.client_id))
-			logger.debug(f'sending setclientid: {self.client_id} sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()} pos:{self.pos}')
+			logger.debug(f'sending setclientid: {self.client_id} pos:{self.pos} {self.sq.name}:{self.sq.qsize()} {self.rq.name}:{self.rq.qsize()} {self.client_q.name}:{self.client_q.qsize()}')
 
 	def send_gamemapgrid(self):
-		logger.debug(f'[{self.client_id}] sending gamedata mapgrid {len(self.gamemap.grid)} sq:{self.sq.qsize()} rq:{self.rq.qsize()} srvq:{self.client_q.qsize()}')
+		logger.debug(f'[{self.client_id}] sending gamedata mapgrid {len(self.gamemap.grid)} {self.sq.name}:{self.sq.qsize()} {self.rq.name}:{self.rq.qsize()} {self.client_q.name}:{self.client_q.qsize()}')
 		# send_data(conn=self.clientconnection, payload=data, data_id=data_identifiers['data'])
 		self.sq.put((data_identifiers['mapdata'], self.gamemap.grid))
 
@@ -173,6 +176,7 @@ class ServerThread(Thread):
 		self.name = name
 		self.serverqueue = serverqueue
 		self.client_q = Queue()
+		self.client_q.name = 'serverthread-clientq'
 		self.localaddr = (listenaddr, port)
 		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -251,7 +255,7 @@ class ServerThread(Thread):
 				cl.start()
 				#for cl in self.clients:
 				#	cl.net_players = self.net_players
-				logger.debug(f'[srv] new client id:{cl.client_id} total: {len(self.clients)} sq:{cl.client_q.qsize()}')
+				logger.debug(f'[srv] new client id:{cl.client_id} total: {len(self.clients)} {cl.client_q.name}:{cl.client_q.qsize()} {self.serverqueue.name}:{self.serverqueue.qsize()}')
 			data_id = None
 			payload = None
 			try:
@@ -281,6 +285,7 @@ class ServerThread(Thread):
 if __name__ == '__main__':
 	mainthreads = []
 	serverqueue = Queue()
+	serverqueue.name = 'bombserverqueue'
 	mainmap = Gamemap()
 	server = ServerThread(name='bombserver', serverqueue=serverqueue, mainmap=mainmap)
 	mainthreads.append(server)
@@ -305,19 +310,31 @@ if __name__ == '__main__':
 			# stop_all_threads(mainthreads)
 			if cmd[:1] == 'd':
 				# t_count = len(enumerate())
-				logger.debug(f'[d] server {server.name} severclients:{len(server.clients)} msq:{server.serverqueue.qsize()}')
+				logger.debug(f'[d] server {server.name} severclients:{len(server.clients)} {server.serverqueue.name}:{server.serverqueue.qsize()}')
 				idx1 = 0
 				for cl in server.clients:
 					#logger.debug(f'[client {idx1}/{len(server.clients)}] {cl.client_id} pos:{cl.pos} netp:{len(cl.net_players)} clsq:{cl.sq.qsize()} clrq:{cl.rq.qsize()} clsvrq:{cl.client_q.qsize()}')
 					idx1 += 1
 					idxnp = 0
 					for np in cl.net_players:
-						logger.debug(f'[clnp {idx1}/{len(server.clients)}] {cl.client_id} n:{idxnp}/{len(cl.net_players)} netp: {np} {cl.net_players[np]} clsq:{cl.sq.qsize()} clrq:{cl.rq.qsize()} clsvrq:{cl.client_q.qsize()}')
+						logger.debug(f'[clnp {idx1}/{len(server.clients)}] {cl.client_id} n:{idxnp}/{len(cl.net_players)} netp: {np} {cl.net_players[np]}  {cl.sq.name}:{cl.sq.qsize()} {cl.rq.name}:{cl.rq.qsize()} {cl.client_q.name}:{cl.client_q.qsize()}')
 						idxnp += 1
+			if cmd[:1] == 'f':
+				logger.debug(f'[df] server {server.name} severclients:{len(server.clients)} ')
+				for idx, cl in enumerate(server.clients):
+					if cl.sq.qsize() >= 2:
+						empty_queue(cl.sq)
+						logger.debug(f'[cl {idx}] {cl.client_id} sq cleared {cl.sq.name}:{cl.sq.qsize()} {cl.rq.name}:{cl.rq.qsize()} {cl.client_q.name}:{cl.client_q.qsize()}')
+					if cl.rq.qsize() >= 2:
+						empty_queue(cl.rq)
+						logger.debug(f'[cl {idx}] {cl.client_id} rq cleared {cl.sq.name}:{cl.sq.qsize()} {cl.rq.name}:{cl.rq.qsize()} {cl.client_q.name}:{cl.client_q.qsize()}')
+					if cl.client_q.qsize() >= 2:
+						empty_queue(cl.client_q)
+						logger.debug(f'[cl {idx}] {cl.client_id} client_q cleared {cl.sq.name}:{cl.sq.qsize()} {cl.rq.name}:{cl.rq.qsize()} {cl.client_q.name}:{cl.client_q.qsize()}')
 			if cmd[:1] == 'p':
 				server.serverqueue.put(({'servercmd': 'pingall'}))
 			if cmd[:1] == 't':
-				all_threads = enumerate()
+				all_threads = t_enumerate()
 				idx = 0
 				logger.debug(f'Thread dump total threads {len(all_threads)}')
 				for t in all_threads:

@@ -82,11 +82,12 @@ class Player(BasicThing, Thread):
 		elif data_id == data_identifiers['setclientid']:
 			self.client_id = payload
 			self.connected = True
-			logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload} c:{self.connected} m:{self.gotmap} rq:{self.rq.qsize()} sq:{self.sq.qsize()}  ')
+			logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload} c:{self.connected} m:{self.gotmap} {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}  ')
 		elif data_id == data_identifiers['gamemapgrid'] or data_id == 14 or data_id == 10:
-			self.mapgrid = payload
-			self.gotmap = True
-			logger.debug(f'gotmapgrid: {len(self.mapgrid)} c:{self.connected} m:{self.gotmap}')
+			pass
+			#self.mapgrid = payload
+			#self.gotmap = True
+			#logger.debug(f'gotmapgrid: {len(self.mapgrid)} c:{self.connected} m:{self.gotmap}')
 		elif data_id == data_identifiers['netplayer']:
 			playerid = payload.split(':')[0]
 			if self.client_id != playerid:
@@ -100,7 +101,7 @@ class Player(BasicThing, Thread):
 				self.net_players[self.client_id] = self.pos
 		else:
 			# pass
-			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload} rq:{self.rq.qsize()} sq:{self.sq.qsize()}  ')
+			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload} {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}  ')
 	
 	def server_request(self, request=None):
 		self.cnt_sq_request += 1
@@ -108,7 +109,7 @@ class Player(BasicThing, Thread):
 
 	def run(self):
 		self.kill = False
-		logger.debug(f'Player {self.client_id} start rq:{self.rq.qsize()} sq:{self.sq.qsize()}  ')
+		logger.debug(f'Player {self.client_id} start {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}')
 		while True:
 			data_id = None
 			payload = None
@@ -120,7 +121,7 @@ class Player(BasicThing, Thread):
 				self.handle_data(data_id=data_id, payload=payload)
 				self.rq.task_done()
 			if self.kill:
-				logger.debug(f'player kill rq:{self.rq.qsize()} sq:{self.sq.qsize()}  ')
+				logger.debug(f'player kill {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}')
 				break
 			self.send_pos()
 

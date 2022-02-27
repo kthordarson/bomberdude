@@ -162,14 +162,15 @@ class Block(BasicThing):
 		pass
 
 	def hit(self):
-		if not self.permanent:
-			self.block_type = 0
-			self.solid = False
-			self.image.set_alpha(255)
-			self.image.set_colorkey((0, 0, 0))
-			self.rect = self.image.get_rect(topleft=self.pos)
-			self.rect.x = self.pos.x
-			self.rect.y = self.pos.y
+		self.bitmap = BLOCKTYPES.get(11)["bitmap"]
+		# self.block_type = 0
+		self.solid = False
+		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
+		# self.image.set_alpha(255)
+		# self.image.set_colorkey((0, 0, 0))
+		# self.rect = self.image.get_rect(topleft=self.pos)
+		# self.rect.x = self.pos.x
+		# self.rect.y = self.pos.y
 
 
 	def get_particles(self):
@@ -514,11 +515,16 @@ class StoppableThread(Thread):
 		Thread.join(self, timeout=timeout)
 
 def empty_queue(queue_to_empty: Queue):
+	logger.debug(f'[queue_to_empty] start q:{queue_to_empty.name} qs:{queue_to_empty.qsize()}')
 	while queue_to_empty.qsize() != 0:
 		try:
-			queue_to_empty.get_nowait()
-			queue_to_empty.task_done()
-		except Empty:
-			pass
-		except ValueError:
-			pass
+			with queue_to_empty.mutex:
+				queue_to_empty.queue.clear()
+			#queue_to_empty.all_tasks_done()
+			#queue_to_empty.get_nowait()
+			#queue_to_empty.task_done()
+			logger.debug(f'[queue_to_empty] q:{queue_to_empty.name} qs:{queue_to_empty.qsize()}')
+		except Empty as e:
+			logger.error(f'[queue_to_empty] empty:{e} q:{queue_to_empty} qs:{queue_to_empty.qsize()}')
+		except ValueError as e:
+			logger.error(f'[queue_to_empty] error:{e} q:{queue_to_empty} qs:{queue_to_empty.qsize()}')
