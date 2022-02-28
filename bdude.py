@@ -42,11 +42,7 @@ class Game(Thread):
 		self.game_menu = Menu(self.screen)
 		self.debug_dialog = DebugDialog(self.screen)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
-		if gamemap:
-			logger.debug(f'mainmap {gamemap}')
-			self.gamemap = gamemap
-		else:
-			self.gamemap = Gamemap()
+		self.gamemap = gamemap
 		self.DEBUGFONTCOLOR = (123, 123, 123)
 		self.DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
 		self.rm = ResourceHandler()
@@ -333,7 +329,7 @@ if __name__ == "__main__":
 	pyscreen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 	mainClock = pygame.time.Clock()
 	dt = mainClock.tick(FPS) / 1000
-	mainmap = Gamemap()
+	mainmap = Gamemap(genmap=False)
 	game = Game(screen=pyscreen, game_dt=dt, gamemap=mainmap)
 	game.start()
 	game.running = True

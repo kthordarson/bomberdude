@@ -286,7 +286,7 @@ if __name__ == '__main__':
 	mainthreads = []
 	serverqueue = Queue()
 	serverqueue.name = 'bombserverqueue'
-	mainmap = Gamemap()
+	mainmap = Gamemap(genmap=True)
 	server = ServerThread(name='bombserver', serverqueue=serverqueue, mainmap=mainmap)
 	mainthreads.append(server)
 	server.daemon = True

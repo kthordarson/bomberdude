@@ -383,7 +383,10 @@ class Bomb(BasicThing):
 
 class Gamemap:
 	def __init__(self, genmap=True):
-		self.grid = self.generate()
+		if genmap:
+			self.grid = self.generate()
+		else:
+			self.grid = []
 		#self.clear_center()
 
 	# @staticmethod
