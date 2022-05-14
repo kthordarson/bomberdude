@@ -1,12 +1,11 @@
-import pygame, time
-from pygame.sprite import Group, Sprite
+import pygame
+from pygame.sprite import Sprite
 
 from pygame.math import Vector2
-from globals import BasicThing, Block, gen_randid, Bomb, Gamemap
+from globals import BasicThing, Block, gen_randid, Bomb
 from loguru import logger
-import socket
-from signal import signal, SIGPIPE, SIG_DFL 
-from queue import Queue, Empty
+from signal import SIGPIPE, SIG_DFL 
+from queue import Empty
 from netutils import data_identifiers
 from globals import ResourceHandler
 from threading import Thread
@@ -19,7 +18,7 @@ class Player(BasicThing, Thread):
 		Thread.__init__(self, name='player')
 		self.name = 'player'
 		BasicThing.__init__(self)
-		Sprite.__init__(self)
+		# Sprite.__init__(self)
 		self.client_id = gen_randid()
 		self.dt = dt
 		self.rm = ResourceHandler()
@@ -47,7 +46,7 @@ class Player(BasicThing, Thread):
 		self.net_players = {}
 		self.cnt_sq_request = 0
 		self.cnt_sq_sendyourpos = 0
-		logger.debug(f'[player] init pos:{pos} dt:{dt} i:{image}  client_id:{self.client_id}')
+		logger.debug(f'[player] init pos:{pos} dt:{dt} i:{image} client_id:{self.client_id}')
 
 	def __str__(self):
 		return self.client_id
@@ -57,7 +56,8 @@ class Player(BasicThing, Thread):
 
 
 	def send_pos(self):
-		payload = f'{self.client_id}:{self.pos}'
+		pass
+		# payload = f'{self.client_id}:{self.pos}'
 		#self.sq.put((data_identifiers['send_pos'], payload))
 		#self.send_pos_count += 1
 		# self.sq.put((data_identifiers['send_pos'], self.pos))
@@ -82,7 +82,7 @@ class Player(BasicThing, Thread):
 		elif data_id == data_identifiers['setclientid']:
 			self.client_id = payload
 			self.connected = True
-			logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload} c:{self.connected} m:{self.gotmap} {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}  ')
+			logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload} c:{self.connected} m:{self.gotmap} {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()} ')
 		elif data_id == data_identifiers['gamemapgrid'] or data_id == 14 or data_id == 10:
 			pass
 			#self.mapgrid = payload
@@ -101,7 +101,7 @@ class Player(BasicThing, Thread):
 				self.net_players[self.client_id] = self.pos
 		else:
 			# pass
-			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload} {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}  ')
+			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload} {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()} ')
 	
 	def server_request(self, request=None):
 		self.cnt_sq_request += 1

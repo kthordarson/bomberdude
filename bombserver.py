@@ -11,7 +11,6 @@ from pygame.sprite import Group
 from globals import Block, empty_queue
 from globals import GRIDSIZE
 from globals import Gamemap
-from globals import StoppableThread
 from globals import gen_randid
 from netutils import data_identifiers, DataReceiver, DataSender
 from threading import Thread
@@ -280,6 +279,15 @@ class ServerThread(Thread):
 					# player1.net_players[npl_id] = playerpos
 					# player1.net_players[player1.client_id] = player1.pos
 
+def start_server() -> ServerThread:
+	serverqueue = Queue()
+	serverqueue.name = 'bdudeserverqueue'
+	server = ServerThread(name='bombserver', serverqueue=serverqueue, mainmap=Gamemap())
+	server.daemon = True
+	server.connhandler.daemon = True
+	server.gamemap.grid = server.gamemap.generate()
+	server.start()
+	return server
 
 
 if __name__ == '__main__':
@@ -317,7 +325,7 @@ if __name__ == '__main__':
 					idx1 += 1
 					idxnp = 0
 					for np in cl.net_players:
-						logger.debug(f'[clnp {idx1}/{len(server.clients)}] {cl.client_id} n:{idxnp}/{len(cl.net_players)} netp: {np} {cl.net_players[np]}  {cl.sq.name}:{cl.sq.qsize()} {cl.rq.name}:{cl.rq.qsize()} {cl.client_q.name}:{cl.client_q.qsize()}')
+						logger.debug(f'[clnp {idx1}/{len(server.clients)}] {cl.client_id} n:{idxnp}/{len(cl.net_players)} netp: {np} {cl.net_players[np]} {cl.sq.name}:{cl.sq.qsize()} {cl.rq.name}:{cl.rq.qsize()} {cl.client_q.name}:{cl.client_q.qsize()}')
 						idxnp += 1
 			if cmd[:1] == 'f':
 				logger.debug(f'[df] server {server.name} severclients:{len(server.clients)} ')
@@ -333,6 +341,10 @@ if __name__ == '__main__':
 						logger.debug(f'[cl {idx}] {cl.client_id} client_q cleared {cl.sq.name}:{cl.sq.qsize()} {cl.rq.name}:{cl.rq.qsize()} {cl.client_q.name}:{cl.client_q.qsize()}')
 			if cmd[:1] == 'p':
 				server.serverqueue.put(({'servercmd': 'pingall'}))
+			if cmd[:1] == 'm':
+				for cl in server.clients:
+					cl.sq.put((data_identifiers['mapdata'], server.gamemap.grid))
+					logger.debug(f'[sendmap] {server.name} sending to {cl.client_id}')
 			if cmd[:1] == 't':
 				all_threads = t_enumerate()
 				idx = 0

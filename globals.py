@@ -53,9 +53,9 @@ def get_angle(pos_1, pos_2):
 
 
 def inside_circle(radius, pos_x, pos_y):
-	x = int(radius)  # radius is the radius
+	x = int(radius) # radius is the radius
 	for x in range(-x, x + 1):
-		y = int((radius * radius - x * x) ** 0.5)  # bound for y given x
+		y = int((radius * radius - x * x) ** 0.5) # bound for y given x
 		for y in range(-y, y + 1):
 			yield x + pos_x, y + pos_y
 
@@ -184,14 +184,14 @@ class Block(BasicThing):
 		self.rect.y = self.pos.y
 		# flame.vel = Vector2(flame.vel[0], flame.vel[1])
 		for k in range(1, 10):
-			if flame.vel.x < 0:  # flame come from left
-				self.particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right"), reshandler=self.rm))  # make particle go right
-			elif flame.vel.x > 0:  # right
-				self.particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left"), reshandler=self.rm))  # for k in range(1,2)]
-			elif flame.vel.y > 0:  # down
-				self.particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up"), reshandler=self.rm))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
-			elif flame.vel.y < 0:  # up
-				self.particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down"), reshandler=self.rm))  # flame.vel.y+random.uniform(-1.31,1.85))))   #for k in range(1,2)]
+			if flame.vel.x < 0: # flame come from left
+				self.particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right"), reshandler=self.rm)) # make particle go right
+			elif flame.vel.x > 0: # right
+				self.particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left"), reshandler=self.rm)) # for k in range(1,2)]
+			elif flame.vel.y > 0: # down
+				self.particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up"), reshandler=self.rm)) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
+			elif flame.vel.y < 0: # up
+				self.particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down"), reshandler=self.rm)) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
 		return self.particles
 
 
@@ -215,7 +215,7 @@ class Powerup(BasicThing):
 
 	def update(self, items=None):
 		self.dt = pygame.time.get_ticks() / 1000
-		# logger.debug(f'[pu] {dt  - self.start_time} {self.timer}')
+		# logger.debug(f'[pu] {dt - self.start_time} {self.timer}')
 		if self.dt - self.start_time >= self.timer:
 			self.kill()
 
@@ -236,14 +236,14 @@ class Particle(BasicThing):
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
-		self.start_time = 1  # pygame.time.get_ticks() // 1000
+		self.start_time = 1 # pygame.time.get_ticks() // 1000
 		self.timer = 10
 		self.hits = 0
 		self.maxhits = 10
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.angle = math.degrees(0)
 		self.mass = 11
-		self.vel = vel  # Vector2(random.uniform(-2, 2), random.uniform(-2, 2))  # Vector2(0, 0)
+		self.vel = vel # Vector2(random.uniform(-2, 2), random.uniform(-2, 2)) # Vector2(0, 0)
 
 	# self.accel = Vector2(0.05,0.05)
 
@@ -273,12 +273,12 @@ class Particle(BasicThing):
 
 
 # for block in blocks:
-#     if self.surface_distance(block, dt) <= 0:
-#         collision_vector = self.pos - block.pos
-#         collision_vector.normalize()
-#         logger.debug(f'{self.surface_distance(block, dt)}')
-#         self.vel = self.vel.reflect(collision_vector)
-#         block.vel = block.vel.reflect(collision_vector)
+#   if self.surface_distance(block, dt) <= 0:
+#     collision_vector = self.pos - block.pos
+#     collision_vector.normalize()
+#     logger.debug(f'{self.surface_distance(block, dt)}')
+#     self.vel = self.vel.reflect(collision_vector)
+#     block.vel = block.vel.reflect(collision_vector)
 
 
 class Flame(BasicThing):
@@ -299,7 +299,7 @@ class Flame(BasicThing):
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		self.start_pos = Vector2(pos)
-		self.vel = Vector2(vel[0], vel[1])  # flame direction
+		self.vel = Vector2(vel[0], vel[1]) # flame direction
 		self.timer = 10
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.flame_length = flame_length
@@ -332,7 +332,7 @@ class Flame(BasicThing):
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y
 			# logger.debug(f'{self.pos.x} {self.start_pos.x} {self.pos.distance_to(self.start_pos)}')
-			if distance >= self.flame_length:  # or (self.dt - self.start_time >= self.timer):
+			if distance >= self.flame_length: # or (self.dt - self.start_time >= self.timer):
 				# logger.debug(f'[flame] dist {distance} max {self.flame_length}')
 				self.kill()
 			if self.dt - self.start_time >= self.timer:
@@ -386,10 +386,8 @@ class Gamemap:
 		if genmap:
 			self.grid = self.generate()
 		else:
-			self.grid = []
-		#self.clear_center()
+			self.grid = [[0 for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
 
-	# @staticmethod
 	def generate(self):
 		grid = [[random.randint(0, 5) for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
 		# set edges to solid blocks, 10 = solid blockwalkk
@@ -401,9 +399,20 @@ class Gamemap:
 			grid[GRIDSIZE[0]][y] = 10
 		return grid
 
+	def set_all_blocks(self, blocktype:int):
+		grid = [[blocktype for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
+		# set edges to solid blocks, 10 = solid blockwalkk
+		for x in range(GRIDSIZE[0] + 1):
+			grid[x][0] = 10
+			grid[x][GRIDSIZE[1]] = 10
+		for y in range(GRIDSIZE[1] + 1):
+			grid[0][y] = 10
+			grid[GRIDSIZE[0]][y] = 10
+		return grid
+
 	def clear_center(self):
-		x = int(GRIDSIZE[0] // 2)  # random.randint(2, GRIDSIZE[0] - 2)
-		y = int(GRIDSIZE[1] // 2)  # random.randint(2, GRIDSIZE[1] - 2)
+		x = int(GRIDSIZE[0] // 2) # random.randint(2, GRIDSIZE[0] - 2)
+		y = int(GRIDSIZE[1] // 2) # random.randint(2, GRIDSIZE[1] - 2)
 		# x = int(x)
 		self.grid[x][y] = 0
 		# make a clear radius around spawn point
@@ -415,9 +424,9 @@ class Gamemap:
 		# place player somewhere where there is no block
 		# returns the (x,y) coordinate where player is to be placed
 		# random starting point from gridgamemap
-		if location == 0:  # center pos
-			x = int(GRIDSIZE[0] // 2)  # random.randint(2, GRIDSIZE[0] - 2)
-			y = int(GRIDSIZE[1] // 2)  # random.randint(2, GRIDSIZE[1] - 2)
+		if location == 0: # center pos
+			x = int(GRIDSIZE[0] // 2) # random.randint(2, GRIDSIZE[0] - 2)
+			y = int(GRIDSIZE[1] // 2) # random.randint(2, GRIDSIZE[1] - 2)
 			# x = int(x)
 			grid[x][y] = 0
 			# make a clear radius around spawn point
@@ -429,7 +438,7 @@ class Gamemap:
 					logger.error(f"exception in place_player {block} {e}")
 			return grid
 		# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
-		if location == 1:  # top left
+		if location == 1: # top left
 			x = 5
 			y = 5
 			# x = int(x)
@@ -475,7 +484,7 @@ class Gamemap:
 def gen_randid():
 	hashid = hashlib.sha1()
 	hashid.update(str(time.time()).encode("utf-8"))
-	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
+	return hashid.hexdigest()[:10] # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
 
 
 def stop_all_threads(threads):
@@ -492,30 +501,6 @@ def start_all_threads(threads):
 	for t in threads:
 		logger.debug(f'start {t}')
 		t.run()
-
-
-class StoppableThread(Thread):
-	"""Thread class with a stop() method. The thread itself has to check
-	regularly for the stopped() condition."""
-
-	def __init__(self, name=None, *args, **kwargs):
-		super(StoppableThread, self).__init__(*args, **kwargs)
-		self._stop_event = Event()
-		self.name = name
-		logger.debug(f'{self.name} init ')
-
-	def stop(self):
-		logger.debug(f'{self.name} stop event')
-		self._stop_event.set()
-
-	def stopped(self):
-		# logger.debug(f'{self.name} stopped check')
-		return self._stop_event.is_set()
-
-	def join(self, timeout=None):
-		logger.debug(f'{self.name} join')
-		self._stop_event.set()
-		Thread.join(self, timeout=timeout)
 
 def empty_queue(queue_to_empty: Queue):
 	logger.debug(f'[queue_to_empty] start q:{queue_to_empty.name} qs:{queue_to_empty.qsize()}')

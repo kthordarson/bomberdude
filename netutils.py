@@ -1,11 +1,9 @@
-from multiprocessing.sharedctypes import Value
 from pickle import dumps, loads
 from queue import Empty
 from struct import pack, unpack, error
 from loguru import logger
 from pickle import UnpicklingError
 from threading import Thread
-from globals import StoppableThread
 import socket
 
 data_identifiers = {
@@ -33,7 +31,7 @@ data_identifiers = {
 }
 
 def get_constants(prefix):
-    return {getattr(socket, n): n for n in dir(socket) if n.startswith(prefix)}
+	return {getattr(socket, n): n for n in dir(socket) if n.startswith(prefix)}
 
 
 families = get_constants('AF_')
@@ -41,7 +39,7 @@ types = get_constants('SOCK_')
 protocols = get_constants('IPPROTO_')
 
 
-def send_data(conn=socket, payload=None, data_id=0):
+def send_data(conn: socket, payload: str, data_id: int):
 	if not payload or data_id == 0:
 		logger.error(f'[sender] invalid data conn: {type(conn)} {conn} id:{data_id} payload:{payload}')
 		return
@@ -64,11 +62,13 @@ def send_data(conn=socket, payload=None, data_id=0):
 		conn.close()
 		raise e
 
-def receive_data(conn=None):
+def receive_data(conn: socket):
 	if isinstance(conn, str):
 		logger.error(f'recv error conntype:{type(conn)} conn:{conn}')
 		return '-1', 'error'
 	received_payload = b""
+	data_size = None
+	data_id = None
 	try:
 		data_size = unpack('>I', conn.recv(4))[0]
 	except (error, OSError) as e:
@@ -76,32 +76,32 @@ def receive_data(conn=None):
 		conn.close()
 		return None
 	# receive next 4 bytes of data as data identifier
-	try:
-		data_id = unpack('>I', conn.recv(4))[0]
-	except OSError as e:
-		logger.error(f'recv err: {e} conn:{conn.fileno()} ')
-		conn.close()
-		return None
-		# logger.error(f'recv err: {e} size:{data_size}')
-		# raise e
-	# receive payload till received payload size is equal to data_size received		
-	reamining_payload_size = data_size
-	while reamining_payload_size != 0:
+	if data_size:
 		try:
-			received_payload += conn.recv(reamining_payload_size)
+			data_id = unpack('>I', conn.recv(4))[0]
 		except OSError as e:
-			logger.error(f'recv err: {e} size:{data_size}/{reamining_payload_size} id:{data_id} p:{received_payload}')
+			logger.error(f'recv err: {e} conn:{conn.fileno()} ')
 			conn.close()
-			return None
-			# raise e
-		reamining_payload_size = data_size - len(received_payload)
-	payload = 0
-	try:
-		payload = loads(received_payload)
-	except UnpicklingError as e:
-		logger.error(f'recv err: {e}')
-		return None
-	return data_id, payload
+			return None			
+		if data_id:
+			# receive payload till received payload size is equal to data_size received		
+			reamining_payload_size = data_size
+			while reamining_payload_size != 0:
+				try:
+					received_payload += conn.recv(reamining_payload_size)
+				except OSError as e:
+					logger.error(f'recv err: {e} size:{data_size}/{reamining_payload_size} id:{data_id} p:{received_payload}')
+					conn.close()
+					return None
+					# raise e
+				reamining_payload_size = data_size - len(received_payload)
+			payload = 0
+			try:
+				payload = loads(received_payload)
+			except UnpicklingError as e:
+				logger.error(f'recv err: {e}')
+				return None
+			return data_id, payload
 
 
 class DataSender(Thread):
@@ -112,7 +112,6 @@ class DataSender(Thread):
 		self.socket = s_socket
 		self.queue = queue
 		self.kill = False
-
 
 	def run(self):
 		while True:
