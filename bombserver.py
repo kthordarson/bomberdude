@@ -70,15 +70,6 @@ class ClientThread(Thread):
 				# logger.debug(f'[{self.name}] rq:{self.rq.qsize()} got id:{data_id} p:{payload}')
 				self.process_data(data_id=data_id, payload=payload)
 				self.rq.task_done()
-			# 	logger.error(f'[{self.client_id}] {e} rq:{self.rq.qsize()} ')
-			# srv_q_cmd = None
-			# try:
-			# 	srv_q_cmd = self.client_q.get_nowait()
-			# except Empty:
-			# 	pass
-			# if srv_q_cmd:
-			# 	if 'player' in srv_q_cmd:
-			# 		self.add_net_player(srv_q_cmd)
 
 	def get_pos(self):
 		return self.pos
@@ -110,21 +101,6 @@ class ClientThread(Thread):
 		self.net_players[playerid] = playerpos
 		newpayload = f'{playerid}:{playerpos}'
 		self.client_q.put((data_identifiers['netplayer'], newpayload))
-		# logger.debug(f'[{self.client_id}] x{x} y{y} payload:{payload} npl:{newpayload} self.pos: {self.pos} np:{len(self.net_players)} pid:{playerid} plpos:{playerpos} {self.client_q.qsize()}')
-		# for np in self.net_players:
-		#	newpayload = f'{np}:{playerpos}'
-		#	self.sq.put((data_identifiers['netplayer'], newpayload))
-			#print(f'{np} {newpayload}')
-#		if x != 300:
-#			logger.debug(f'[{self.client_id}]{x} {y} payload:{payload} self.pos: {self.pos} np:{len(self.net_players)} pid:{playerid} plpos:{playerpos}')
-
-		# self.pos = payload
-		#self.net_players[self.client_id] = playerpos
-		# self.net_players[]
-		#for np in self.net_players:
-		#	newpayload = f'{self.client_id}:{np}:{playerpos}'
-		#	self.sq.put((data_identifiers['netplayer'], newpayload))
-		# self.pos = [k for k in payload.values()][0]
 
 	def process_data(self, data_id=None, payload = None):
 		if data_id == data_identifiers['connect']:

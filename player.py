@@ -54,14 +54,8 @@ class Player(BasicThing, Thread):
 	def __repr__(self):
 		return str(self.client_id)
 
-
 	def send_pos(self):
 		pass
-		# payload = f'{self.client_id}:{self.pos}'
-		#self.sq.put((data_identifiers['send_pos'], payload))
-		#self.send_pos_count += 1
-		# self.sq.put((data_identifiers['send_pos'], self.pos))
-		# logger.debug(f'[{self.client_id}] send_pos {self.pos} payload: {payload} sq:{self.sq.qsize()} rq:{self.rq.qsize()}')
 
 	def handle_data(self, data_id=None, payload=None):
 		if data_id == -1:
