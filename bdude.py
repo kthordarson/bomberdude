@@ -11,7 +11,7 @@ from loguru import logger
 # from pygame import mixer # Load the popular external library
 from debug import draw_debug_sprite, draw_debug_block
 from globals import Block, Powerup, Gamemap, ResourceHandler
-from constants import *
+from constants import DEBUG,DEBUGFONTCOLOR,DEFAULTFONT,GRIDSIZE,BLOCKSIZE,SCREENSIZE,FPS
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread
@@ -78,7 +78,8 @@ class Game(Thread):
 				if block.block_type == 1 or block.block_type == 2: # or block.block_type == '3' or block.block_type == '4':
 					powerup = Powerup(pos=block.rect.center, dt=dt, reshandler=self.rm)
 					self.powerups.add(powerup)
-					draw_debug_block(self.screen, block)
+					if DEBUG:
+						draw_debug_block(self.screen, block)
 				if block.solid:
 					block.hit()
 					block.gen_particles(flame)
@@ -150,9 +151,7 @@ class Game(Thread):
 		self.flames.draw(self.screen)
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
-		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=player1, flames=self.flames, sq=self.sq, rq=self.rq)
-		if DEBUG:
-			draw_debug_sprite(self.screen, self.players, self.DEBUGFONT)
+		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=player1, flames=self.flames)
 		if self.show_debug_diaglog:
 			self.debug_dialog.draw_debug_players(players=self.players)
 
@@ -321,7 +320,7 @@ if __name__ == "__main__":
 	game = Game(screen=pyscreen, game_dt=dt, gamemap=mainmap)
 	game.start()
 	game.running = True
-	player1 = Player(pos=(300, 300), dt=game.dt, image='data/player1.png', sq=game.sq, rq=game.rq)
+	player1 = Player(pos=(300, 300), dt=game.dt, image='data/player1.png')
 
 	game.players.add(player1)
 	player1.daemon = True
@@ -333,46 +332,6 @@ if __name__ == "__main__":
 		game.handle_input(player1=player1)
 		game.update(player1)
 		game.draw(player1)
-		data_id = None
-		payload = None
-		player1.net_players[player1.client_id] = player1.pos
-		if player1.connected:
-			try:
-				data_id, payload = game.rq.get_nowait()
-			except Empty:
-				pass
-			if payload:
-				logger.debug(f'[d] data_id:{data_id} payload:{len(payload)}')
-		if data_id:
-			if data_id == data_identifiers['gamemapgrid'] or data_id == 14 or data_id == 10:
-				game.mapgrid = payload
-				game.gamemap.grid = game.mapgrid
-				game.gotmap = True
-				logger.debug(f'[gmg]: len:{len(game.mapgrid)} p1conn:{player1.connected} gamegotmap:{game.gotmap}')
-			if data_id == data_identifiers['mapdata']:
-				game.gamemap.set_grid(newgrid=payload)
-				logger.debug(f'[bdude] mapgrid id:{data_id} p:{len(payload)} {game.sq.name}:{game.sq.qsize()} {game.rq.name}:{game.rq.qsize()}')
-				game.reset_blocks(newgrid=payload)
-				game.rq.task_done()
-			if data_id == data_identifiers['netplayer']:
-				playerid = payload.split(':')[0]
-				if player1.client_id != playerid:
-					npl_id = payload.split(':')[0]
-					x, y = payload.split("[")[1][:-1].split(",")
-					x = int(x)
-					y = int(y)
-					playerpos = Vector2((x, y))
-					player1.net_players[npl_id] = playerpos
-					game.rq.task_done()
-		if player1.connected and game.gotmap:
-			pospayload = f'{player1.client_id}:({int(player1.pos.x)}, {int(player1.pos.y)})'
-			game.sq.put((data_identifiers['send_pos'], pospayload))
-			for idx, npl in enumerate(player1.net_players):
-				npl_pos = Vector2(player1.net_players[npl])
-				# logger.debug(f'[dnpl] {idx} {npl_pos} {player1.net_players[npl]} {player1.net_players[player1.client_id]}')
-				font.render_to(pyscreen, npl_pos, f'{npl} {npl_pos}', font_color)
-				pygame.draw.circle(surface=pyscreen, color=(255, 255, 255), center=npl_pos, radius=5)
-			# pygame.draw.circle(surface=pyscreen, color=(255,255,55), center=player1.net_players[npl], radius=10)
 
 	logger.debug(f'game end {game.running} {player1.kill}')
 	player1.kill = True

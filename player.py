@@ -12,9 +12,7 @@ from threading import Thread
 from constants import *
 
 class Player(BasicThing, Thread):
-	def __init__(self, pos=None, dt=None, image=None, sq=None, rq=None):
-		self.sq = sq
-		self.rq = rq
+	def __init__(self, pos=None, dt=None, image=None):
 		Thread.__init__(self, name='player')
 		self.name = 'player'
 		BasicThing.__init__(self)
@@ -49,20 +47,16 @@ class Player(BasicThing, Thread):
 		logger.debug(f'[p] init pos:{pos} dt:{dt} i:{image} client_id:{self.client_id}')
 
 	def __str__(self):
-		return self.client_id
+		return f'[player] {self.client_id}' #self.client_id
 
 	def __repr__(self):
-		return str(self.client_id)
-
-	def send_pos(self):
-		pass
+		return f'[player] id:{self.client_id} pos:{self.pos}' #str(self.client_id)
 
 	def handle_data(self, data_id=None, payload=None):
 		if data_id == -1:
 			pass
 		elif data_id == data_identifiers['sendyourpos']:
 			self.cnt_sq_sendyourpos += 1
-			self.sq.put((data_identifiers['posupdate'], self.pos))
 		elif data_id == data_identifiers['debugdump'] or data_id == 16:
 			pass
 			# self.debugdump(payload)
@@ -76,7 +70,7 @@ class Player(BasicThing, Thread):
 		elif data_id == data_identifiers['setclientid']:
 			self.client_id = payload
 			self.connected = True
-			logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload} c:{self.connected} m:{self.gotmap} {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()} ')
+			logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload} c:{self.connected} m:{self.gotmap} ')
 		elif data_id == data_identifiers['gamemapgrid'] or data_id == 14 or data_id == 10:
 			pass
 			#self.mapgrid = payload
@@ -95,29 +89,16 @@ class Player(BasicThing, Thread):
 				self.net_players[self.client_id] = self.pos
 		else:
 			# pass
-			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload} {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()} ')
+			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload} ')
 	
-	def server_request(self, request=None):
-		self.cnt_sq_request += 1
-		self.sq.put((data_identifiers['request'], request))
 
 	def run(self):
 		self.kill = False
-		logger.debug(f'[p]{self.client_id} start {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}')
+		logger.debug(f'[p]{self.client_id} start ')
 		while True:
-			data_id = None
-			payload = None
-			try:
-				data_id, payload = self.rq.get_nowait()
-			except Empty:
-				pass
-			if data_id:
-				self.handle_data(data_id=data_id, payload=payload)
-				self.rq.task_done()
 			if self.kill:
-				logger.debug(f'[pk] {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}')
+				logger.debug(f'[pk] ')
 				break
-			self.send_pos()
 
 	def bombdrop(self):
 		if self.bombs_left > 0:

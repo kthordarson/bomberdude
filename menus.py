@@ -42,7 +42,7 @@ class DebugDialog:
 		# self.font.render_to(self.screen, self.pos, f'm:{pygame.mouse.get_pos()}', self.font_color)
 	
 	def draw_server_debug(self, server=None, player1=None):
-		self.font.render_to(self.screen, self.pos + Vector2(0, 12), f'p1conn:{player1.connected} sq:{player1.sq.qsize()} rq:{player1.rq.qsize()}', self.font_color)
+		self.font.render_to(self.screen, self.pos + Vector2(0, 12), f'p1conn:{player1.connected} ', self.font_color)
 
 class Menu:
 	def __init__(self, screen):
@@ -106,10 +106,10 @@ class Menu:
 			pos_y += 25
 
 
-	def draw_panel(self, blocks, particles, player1, flames, sq, rq):
+	def draw_panel(self, blocks, particles, player1, flames):
 		pos = Vector2(10, 100)
 		idx = 0
-		self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} sq:{player1.sq.qsize()} cnt_sq_request:{player1.cnt_sq_request} cnt_sq_sendyourpos:{player1.cnt_sq_sendyourpos} rq:{player1.rq.qsize()}", self.panelfont_color)
+		self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} ", self.panelfont_color)
 		for npl in list(player1.net_players):			
 			pos.y += 13
 			self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} npl:{npl} {player1.net_players[npl]}", self.panelfont_color)
@@ -117,7 +117,7 @@ class Menu:
 		try:
 			self.panelfont.render_to(self.screen, pos, f"playerid: {player1.client_id} pos x:{player1.rect} vel:{player1.vel} accel:{player1.accel} ", self.panelfont_color)
 			self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"s: {player1.speed} bombs: {player1.bombs_left} bp: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
-			self.panelfont.render_to(self.screen, (pos.x, pos.y + 25), f"b: {len(blocks)} p: {len(particles)} f: {len(flames)} gmg:{player1.gotmap} sq:{sq.qsize()} rq:{rq.qsize()}", self.panelfont_color)
+			self.panelfont.render_to(self.screen, (pos.x, pos.y + 25), f"b: {len(blocks)} p: {len(particles)} f: {len(flames)} gmg:{player1.gotmap} ", self.panelfont_color)
 		# self.screen.blit(self.image, self.rect)
 		except IndexError as e:
 			logger.error(f"[panel] {e} {player1.gridpos}")
