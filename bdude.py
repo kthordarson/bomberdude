@@ -42,18 +42,6 @@ class Game(Thread):
 		self.DEBUGFONTCOLOR = (123, 123, 123)
 		self.DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
 		self.rm = ResourceHandler()
-		self.main_queue = Queue()
-		self.main_queue.name = 'bdudemainq'
-		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self.rq = Queue()
-		self.rq.name = 'bdudemainrq'
-		self.sq = Queue()
-		self.sq.name = 'bdudemainsq'
-		self.recv_thread = DataReceiver(r_socket=self.socket, queue=self.rq, name=self.name)
-		self.send_thread = DataSender(s_socket=self.socket, queue=self.sq, name=self.name)
-		self.connected = False
-		self.gotmap = False
 		self.gamemap = gamemap
 		# self.mapgrid = []
 		self.gameserver = None
@@ -78,12 +66,9 @@ class Game(Thread):
 				if block.block_type == 1 or block.block_type == 2: # or block.block_type == '3' or block.block_type == '4':
 					powerup = Powerup(pos=block.rect.center, dt=dt, reshandler=self.rm)
 					self.powerups.add(powerup)
-					if DEBUG:
-						draw_debug_block(self.screen, block)
 				if block.solid:
-					block.hit()
-					block.gen_particles(flame)
-					self.particles.add(block.particles)
+					block.hit()					
+					self.particles.add(block.gen_particles(flame))
 					flame.kill()
 				# self.blocks.remove(block)
 
@@ -93,8 +78,8 @@ class Game(Thread):
 			blocks = spritecollide(particle, self.blocks, dokill=False)
 			for block in blocks:
 				if block.solid:
-					particle.kill()
-					self.particles.remove(particle)
+					particle.hit()
+					#self.particles.remove(particle)
 
 	def update(self, player1):
 		self.players.update(self.blocks)
@@ -155,12 +140,6 @@ class Game(Thread):
 		if self.show_debug_diaglog:
 			self.debug_dialog.draw_debug_players(players=self.players)
 
-	def pause_game(self):
-		pass
-
-	def restart_game(self):
-		pass
-
 	def connect_server(self, player1):
 		server = ('127.0.0.1', 6666)
 		logger.debug(f'[{player1.client_id}] connecting to {server}')
@@ -168,34 +147,18 @@ class Game(Thread):
 			self.socket.connect(server)
 		except (ConnectionRefusedError, OSError) as e:
 			logger.error(f'{e}')
-			return
-		self.recv_thread.daemon = True
-		self.send_thread.daemon = True
-		self.recv_thread.start()
-		self.send_thread.start()
-		self.connected = True
-		player1.connected = True
-
-	def request_servermap(self, player=None):
-		# logger.debug(f'p:{player}')
-		self.sq.put((data_identifiers['request'], 'gamemap'))
-		player.cnt_sq_request += 1
-		logger.debug(f'[rsm] p:{player} {self.sq.name}:{self.sq.qsize()} {self.rq.name}:{self.rq.qsize()} player.cnt_sq_request:{player.cnt_sq_request}')
 
 	def handle_menu(self, selection, player1):
 		# mainmenu
 		if selection == "Start":
 			self.show_mainmenu ^= True
-			#self.connect_server(player1)
-			#self.request_servermap(player=player1)
-			# time.sleep(1)
-			# self.gamemap.grid = self.mapgrid
 			self.reset_map()
 
 		if selection == "Connect to server":
-			self.show_mainmenu = False
-			self.connect_server(player1)
-			self.request_servermap(player=player1)
+			pass
+			# self.show_mainmenu = False
+			# self.connect_server(player1)
+			# self.request_servermap(player=player1)
 
 		if selection == "Quit":
 			self.running = False
@@ -209,11 +172,12 @@ class Game(Thread):
 			self.restart_game()
 
 		if selection == "Start server":
-			self.gameserver = ServerThread()
-			self.gameserver.daemon = True
-			self.gameserver.start()
-			self.server_mode = True
-			pygame.display.set_caption('server')
+			pass
+			# self.gameserver = ServerThread()
+			# self.gameserver.daemon = True
+			# self.gameserver.start()
+			# self.server_mode = True
+			# pygame.display.set_caption('server')
 
 	def handle_input(self, player1=None):
 		events = pygame.event.get()
@@ -238,7 +202,7 @@ class Game(Thread):
 					self.request_servermap(player=player1)
 					self.reset_map()
 				if event.key == pygame.K_2:
-					debugdump(player1=player1, game=self)
+					pass
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
@@ -288,22 +252,6 @@ class Game(Thread):
 				self.running = False
 		# if event_type == pygame.MOUSEBUTTONDOWN:
 		#	mousex, mousey = pygame.mouse.get_pos()
-
-
-def debugdump(player1=None, game=None):
-	logger.debug(f'[ds] player:{player1.client_id} pos:{player1.pos} npc:{len(player1.net_players)} {player1.sq.name}:{player1.sq.qsize()} {player1.rq.name}:{player1.rq.qsize()}')
-	for npl in player1.net_players:
-		logger.debug(f'[d] npl:{npl} {player1.net_players[npl]}')
-	if game.server_mode:
-		# logger.debug(f'[serverdump] {game.gameserver.name} servq:{game.gameserver.serverqueue.qsize()} serclq:{game.gameserver.client_q.qsize()} sp:{len(game.gameserver.players)} sc:{len(game.gameserver.clients)} snp:{len(game.gameserver.net_players)} ssq:{game.gameserver.sq.qsize()} srq:{game.gameserver.rq.qsize()} ')
-		#logger.debug(f'[serverdump] {game.gameserver.name} {game.gameserver.serverqueue.name}:{game.gameserver.serverqueue.qsize()} {game.gameserver.client_q.name}:{game.gameserver.client_q.qsize()} sc:{len(game.gameserver.clients)} snp:{len(game.gameserver.net_players)}')
-		logger.debug(f'[serverdump] clients')
-		for cl in game.gameserver.clients:
-			logger.debug(f'[serverdump] cl:{cl.client_id} clpos:{cl.pos} clnp:{len(cl.net_players)}')
-			for clnp in cl.net_players:
-				logger.debug(f'[serverdump] cl:{cl.client_id} clnp:{clnp} clnppos:{cl.net_players[clnp]}')
-		# logger.debug(f'[debug] sq:{player1.sq.qsize()} rq:{player1.rq.qsize()} ssq:{server.sq.qsize()} srq:{server.rq.qsize()}')
-
 
 if __name__ == "__main__":
 

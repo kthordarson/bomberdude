@@ -134,8 +134,7 @@ class Block(BasicThing):
 		self.gridpos = gridpos
 		self.block_type = block_type
 		self.blockid = blockid
-		self.start_time = pygame.time.get_ticks() / 1000
-		self.particles = Group()
+		self.start_time = pygame.time.get_ticks() / 1000		
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.explode = False
 		# self.hit = False
@@ -179,20 +178,21 @@ class Block(BasicThing):
 	def gen_particles(self, flame):
 		# called when block is hit by a flame
 		# generate particles and set initial velocity based on direction of flame impact
-		self.particles = Group()
+		#self.particles = Group()
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		# flame.vel = Vector2(flame.vel[0], flame.vel[1])
+		particles = Group()
 		for k in range(1, 10):
 			if flame.vel.x < 0: # flame come from left
-				self.particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right"), reshandler=self.rm)) # make particle go right
+				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right"), reshandler=self.rm)) # make particle go right
 			elif flame.vel.x > 0: # right
-				self.particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left"), reshandler=self.rm)) # for k in range(1,2)]
+				particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left"), reshandler=self.rm)) # for k in range(1,2)]
 			elif flame.vel.y > 0: # down
-				self.particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up"), reshandler=self.rm)) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
+				particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up"), reshandler=self.rm)) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
 			elif flame.vel.y < 0: # up
-				self.particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down"), reshandler=self.rm)) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
-		return self.particles
+				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down"), reshandler=self.rm)) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
+		return particles
 
 
 class Powerup(BasicThing):
@@ -245,16 +245,6 @@ class Particle(BasicThing):
 		self.mass = 11
 		self.vel = vel # Vector2(random.uniform(-2, 2), random.uniform(-2, 2)) # Vector2(0, 0)
 
-	# self.accel = Vector2(0.05,0.05)
-
-	def stop(self):
-		logger.debug(f"[stop] {self.vel}")
-		self.vel = Vector2(0, 0)
-		logger.debug(f"[stop] {self.vel}")
-
-	def move(self):
-		logger.debug(f"[move] {self.vel}")
-
 	def update(self, items=None):
 		self.dt = pygame.time.get_ticks() / 1000
 		if self.dt - self.start_time >= self.timer:
@@ -270,6 +260,12 @@ class Particle(BasicThing):
 		self.pos += self.vel
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
+	
+	def hit(self):
+		self.hits += 1
+		self.vel -= self.vel
+		if self.hits >= self.maxhits:
+			self.kill()
 
 
 # for block in blocks:
