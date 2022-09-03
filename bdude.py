@@ -17,7 +17,7 @@ from player import Player
 from threading import Thread
 from queue import Empty, Queue
 from netutils import DataReceiver, DataSender, data_identifiers
-from bombserver import start_server
+from bombserver import ServerThread
 
 class Game(Thread):
 	def __init__(self, screen=None, game_dt=None, gamemap=None):
@@ -55,7 +55,7 @@ class Game(Thread):
 		self.connected = False
 		self.gotmap = False
 		self.gamemap = gamemap
-		self.mapgrid = []
+		# self.mapgrid = []
 		self.gameserver = None
 		self.server_mode = False
 
@@ -122,8 +122,9 @@ class Game(Thread):
 
 	def reset_map(self, reset_grid=False):
 		# Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
-		logger.debug(f'mapreset start reset_grid: {reset_grid}')
+		logger.debug(f'[rm] reset_grid: rg:{reset_grid} gmg:{type(self.gamemap)} ')
 		self.gamemap.grid = self.gamemap.place_player(location=0, grid=self.gamemap.grid)
+		logger.debug(f'[rm] newgrid {len(self.gamemap.grid)}')
 		self.blocks.empty()
 		idx = 0
 		try:
@@ -134,8 +135,8 @@ class Game(Thread):
 				idx += 1
 		except IndexError as e:
 			logger.error(f'Err {e} idx: {idx} k:{k} j:{j}')
-			print(f'{self.gamemap.grid}')
-		logger.debug(f'mapreset {idx} blocks loaded')
+			#logger.error(f'[e] {e} {self.gamemap.grid}')
+		logger.debug(f'[mr] {idx} blocks loaded')
 
 	def draw(self, player1):
 		# draw on screen
@@ -180,17 +181,17 @@ class Game(Thread):
 		# logger.debug(f'p:{player}')
 		self.sq.put((data_identifiers['request'], 'gamemap'))
 		player.cnt_sq_request += 1
-		logger.debug(f'request_servermap p:{player} {self.sq.name}:{self.sq.qsize()} {self.rq.name}:{self.rq.qsize()} player.cnt_sq_request:{player.cnt_sq_request}')
+		logger.debug(f'[rsm] p:{player} {self.sq.name}:{self.sq.qsize()} {self.rq.name}:{self.rq.qsize()} player.cnt_sq_request:{player.cnt_sq_request}')
 
 	def handle_menu(self, selection, player1):
 		# mainmenu
 		if selection == "Start":
 			self.show_mainmenu ^= True
-			self.connect_server(player1)
-			self.request_servermap(player=player1)
+			#self.connect_server(player1)
+			#self.request_servermap(player=player1)
 			# time.sleep(1)
 			# self.gamemap.grid = self.mapgrid
-			# self.reset_map()
+			self.reset_map()
 
 		if selection == "Connect to server":
 			self.show_mainmenu = False
@@ -209,7 +210,9 @@ class Game(Thread):
 			self.restart_game()
 
 		if selection == "Start server":
-			self.gameserver = self.start_server()
+			self.gameserver = ServerThread()
+			self.gameserver.daemon = True
+			self.gameserver.start()
 			self.server_mode = True
 			pygame.display.set_caption('server')
 
@@ -289,13 +292,12 @@ class Game(Thread):
 
 
 def debugdump(player1=None, game=None):
-	logger.debug(f'[debugstart] player:{player1.client_id} pos:{player1.pos} npc:{len(player1.net_players)} {player1.sq.name}:{player1.sq.qsize()} {player1.rq.name}:{player1.rq.qsize()}')
+	logger.debug(f'[ds] player:{player1.client_id} pos:{player1.pos} npc:{len(player1.net_players)} {player1.sq.name}:{player1.sq.qsize()} {player1.rq.name}:{player1.rq.qsize()}')
 	for npl in player1.net_players:
-		logger.debug(f'[debug] npl:{npl} {player1.net_players[npl]}')
+		logger.debug(f'[d] npl:{npl} {player1.net_players[npl]}')
 	if game.server_mode:
 		# logger.debug(f'[serverdump] {game.gameserver.name} servq:{game.gameserver.serverqueue.qsize()} serclq:{game.gameserver.client_q.qsize()} sp:{len(game.gameserver.players)} sc:{len(game.gameserver.clients)} snp:{len(game.gameserver.net_players)} ssq:{game.gameserver.sq.qsize()} srq:{game.gameserver.rq.qsize()} ')
-		logger.debug(
-			f'[serverdump] {game.gameserver.name} {game.gameserver.serverqueue.name}:{game.gameserver.serverqueue.qsize()} {game.gameserver.client_q.name}:{game.gameserver.client_q.qsize()} sc:{len(game.gameserver.clients)} snp:{len(game.gameserver.net_players)}')
+		#logger.debug(f'[serverdump] {game.gameserver.name} {game.gameserver.serverqueue.name}:{game.gameserver.serverqueue.qsize()} {game.gameserver.client_q.name}:{game.gameserver.client_q.qsize()} sc:{len(game.gameserver.clients)} snp:{len(game.gameserver.net_players)}')
 		logger.debug(f'[serverdump] clients')
 		for cl in game.gameserver.clients:
 			logger.debug(f'[serverdump] cl:{cl.client_id} clpos:{cl.pos} clnp:{len(cl.net_players)}')
@@ -315,7 +317,7 @@ if __name__ == "__main__":
 	pyscreen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 	mainClock = pygame.time.Clock()
 	dt = mainClock.tick(FPS) / 1000
-	mainmap = Gamemap(genmap=False)
+	mainmap = Gamemap(genmap=True)
 	game = Game(screen=pyscreen, game_dt=dt, gamemap=mainmap)
 	game.start()
 	game.running = True
@@ -339,12 +341,14 @@ if __name__ == "__main__":
 				data_id, payload = game.rq.get_nowait()
 			except Empty:
 				pass
+			if payload:
+				logger.debug(f'[d] data_id:{data_id} payload:{len(payload)}')
 		if data_id:
 			if data_id == data_identifiers['gamemapgrid'] or data_id == 14 or data_id == 10:
 				game.mapgrid = payload
 				game.gamemap.grid = game.mapgrid
 				game.gotmap = True
-				logger.debug(f'gotmapgrid: len:{len(game.mapgrid)} p1conn:{player1.connected} gamegotmap:{game.gotmap}')
+				logger.debug(f'[gmg]: len:{len(game.mapgrid)} p1conn:{player1.connected} gamegotmap:{game.gotmap}')
 			if data_id == data_identifiers['mapdata']:
 				game.gamemap.set_grid(newgrid=payload)
 				logger.debug(f'[bdude] mapgrid id:{data_id} p:{len(payload)} {game.sq.name}:{game.sq.qsize()} {game.rq.name}:{game.rq.qsize()}')

@@ -46,7 +46,7 @@ class Player(BasicThing, Thread):
 		self.net_players = {}
 		self.cnt_sq_request = 0
 		self.cnt_sq_sendyourpos = 0
-		logger.debug(f'[player] init pos:{pos} dt:{dt} i:{image} client_id:{self.client_id}')
+		logger.debug(f'[p] init pos:{pos} dt:{dt} i:{image} client_id:{self.client_id}')
 
 	def __str__(self):
 		return self.client_id
@@ -103,7 +103,7 @@ class Player(BasicThing, Thread):
 
 	def run(self):
 		self.kill = False
-		logger.debug(f'Player {self.client_id} start {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}')
+		logger.debug(f'[p]{self.client_id} start {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}')
 		while True:
 			data_id = None
 			payload = None
@@ -115,7 +115,7 @@ class Player(BasicThing, Thread):
 				self.handle_data(data_id=data_id, payload=payload)
 				self.rq.task_done()
 			if self.kill:
-				logger.debug(f'player kill {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}')
+				logger.debug(f'[pk] {self.rq.name}:{self.rq.qsize()} {self.sq.name}:{self.sq.qsize()}')
 				break
 			self.send_pos()
 

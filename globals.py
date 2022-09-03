@@ -383,10 +383,11 @@ class Bomb(BasicThing):
 
 class Gamemap:
 	def __init__(self, genmap=True):
-		if genmap:
-			self.grid = self.generate()
-		else:
-			self.grid = [[0 for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
+		self.grid = self.generate()
+		# if genmap:
+		# 	self.grid = self.generate()
+		# else:
+		# 	self.grid = [[0 for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
 
 	def generate(self):
 		grid = [[random.randint(0, 5) for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
@@ -397,6 +398,7 @@ class Gamemap:
 		for y in range(GRIDSIZE[1] + 1):
 			grid[0][y] = 10
 			grid[GRIDSIZE[0]][y] = 10
+		logger.debug(f'[gen] {len(grid)}')
 		return grid
 
 	def set_all_blocks(self, blocktype:int):
@@ -424,11 +426,18 @@ class Gamemap:
 		# place player somewhere where there is no block
 		# returns the (x,y) coordinate where player is to be placed
 		# random starting point from gridgamemap
+		if len(grid) == 0:
+			logger.error(f'[place_player] grid is empty')
+			return None
 		if location == 0: # center pos
 			x = int(GRIDSIZE[0] // 2) # random.randint(2, GRIDSIZE[0] - 2)
 			y = int(GRIDSIZE[1] // 2) # random.randint(2, GRIDSIZE[1] - 2)
 			# x = int(x)
-			grid[x][y] = 0
+			try:
+				grid[x][y] = 0
+			except IndexError as e: 
+				logger.error(f'IndexError {e} x:{x} y:{y} gz:{GRIDSIZE} g:{type(grid)} {len(grid)}')
+				return None
 			# make a clear radius around spawn point
 			for block in list(inside_circle(3, x, y)):
 				try:
