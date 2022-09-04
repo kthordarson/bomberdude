@@ -325,26 +325,13 @@ class Gamemap:
 		# 	self.grid = [[0 for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
 
 	def generate(self):
-		grid = [[random.randint(0, 5) for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
+		grid = [[random.randint(0, 5) for k in range(GRIDSIZE[1] )] for j in range(GRIDSIZE[0] )]
 		# set edges to solid blocks, 10 = solid blockwalkk
-		for x in range(GRIDSIZE[0] + 1):
+		for x in range(GRIDSIZE[0]):
 			grid[x][0] = 10
-			grid[x][GRIDSIZE[1]] = 10
-		for y in range(GRIDSIZE[1] + 1):
-			grid[0][y] = 10
-			grid[GRIDSIZE[0]][y] = 10
-		logger.debug(f'[gen] {len(grid)}')
-		return grid
-
-	def set_all_blocks(self, blocktype:int):
-		grid = [[blocktype for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
-		# set edges to solid blocks, 10 = solid blockwalkk
-		for x in range(GRIDSIZE[0] + 1):
-			grid[x][0] = 10
-			grid[x][GRIDSIZE[1]] = 10
-		for y in range(GRIDSIZE[1] + 1):
-			grid[0][y] = 10
-			grid[GRIDSIZE[0]][y] = 10
+			grid[0][x] = 10
+			grid[-1][x] = 10
+			grid[x][-1] = 10
 		return grid
 
 	def clear_center(self):
