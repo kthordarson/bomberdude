@@ -1,246 +1,146 @@
 import pygame
-from pygame.sprite import Group
+from pygame.sprite import Sprite
 
 from pygame.math import Vector2
-from globals import BasicThing, load_image, PLAYERSIZE, Block, gen_randid, Bomb, Gamemap
+from globals import BasicThing, Block, gen_randid, Bomb
 from loguru import logger
-import socket
-from queue import Queue
-from netutils import DataReceiver, DataSender, data_identifiers
-from globals import StoppableThread
+from signal import SIGPIPE, SIG_DFL 
+from queue import Empty
+from netutils import data_identifiers
+from globals import ResourceHandler
+from threading import Thread
+from constants import *
 
-
-class DummyPlayer(BasicThing):
-	def __init__(self, dummy_id=-1, pos=Vector2(300,300), image='dummyplayer.png'):
-		BasicThing.__init__(self)
-		pygame.sprite.Sprite.__init__(self)
-		self.dummy_id = dummy_id
-		self.pos = pos
-		self.image = image
-		self.image, self.rect = load_image(image, -1)
-		self.vel = Vector2(0, 0)
-		self.size = PLAYERSIZE
-		self.image = pygame.transform.scale(self.image, self.size)
-		self.rect = self.image.get_rect(topleft=self.pos)
-		self.rect.centerx = self.pos.x
-		self.rect.centery = self.pos.y
-
-	def draw(self, screen):
-		screen.blit(self.image, self.pos)
-
-
-class Player(BasicThing, StoppableThread):
-	def __init__(self, pos, dt, image):
-		StoppableThread.__init__(self)
-		BasicThing.__init__(self)
-		pygame.sprite.Sprite.__init__(self)
+class Player(BasicThing, Thread):
+	def __init__(self, pos, image):
+		Thread.__init__(self, name='player')
+		self.name = 'player'
+		BasicThing.__init__(self, pos, image)
+		# Sprite.__init__(self)
 		self.client_id = gen_randid()
-		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.dt = dt
-		self.image, self.rect = load_image(image, -1)
-		if pos is None:
-			self.pos = Vector2(300, 300)
-		else:
-			self.pos = Vector2(pos)
+		self.rm = ResourceHandler()
+		image, rect = self.rm.get_image(filename=image, force=False)
 		self.vel = Vector2(0, 0)
 		self.size = PLAYERSIZE
-		self.image = pygame.transform.scale(self.image, self.size)
+		self.image = pygame.transform.scale(image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.centerx = self.pos.x
 		self.rect.centery = self.pos.y
 		self.max_bombs = 3
 		self.bombs_left = self.max_bombs
 		self.bomb_power = 15
-		self.speed = 1
+		self.speed = 5
 		self.health = 100
-		self.dead = False
 		self.score = 0
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.connected = False
-		self.game_ready = False
-		self.network_updates = []
-		self.server = ('127.0.0.1', 6666)
-		self.ticks = 0
-		self.pingcount = 0
-		self.pongcount = 0
-		self.maxping = 10
-		self.buffersize = 9096
+		self.send_pos_count = 0
 		self.kill = False
-		self.net_players = {}
-		self.recv_thread = None
-		self.blocks = Group()
-		self.gamemap = Gamemap()
+		self.dead = False
+		self.gotmap = False
 		self.connected = False
-		self.rq = Queue()
-		self.sq = Queue()
-		self.recv_thread = DataReceiver(self.socket, self.rq)
-		self.send_thread = DataSender(self.socket, self.sq)
-		self.recv_thread.daemon = True
-		self.send_thread.daemon = True
-		self.heartbeat = False
-		self.dummies = Group()
-		logger.debug(f'[player] init pos:{pos} dt:{dt} i:{image}  client_id:{self.client_id}')
+		self.net_players = {}
+		self.cnt_sq_request = 0
+		self.cnt_sq_sendyourpos = 0
+		logger.debug(f'[p] init pos:{pos} i:{image} client_id:{self.client_id}')
 
-	def process_recvq(self):
-		if not self.rq.empty():
-			data_id, payload = self.rq.get()
-			# logger.debug(f'recv q {data_id} size: {len(payload)} {type(payload)}')
-			if data_id == data_identifiers['data']:
-				#logger.debug(f'recv q {data_id} pl:{payload}')
-				#logger.debug(f'recv q {data_id} size: {len(payload["blocks"])} {type(payload["blocks"])} {type(payload["mapgrid"])}')
-				self.blocks = payload['blocks']
-				self.gamemap.grid = payload['mapgrid']
-				# self.rq.task_done()
-				# return
-			if data_id == data_identifiers['heartbeat']:
-				logger.debug(f'recvHB q {data_id} {payload}')
-				# self.rq.task_done()
-				# return
-			if data_id == data_identifiers['player']:
-				logger.debug(f'[{self.client_id}] dataid:{data_id} {payload}')
-				clid = [k for k in payload.keys()][0][0]
-				#if clid != self.client_id:
-				clpos = [k for k in payload.values()][0]
-				self.net_players[clid] = clpos			
-				if clid in self.net_players:
-					self.net_players[clid] = clpos
-					for dp in self.dummies:
-						if dp.dummy_id == clid:
-							dp.pos = clpos
-							logger.debug(f'[{self.client_id}] update dummy clid:{clid} clpos:{clpos} np:{len(self.net_players)} du:{len(self.dummies)}')
-				else:
-					d = DummyPlayer(dummy_id=clid, pos=clpos)
-					self.dummies.add(d)
-					self.net_players[d.dummy_id] = clpos
-					logger.debug(f'[{self.client_id}] new dummyid: {d.dummy_id} pos:{d.pos} np:{len(self.net_players)} du:{len(self.dummies)}')
-				#self.rq.task_done()
-				#return
-			# else:
-			# 	logger.error(f'unknown data id:{data_id} p:{payload}')
-			# 	# logger.debug(f'recv netpl {data_id} {payload}')
-			# 	#self.rq.task_done()
-			# 	return
+	def __str__(self):
+		return f'[player] {self.client_id}' #self.client_id
+
+	def __repr__(self):
+		return f'[player] id:{self.client_id} pos:{self.pos}' #str(self.client_id)
+
+	def handle_data(self, data_id=None, payload=None):
+		if data_id == -1:
+			pass
+		elif data_id == data_identifiers['sendyourpos']:
+			self.cnt_sq_sendyourpos += 1
+		elif data_id == data_identifiers['debugdump'] or data_id == 16:
+			pass
+			# self.debugdump(payload)
+		elif data_id == data_identifiers['nplpos']:
+			pass
+			# logger.debug(f'npl: {payload}')
+		elif data_id == data_identifiers['bcastmsg']:
+			logger.debug(f'bcastmsg: {payload}')
+		# elif data_id == data_identifiers['send_pos']:
+		#	logger.debug(f'[{self.client_id}] got {data_id} {payload}')				
+		elif data_id == data_identifiers['setclientid']:
+			self.client_id = payload
+			self.connected = True
+			logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload} c:{self.connected} m:{self.gotmap} ')
+		elif data_id == data_identifiers['gamemapgrid'] or data_id == 14 or data_id == 10:
+			pass
+			#self.mapgrid = payload
+			#self.gotmap = True
+			#logger.debug(f'gotmapgrid: {len(self.mapgrid)} c:{self.connected} m:{self.gotmap}')
+		elif data_id == data_identifiers['netplayer']:
+			playerid = payload.split(':')[0]
+			if self.client_id != playerid:
+				npl_id = payload.split(':')[0]
+				x, y = payload.split("[")[1][:-1].split(",")
+				x = int(x)
+				y = int(y)
+				playerpos = Vector2((x, y))
+				# self.net_players[playerid] = playerpos
+				self.net_players[npl_id] = playerpos
+				self.net_players[self.client_id] = self.pos
+		else:
+			# pass
+			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload} ')
+	
 
 	def run(self):
-		self.connect_to_server()
+		self.kill = False
+		logger.debug(f'[p]{self.client_id} start ')
 		while True:
-			if self.kill or self.socket.fileno() == -1:
-				self.socket.close()
+			if self.kill:
+				logger.debug(f'[pk] self.kill:{self.kill}')
 				break
-			self.process_recvq()
-			if self.heartbeat:
-				pass
-				#self.sq.put_nowait((data_identifiers['heartbeat'], f'heartbeat-{self.ticks}'))
-				#self.ticks += 1
-
-			#updatemsg = str.encode(f'playerpos:{self.name}:{self.pos}:')
-			#self.socket.sendall(updatemsg)
 
 	def bombdrop(self):
 		if self.bombs_left > 0:
 			bombpos = Vector2((self.rect.centerx, self.rect.centery))
-			bomb = Bomb(pos=bombpos, dt=self.dt, bomber_id=self, bomb_power=self.bomb_power)
+			bomb = Bomb(pos=bombpos, bomber_id=self, bomb_power=self.bomb_power, reshandler=self.rm)
 			# self.bombs.add(bomb)
 			self.bombs_left -= 1
 			return bomb
 		else:
 			return 0
 
-	# mixer.Sound.play(self.snd_bombdrop)
-
-	def __str__(self):
-		return self.client_id
-
-	def __repr__(self):
-		return str(self.client_id)
-
-	def player_action(self, player, action):
-		pass
-
-	def get_blocks(self):
-		logger.debug(f'get_blocks {type(self.blocks)} {len(self.blocks)}')
-		return self.blocks
-
-	def set_mapgrid(self, mapgrid):
-		logger.debug(f'set_mapgrid {type(self.gamemap.grid)} ')
-		self.gamemap.grid = mapgrid
-
-	def get_mapgrid(self):
-		logger.debug(f'get_mapgrid gamemap: {type(self.gamemap)} grid:{type(self.gamemap.grid)} ')
-		return self.gamemap.grid
-
-	def set_netplayers(self, netplayers):
-		self.net_players = netplayers
-		logger.debug(f'{type(netplayers)} {len(netplayers)} {type(self.net_players)} {len(self.net_players)}')
-
-	def get_netplayers(self):
-		# logger.debug(f'{type(self.net_players)} {len(self.net_players)}')
-		return self.net_players
-
-	def send(self, data):
-		self.socket.sendto(data, self.server)
-
-	def connect_to_server(self):
-		if self.connected:
-			logger.debug('already connected')
-			return
-		self.socket.connect(self.server)
-		self.send_thread.start()
-		self.recv_thread.start()
-		connstr = f'connect:{self.client_id}:{self.ticks}'
-		self.sq.put_nowait((data_identifiers['connect'], connstr))
-		self.sq.task_done()
-		self.connected = True
-		logger.debug(f'playerid: {self.client_id} connected: {self.connected} t:{self.ticks}')
-
-	def start_heartbeat(self):
-		self.heartbeat = True
-
-	def stop_heartbeat(self):
-		self.heartbeat = False
-
-	def heartbeat_pump(self, count):
-		for k in range(count):
-			self.sq.put_nowait((data_identifiers['heartbeat'], f'hearbeat-{k}'))
-			logger.debug(f'pump hearbeat-{k}')
-
-	def request_data(self, datatype):
-		self.sq.put_nowait((data_identifiers['request'], datatype))
-		# send_data(self.socket, request)
-
-	def set_pos(self, pos):
-		self.pos = pos
-
-	def send_pos(self):
-		pass
-		# self.sq.put_nowait((data_identifiers['send_pos'], {self.client_id:self.pos}))
-
 	def update(self, blocks):
-		self.vel += self.accel
+		# self.vel += self.accel
+		oldy = self.rect.y
+		oldx = self.rect.x
 		self.pos.x += self.vel.x
-		self.rect.x = int(self.pos.x)
-		if self.connected:
-			self.sq.put_nowait((data_identifiers['send_pos'], {self.client_id:self.pos}))
-		# self.network_updates.append(['move', (self.pos.x, self.pos.y)])
+		self.pos.y += self.vel.y
+		self.rect.x = self.pos.x
+		self.rect.y = self.pos.y
 		block_hit_list = self.collide(blocks)
 		for block in block_hit_list:
 			if isinstance(block, Block):
+				if self.vel.x != 0 and self.vel.y != 0 and block.solid:
+					self.vel.x = 0
+					self.vel.y = 0
+					self.rect.x = oldx
+					self.rect.y = oldy
+					break
 				if self.vel.x > 0 and block.solid:
 					self.rect.right = block.rect.left
-				elif self.vel.x < 0 and block.solid:
+					self.vel.x = 0
+				if self.vel.x < 0 and block.solid:
 					self.rect.left = block.rect.right
-				self.pos.x = self.rect.x
-		self.pos.y += self.vel.y
-		self.rect.y = int(self.pos.y)
-		block_hit_list = self.collide(blocks)
-		for block in block_hit_list:
-			if self.vel.y > 0 and block.solid:
-				self.rect.bottom = block.rect.top
-			elif self.vel.y < 0 and block.solid:
-				self.rect.top = block.rect.bottom
-			self.pos.y = self.rect.y
-
-	# logger.debug(f'[player] move sp:{self.speed} vel:{self.vel} p:{self.pos}')
+					self.vel.x = 0
+				if self.vel.y > 0 and block.solid:
+					self.rect.bottom = block.rect.top
+					self.vel.y = 0
+				if self.vel.y < 0 and block.solid:
+					self.rect.top = block.rect.bottom
+					self.vel.y = 0
+				#elif self.vel.x != 0 and self.vel.y != 0:
+				#	self.vel.x = 0
+				#	self.vel.y = 0
+		self.pos.y = self.rect.y
+		self.pos.x = self.rect.x
 
 	def take_powerup(self, powerup=None):
 		# pick up powerups...
@@ -249,7 +149,8 @@ class Player(BasicThing, StoppableThread):
 				self.max_bombs += 1
 				self.bombs_left += 1
 		if powerup == 2:
-			self.speed += 1
+			pass
+			#self.speed += 1
 		if powerup == 3:
 			self.bomb_power += 10
 

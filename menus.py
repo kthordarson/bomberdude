@@ -1,11 +1,34 @@
 import pygame
 import pygame.freetype
 from pygame.math import Vector2
-from globals import DEFAULTFONT
 from loguru import logger
+from constants import *
 
-COLOR_INACTIVE = pygame.Color('lightskyblue3')
-COLOR_ACTIVE = pygame.Color('dodgerblue2')
+
+class DebugDialog:
+	def __init__(self, screen):
+		self.screen = screen
+		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		self.menusize = (400, 80)
+		self.image = pygame.Surface(self.menusize)
+		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+		self.font_color = (255, 255, 255)
+		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		# self.pos = Vector2(self.screenw-self.menusize[0],self.screenh-80)
+		self.pos = Vector2(10,500)
+		self.rect = self.image.get_rect(topleft=self.pos)
+		
+	def draw_menubg(self):
+		pass
+		# self.bordercolor = pygame.Color("white")
+		# bordersize = 1
+		# menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
+		# #pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1])) # background
+		# pygame.draw.line(self.screen, self.bordercolor, menupos ,(menupos[0], menupos[1] + self.menusize[1]), bordersize) # left border
+		# pygame.draw.line(self.screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # right border
+		# pygame.draw.line(self.screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize) # top border
+		# pygame.draw.line(self.screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # bottom border
+		# self.bordercolor = pygame.Color("black")
 
 
 class Menu:
@@ -28,29 +51,38 @@ class Menu:
 		self.bgcolor = pygame.Color("darkred")
 		self.bordercolor = pygame.Color("black")
 		# self.menufont.bgcolor = (44,55,66)
-		self.menuitems = []
-		self.menuitems.append("Start")
-		self.menuitems.append("Connect to server")
-		self.menuitems.append("Start server")
-		self.menuitems.append("Stop server")
-		self.menuitems.append("Pause")
-		self.menuitems.append("Restart")
-		self.menuitems.append("Quit")
+		self.menuitems = ['Start','Connect to server','Start server','Stop server','Pause','Restart','Quit']
 		self.selected_item = 0
 
-	def draw_menubg(self, screen):
-		pass
+	def set_pos(self, newpos: Vector2):
+		self.pos = newpos
 
-	# bordersize = 5
-	# menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
-	# pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1]))  # background
-	# pygame.draw.line(screen, self.bordercolor, menupos ,(menupos[0], menupos[1] + self.menusize[1]), bordersize)  # left border
-	# pygame.draw.line(screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # right border
-	# pygame.draw.line(screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize)  # top border
-	# pygame.draw.line(screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # bottom border
+	def get_menuitems(self):
+		return self.menuitems
+
+	def insert_menuitems(self, menu_entry=None, entry_pos=0):
+		if menu_entry in self.menuitems:
+			self.menuitems.insert(entry_pos, menu_entry)
+
+	def add_menuitem(self, menu_entry=None):
+		if menu_entry not in self.menuitems:
+			self.menuitems.append(menu_entry)
+
+	def draw_menubg(self, screen):
+		self.bordercolor = pygame.Color("darkred")
+		bordersize = 5
+		menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
+		#pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1])) # background
+		pygame.draw.line(screen, self.bordercolor, menupos ,(menupos[0], menupos[1] + self.menusize[1]), bordersize) # left border
+		pygame.draw.line(screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # right border
+		pygame.draw.line(screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize) # top border
+		pygame.draw.line(screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # bottom border
+		self.bordercolor = pygame.Color("black")
+		#pass
+
 
 	def draw_mainmenu(self, screen):
-		# self.draw_menubg(screen)
+		self.draw_menubg(screen)
 		pos_y = self.pos.y
 		for item in enumerate(self.menuitems):
 			if item[0] == self.selected_item:
@@ -60,44 +92,15 @@ class Menu:
 			self.menufont.render_to(screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
 			pos_y += 25
 
-	def draw_coll_debug(self, players, blocks, colls):
-		pass
-
-	def draw_server_debug(self, server=None):
-		pos = self.screenh // 2
-		pos = Vector2(pos, self.screenh - 50)
-		server_text = f"players: {len(server.players)} "
-		self.panelfont.render_to(self.screen, pos, server_text, self.panelfont_color)
-		for player in server.players:
-			pos.y += 12
-			player_text = f'[C] id: {player} {player.pos} '
-			self.panelfont.render_to(self.screen, (pos.x, pos.y), player_text, self.panelfont_color)
-			
 
 	def draw_panel(self, blocks, particles, player1, flames):
-		pos = Vector2(10, self.screenh - 40)
-		try:
-			self.panelfont.render_to(self.screen, pos, f"player pos x:{player1.rect} vel:{player1.vel} ", self.panelfont_color)
-			self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"s: {player1.speed} bombs: {player1.bombs_left}  bp: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
-			self.panelfont.render_to(self.screen, (pos.x, pos.y + 25), f"b: {len(blocks)} p: {len(particles)} f: {len(flames)}", self.panelfont_color)
-		# self.screen.blit(self.image, self.rect)
-		except IndexError as e:
-			logger.error(f"[panel] {e} {player1.gridpos}")
-		except TypeError as e:
-			logger.error(f"[panel] {e} ")
+		pos = Vector2(10, 100)
+		idx = 0
+		#self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} ", self.panelfont_color)
+		#pos = Vector2(10, self.screenh - 50)
+		self.panelfont.render_to(self.screen, pos, f"playerid: {player1.client_id} pos:{player1.rect} vel:{player1.vel} accel:{player1.accel} ", self.panelfont_color)
+		self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"speed: {player1.speed} bombs: {player1.bombs_left} bombpower: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
 
-	def draw_netpanel(self, net_players):
-		logger.debug(f'draw_netpanel np: {len(net_players)}')
-		pos = Vector2(100, self.screenh - 40)
-		for player in net_players:
-			# logger.debug(f'draw_netpanel np: {player}')
-			try:
-				self.panelfont.render_to(self.screen, pos, f"player: {player} ", self.panelfont_color)
-				# self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"s: {player.speed} bombs: {player.bombs_left}  bp: {player.bomb_power} score: {player.score}", self.panelfont_color)
-			except IndexError as e:
-				logger.error(f"[panel] {e} {player.gridpos}")
-			except TypeError as e:
-				logger.error(f"[panel] {e} ")
 
 	def get_selection(self):
 		return self.menuitems[self.selected_item]
