@@ -198,7 +198,7 @@ class Particle(BasicThing):
 		self.start_time = 1 # pygame.time.get_ticks() // 1000
 		self.timer = 10
 		self.hits = 0
-		self.maxhits = 10
+		self.maxhits = 3
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.angle = math.degrees(0)
 		self.mass = 11
@@ -222,10 +222,12 @@ class Particle(BasicThing):
 	
 	def hit(self):
 		self.hits += 1
-		self.vel.x -= self.vel.x
-		self.vel.y -= self.vel.y
-		self.alpha -= random.randrange(1, 5)
+		self.vel -= self.accel
+		self.vel.x = (self.vel.x * -1)
+		self.vel.y = (self.vel.y * -1)
+		self.alpha -= self.hits
 		if self.hits >= self.maxhits:
+			logger.debug(f'[pkill] hits: {self.hits}/{self.maxhits} alpha: {self.alpha} vel: {self.vel}')
 			self.kill()
 
 class Flame(BasicThing):
@@ -249,14 +251,6 @@ class Flame(BasicThing):
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.flame_length = flame_length
 		self.stopped = False
-
-	def stop(self):
-		self.vel = Vector2((0, 0))
-		self.stopped = True
-		self.kill()
-
-	def draw(self, screen):
-		screen.blit(self.image, self.pos)
 
 	def update(self):
 		if not self.stopped:
