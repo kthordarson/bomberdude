@@ -94,7 +94,7 @@ class Player(BasicThing, Thread):
 		logger.debug(f'[p]{self.client_id} start ')
 		while True:
 			if self.kill:
-				logger.debug(f'[pk] ')
+				logger.debug(f'[pk] self.kill:{self.kill}')
 				break
 
 	def bombdrop(self):

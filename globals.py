@@ -16,17 +16,15 @@ from constants import *
 
 def random_velocity(direction=None):
 	while True:
-		vel = Vector2(
-			(random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0))
-		)
+		vel = Vector2((random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0)))
 		if direction == "left":
-			vel.x = random.uniform(-3.0, 0.3)
+			vel.x = random.uniform(-3.0, 1)
 		if direction == "right":
-			vel.x = random.uniform(0.3, 3.0)
+			vel.x = random.uniform(1, 3.0)
 		if direction == "down":
-			vel.y = random.uniform(0.3, 3.0)
+			vel.y = random.uniform(1, 3.0)
 		if direction == "up":
-			vel.y = random.uniform(-3.0, 0.3)
+			vel.y = random.uniform(-3.0, 1)
 		if vel.y != 0 and vel.x != 0:
 			return vel
 		else:
@@ -198,7 +196,7 @@ class Particle(BasicThing):
 		self.start_time = 1 # pygame.time.get_ticks() // 1000
 		self.timer = 10
 		self.hits = 0
-		self.maxhits = 3
+		self.maxhits = 2
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.angle = math.degrees(0)
 		self.mass = 11
@@ -207,28 +205,37 @@ class Particle(BasicThing):
 	def update(self, items=None):
 		self.dt = pygame.time.get_ticks() / 1000
 		if self.dt - self.start_time >= self.timer:
+			logger.debug(f'[px] timer p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
 			self.kill()
+			return
 		if self.rect.top <= 0 or self.rect.left <= 0:
+			logger.warning(f'[px] bounds p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
 			self.kill()
+			return
 		#self.alpha -= random.randrange(1, 5)
 		if self.alpha <= 0:
+			logger.debug(f'[px] amax p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
 			self.kill()
+			return
 		else:
 			self.image.set_alpha(self.alpha)
 		self.vel -= self.accel
+		if self.vel.y>=0:
+			self.vel.y += self.vel.y * 0.1
+		if self.vel.y<=0:
+			self.vel.y -= self.vel.y * 0.1
 		self.pos += self.vel
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
+		if self.hits >= self.maxhits:
+			logger.debug(f'[px] maxhits p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+			self.kill()
 	
 	def hit(self):
 		self.hits += 1
-		self.vel -= self.accel
 		self.vel.x = (self.vel.x * -1)
 		self.vel.y = (self.vel.y * -1)
-		self.alpha -= self.hits
-		if self.hits >= self.maxhits:
-			logger.debug(f'[pkill] hits: {self.hits}/{self.maxhits} alpha: {self.alpha} vel: {self.vel}')
-			self.kill()
+		self.alpha = int(self.alpha * 0.5)
 
 class Flame(BasicThing):
 	def __init__(self, pos, vel, flame_length, reshandler):

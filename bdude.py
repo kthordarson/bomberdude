@@ -79,17 +79,22 @@ class Game(Thread):
 					particle.hit()
 					#self.particles.remove(particle)
 
+	def update_powerups(self, player1):
+		if len(self.powerups) > 0:
+			powerblock_coll = spritecollide(player1, self.powerups, False)
+			for pc in powerblock_coll:
+				logger.debug(f'powerblock_coll: {pc} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
+				pwrup = random.choice([1, 2, 3])
+				player1.take_powerup(pwrup)
+				pc.kill()
+
 	def update(self, player1):
 		self.players.update(self.blocks)
 		self.blocks.update()
 		self.update_bombs()
 		self.update_flames()
 		self.update_particles()
-
-		powerblock_coll = spritecollide(player1, self.powerups, False)
-		for pc in powerblock_coll:
-			player1.take_powerup(powerup=random.choice([1, 2, 3]))
-			pc.kill()
+		self.update_powerups(player1)
 		self.blocks.update(self.blocks)
 		self.powerups.update()
 
