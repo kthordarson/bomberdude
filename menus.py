@@ -19,23 +19,17 @@ class DebugDialog:
 		self.rect = self.image.get_rect(topleft=self.pos)
 		
 	def draw_menubg(self):
-		self.bordercolor = pygame.Color("white")
-		bordersize = 1
-		menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
-		#pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1])) # background
-		pygame.draw.line(self.screen, self.bordercolor, menupos ,(menupos[0], menupos[1] + self.menusize[1]), bordersize) # left border
-		pygame.draw.line(self.screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # right border
-		pygame.draw.line(self.screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize) # top border
-		pygame.draw.line(self.screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # bottom border
-		self.bordercolor = pygame.Color("black")
-		#pass
+		pass
+		# self.bordercolor = pygame.Color("white")
+		# bordersize = 1
+		# menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
+		# #pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1])) # background
+		# pygame.draw.line(self.screen, self.bordercolor, menupos ,(menupos[0], menupos[1] + self.menusize[1]), bordersize) # left border
+		# pygame.draw.line(self.screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # right border
+		# pygame.draw.line(self.screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize) # top border
+		# pygame.draw.line(self.screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # bottom border
+		# self.bordercolor = pygame.Color("black")
 
-	def draw_mouse_pos(self):
-		self.draw_menubg()
-		# self.font.render_to(self.screen, self.pos, f'm:{pygame.mouse.get_pos()}', self.font_color)
-	
-	def draw_server_debug(self, server=None, player1=None):
-		self.font.render_to(self.screen, self.pos + Vector2(0, 12), f'p1conn:{player1.connected} ', self.font_color)
 
 class Menu:
 	def __init__(self, screen):
@@ -102,20 +96,10 @@ class Menu:
 	def draw_panel(self, blocks, particles, player1, flames):
 		pos = Vector2(10, 100)
 		idx = 0
-		self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} ", self.panelfont_color)
-		for npl in list(player1.net_players):			
-			pos.y += 13
-			self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} npl:{npl} {player1.net_players[npl]}", self.panelfont_color)
-		pos = Vector2(10, self.screenh - 50)
-		try:
-			self.panelfont.render_to(self.screen, pos, f"playerid: {player1.client_id} pos x:{player1.rect} vel:{player1.vel} accel:{player1.accel} ", self.panelfont_color)
-			self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"s: {player1.speed} bombs: {player1.bombs_left} bp: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
-			self.panelfont.render_to(self.screen, (pos.x, pos.y + 25), f"b: {len(blocks)} p: {len(particles)} f: {len(flames)} gmg:{player1.gotmap} ", self.panelfont_color)
-		# self.screen.blit(self.image, self.rect)
-		except IndexError as e:
-			logger.error(f"[panel] {e} {player1.gridpos}")
-		except TypeError as e:
-			logger.error(f"[panel] {e} ")
+		#self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} ", self.panelfont_color)
+		#pos = Vector2(10, self.screenh - 50)
+		self.panelfont.render_to(self.screen, pos, f"playerid: {player1.client_id} pos:{player1.rect} vel:{player1.vel} accel:{player1.accel} ", self.panelfont_color)
+		self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"speed: {player1.speed} bombs: {player1.bombs_left} bombpower: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
 
 
 	def get_selection(self):

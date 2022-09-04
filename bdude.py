@@ -59,12 +59,14 @@ class Game(Thread):
 	def update_flames(self):
 		self.flames.update()
 		for flame in self.flames:
+			# check if flame collides with blocks
 			flame_coll = spritecollide(flame, self.blocks, False)
 			for block in flame_coll:
-				if block.block_type == 1 or block.block_type == 2: # or block.block_type == '3' or block.block_type == '4':
-					powerup = Powerup(pos=block.rect.center, reshandler=self.rm)
-					self.powerups.add(powerup)
 				if block.solid:
+					if block.block_type == 1 or block.block_type == 2: # or block.block_type == '3' or block.block_type == '4':
+						# types 1 and 2 create powerups
+						powerup = Powerup(pos=block.rect.center, reshandler=self.rm)
+						self.powerups.add(powerup)
 					block.hit()					
 					self.particles.add(block.gen_particles(flame))
 					flame.kill()
@@ -83,9 +85,8 @@ class Game(Thread):
 		if len(self.powerups) > 0:
 			powerblock_coll = spritecollide(player1, self.powerups, False)
 			for pc in powerblock_coll:
-				logger.debug(f'powerblock_coll: {pc} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
-				pwrup = random.choice([1, 2, 3])
-				player1.take_powerup(pwrup)
+				logger.debug(f'[pwrb] type:{pc.powertype} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
+				player1.take_powerup(pc.powertype)
 				pc.kill()
 
 	def update(self, player1):

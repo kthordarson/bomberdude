@@ -100,13 +100,6 @@ class BasicThing(Sprite):
 		self.collisions = spritecollide(self, items, False)
 		return self.collisions
 
-	def set_vel(self, vel):
-		self.vel = vel
-
-	def set_screen(self, screen):
-		self.screen = screen
-
-
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type, reshandler):
 		self.block_type = block_type
@@ -160,7 +153,13 @@ class Powerup(BasicThing):
 	def __init__(self, pos, reshandler):
 		# super().__init__()
 		self.rm = reshandler
-		self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
+		self.powertype = random.choice([1,2,3])
+		if self.powertype == 1:
+			self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
+		if self.powertype == 2:
+			self.image, self.rect = self.rm.get_image(filename='data/newbomb.png', force=False)
+		if self.powertype == 3:
+			self.image, self.rect = self.rm.get_image(filename='data/bombpwr.png', force=False)
 		self.size = POWERUPSIZE
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.pos = pos
@@ -205,31 +204,32 @@ class Particle(BasicThing):
 	def update(self, items=None):
 		self.dt = pygame.time.get_ticks() / 1000
 		if self.dt - self.start_time >= self.timer:
-			logger.debug(f'[px] timer p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+			# logger.debug(f'[px] timer p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
 			self.kill()
 			return
-		if self.rect.top <= 0 or self.rect.left <= 0:
-			logger.warning(f'[px] bounds p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+		elif self.rect.top <= 0 or self.rect.left <= 0:
+			# logger.warning(f'[px] bounds p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
 			self.kill()
 			return
 		#self.alpha -= random.randrange(1, 5)
-		if self.alpha <= 0:
-			logger.debug(f'[px] amax p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+		elif self.alpha <= 0:
+			# logger.debug(f'[px] amax p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+			self.kill()
+			return
+		elif self.hits >= self.maxhits:
+			#logger.debug(f'[px] maxhits p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
 			self.kill()
 			return
 		else:
 			self.image.set_alpha(self.alpha)
-		self.vel -= self.accel
-		if self.vel.y>=0:
-			self.vel.y += self.vel.y * 0.1
-		if self.vel.y<=0:
-			self.vel.y -= self.vel.y * 0.1
-		self.pos += self.vel
-		self.rect.x = self.pos.x
-		self.rect.y = self.pos.y
-		if self.hits >= self.maxhits:
-			logger.debug(f'[px] maxhits p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
-			self.kill()
+			self.vel -= self.accel
+			if self.vel.y>=0:
+				self.vel.y += self.vel.y * 0.1
+			if self.vel.y<=0:
+				self.vel.y -= self.vel.y * 0.1
+			self.pos += self.vel
+			self.rect.x = self.pos.x
+			self.rect.y = self.pos.y
 	
 	def hit(self):
 		self.hits += 1
