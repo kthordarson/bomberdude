@@ -12,20 +12,17 @@ from threading import Thread
 from constants import *
 
 class Player(BasicThing, Thread):
-	def __init__(self, pos=None, dt=None, image=None):
+	def __init__(self, pos, image):
 		Thread.__init__(self, name='player')
 		self.name = 'player'
-		BasicThing.__init__(self)
+		BasicThing.__init__(self, pos, image)
 		# Sprite.__init__(self)
 		self.client_id = gen_randid()
-		self.dt = dt
 		self.rm = ResourceHandler()
-		self.image, self.rect = self.rm.get_image(filename=image, force=False)
-		self.pos = Vector2(pos)
+		image, rect = self.rm.get_image(filename=image, force=False)
 		self.vel = Vector2(0, 0)
-		self.accel = Vector2(0, 0)
 		self.size = PLAYERSIZE
-		self.image = pygame.transform.scale(self.image, self.size)
+		self.image = pygame.transform.scale(image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.centerx = self.pos.x
 		self.rect.centery = self.pos.y
@@ -44,7 +41,7 @@ class Player(BasicThing, Thread):
 		self.net_players = {}
 		self.cnt_sq_request = 0
 		self.cnt_sq_sendyourpos = 0
-		logger.debug(f'[p] init pos:{pos} dt:{dt} i:{image} client_id:{self.client_id}')
+		logger.debug(f'[p] init pos:{pos} i:{image} client_id:{self.client_id}')
 
 	def __str__(self):
 		return f'[player] {self.client_id}' #self.client_id
@@ -103,7 +100,7 @@ class Player(BasicThing, Thread):
 	def bombdrop(self):
 		if self.bombs_left > 0:
 			bombpos = Vector2((self.rect.centerx, self.rect.centery))
-			bomb = Bomb(pos=bombpos, dt=self.dt, bomber_id=self, bomb_power=self.bomb_power, reshandler=self.rm)
+			bomb = Bomb(pos=bombpos, bomber_id=self, bomb_power=self.bomb_power, reshandler=self.rm)
 			# self.bombs.add(bomb)
 			self.bombs_left -= 1
 			return bomb

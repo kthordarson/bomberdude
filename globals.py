@@ -90,30 +90,13 @@ class ResourceHandler:
 		return self.__imgpath
 
 class BasicThing(Sprite):
-	def __init__(self, screen=None, gridpos=None, color=None, vel=Vector2(), accel=Vector2(), dt=None, pos=Vector2()):
+	def __init__(self, pos, image):
 		Sprite.__init__(self)
-		self.pos = pos
-		self.color = color
-		self.screen = screen
-		self.vel = vel
-		self.dt = dt
-		self.accel = accel
-		self.mass = 3
-		self.radius = 3
-		self.gridpos = gridpos
-		# self.size = BLOCKSIZE
-		# self.font = pygame.freetype.Font(DEFAULTFONT, 12)
-		self.font_color = (255, 255, 255)
+		self.pos = Vector2(pos)
+		self.image = image
 		self.collisions = []
 		self.start_time = pygame.time.get_ticks() / 1000
-		# self.screenw, self.screenh = pygame.display.get_surface().get_size()
-		self.thing_id = ''.join([''.join(str(random.randint(0, 99))) for k in range(10)])
-
-	# def __str__(self):
-	# 	return self.thing_id
-
-	# def __repr__(self):
-	# 	return self.thing_id
+		self.accel = Vector2(0, 0)
 
 	def collide(self, items=None):
 		self.collisions = spritecollide(self, items, False)
@@ -127,22 +110,8 @@ class BasicThing(Sprite):
 
 
 class Block(BasicThing):
-	def __init__(self, gridpos=None, block_type=None, blockid=None, pos=None, reshandler=None):
-		BasicThing.__init__(self)
-		Sprite.__init__(self)
-		self.pos = pos
-		self.gridpos = gridpos
+	def __init__(self, pos, gridpos, block_type, reshandler):
 		self.block_type = block_type
-		self.blockid = blockid
-		self.start_time = pygame.time.get_ticks() / 1000		
-		self.start_time = pygame.time.get_ticks() / 1000
-		self.explode = False
-		# self.hit = False
-		self.timer = 10
-		self.bomb_timer = 1
-		self.poweruptime = 10
-		self.gridpos = Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
-		# self.pos = Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
 		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
 		self.size = BLOCKTYPES.get(self.block_type)["size"]
@@ -150,6 +119,13 @@ class Block(BasicThing):
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
 		self.rm = reshandler
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
+		BasicThing.__init__(self, pos, self.image)
+		self.start_time = pygame.time.get_ticks() / 1000		
+		self.start_time = pygame.time.get_ticks() / 1000
+		self.explode = False
+		self.bomb_timer = 1
+		self.poweruptime = 10
+		self.gridpos = gridpos # Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos.x
@@ -157,23 +133,10 @@ class Block(BasicThing):
 		self.image.set_alpha(255)
 		self.image.set_colorkey((0, 0, 0))
 
-	def init_image(self):
-		pass
-
 	def hit(self):
 		self.bitmap = BLOCKTYPES.get(11)["bitmap"]
-		# self.block_type = 0
 		self.solid = False
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
-		# self.image.set_alpha(255)
-		# self.image.set_colorkey((0, 0, 0))
-		# self.rect = self.image.get_rect(topleft=self.pos)
-		# self.rect.x = self.pos.x
-		# self.rect.y = self.pos.y
-
-
-	def get_particles(self):
-		return self.particles
 
 	def gen_particles(self, flame):
 		# called when block is hit by a flame
@@ -196,18 +159,16 @@ class Block(BasicThing):
 
 
 class Powerup(BasicThing):
-	def __init__(self, pos=None, vel=None, dt=None, reshandler=None):
+	def __init__(self, pos, reshandler):
 		# super().__init__()
-		BasicThing.__init__(self)
-		Sprite.__init__(self)
 		self.rm = reshandler
-		self.dt = dt
 		self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
 		self.size = POWERUPSIZE
 		self.image = pygame.transform.scale(self.image, self.size)
+		self.pos = pos
+		BasicThing.__init__(self, self.pos, self.image)
 		self.rect = self.image.get_rect()
 		self.rect.center = pos
-		self.pos = Vector2(pos)
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
 		self.timer = 5
@@ -221,16 +182,14 @@ class Powerup(BasicThing):
 
 
 class Particle(BasicThing):
-	def __init__(self, pos=None, vel=None, dt=None, reshandler=None):
+	def __init__(self, pos, vel, reshandler=None):
 		# super().__init__()
-		BasicThing.__init__(self)
-		Sprite.__init__(self)
 		self.rm = reshandler
-		self.dt = dt
-		self.pos = Vector2(pos)
 		self.image, self.rect = self.rm.get_image(filename='data/greenorb.png', force=False)
 		self.size = PARTICLESIZE
 		self.image = pygame.transform.scale(self.image, self.size)
+		self.pos = pos
+		BasicThing.__init__(self, self.pos, self.image)
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
 		self.rect = self.image.get_rect(topleft=self.pos)
@@ -251,7 +210,7 @@ class Particle(BasicThing):
 			self.kill()
 		if self.rect.top <= 0 or self.rect.left <= 0:
 			self.kill()
-		self.alpha -= random.randrange(1, 5)
+		#self.alpha -= random.randrange(1, 5)
 		if self.alpha <= 0:
 			self.kill()
 		else:
@@ -263,35 +222,25 @@ class Particle(BasicThing):
 	
 	def hit(self):
 		self.hits += 1
-		self.vel -= self.vel
+		self.vel.x -= self.vel.x
+		self.vel.y -= self.vel.y
+		self.alpha -= random.randrange(1, 5)
 		if self.hits >= self.maxhits:
 			self.kill()
 
-
-# for block in blocks:
-#   if self.surface_distance(block, dt) <= 0:
-#     collision_vector = self.pos - block.pos
-#     collision_vector.normalize()
-#     logger.debug(f'{self.surface_distance(block, dt)}')
-#     self.vel = self.vel.reflect(collision_vector)
-#     block.vel = block.vel.reflect(collision_vector)
-
-
 class Flame(BasicThing):
-	def __init__(self, pos=None, vel=None, direction=None, dt=None, flame_length=None, reshandler=None):
+	def __init__(self, pos, vel, flame_length, reshandler):
 		# super().__init__()
-		BasicThing.__init__(self)
-		Sprite.__init__(self)
 		self.rm = reshandler
-		self.dt = dt
 		if vel[0] == -1 or vel[0] == 1:
 			self.image, self.rect = self.rm.get_image(filename='data/flame4.png', force=False)
 		elif vel[1] == -1 or vel[1] == 1:
 			self.image, self.rect = self.rm.get_image(filename='data/flame3.png', force=False)
 		self.image = pygame.transform.scale(self.image, FLAMESIZE)
+		self.pos = pos
+		BasicThing.__init__(self, self.pos, self.image)
 		# dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]
-		self.size = FLAMESIZE
-		self.pos = Vector2(pos)
+		self.size = FLAMESIZE		
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		self.start_pos = Vector2(pos)
@@ -300,9 +249,6 @@ class Flame(BasicThing):
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.flame_length = flame_length
 		self.stopped = False
-
-	def check_time(self):
-		pass
 
 	def stop(self):
 		self.vel = Vector2((0, 0))
@@ -327,26 +273,18 @@ class Flame(BasicThing):
 			self.rect.center = center
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y
-			# logger.debug(f'{self.pos.x} {self.start_pos.x} {self.pos.distance_to(self.start_pos)}')
 			if distance >= self.flame_length: # or (self.dt - self.start_time >= self.timer):
-				# logger.debug(f'[flame] dist {distance} max {self.flame_length}')
 				self.kill()
 			if self.dt - self.start_time >= self.timer:
 				pass
-	# logger.debug(f'[flame] time {self.dt - self.start_time} >= {self.timer}')
-	# self.kill()
-
 
 class Bomb(BasicThing):
-	def __init__(self, pos=None, bomber_id=None, bomb_power=None, dt=None, reshandler=None):
-		Sprite.__init__(self)
-		BasicThing.__init__(self)
+	def __init__(self, pos, bomber_id, bomb_power, reshandler=None):
 		self.rm = reshandler
-		self.dt = dt
-		self.pos = pos
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
-		# self.gridpos = gridpos
+		self.pos = pos
+		BasicThing.__init__(self, self.pos, self.image)
 		self.bomber_id = bomber_id
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.centerx = self.pos.x
@@ -370,7 +308,7 @@ class Bomb(BasicThing):
 		if not self.flamesout:
 			self.flames = Group()
 			dirs = [Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1), Vector2(0, -1)]
-			flex = [Flame(pos=Vector2(self.pos), vel=k, dt=self.dt, flame_length=self.flame_len, reshandler=self.rm) for k in dirs]
+			flex = [Flame(pos=Vector2(self.pos), vel=k, flame_length=self.flame_len, reshandler=self.rm) for k in dirs]
 			for f in flex:
 				self.flames.add(f)
 			self.flamesout = True
@@ -440,7 +378,8 @@ class Gamemap:
 					# if self.grid[clear_bl[0]][clear_bl[1]] > 1:
 					grid[block[0]][block[1]] = 0
 				except Exception as e:
-					logger.error(f"exception in place_player {block} {e}")
+					logger.error(f"[e] place_player {block} {e}")
+					return None
 			return grid
 		# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
 		if location == 1: # top left
@@ -454,7 +393,8 @@ class Gamemap:
 					# if self.grid[clear_bl[0]][clear_bl[1]] > 1:
 					grid[block[0]][block[1]] = 0
 				except Exception as e:
-					logger.error(f"exception in place_player {block} {e}")
+					logger.error(f"[e] place_player {block} {e}")
+					return None
 			return grid
 
 	# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))

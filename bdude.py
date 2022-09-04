@@ -27,7 +27,6 @@ class Game(Thread):
 		self.screen = screen
 		self.bg_color = pygame.Color("black")
 		self.show_mainmenu = True
-		self.show_debug_diaglog = False
 		self.running = False
 		self.show_panel = True
 		self.blocks = Group()
@@ -51,12 +50,11 @@ class Game(Thread):
 		self.bombs.update()
 		for bomb in self.bombs:
 			bomb.dt = pygame.time.get_ticks() / 1000
-			if bomb.dt - bomb.start_time >= bomb.bomb_fuse:
-				bomb.gen_flames()
-				self.flames.add(bomb.flames)
+			if bomb.dt - bomb.start_time >= bomb.bomb_fuse:				
+				self.flames.add(bomb.gen_flames())
 				bomb.bomber_id.bombs_left += 1
 				bomb.kill()
-				self.bombs.remove(bomb)
+				#self.bombs.remove(bomb)
 
 	def update_flames(self):
 		self.flames.update()
@@ -64,7 +62,7 @@ class Game(Thread):
 			flame_coll = spritecollide(flame, self.blocks, False)
 			for block in flame_coll:
 				if block.block_type == 1 or block.block_type == 2: # or block.block_type == '3' or block.block_type == '4':
-					powerup = Powerup(pos=block.rect.center, dt=dt, reshandler=self.rm)
+					powerup = Powerup(pos=block.rect.center, reshandler=self.rm)
 					self.powerups.add(powerup)
 				if block.solid:
 					block.hit()					
@@ -95,22 +93,9 @@ class Game(Thread):
 		self.blocks.update(self.blocks)
 		self.powerups.update()
 
-	def reset_blocks(self, newgrid=[]):
-		self.grid = newgrid
-		self.blocks.empty()
-		logger.debug(f'mapreset blocks cleared')
-		idx = 0
-		for k in range(0, GRIDSIZE[0] + 1):
-			for j in range(0, GRIDSIZE[1] + 1):
-				newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=self.gamemap.grid[j][k], reshandler=self.rm)
-				self.blocks.add(newblock)
-				idx += 1
-
 	def reset_map(self, reset_grid=False):
 		# Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
-		logger.debug(f'[rm] reset_grid: rg:{reset_grid} gmg:{type(self.gamemap)} ')
 		self.gamemap.grid = self.gamemap.place_player(location=0, grid=self.gamemap.grid)
-		logger.debug(f'[rm] newgrid {len(self.gamemap.grid)}')
 		self.blocks.empty()
 		idx = 0
 		try:
@@ -121,8 +106,6 @@ class Game(Thread):
 				idx += 1
 		except IndexError as e:
 			logger.error(f'Err {e} idx: {idx} k:{k} j:{j}')
-			#logger.error(f'[e] {e} {self.gamemap.grid}')
-		logger.debug(f'[mr] {idx} blocks loaded')
 
 	def draw(self, player1):
 		# draw on screen
@@ -137,16 +120,6 @@ class Game(Thread):
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
 		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=player1, flames=self.flames)
-		if self.show_debug_diaglog:
-			self.debug_dialog.draw_debug_players(players=self.players)
-
-	def connect_server(self, player1):
-		server = ('127.0.0.1', 6666)
-		logger.debug(f'[{player1.client_id}] connecting to {server}')
-		try:
-			self.socket.connect(server)
-		except (ConnectionRefusedError, OSError) as e:
-			logger.error(f'{e}')
 
 	def handle_menu(self, selection, player1):
 		# mainmenu
@@ -156,9 +129,6 @@ class Game(Thread):
 
 		if selection == "Connect to server":
 			pass
-			# self.show_mainmenu = False
-			# self.connect_server(player1)
-			# self.request_servermap(player=player1)
 
 		if selection == "Quit":
 			self.running = False
@@ -173,11 +143,6 @@ class Game(Thread):
 
 		if selection == "Start server":
 			pass
-			# self.gameserver = ServerThread()
-			# self.gameserver.daemon = True
-			# self.gameserver.start()
-			# self.server_mode = True
-			# pygame.display.set_caption('server')
 
 	def handle_input(self, player1=None):
 		events = pygame.event.get()
@@ -197,21 +162,17 @@ class Game(Thread):
 					# quit game
 					player1.kill = True
 					self.running = False
-				# self.player1.stop()
 				if event.key == pygame.K_1:
-					self.request_servermap(player=player1)
-					self.reset_map()
+					pass
 				if event.key == pygame.K_2:
 					pass
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
 					pass
-				# self.show_debug_dialog ^= True
 				if event.key == pygame.K_p:
 					self.show_panel ^= True
 				if event.key == pygame.K_m:
-					logger.debug(f'mapreset')
 					self.reset_map()
 				if event.key == pygame.K_n:
 					pass
@@ -255,9 +216,9 @@ class Game(Thread):
 
 if __name__ == "__main__":
 
-	parser = ArgumentParser(description='bomberdude')
-	parser.add_argument('--server', default=False, action='store_true', dest='startserver')
-	args = parser.parse_args()
+	# parser = ArgumentParser(description='bomberdude')
+	# parser.add_argument('--server', default=False, action='store_true', dest='startserver')
+	# args = parser.parse_args()
 	pygame.init()
 
 	# mixer.init()
@@ -268,19 +229,16 @@ if __name__ == "__main__":
 	game = Game(screen=pyscreen, game_dt=dt, gamemap=mainmap)
 	game.start()
 	game.running = True
-	player1 = Player(pos=(300, 300), dt=game.dt, image='data/player1.png')
+	player1 = Player(pos=(300, 300), image='data/player1.png')
 
 	game.players.add(player1)
 	player1.daemon = True
 	player1.start()
-	font = pygame.freetype.Font(DEFAULTFONT, 12)
-	font_color = (255, 255, 255)
 	while game.running:
 		# main game loop logic stuff
 		game.handle_input(player1=player1)
 		game.update(player1)
 		game.draw(player1)
 
-	logger.debug(f'game end {game.running} {player1.kill}')
 	player1.kill = True
 	pygame.quit()

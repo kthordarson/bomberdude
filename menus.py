@@ -30,13 +30,6 @@ class DebugDialog:
 		self.bordercolor = pygame.Color("black")
 		#pass
 
-
-	def draw_debug_info(self, debuginfo=None):
-		pass
-
-	def draw_debug_players(self, players=None):
-		pass
-
 	def draw_mouse_pos(self):
 		self.draw_menubg()
 		# self.font.render_to(self.screen, self.pos, f'm:{pygame.mouse.get_pos()}', self.font_color)
