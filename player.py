@@ -13,11 +13,11 @@ from constants import *
 
 class Player(BasicThing, Thread):
 	def __init__(self, pos, image):
-		Thread.__init__(self, name='player')
-		self.name = 'player'
+		Thread.__init__(self)
+		self.client_id = gen_randid()
+		self.name = f'player{self.client_id}'
 		BasicThing.__init__(self, pos, image)
 		# Sprite.__init__(self)
-		self.client_id = gen_randid()
 		self.rm = ResourceHandler()
 		image, rect = self.rm.get_image(filename=image, force=False)
 		self.vel = Vector2(0, 0)
@@ -41,7 +41,7 @@ class Player(BasicThing, Thread):
 		self.net_players = {}
 		self.cnt_sq_request = 0
 		self.cnt_sq_sendyourpos = 0
-		logger.debug(f'[p] init pos:{pos} i:{image} client_id:{self.client_id}')
+		logger.debug(f'[p] client:{self} init pos:{pos} ')
 
 	def __str__(self):
 		return f'[player] {self.client_id}' #self.client_id

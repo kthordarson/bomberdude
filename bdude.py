@@ -31,6 +31,8 @@ class Game(Thread):
 		self.show_panel = True
 		self.blocks = Group()
 		self.players = Group()
+		self.playerone = Player(pos=(300, 300), image='data/playerone.png')
+		self.players.add(self.playerone)
 		self.particles = Group()
 		self.powerups = Group()
 		self.bombs = Group()
@@ -64,20 +66,21 @@ class Game(Thread):
 			# check if flame collides with blocks
 			flame_coll = spritecollide(flame, self.blocks, False)
 			for block in flame_coll:
-				if block.solid:
-					if block.block_type == 1 or block.block_type == 2: # or block.block_type == '3' or block.block_type == '4':
+				if block.permanent:
+					flame.kill()
+				elif block.solid:
+					if block.block_type in range(1,10):
 						# types 1 and 2 create powerups						
 						powerup = Powerup(pos=block.rect.center, reshandler=self.rm)
 						if powerup.powertype != 0:
 							self.powerups.add(powerup)
-						pos, gridpos = block.hit()
+						pos, gridpos, particles = block.hit(flame)
 						newblock = Block(pos, gridpos, block_type=0, reshandler=self.rm)
 						self.gamemap.set_block(gridpos[0], gridpos[1], 0)
-						self.particles.add(block.gen_particles(flame))
+						self.particles.add(particles)
 						flame.kill()
 						block.kill()
 						self.blocks.add(newblock)
-				# self.blocks.remove(block)
 
 	def update_particles(self):
 		self.particles.update(self.blocks)
@@ -88,20 +91,20 @@ class Game(Thread):
 					particle.hit()
 					#self.particles.remove(particle)
 
-	def update_powerups(self, player1):
-		if len(self.powerups) > 0:
-			powerblock_coll = spritecollide(player1, self.powerups, False)
-			for pc in powerblock_coll:
-				# logger.debug(f'[pwrb] type:{pc.powertype} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
-				player1.take_powerup(pc.powertype)
-				pc.kill()
+	def update_powerups(self, player):
+		self.powerups.update()
+		powerblock_coll = spritecollide(player, self.powerups, False)
+		for pc in powerblock_coll:
+			# logger.debug(f'[pwrb] type:{pc.powertype} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
+			player.take_powerup(pc.powertype)
+			pc.kill()
 
-	def update(self, player1):
+	def update(self):
 		self.players.update(self.blocks)
 		self.update_bombs()
 		self.update_flames()
 		self.update_particles()
-		self.update_powerups(player1)
+		self.update_powerups(self.playerone)
 		
 
 	def reset_map(self, reset_grid=False):
@@ -117,7 +120,7 @@ class Game(Thread):
 			idx += 1
 		logger.debug(f'[rm] r:{reset_grid} blks:{len(self.blocks)}')
 
-	def draw(self, player1):
+	def draw(self):
 		# draw on screen
 		pygame.display.flip()
 		self.screen.fill(self.bg_color)
@@ -129,18 +132,17 @@ class Game(Thread):
 		self.flames.draw(self.screen)
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
-		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=player1, flames=self.flames)
+		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=self.playerone, flames=self.flames)
 		if DEBUG:
 			pos = Vector2(10, self.screenh - 10)
 			self.debugfont.render_to(self.screen, pos, f"blk:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)}", self.font_color)
 			for block in self.blocks:
-				self.debugfont.render_to(self.screen, block.rect.center, f"{block.block_type}", self.font_color)
+				self.debugfont.render_to(self.screen, block.rect.center, f"{block.block_type}", (50,50,50))
 			for block in self.powerups:
-				self.debugfont.render_to(self.screen, block.rect.center+(0,5), f"{block.powertype}", self.font_color)
-				self.debugfont.render_to(self.screen, (block.rect.x,block.rect.center[1]+10), f"{block.start_time} {block.dt}", self.font_color)
+				self.debugfont.render_to(self.screen, block.rect.center+(0,5), f"{block.powertype}", (90,90,90))
 				
 
-	def handle_menu(self, selection, player1):
+	def handle_menu(self, selection):
 		# mainmenu
 		if selection == "Start":
 			self.show_mainmenu ^= True
@@ -163,23 +165,23 @@ class Game(Thread):
 		if selection == "Start server":
 			pass
 
-	def handle_input(self, player1=None):
+	def handle_input(self):
 		events = pygame.event.get()
 		for event in events:
 			if event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
 					if self.show_mainmenu: # or self.paused:
 						selection = self.game_menu.get_selection()
-						self.handle_menu(selection, player1)
+						self.handle_menu(selection)
 					elif not self.show_mainmenu:
-						b = player1.bombdrop()
+						b = self.playerone.bombdrop()
 						if b != 0:
 							self.bombs.add(b)
 				if event.key == pygame.K_ESCAPE:
 					self.show_mainmenu ^= True
 				if event.key == pygame.K_q:
 					# quit game
-					player1.kill = True
+					self.playerone.kill = True
 					self.running = False
 				if event.key == pygame.K_1:
 					pass
@@ -203,31 +205,31 @@ class Game(Thread):
 					if self.show_mainmenu:
 						self.game_menu.menu_down()
 					else:
-						player1.vel.y = player1.speed
+						self.playerone.vel.y = self.playerone.speed
 				if event.key in {pygame.K_UP, pygame.K_w}:
 					if self.show_mainmenu:
 						self.game_menu.menu_up()
 					else:
-						player1.vel.y = -player1.speed
+						self.playerone.vel.y = -self.playerone.speed
 				if event.key in {pygame.K_RIGHT, pygame.K_d}:
 					# if not self.show_mainmenu:
-					player1.vel.x = player1.speed
+					self.playerone.vel.x = self.playerone.speed
 				if event.key in {pygame.K_LEFT, pygame.K_a}:
 					# if not self.show_mainmenu:
-					player1.vel.x = -player1.speed
+					self.playerone.vel.x = -self.playerone.speed
 			if event.type == pygame.KEYUP:
 				if event.key == pygame.K_a:
 					pass
 				if event.key == pygame.K_d:
 					pass
 				if event.key in {pygame.K_DOWN, pygame.K_s}:
-					player1.vel.y = 0
+					self.playerone.vel.y = 0
 				if event.key in {pygame.K_UP, pygame.K_w}:
-					player1.vel.y = 0
+					self.playerone.vel.y = 0
 				if event.key in {pygame.K_RIGHT, pygame.K_d}:
-					player1.vel.x = 0
+					self.playerone.vel.x = 0
 				if event.key in {pygame.K_LEFT, pygame.K_a}:
-					player1.vel.x = 0
+					self.playerone.vel.x = 0
 			if event.type == pygame.QUIT:
 				self.running = False
 		# if event_type == pygame.MOUSEBUTTONDOWN:
@@ -248,16 +250,16 @@ if __name__ == "__main__":
 	game = Game(screen=pyscreen, game_dt=dt, gamemap=mainmap)
 	game.start()
 	game.running = True
-	player1 = Player(pos=(300, 300), image='data/player1.png')
+	#playerone = Player(pos=(300, 300), image='data/playerone.png')
 
-	game.players.add(player1)
-	player1.daemon = True
-	player1.start()
+	#game.players.add(playerone)
+	#playerone.daemon = True
+	#playerone.start()
 	while game.running:
 		# main game loop logic stuff
-		game.handle_input(player1=player1)
-		game.update(player1)
-		game.draw(player1)
+		game.handle_input()
+		game.update()
+		game.draw()
 
-	player1.kill = True
+	playerone.kill = True
 	pygame.quit()
