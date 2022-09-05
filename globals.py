@@ -191,9 +191,9 @@ class Particle(BasicThing):
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		self.start_time = 1 # pygame.time.get_ticks() // 1000
-		self.timer = 10
+		self.timer = 20
 		self.hits = 0
-		self.maxhits = 2
+		self.maxhits = 12
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.angle = math.degrees(0)
 		self.mass = 11
@@ -206,12 +206,12 @@ class Particle(BasicThing):
 			self.kill()
 			return
 		elif self.rect.top <= 0 or self.rect.left <= 0:
-			# logger.warning(f'[px] bounds p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+			logger.warning(f'[px] bounds p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
 			self.kill()
 			return
 		#self.alpha -= random.randrange(1, 5)
 		elif self.alpha <= 0:
-			# logger.debug(f'[px] amax p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+			logger.debug(f'[px] amax p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
 			self.kill()
 			return
 		elif self.hits >= self.maxhits:
@@ -221,20 +221,22 @@ class Particle(BasicThing):
 		else:
 			self.image.set_alpha(self.alpha)
 			self.vel -= self.accel
-			if self.vel.y>=0:
-				self.vel.y += self.vel.y * 0.1
-			if self.vel.y<=0:
-				self.vel.y -= self.vel.y * 0.1
+			# if self.vel.y>=0:
+			# 	self.vel.y += self.vel.y * 0.1
+			# if self.vel.y<=0:
+			# 	self.vel.y -= self.vel.y * 0.1
 			self.pos += self.vel
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y
-			self.alpha = int(self.alpha * 0.9)
+			self.vel.rotate_ip(self.hits)
+			#self.alpha = int(self.alpha * 0.9)
 	
 	def hit(self):
 		self.hits += 1
-		self.vel.x = (self.vel.x * random.choice([-1,1])) # (self.vel.x * -1)
-		self.vel.y = (self.vel.x * random.choice([-1,1])) #(self.vel.y * -1)
-		self.alpha = int(self.alpha * 0.5)
+		self.vel = -self.vel.rotate(random.choice([45,90,180]))
+		#self.vel.x = (self.vel.x * random.choice([-1,1])) # (self.vel.x * -1)
+		#self.vel.y = (self.vel.x * random.choice([-1,1])) #(self.vel.y * -1)
+		self.alpha = int(self.alpha * 0.8)
 
 class Flame(BasicThing):
 	def __init__(self, pos, vel, flame_length, reshandler):

@@ -137,9 +137,9 @@ class Game(Thread):
 			pos = Vector2(10, self.screenh - 10)
 			self.debugfont.render_to(self.screen, pos, f"blk:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)}", self.font_color)
 			for block in self.blocks:
-				self.debugfont.render_to(self.screen, block.rect.center, f"{block.block_type}", (50,50,50))
+				self.debugfont.render_to(self.screen, block.rect.center, f"{block.block_type}", (150,150,150))
 			for block in self.powerups:
-				self.debugfont.render_to(self.screen, block.rect.center+(0,5), f"{block.powertype}", (90,90,90))
+				self.debugfont.render_to(self.screen, block.rect.center+(0,5), f"p:{block.powertype}", (190,190,190))
 				
 
 	def handle_menu(self, selection):
@@ -261,5 +261,4 @@ if __name__ == "__main__":
 		game.update()
 		game.draw()
 
-	playerone.kill = True
 	pygame.quit()
