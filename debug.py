@@ -2,7 +2,7 @@ import math
 import pygame
 import pygame.freetype
 from globals import Particle
-from globals import DEFAULTFONT, BLOCKSIZE, DEBUGFONTCOLOR
+from constants import DEFAULTFONT, BLOCKSIZE, DEBUGFONTCOLOR
 from loguru import logger
 
 

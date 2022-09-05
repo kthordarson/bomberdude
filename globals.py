@@ -12,7 +12,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
-from constants import *
+from constants import BLOCKTYPES,DEBUG,POWERUPSIZE,PARTICLESIZE,FLAMESIZE,GRIDSIZE,BOMBSIZE,BLOCKSIZE
 
 def random_velocity(direction=None):
 	while True:
@@ -127,7 +127,9 @@ class Block(BasicThing):
 	def hit(self):
 		self.bitmap = BLOCKTYPES.get(11)["bitmap"]
 		self.solid = False
+		self.permanent = True
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
+		return self.pos, self.gridpos
 
 	def gen_particles(self, flame):
 		# called when block is hit by a flame
@@ -153,7 +155,9 @@ class Powerup(BasicThing):
 	def __init__(self, pos, reshandler):
 		# super().__init__()
 		self.rm = reshandler
-		self.powertype = random.choice([1,2,3])
+		self.powertype = random.choice([0,1,2,3])
+		if self.powertype == 0:
+			self.image, self.rect = self.rm.get_image(filename='data/black.png', force=False)
 		if self.powertype == 1:
 			self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
 		if self.powertype == 2:
@@ -170,6 +174,7 @@ class Powerup(BasicThing):
 		self.image.set_alpha(self.alpha)
 		self.timer = 5
 		self.start_time = pygame.time.get_ticks() / 1000
+		self.dt = pygame.time.get_ticks() / 1000
 
 	def update(self, items=None):
 		self.dt = pygame.time.get_ticks() / 1000
@@ -177,6 +182,10 @@ class Powerup(BasicThing):
 		if self.dt - self.start_time >= self.timer:
 			self.kill()
 
+	def hit(self):
+		self.bitmap = BLOCKTYPES.get(11)["bitmap"]
+		self.solid = False
+		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 
 class Particle(BasicThing):
 	def __init__(self, pos, vel, reshandler=None):
@@ -230,11 +239,12 @@ class Particle(BasicThing):
 			self.pos += self.vel
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y
+			self.alpha = int(self.alpha * 0.9)
 	
 	def hit(self):
 		self.hits += 1
-		self.vel.x = (self.vel.x * -1)
-		self.vel.y = (self.vel.y * -1)
+		self.vel.x = (self.vel.x * random.choice([-1,1])) # (self.vel.x * -1)
+		self.vel.y = (self.vel.x * random.choice([-1,1])) #(self.vel.y * -1)
 		self.alpha = int(self.alpha * 0.5)
 
 class Flame(BasicThing):

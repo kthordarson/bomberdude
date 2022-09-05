@@ -11,7 +11,7 @@ from loguru import logger
 # from pygame import mixer # Load the popular external library
 from debug import draw_debug_sprite, draw_debug_block
 from globals import Block, Powerup, Gamemap, ResourceHandler
-from constants import DEBUG,DEBUGFONTCOLOR,DEFAULTFONT,GRIDSIZE,BLOCKSIZE,SCREENSIZE,FPS
+from constants import DEBUG,DEBUGFONTCOLOR,DEFAULTFONT,GRIDSIZE,BLOCKSIZE,SCREENSIZE,FPS,DEFAULTGRID
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread
@@ -38,13 +38,15 @@ class Game(Thread):
 		self.game_menu = Menu(self.screen)
 		self.debug_dialog = DebugDialog(self.screen)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
-		self.DEBUGFONTCOLOR = (123, 123, 123)
-		self.DEBUGFONT = pygame.freetype.Font(DEFAULTFONT, 10)
+		self.font_color = (255, 255, 255)
 		self.rm = ResourceHandler()
 		self.gamemap = gamemap
 		# self.mapgrid = []
 		self.gameserver = None
 		self.server_mode = False
+		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		if DEBUG:
+			self.debugfont = pygame.freetype.Font(DEFAULTFONT, 10)
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -64,12 +66,17 @@ class Game(Thread):
 			for block in flame_coll:
 				if block.solid:
 					if block.block_type == 1 or block.block_type == 2: # or block.block_type == '3' or block.block_type == '4':
-						# types 1 and 2 create powerups
+						# types 1 and 2 create powerups						
 						powerup = Powerup(pos=block.rect.center, reshandler=self.rm)
-						self.powerups.add(powerup)
-					block.hit()					
-					self.particles.add(block.gen_particles(flame))
-					flame.kill()
+						if powerup.powertype != 0:
+							self.powerups.add(powerup)
+						pos, gridpos = block.hit()
+						newblock = Block(pos, gridpos, block_type=0, reshandler=self.rm)
+						self.gamemap.set_block(gridpos[0], gridpos[1], 0)
+						self.particles.add(block.gen_particles(flame))
+						flame.kill()
+						block.kill()
+						self.blocks.add(newblock)
 				# self.blocks.remove(block)
 
 	def update_particles(self):
@@ -85,33 +92,30 @@ class Game(Thread):
 		if len(self.powerups) > 0:
 			powerblock_coll = spritecollide(player1, self.powerups, False)
 			for pc in powerblock_coll:
-				logger.debug(f'[pwrb] type:{pc.powertype} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
+				# logger.debug(f'[pwrb] type:{pc.powertype} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
 				player1.take_powerup(pc.powertype)
 				pc.kill()
 
 	def update(self, player1):
 		self.players.update(self.blocks)
-		self.blocks.update()
 		self.update_bombs()
 		self.update_flames()
 		self.update_particles()
 		self.update_powerups(player1)
-		self.blocks.update(self.blocks)
-		self.powerups.update()
+		
 
 	def reset_map(self, reset_grid=False):
 		# Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
-		self.gamemap.grid = self.gamemap.place_player(location=0, grid=self.gamemap.grid)
+		if reset_grid:
+			self.gamemap.grid = DEFAULTGRID # self.gamemap.place_player(location=0, grid=self.gamemap.grid)
 		self.blocks.empty()
 		idx = 0
-		try:
-			for k in range(0, GRIDSIZE[0] + 1):
-				for j in range(0, GRIDSIZE[1] + 1):
-					newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=self.gamemap.grid[j][k], reshandler=self.rm)
-					self.blocks.add(newblock)
-				idx += 1
-		except IndexError as e:
-			logger.error(f'Err {e} idx: {idx} k:{k} j:{j}')
+		for k in range(0, GRIDSIZE[0] ):
+			for j in range(0, GRIDSIZE[1] ):
+				newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=self.gamemap.grid[j][k], reshandler=self.rm)
+				self.blocks.add(newblock)
+			idx += 1
+		logger.debug(f'[rm] r:{reset_grid} blks:{len(self.blocks)}')
 
 	def draw(self, player1):
 		# draw on screen
@@ -126,12 +130,21 @@ class Game(Thread):
 		if self.show_mainmenu:
 			self.game_menu.draw_mainmenu(self.screen)
 		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=player1, flames=self.flames)
+		if DEBUG:
+			pos = Vector2(10, self.screenh - 10)
+			self.debugfont.render_to(self.screen, pos, f"blk:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)}", self.font_color)
+			for block in self.blocks:
+				self.debugfont.render_to(self.screen, block.rect.center, f"{block.block_type}", self.font_color)
+			for block in self.powerups:
+				self.debugfont.render_to(self.screen, block.rect.center+(0,5), f"{block.powertype}", self.font_color)
+				self.debugfont.render_to(self.screen, (block.rect.x,block.rect.center[1]+10), f"{block.start_time} {block.dt}", self.font_color)
+				
 
 	def handle_menu(self, selection, player1):
 		# mainmenu
 		if selection == "Start":
 			self.show_mainmenu ^= True
-			self.reset_map()
+			self.reset_map(reset_grid=True)
 
 		if selection == "Connect to server":
 			pass
@@ -179,7 +192,7 @@ class Game(Thread):
 				if event.key == pygame.K_p:
 					self.show_panel ^= True
 				if event.key == pygame.K_m:
-					self.reset_map()
+					self.reset_map(reset_grid=True)
 				if event.key == pygame.K_n:
 					pass
 				if event.key == pygame.K_g:

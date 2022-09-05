@@ -43,7 +43,7 @@ class Menu:
 		self.inactive_color = (155, 155, 155)
 		self.menufont = pygame.freetype.Font(DEFAULTFONT, 24)
 		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 10)
-		self.panelfont = pygame.freetype.Font(DEFAULTFONT, 10)
+		self.panelfont = pygame.freetype.Font(DEFAULTFONT, 15)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.font_color = (255, 255, 255)
 		self.panelfont_color = (255, 255, 255)
@@ -94,12 +94,11 @@ class Menu:
 
 
 	def draw_panel(self, blocks, particles, player1, flames):
-		pos = Vector2(10, 100)
+		pos = Vector2(10, self.screenh - 90)
 		idx = 0
 		#self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} ", self.panelfont_color)
-		#pos = Vector2(10, self.screenh - 50)
 		self.panelfont.render_to(self.screen, pos, f"playerid: {player1.client_id} pos:{player1.rect} vel:{player1.vel} accel:{player1.accel} ", self.panelfont_color)
-		self.panelfont.render_to(self.screen, (pos.x, pos.y + 12), f"speed: {player1.speed} bombs: {player1.bombs_left} bombpower: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
+		self.panelfont.render_to(self.screen, (pos.x, pos.y + 15), f"speed: {player1.speed} bombs: {player1.bombs_left} bombpower: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
 
 
 	def get_selection(self):

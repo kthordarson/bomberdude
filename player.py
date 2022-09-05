@@ -49,46 +49,6 @@ class Player(BasicThing, Thread):
 	def __repr__(self):
 		return f'[player] id:{self.client_id} pos:{self.pos}' #str(self.client_id)
 
-	def handle_data(self, data_id=None, payload=None):
-		if data_id == -1:
-			pass
-		elif data_id == data_identifiers['sendyourpos']:
-			self.cnt_sq_sendyourpos += 1
-		elif data_id == data_identifiers['debugdump'] or data_id == 16:
-			pass
-			# self.debugdump(payload)
-		elif data_id == data_identifiers['nplpos']:
-			pass
-			# logger.debug(f'npl: {payload}')
-		elif data_id == data_identifiers['bcastmsg']:
-			logger.debug(f'bcastmsg: {payload}')
-		# elif data_id == data_identifiers['send_pos']:
-		#	logger.debug(f'[{self.client_id}] got {data_id} {payload}')				
-		elif data_id == data_identifiers['setclientid']:
-			self.client_id = payload
-			self.connected = True
-			logger.debug(f'[{self.client_id}] got client_id dataid: {data_id} payload: {payload} c:{self.connected} m:{self.gotmap} ')
-		elif data_id == data_identifiers['gamemapgrid'] or data_id == 14 or data_id == 10:
-			pass
-			#self.mapgrid = payload
-			#self.gotmap = True
-			#logger.debug(f'gotmapgrid: {len(self.mapgrid)} c:{self.connected} m:{self.gotmap}')
-		elif data_id == data_identifiers['netplayer']:
-			playerid = payload.split(':')[0]
-			if self.client_id != playerid:
-				npl_id = payload.split(':')[0]
-				x, y = payload.split("[")[1][:-1].split(",")
-				x = int(x)
-				y = int(y)
-				playerpos = Vector2((x, y))
-				# self.net_players[playerid] = playerpos
-				self.net_players[npl_id] = playerpos
-				self.net_players[self.client_id] = self.pos
-		else:
-			# pass
-			logger.error(f'[{self.client_id}] got unknown type: {type({data_id})} id: {data_id} payload: {payload} ')
-	
-
 	def run(self):
 		self.kill = False
 		logger.debug(f'[p]{self.client_id} start ')
