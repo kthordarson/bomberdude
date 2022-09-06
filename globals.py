@@ -162,19 +162,22 @@ class Powerup(BasicThing):
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
 		self.timer = 5
+		self.time_left = self.timer
 		self.start_time = pygame.time.get_ticks() / 1000
-		self.dt = pygame.time.get_ticks() / 1000
+		# self.dt = pygame.time.get_ticks() / 1000
 
 	def update(self, items=None):
 		dt = pygame.time.get_ticks() / 1000
 		# logger.debug(f'[pu] {dt - self.start_time} {self.timer}')
+		self.time_left = dt - self.start_time
 		if dt - self.start_time >= self.timer:
 			self.kill()
 
 	def hit(self):
-		self.bitmap = BLOCKTYPES.get(11)["bitmap"]
-		self.solid = False
-		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
+		pass
+		#self.bitmap = BLOCKTYPES.get(11)["bitmap"]
+		#self.solid = False
+		#self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 
 class Particle(BasicThing):
 	def __init__(self, pos, vel, reshandler=None):

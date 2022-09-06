@@ -1,5 +1,6 @@
 #!/bin/python3.9
 # bomberdude
+import sys
 import socket
 import time
 import random
@@ -19,9 +20,69 @@ from queue import Empty, Queue
 from netutils import DataReceiver, DataSender, data_identifiers
 from bombserver import ServerThread
 
+
+def add_input(input_queue):
+    while True:
+        input_queue.put(sys.stdin.read(1))
+
+class GameGUI():
+	def __init__(self):
+		pass
+
+class GameClient():
+	def __init__(self):
+		pass
+class GameServer():
+	def __init__(self):
+		pass
+
+class Engine(Thread):
+	def __init__(self):
+		Thread.__init__(self, name='engine')
+		#pygame.init()
+		self.screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
+		self.dt = pygame.time.Clock().tick(FPS) / 1000
+		self.gamemap = Gamemap(genmap=True)
+		self.queue = Queue()
+		self.game = Game(screen=self.screen, game_dt=self.dt, gamemap=self.gamemap, enginequeue=self.queue)
+		self.gui = None
+		self.gameclient = None
+		self.gameserver = None
+		self.running = False
+	
+	def poll(self):
+		return self.dt
+
+	def kill_engine(self, killmsg=None):
+		self.running = False
+		if killmsg:
+			logger.debug(f'[engine] killed {killmsg}')
+		#self.kill()
+		#pygame.quit()
+
+	def run(self):
+		while True:
+			if self.running:
+				self.game.handle_input()
+				self.game.update()
+				self.game.draw()
+				enginemsg = None
+				try:
+					enginemsg = self.queue.get_nowait()
+				except Empty:
+					pass
+				if enginemsg:
+					logger.info(f'[engine] got msg {enginemsg}')
+					self.queue.task_done()
+					self.kill_engine(killmsg=f'killed by q msg:{enginemsg}')
+					break
+
+
+
 class Game(Thread):
-	def __init__(self, screen=None, game_dt=None, gamemap=None):
+	def __init__(self, screen=None, game_dt=None, gamemap=None, enginequeue=None):
 		Thread.__init__(self, name='game')
+		self.enginequeue = enginequeue
 		self.kill = False
 		self.dt = game_dt
 		self.screen = screen
@@ -139,7 +200,7 @@ class Game(Thread):
 			for block in self.blocks:
 				self.debugfont.render_to(self.screen, block.rect.center, f"{block.block_type}", (150,150,150))
 			for block in self.powerups:
-				self.debugfont.render_to(self.screen, block.rect.center+(0,5), f"p:{block.powertype}", (190,190,190))
+				self.debugfont.render_to(self.screen, block.rect.center+(0,5), f"p:{block.time_left:.1f}", (190,190,190))
 				
 
 	def handle_menu(self, selection):
@@ -183,6 +244,8 @@ class Game(Thread):
 					# quit game
 					self.playerone.kill = True
 					self.running = False
+					self.enginequeue.put('quit')
+					# pygame.quit()
 				if event.key == pygame.K_1:
 					pass
 				if event.key == pygame.K_2:
@@ -231,34 +294,80 @@ class Game(Thread):
 				if event.key in {pygame.K_LEFT, pygame.K_a}:
 					self.playerone.vel.x = 0
 			if event.type == pygame.QUIT:
+				logger.debug(f'[pgevent] quit {event.type}')
 				self.running = False
 		# if event_type == pygame.MOUSEBUTTONDOWN:
 		#	mousex, mousey = pygame.mouse.get_pos()
 
 if __name__ == "__main__":
+	pygame.init()
+	engine = Engine()
+	engine.daemon = True
+	engine.start()
+	input_queue = Queue()
+	input_thread = Thread(target=add_input, args=(input_queue,))
+	input_thread.daemon = True
+	input_thread.start()
+	engine.running = True
+	while engine.is_alive():
+		last_update = time.time()
+		try:
+			#if not input_queue.empty():
+			cmd = None
+			try:
+				cmd = input_queue.get_nowait()
+			except Empty:
+				pass
+			if cmd:
+				print(f'[ipq] {cmd}')
+				if cmd == 's':
+					pass
+			elif not engine.running:
+				logger.debug(f'[main] engine run stop {engine.running} {engine}')
+				break
+					#engine.running = True
+#			cmd = input('> ')
+#			if cmd[:1] == 's':
+#				engine.running = True
+		except KeyboardInterrupt as e:
+			print(f'[kb] {e}')
+			engine.kill_engine(killmsg=f'killed by {e}')
+
+	
+
+
+    
+    # while True:
+
+    #     if time.time()-last_update>0.5:
+    #         sys.stdout.write(".")
+    #         last_update = time.time()
+
+    #     if not input_queue.empty():
+    #         print "\ninput:", input_queue.get()
 
 	# parser = ArgumentParser(description='bomberdude')
 	# parser.add_argument('--server', default=False, action='store_true', dest='startserver')
 	# args = parser.parse_args()
-	pygame.init()
+	# pygame.init()
 
 	# mixer.init()
-	pyscreen = pygame.display.set_mode(SCREENSIZE, 0, 32)
-	mainClock = pygame.time.Clock()
-	dt = mainClock.tick(FPS) / 1000
-	mainmap = Gamemap(genmap=True)
-	game = Game(screen=pyscreen, game_dt=dt, gamemap=mainmap)
-	game.start()
-	game.running = True
+	#pyscreen = pygame.display.set_mode(SCREENSIZE, 0, 32)
+	# mainClock = pygame.time.Clock()
+	# dt = mainClock.tick(FPS) / 1000
+	# mainmap = Gamemap(genmap=True)
+	# game = Game(screen=pyscreen, game_dt=dt, gamemap=mainmap)
+	# game.start()
+	# game.running = True
 	#playerone = Player(pos=(300, 300), image='data/playerone.png')
 
 	#game.players.add(playerone)
 	#playerone.daemon = True
 	#playerone.start()
-	while game.running:
-		# main game loop logic stuff
-		game.handle_input()
-		game.update()
-		game.draw()
+	# while game.running:
+	# 	# main game loop logic stuff
+	# 	game.handle_input()
+	# 	game.update()
+	# 	game.draw()
 
-	pygame.quit()
+	# pygame.quit()
