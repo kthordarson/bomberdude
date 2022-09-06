@@ -237,6 +237,9 @@ class Game(Thread):
 				self.font.render_to(self.screen, block.rect.center, f"{block.block_type}", (150,150,150))
 			for block in self.powerups:
 				self.font.render_to(self.screen, block.rect.center+(0,5), f"p:{block.time_left:.1f}", (190,190,190))
+			for p in self.particles:
+				pass
+				# self.font.render_to(self.screen, p.rect.center, f"{p.hits}", (10,255,190))
 				
 
 	def handle_menu(self, selection):

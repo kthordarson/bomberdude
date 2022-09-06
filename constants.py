@@ -16,7 +16,7 @@ PLAYERSIZE = [int(x // 1.5) for x in BLOCKSIZE]
 DUMMYSIZE = [int(x // 2) for x in BLOCKSIZE]
 POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
 BOMBSIZE = [int(x // 2.5) for x in BLOCKSIZE]
-PARTICLESIZE = [int(x // 6) for x in BLOCKSIZE]
+PARTICLESIZE = [int(x // 4) for x in BLOCKSIZE]
 FLAMESIZE = [10, 5]
 # FLAMESIZE = [int(x // 6) for x in BLOCKSIZE]
 
