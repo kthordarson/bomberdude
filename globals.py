@@ -12,7 +12,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
-from constants import BLOCKTYPES,DEBUG,POWERUPSIZE,PARTICLESIZE,FLAMESIZE,GRIDSIZE,BOMBSIZE,BLOCKSIZE
+from constants import BLOCKTYPES,DEBUG,POWERUPSIZE,PARTICLESIZE,FLAMESIZE,GRIDSIZE,BOMBSIZE,BLOCKSIZE,DEFAULTGRID
 
 def random_velocity(direction=None):
 	while True:
@@ -320,11 +320,10 @@ class Bomb(BasicThing):
 
 class Gamemap:
 	def __init__(self, genmap=True):
-		self.grid = self.generate()
-		# if genmap:
-		# 	self.grid = self.generate()
-		# else:
-		# 	self.grid = [[0 for k in range(GRIDSIZE[1] + 1)] for j in range(GRIDSIZE[0] + 1)]
+		if genmap:
+			self.grid = self.generate()
+		else:
+			self.grid = DEFAULTGRID
 
 	def generate(self):
 		grid = [[random.randint(0, 5) for k in range(GRIDSIZE[1] )] for j in range(GRIDSIZE[0] )]

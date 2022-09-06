@@ -5,14 +5,14 @@ import socket
 import time
 import random
 from argparse import ArgumentParser
+from urllib import response
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
 import pygame
 from loguru import logger
 # from pygame import mixer # Load the popular external library
-from debug import draw_debug_sprite, draw_debug_block
 from globals import Block, Powerup, Gamemap, ResourceHandler
-from constants import DEBUG,DEBUGFONTCOLOR,DEFAULTFONT,GRIDSIZE,BLOCKSIZE,SCREENSIZE,FPS,DEFAULTGRID
+from constants import DEBUG,DEBUGFONTCOLOR,GRIDSIZE,BLOCKSIZE,SCREENSIZE,FPS,DEFAULTGRID
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread
@@ -26,8 +26,20 @@ def add_input(input_queue):
         input_queue.put(sys.stdin.read(1))
 
 class GameGUI():
-	def __init__(self):
+	def __init__(self, screen, font):
+		self.screen = screen
+		self.show_mainmenu = True
+		self.blocks = Group()
+		self.game_menu = Menu(self.screen, font)
+		self.debug_dialog = DebugDialog(self.screen, font)
+		#self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+		self.font_color = (255, 255, 255)
+		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		#self.debugfont = pygame.freetype.Font(DEFAULTFONT, 10)
+	
+	def draw(self):
 		pass
+
 
 class GameClient():
 	def __init__(self):
@@ -39,15 +51,16 @@ class GameServer():
 class Engine(Thread):
 	def __init__(self):
 		Thread.__init__(self, name='engine')
-		#pygame.init()
+		pygame.init()
+		self.font = pygame.freetype.Font("data/DejaVuSans.ttf", 12)
 		self.screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 		self.dt = pygame.time.Clock().tick(FPS) / 1000
-		self.gamemap = Gamemap(genmap=True)
+		self.gamemap = Gamemap(genmap=False)
 		self.queue = Queue()
-		self.game = Game(screen=self.screen, game_dt=self.dt, gamemap=self.gamemap, enginequeue=self.queue)
-		self.gui = None
-		self.gameclient = None
-		self.gameserver = None
+		self.rm = ResourceHandler()
+		self.game = Game(screen=self.screen, game_dt=self.dt, gamemap=self.gamemap, enginequeue=self.queue, rm=self.rm, font=self.font)
+		self.gameclient = GameClient()
+		self.gameserver = GameServer()
 		self.running = False
 	
 	def poll(self):
@@ -74,22 +87,45 @@ class Engine(Thread):
 				if enginemsg:
 					logger.info(f'[engine] got msg {enginemsg}')
 					self.queue.task_done()
-					self.kill_engine(killmsg=f'killed by q msg:{enginemsg}')
-					break
+					if enginemsg == 'quit':
+						self.kill_engine(killmsg=f'killed by q msg:{enginemsg}')
+						break
+					if enginemsg == 'reset_map':
+						newblocks = self.reset_map(reset_grid=False)
+						response = {'blocks': newblocks}
+						logger.debug(f'[e] msg:{enginemsg} resp:{response}')
+						self.game.gameq.put(response)
+
+	def reset_map(self, reset_grid=False):
+		# Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
+		if reset_grid:
+			self.gamemap.grid = DEFAULTGRID # self.gamemap.place_player(location=0, grid=self.gamemap.grid)
+		# self.blocks.empty()
+		#idx = 0
+		newblocks = Group()
+		for k in range(0, GRIDSIZE[0] ):
+			for j in range(0, GRIDSIZE[1] ):
+				newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=self.gamemap.grid[j][k], reshandler=self.rm)
+				newblocks.add(newblock)
+		return newblocks
+				#self.blocks.add(newblock)
+			#idx += 1
+		#logger.debug(f'[rm] r:{reset_grid} blks:{len(self.blocks)}')
 
 
 
 class Game(Thread):
-	def __init__(self, screen=None, game_dt=None, gamemap=None, enginequeue=None):
+	def __init__(self, screen=None, game_dt=None, gamemap=None, enginequeue=None, rm=None, font=None):
 		Thread.__init__(self, name='game')
 		self.enginequeue = enginequeue
+		self.gameq = Queue()
 		self.kill = False
 		self.dt = game_dt
 		self.screen = screen
+		self.font = font
+		self.gui = GameGUI(self.screen, font)
 		self.bg_color = pygame.Color("black")
-		self.show_mainmenu = True
 		self.running = False
-		self.show_panel = True
 		self.blocks = Group()
 		self.players = Group()
 		self.playerone = Player(pos=(300, 300), image='data/playerone.png')
@@ -98,18 +134,11 @@ class Game(Thread):
 		self.powerups = Group()
 		self.bombs = Group()
 		self.flames = Group()
-		self.game_menu = Menu(self.screen)
-		self.debug_dialog = DebugDialog(self.screen)
-		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
-		self.font_color = (255, 255, 255)
-		self.rm = ResourceHandler()
 		self.gamemap = gamemap
 		# self.mapgrid = []
 		self.gameserver = None
-		self.server_mode = False
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
-		if DEBUG:
-			self.debugfont = pygame.freetype.Font(DEFAULTFONT, 10)
+		self.rm = rm
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -120,7 +149,12 @@ class Game(Thread):
 				bomb.bomber_id.bombs_left += 1
 				bomb.kill()
 				#self.bombs.remove(bomb)
-
+	def get_powerup(self, pos):
+		powerup = None
+		return powerup
+	def get_block(self, pos, gridpos, block_type):
+		newblock = None
+		return newblock
 	def update_flames(self):
 		self.flames.update()
 		for flame in self.flames:
@@ -136,7 +170,7 @@ class Game(Thread):
 						if powerup.powertype != 0:
 							self.powerups.add(powerup)
 						pos, gridpos, particles = block.hit(flame)
-						newblock = Block(pos, gridpos, block_type=0, reshandler=self.rm)
+						newblock =  Block(pos, gridpos, block_type=0, reshandler=self.rm)
 						self.gamemap.set_block(gridpos[0], gridpos[1], 0)
 						self.particles.add(particles)
 						flame.kill()
@@ -166,20 +200,22 @@ class Game(Thread):
 		self.update_flames()
 		self.update_particles()
 		self.update_powerups(self.playerone)
+		engmsg = None
+		try:
+			engmsg = self.gameq.get_nowait()
+		except Empty:
+			pass
+		if engmsg:
+			logger.debug(f'[e] engmsg:{engmsg}')
+			self.gameq.task_done()
+			if isinstance(engmsg, dict):
+				newblocks = engmsg.get('blocks')
+				if newblocks:
+					logger.debug(f'[g] msg:{engmsg} newblocks: {newblocks} ')
+					self.blocks = newblocks
+			
 		
 
-	def reset_map(self, reset_grid=False):
-		# Vector2((BLOCKSIZE[0] * self.gridpos[0], BLOCKSIZE[1] * self.gridpos[1]))
-		if reset_grid:
-			self.gamemap.grid = DEFAULTGRID # self.gamemap.place_player(location=0, grid=self.gamemap.grid)
-		self.blocks.empty()
-		idx = 0
-		for k in range(0, GRIDSIZE[0] ):
-			for j in range(0, GRIDSIZE[1] ):
-				newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=self.gamemap.grid[j][k], reshandler=self.rm)
-				self.blocks.add(newblock)
-			idx += 1
-		logger.debug(f'[rm] r:{reset_grid} blks:{len(self.blocks)}')
 
 	def draw(self):
 		# draw on screen
@@ -191,23 +227,24 @@ class Game(Thread):
 		self.particles.draw(self.screen)
 		self.players.draw(self.screen)
 		self.flames.draw(self.screen)
-		if self.show_mainmenu:
-			self.game_menu.draw_mainmenu(self.screen)
-		self.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=self.playerone, flames=self.flames)
+		if self.gui.show_mainmenu:
+			self.gui.game_menu.draw_mainmenu(self.screen)
+		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=self.playerone, flames=self.flames)
 		if DEBUG:
 			pos = Vector2(10, self.screenh - 10)
-			self.debugfont.render_to(self.screen, pos, f"blk:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)}", self.font_color)
+			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)}", (123,123,123))
 			for block in self.blocks:
-				self.debugfont.render_to(self.screen, block.rect.center, f"{block.block_type}", (150,150,150))
+				self.font.render_to(self.screen, block.rect.center, f"{block.block_type}", (150,150,150))
 			for block in self.powerups:
-				self.debugfont.render_to(self.screen, block.rect.center+(0,5), f"p:{block.time_left:.1f}", (190,190,190))
+				self.font.render_to(self.screen, block.rect.center+(0,5), f"p:{block.time_left:.1f}", (190,190,190))
 				
 
 	def handle_menu(self, selection):
 		# mainmenu
 		if selection == "Start":
-			self.show_mainmenu ^= True
-			self.reset_map(reset_grid=True)
+			self.gui.show_mainmenu ^= True
+			self.enginequeue.put('reset_map')
+			#self.reset_map(reset_grid=True)
 
 		if selection == "Connect to server":
 			pass
@@ -216,11 +253,11 @@ class Game(Thread):
 			self.running = False
 
 		if selection == "Pause":
-			self.show_mainmenu ^= True
+			self.gui.show_mainmenu ^= True
 			self.pause_game()
 
 		if selection == "Restart":
-			self.show_mainmenu ^= True
+			self.gui.show_mainmenu ^= True
 			self.restart_game()
 
 		if selection == "Start server":
@@ -231,15 +268,15 @@ class Game(Thread):
 		for event in events:
 			if event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
-					if self.show_mainmenu: # or self.paused:
-						selection = self.game_menu.get_selection()
+					if self.gui.show_mainmenu: # or self.paused:
+						selection = self.gui.game_menu.get_selection()
 						self.handle_menu(selection)
-					elif not self.show_mainmenu:
+					elif not self.gui.show_mainmenu:
 						b = self.playerone.bombdrop()
 						if b != 0:
 							self.bombs.add(b)
 				if event.key == pygame.K_ESCAPE:
-					self.show_mainmenu ^= True
+					self.gui.show_mainmenu ^= True
 				if event.key == pygame.K_q:
 					# quit game
 					self.playerone.kill = True
@@ -265,21 +302,21 @@ class Game(Thread):
 				if event.key == pygame.K_r:
 					pass
 				if event.key in {pygame.K_DOWN, pygame.K_s}:
-					if self.show_mainmenu:
-						self.game_menu.menu_down()
+					if self.gui.show_mainmenu:
+						self.gui.game_menu.menu_down()
 					else:
 						self.playerone.vel.y = self.playerone.speed
 				if event.key in {pygame.K_UP, pygame.K_w}:
-					if self.show_mainmenu:
-						self.game_menu.menu_up()
+					if self.gui.show_mainmenu:
+						self.gui.game_menu.menu_up()
 					else:
 						self.playerone.vel.y = -self.playerone.speed
 				if event.key in {pygame.K_RIGHT, pygame.K_d}:
-					# if not self.show_mainmenu:
-					self.playerone.vel.x = self.playerone.speed
+					if not self.gui.show_mainmenu:
+						self.playerone.vel.x = self.playerone.speed
 				if event.key in {pygame.K_LEFT, pygame.K_a}:
-					# if not self.show_mainmenu:
-					self.playerone.vel.x = -self.playerone.speed
+					if not self.gui.show_mainmenu:
+						self.playerone.vel.x = -self.playerone.speed
 			if event.type == pygame.KEYUP:
 				if event.key == pygame.K_a:
 					pass
@@ -300,7 +337,6 @@ class Game(Thread):
 		#	mousex, mousey = pygame.mouse.get_pos()
 
 if __name__ == "__main__":
-	pygame.init()
 	engine = Engine()
 	engine.daemon = True
 	engine.start()

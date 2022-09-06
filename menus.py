@@ -6,12 +6,12 @@ from constants import *
 
 
 class DebugDialog:
-	def __init__(self, screen):
+	def __init__(self, screen, font):
 		self.screen = screen
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (400, 80)
 		self.image = pygame.Surface(self.menusize)
-		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+		self.font = font #pygame.freetype.Font(font, 12)
 		self.font_color = (255, 255, 255)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		# self.pos = Vector2(self.screenw-self.menusize[0],self.screenh-80)
@@ -32,7 +32,7 @@ class DebugDialog:
 
 
 class Menu:
-	def __init__(self, screen):
+	def __init__(self, screen, font):
 		self.screen = screen
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (250, 180)
@@ -41,10 +41,10 @@ class Menu:
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.selected_color = (255, 255, 255)
 		self.inactive_color = (155, 155, 155)
-		self.menufont = pygame.freetype.Font(DEFAULTFONT, 24)
-		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 10)
-		self.panelfont = pygame.freetype.Font(DEFAULTFONT, 15)
-		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+		self.menufont = font
+		self.debugfont = font
+		self.panelfont = font
+		self.font = font
 		self.font_color = (255, 255, 255)
 		self.panelfont_color = (255, 255, 255)
 		self.menufont.fgcolor = self.selected_color

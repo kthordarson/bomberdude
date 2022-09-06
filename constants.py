@@ -1,5 +1,6 @@
+import pygame
 DEBUG = True
-DEFAULTFONT = "data/DejaVuSans.ttf"
+#DEFAULTFONT = "data/DejaVuSans.ttf"
 from pygame import Color
 COLOR_INACTIVE = Color('lightskyblue3')
 COLOR_ACTIVE = Color('dodgerblue2')
