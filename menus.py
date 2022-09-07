@@ -11,24 +11,24 @@ class DebugDialog:
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (400, 80)
 		self.image = pygame.Surface(self.menusize)
-		self.font = font #pygame.freetype.Font(font, 12)
+		self.font = font  # pygame.freetype.Font(font, 12)
 		self.font_color = (255, 255, 255)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		# self.pos = Vector2(self.screenw-self.menusize[0],self.screenh-80)
-		self.pos = Vector2(10,500)
+		self.pos = Vector2(10, 500)
 		self.rect = self.image.get_rect(topleft=self.pos)
-		
+
 	def draw_menubg(self):
 		pass
-		# self.bordercolor = pygame.Color("white")
-		# bordersize = 1
-		# menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
-		# #pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1])) # background
-		# pygame.draw.line(self.screen, self.bordercolor, menupos ,(menupos[0], menupos[1] + self.menusize[1]), bordersize) # left border
-		# pygame.draw.line(self.screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # right border
-		# pygame.draw.line(self.screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize) # top border
-		# pygame.draw.line(self.screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # bottom border
-		# self.bordercolor = pygame.Color("black")
+	# self.bordercolor = pygame.Color("white")
+	# bordersize = 1
+	# menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
+	# #pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1])) # background
+	# pygame.draw.line(self.screen, self.bordercolor, menupos ,(menupos[0], menupos[1] + self.menusize[1]), bordersize) # left border
+	# pygame.draw.line(self.screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # right border
+	# pygame.draw.line(self.screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize) # top border
+	# pygame.draw.line(self.screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # bottom border
+	# self.bordercolor = pygame.Color("black")
 
 
 class Menu:
@@ -51,7 +51,7 @@ class Menu:
 		self.bgcolor = pygame.Color("darkred")
 		self.bordercolor = pygame.Color("black")
 		# self.menufont.bgcolor = (44,55,66)
-		self.menuitems = ['Start','Connect to server','Start server','Stop server','Pause','Restart','Quit']
+		self.menuitems = ['Start', 'Connect to server', 'Start server', 'Stop server', 'Pause', 'Restart', 'Quit']
 		self.selected_item = 0
 
 	def set_pos(self, newpos: Vector2):
@@ -72,14 +72,14 @@ class Menu:
 		self.bordercolor = pygame.Color("darkred")
 		bordersize = 5
 		menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
-		#pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1])) # background
-		pygame.draw.line(screen, self.bordercolor, menupos ,(menupos[0], menupos[1] + self.menusize[1]), bordersize) # left border
-		pygame.draw.line(screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # right border
-		pygame.draw.line(screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize) # top border
-		pygame.draw.line(screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize) # bottom border
+		# pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1])) # background
+		pygame.draw.line(screen, self.bordercolor, menupos, (menupos[0], menupos[1] + self.menusize[1]), bordersize)  # left border
+		pygame.draw.line(screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # right border
+		pygame.draw.line(screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize)  # top border
+		pygame.draw.line(screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # bottom border
 		self.bordercolor = pygame.Color("black")
-		#pass
 
+	# pass
 
 	def draw_mainmenu(self, screen):
 		self.draw_menubg(screen)
@@ -92,14 +92,12 @@ class Menu:
 			self.menufont.render_to(screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
 			pos_y += 25
 
-
 	def draw_panel(self, blocks, particles, player1, flames):
 		pos = Vector2(10, self.screenh - 90)
 		idx = 0
-		#self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} ", self.panelfont_color)
+		# self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} ", self.panelfont_color)
 		self.panelfont.render_to(self.screen, pos, f"playerid: {player1.client_id} pos:{player1.rect} vel:{player1.vel} accel:{player1.accel} ", self.panelfont_color)
 		self.panelfont.render_to(self.screen, (pos.x, pos.y + 15), f"speed: {player1.speed} bombs: {player1.bombs_left} bombpower: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
-
 
 	def get_selection(self):
 		return self.menuitems[self.selected_item]
