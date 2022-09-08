@@ -250,6 +250,7 @@ class Game(Thread):
 		if not self.kill:
 			# self.update_players()
 			# self.netplayers.update(self.blocks)
+			self.playerone.refresh_netplayers()
 			self.players.update(self.blocks)
 			self.update_bombs()
 			self.update_flames()

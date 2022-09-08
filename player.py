@@ -36,23 +36,19 @@ class Player(BasicThing, Thread):
 		self.health = 100
 		self.score = 0
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.send_pos_count = 0
 		self.kill = False
-		self.dead = False
 		self.gotmap = False
 		self.connected = False
 		self.net_players = {}
 		self.cnt_sq_request = 0
 		self.cnt_sq_sendyourpos = 0
+		self.netplayers = []
 		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-		self.kill = False
 		self.server = ('192.168.1.122', 6666)
 		self.localaddr = (get_ip_address()[0], 6669)
-		self.connected = False
 		self.ds = DataSender(s_socket=self.socket, server=self.server, name=self.client_id, stop_event=stop_event)
 		self.dr = DataReceiver(r_socket=self.socket, server=self.server, localaddr=self.localaddr, name=self.client_id, stop_event=stop_event)
 		self.pos = Vector2(pos)
-		self.kill = False
 		logger.debug(f'[p] client:{self} init pos:{pos} ')
 
 	def __str__(self):
@@ -76,7 +72,11 @@ class Player(BasicThing, Thread):
 			logger.warning(f'[c-{self.client_id}] {e}')
 			self.connected = False
 			return False
-		
+
+	def refresh_netplayers(self):
+		reqmsg = 'getnetplayers'
+		self.sendmsg(msgid=6, msgdata=reqmsg)
+
 	def sendmsg(self, msgid=None, msgdata=None):
 		data = f'{msgid}:{self.client_id}:{msgdata}'.encode('utf-8')
 		self.ds.queue.put(data)
@@ -89,14 +89,24 @@ class Player(BasicThing, Thread):
 			try:
 				datamsg, addr = data
 			except ValueError:
-				logger.error(f'[c-{self.client_id}] {e} {data} from {addr}')
+				logger.error(f'[c-{self.client_id}] {e} {data} from {addr} len:{len(data)} type:{type(data)}')
 				#msgid, clid = data
 			try:
-				msgid, clid, msgdata = datamsg.decode('utf-8').split(':')
+				msgid, clid, msgdata, *_ = datamsg.decode('utf-8').split(':')
 			except ValueError as e:
-				logger.warning(f'[c-{self.client_id}] {e} {data} from {addr}')
+				logger.warning(f'[c-{self.client_id}] {e} {data} from {addr} len:{len(data)} type:{type(data)}')
 			if msgid:
 				msgid = int(msgid)
+				if msgid == 7:
+					print(msgid)
+					# netplayers todo fixme
+					try:
+						#cl_item, cl_ticks = datamsg.decode('utf-8').split('{')[1].split(':')
+						#cl_item = cl_item.replace('"','').replace("'", '')
+						# cl_ticks = cl_ticks.strip().replace('}','')
+						logger.debug(f'[c-{self.client_id}] netplayer m:{msgid} clid:{clid} m:{msgdata} from {addr} ')
+					except ValueError as e:
+						logger.error(f'[c-{self.client_id}] {e} d:{data} dmsg:{datamsg} from {addr} len:{len(data)} type:{type(data)}')
 				if msgid == 11:
 					if msgdata == 'connectsuccess':
 						self.connected = True
@@ -107,41 +117,13 @@ class Player(BasicThing, Thread):
 					pass
 					#logger.debug(f'[c] msgid:{msgid} clid:{clid} msgdata:{msgdata}')
 				else:
-					logger.debug(f'[c] msgid:{msgid} clid:{clid} msgdata:{msgdata}')
+					pass
+					#logger.debug(f'[c] msgid:{msgid} clid:{clid} msgdata:{msgdata}')
 
 	def get_pos(self):
 		#logger.debug(f'[p] get_pos() {self.pos}')
 		return self.pos
 
-	def runxx(self):
-		logger.debug(f'[testclient] run id:{self.client_id} conn:{self.connected} sq:{self.ds.queue.qsize()} rc:{self.dr.queue.qsize()}')
-		while True:
-			playerpos = self.get_pos()
-			# logger.debug(f'[testclient] sendpos:{playerpos} {self.playerone.pos}')
-			#self.sendmsg(msgid=22, msgdata='pingfromclient')
-			self.sendmsg(msgid=5, msgdata=self.pos)
-			if self.kill:
-				logger.debug(f'[testclient] id:{self.client_id} kill')
-				self.ds.kill = True
-				logger.debug(f'[testclient] id:{self.client_id} dskill {self.ds}')
-				self.dr.kill = True
-				logger.debug(f'[testclient] id:{self.client_id} drkill {self.dr}')
-				break
-			incoming = None
-			outgoing = None
-			if not self.dr.queue.empty():
-				incoming = self.dr.queue.get()
-				self.handle_incoming(data=incoming)
-				# logger.debug(f'[c] incoming from  recvq:{incoming}')
-				self.dr.queue.task_done()
-
-	def runx(self):
-		self.kill = False
-		logger.debug(f'[p]{self.client_id} start ')
-		while True:
-			if self.kill:
-				logger.debug(f'[pk] self.kill:{self.kill}')
-				break
 
 	def bombdrop(self):
 		if self.bombs_left > 0:
@@ -187,7 +169,8 @@ class Player(BasicThing, Thread):
 				#	self.vel.y = 0
 		self.pos.y = self.rect.y
 		self.pos.x = self.rect.x
-		self.sendmsg(msgid=5, msgdata=self.pos)
+		if self.connected:
+			self.sendmsg(msgid=5, msgdata=self.pos)
 		incoming = None
 		outgoing = None
 		if not self.dr.queue.empty():
@@ -210,3 +193,6 @@ class Player(BasicThing, Thread):
 
 	def add_score(self):
 		self.score += 1
+
+
+

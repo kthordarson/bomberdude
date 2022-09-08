@@ -1,3 +1,4 @@
+from itertools import chain
 import socket
 from signal import signal, SIGPIPE, SIG_DFL
 from random import randint
@@ -31,6 +32,7 @@ class ConnectionHandler(Thread):
 		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 		self.clmsgid, self.clid, self.clmsg = data
 		self.tick_count = 0
+		self.client_pos = Vector2()
 		logger.debug(f'[ch] id:{self.clid} init r:{self.remote} d:{data}')
 
 	def __repr__(self) -> str:
@@ -121,9 +123,35 @@ class BombServer(Thread):
 				if clmsgid:
 					clmsgid = int(clmsgid)
 					# logger.debug(f'[s] data:{data} addr:{addr} {clmsgid} {clid} {clmsg}')
+					ctest = self.clist.get(clid)
+					if not ctest:
+						self.clist[clid] = {'clid':clid, 'ticks':0, 'pos':Vector2(), 'msgbuf':''}
+					if clmsgid == 1: # new client connect						
+						if ctest:
+							self.clist.get(clid)['ticks'] += 1
+						else:
+							
+							logger.debug(f'[s] newclient clmsgid:{clmsgid} clid:{clid} clmsg:{clmsg} clients:{len(self.clients)} {len(self.clist)}')
+							ch = ConnectionHandler(remote=addr, serverqueue=self.serverq, data=(clmsgid, clid, clmsg), srvsock=self.socket, stop_event=self.stop_event)
+							ch.start()
+							ch.sendmsg(msgid=11, msgdata='connectsuccess')
+							self.clients.append(ch)
+							ch.ch_connect()
+					if clmsgid == 6:
+						# send netplayers
+						for ch in self.clients:
+							#data = {'clist': self.clist, 'clients': len(self.clients)}
+							try:
+								clspos = self.clist.get(clid)['pos']
+							except TypeError as e:
+								logger.error(f'[s] {e} clid:{clid} clist:{self.clist} ch:{ch}')
+								return
+							data = f'{ch.clid}-{clid} pos={clspos}'
+							ch.sendmsg(msgid=7, msgdata=data)
 					if clmsgid == 5:
-						pass
-						# logger.debug(f'[s] got posmsg:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')
+						#logger.debug(f'[s{clmsgid}] p:{clmsg} cl:{clid} from:{addr}')
+						self.clist.get(clid)['msgbuf'] = clmsg
+						self.clist.get(clid)['ticks'] += 1
 					if clmsgid == 3: # movement
 						pass
 						#logger.debug(f'[s] got movemsg:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')
@@ -134,19 +162,10 @@ class BombServer(Thread):
 						pass
 						#logger.debug(f'[s] got ping:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')						
 						#self.clist[clid].update_tick()
-					if clmsgid == 1: # new client connect
-						if clid not in self.clist:
-							self.clist[clid] = 1
-							logger.debug(f'[s] newclient clmsgid:{clmsgid} clid:{clid} clmsg:{clmsg} clients:{len(self.clients)} {len(self.clist)}')
-							ch = ConnectionHandler(remote=addr, serverqueue=self.serverq, data=(clmsgid, clid, clmsg), srvsock=self.socket, stop_event=self.stop_event)
-							ch.start()
-							ch.sendmsg(msgid=11, msgdata='connectsuccess')
-							self.clients.append(ch)
-							ch.ch_connect()
-						else:
+#						else:
 							# logger.debug(f'[s] client clmsgid:{clmsgid} clid:{clid} clmsg:{clmsg}')
-							self.clist[clid] += 1
-							[cl.update_tick() for cl in self.clients if cl.get_clid() == clid]
+#							self.clist[clid] += 1
+#							[cl.update_tick() for cl in self.clients if cl.get_clid() == clid]
 
 			if self.kill:
 				logger.debug(f'[s] killing self:{self.name} k:{self.kill}')
@@ -182,8 +201,8 @@ if __name__ == '__main__':
 				break
 			if cmd[:1] == 'd':
 				for cl in server.clients:
-					logger.debug(f'[d] server.clients:{len(server.clients)} cl:{cl.remote}')
-					cl.sendmsg(msg='debugfromserver')
+					logger.debug(f'[d] client:{cl} server.clients:{len(server.clients)} cl:{cl.remote}')
+					cl.sendmsg(msgid=99, msgdata='debugfromserver')
 			if cmd[:1] == 'p':
 				logger.debug(f'[clientlist] total:{len(server.clients)}')
 				for cl in server.clients:
@@ -191,11 +210,6 @@ if __name__ == '__main__':
 				logger.debug(f'[clist] total:{len(server.clist)}')
 				for cl in server.clist:
 					logger.debug(f'\tc: {cl} {server.clist[cl]}')
-			if cmd[:1] == 'f':
-				for k in range(10):
-					foo = f'foo{k}'
-					logger.debug(f'sending {foo} to q')
-					#pass #client.queue.put(foo)
 			if cmd[:1] == '1':
 				pass
 			if cmd[:1] == '2':
