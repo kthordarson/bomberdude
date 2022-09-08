@@ -69,7 +69,7 @@ class Engine(Thread):
 		self.stop_event = stop_event
 		self.font = pygame.freetype.Font("data/DejaVuSans.ttf", 12)
 		self.screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
-		self.dt = pygame.time.Clock().tick(FPS) / 1000
+		self.dt = pygame.time.Clock()
 		self.gamemap = Gamemap(genmap=False)
 		self.enginequeue = Queue()
 		self.serverqueue = Queue()
@@ -80,9 +80,6 @@ class Engine(Thread):
 
 	def __repr__(self):
 		return f'[engine] running:{self.running} kill:{self.kill}'
-
-	def poll(self):
-		return self.dt
 
 	def kill_engine(self, killmsg=None):
 		threads = [t for t in threading.enumerate()]
@@ -196,12 +193,23 @@ class Game(Thread):
 
 	def update_bombs(self):
 		self.bombs.update()
+#		qtemp = [b.thingq.qsize() for b in self.bombs]
+#		if len(qtemp) > 0:
+#			logger.debug(f'[btq] q:{qtemp}')
 		for bomb in self.bombs:
-			bomb.dt = pygame.time.get_ticks() / 1000
-			if bomb.dt - bomb.start_time >= bomb.bomb_fuse:
-				self.flames.add(bomb.gen_flames())
-				bomb.bomber_id.bombs_left += 1
+			# logger.debug(f'[btq] b:{bomb} q:{bomb.thingq.qsize()}')
+			if not bomb.thingq.empty():
+				bmsg = bomb.thingq.get_nowait()
+				self.flames = bmsg.get('flames')
+				bomb.thingq.task_done()
+				#logger.debug(f'[btq] {flames} q:{bomb.thingq.qsize()}')
 				bomb.kill()
+
+#			bomb.dt = pygame.time.get_ticks()
+#			if bomb.dt - bomb.start_time >= bomb.bomb_fuse:
+#				self.flames.add(bomb.gen_flames())
+#				bomb.bomber_id.bombs_left += 1
+#				bomb.kill()
 
 	def update_flames(self):
 		self.flames.update()
@@ -253,6 +261,7 @@ class Game(Thread):
 			self.playerone.refresh_netplayers()
 			self.players.update(self.blocks)
 			self.update_bombs()
+			#self.bombs.update()
 			self.update_flames()
 			self.update_particles()
 			self.update_powerups(self.playerone)
@@ -266,9 +275,14 @@ class Game(Thread):
 				self.gamequeue.task_done()
 				if isinstance(gamemsg, dict):
 					newblocks = gamemsg.get('blocks')
+					flames = gamemsg.get('flames')
 					if newblocks:
 						logger.debug(f'[g] msg:{gamemsg} newblocks: {newblocks} ')
 						self.blocks = newblocks
+					if flames:
+						logger.debug(f'[g] msg:{gamemsg} fl: {flames} ')
+						self.flames = flames
+
 
 	def draw(self):
 		# draw on screen
@@ -291,7 +305,8 @@ class Game(Thread):
 			for block in self.blocks:
 				self.font.render_to(self.screen, block.rect.center, f"{block.block_type}", (150, 150, 150))
 			for block in self.powerups:
-				self.font.render_to(self.screen, block.rect.center + (0, 5), f"p:{block.time_left:.1f}", (190, 190, 190))
+				pass
+				#self.font.render_to(self.screen, block.rect.center + (0, 5), f"p:{block.timeleft:.1f}", (190, 190, 190))
 			for p in self.particles:
 				pass
 

@@ -84,10 +84,11 @@ class ResourceHandler:
 class BasicThing(Sprite):
 	def __init__(self, pos, image):
 		Sprite.__init__(self)
+		self.thingq = Queue()
 		self.pos = Vector2(pos)
 		self.image = image
 		self.collisions = []
-		self.start_time = pygame.time.get_ticks() / 1000
+		self.start_time = pygame.time.get_ticks()
 		self.accel = Vector2(0, 0)
 
 	def collide(self, items=None):
@@ -97,6 +98,7 @@ class BasicThing(Sprite):
 
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type, reshandler):
+		
 		self.block_type = block_type
 		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
@@ -106,10 +108,7 @@ class Block(BasicThing):
 		self.rm = reshandler
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		BasicThing.__init__(self, pos, self.image)
-		self.start_time = pygame.time.get_ticks() / 1000
-		self.start_time = pygame.time.get_ticks() / 1000
 		self.explode = False
-		self.bomb_timer = 1
 		self.poweruptime = 10
 		self.gridpos = gridpos  # Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
 		self.image = pygame.transform.scale(self.image, self.size)
@@ -158,25 +157,18 @@ class Powerup(BasicThing):
 		self.rect.center = pos
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
-		self.timer = 5
-		self.time_left = self.timer
-		self.start_time = pygame.time.get_ticks() / 1000
-
-	# self.dt = pygame.time.get_ticks() / 1000
+		self.timer = 10000
+		self.timeleft = self.timer
 
 	def update(self, items=None):
-		dt = pygame.time.get_ticks() / 1000
+		
 		# logger.debug(f'[pu] {dt - self.start_time} {self.timer}')
-		self.time_left = dt - self.start_time
-		if dt - self.start_time >= self.timer:
+		self.timeleft = self.timer - (pygame.time.get_ticks() - self.start_time)
+		if pygame.time.get_ticks() - self.start_time >= self.timer:
 			self.kill()
 
 	def hit(self):
 		pass
-	# self.bitmap = BLOCKTYPES.get(11)["bitmap"]
-	# self.solid = False
-	# self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
-
 
 class Particle(BasicThing):
 	def __init__(self, pos, vel, reshandler=None):
@@ -192,18 +184,15 @@ class Particle(BasicThing):
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
-		self.start_time = 1  # pygame.time.get_ticks() // 1000
-		self.timer = 20
+		self.timer = 20000
 		self.hits = 0
 		self.maxhits = 4
-		self.start_time = pygame.time.get_ticks() / 1000
 		self.angle = math.degrees(0)
 		self.mass = 11
 		self.vel = vel  # Vector2(random.uniform(-2, 2), random.uniform(-2, 2)) # Vector2(0, 0)
 
 	def update(self, items=None):
-		self.dt = pygame.time.get_ticks() / 1000
-		if self.dt - self.start_time >= self.timer:
+		if pygame.time.get_ticks() - self.start_time >= self.timer:
 			# logger.debug(f'[px] timer p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
 			self.kill()
 			return
@@ -258,12 +247,10 @@ class Flame(BasicThing):
 		self.rect.y = self.pos.y
 		self.start_pos = Vector2(pos)
 		self.vel = Vector2(vel[0], vel[1])  # flame direction
-		self.timer = 10
-		self.start_time = pygame.time.get_ticks() / 1000
+		self.timer = 20000
 		self.flame_length = flame_length
 
 	def update(self):
-		self.dt = pygame.time.get_ticks() / 1000
 		self.pos += self.vel
 		distance = abs(int(self.pos.distance_to(self.start_pos)))
 		center = self.rect.center
@@ -278,8 +265,6 @@ class Flame(BasicThing):
 		self.rect.y = self.pos.y
 		if distance >= self.flame_length:  # or (self.dt - self.start_time >= self.timer):
 			self.kill()
-		if self.dt - self.start_time >= self.timer:
-			pass
 
 
 class Bomb(BasicThing):
@@ -294,10 +279,7 @@ class Bomb(BasicThing):
 		self.rect.centerx = self.pos.x
 		self.rect.centery = self.pos.y
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.start_time = pygame.time.get_ticks() / 1000
-		self.bomb_timer = 1
-		self.bomb_fuse = 1
-		self.bomb_end = 2
+		self.timer = 3000
 		self.bomb_size = 5
 		self.explode = False
 		self.exp_radius = 1
@@ -307,6 +289,21 @@ class Bomb(BasicThing):
 		self.flame_width = 10
 		self.flamesout = False
 		self.flames = Group()
+
+	def update(self):
+		dt = pygame.time.get_ticks()
+		if dt - self.start_time >= self.timer:
+			flames = self.gen_flames()
+			self.thingq.put_nowait({'flames':flames})
+			self.bomber_id.bombs_left += 1
+			# logger.debug(f'[bomb] flames:{len(flames)} tq:{self.thingq.qsize()}')
+			# self.kill()
+		# for bomb in self.bombs:
+		# 	bomb.dt = pygame.time.get_ticks()
+		# 	if bomb.dt - bomb.start_time >= bomb.bomb_fuse:
+		# 		self.flames.add(bomb.gen_flames())
+		# 		bomb.bomber_id.bombs_left += 1
+		# 		bomb.kill()
 
 	def gen_flames(self):
 		if not self.flamesout:
