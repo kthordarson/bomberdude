@@ -10,9 +10,9 @@ from loguru import logger
 from pygame.math import Vector2
 from pygame.sprite import Group
 
-from globals import Block, empty_queue
-from globals import GRIDSIZE
-from globals import Gamemap
+from things import Block
+from constants import GRIDSIZE
+from map import Gamemap
 from globals import gen_randid
 from netutils import data_identifiers, DataReceiver, DataSender
 from threading import Thread, Event

@@ -10,7 +10,9 @@ from pygame.math import Vector2
 import pygame
 from loguru import logger
 # from pygame import mixer # Load the popular external library
-from globals import Block, Powerup, Gamemap, ResourceHandler
+from things import Block, Powerup
+from map import Gamemap
+from globals import ResourceHandler
 from constants import DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, SCREENSIZE, FPS, DEFAULTGRID
 from menus import Menu, DebugDialog
 from player import Player
@@ -159,7 +161,7 @@ class Game(Thread):
 		self.players.add(self.playerone)
 		# self.gameclient = BombClient(name=self.playerone.client_id, stop_event=stop_event, playerone=self.playerone)
 		#self.gameserver = BombServer(name=f'bombserver-{self.playerone.client_id}', serverqueue=self.serverqueue, enginequeue=self.enginequeue, stop_event=stop_event)
-		self.gameserver = GameServerDummy()
+		# self.gameserver = GameServerDummy()
 		self.is_server = False
 		self.particles = Group()
 		self.powerups = Group()
@@ -174,22 +176,24 @@ class Game(Thread):
 		return f'[game] {self.name}'
 
 	def update_players(self):
-		players = self.gameserver.get_clients()
-		local_ids = [k.clid for k in players]
-		for p in players:
-			# logger.debug(f'[GP] p:{len(players)} lids:{len(local_ids)} player:{p}')
-			if p.clid not in local_ids:
-				np = Player(pos=(300, 300), image='data/netplayer.png', client_id=p.clid)
-				self.netplayers.add(p)
-				logger.debug(f'[GP] adding player p:{p} np:{np} players:{len(players)} lids:{len(local_ids)} netplayers:{len(self.netplayers)}')
-			else:
-				logger.warning(f'[GP] not adding player p:{p} players:{len(players)} lids:{len(local_ids)} netplayers:{len(self.netplayers)}')
-				logger.info(f'[GP] lids: {local_ids}')
+		pass
+		# players = self.gameserver.get_clients()
+		# local_ids = [k.clid for k in players]
+		# for p in players:
+		# 	# logger.debug(f'[GP] p:{len(players)} lids:{len(local_ids)} player:{p}')
+		# 	if p.clid not in local_ids:
+		# 		np = Player(pos=(300, 300), image='data/netplayer.png', client_id=p.clid)
+		# 		self.netplayers.add(p)
+		# 		logger.debug(f'[GP] adding player p:{p} np:{np} players:{len(players)} lids:{len(local_ids)} netplayers:{len(self.netplayers)}')
+		# 	else:
+		# 		logger.warning(f'[GP] not adding player p:{p} players:{len(players)} lids:{len(local_ids)} netplayers:{len(self.netplayers)}')
+		# 		logger.info(f'[GP] lids: {local_ids}')
 		# logger.debug(f'[G] get_players:{len(players)}')
 
 	def get_players(self):
-		players = self.gameserver.get_clients()
-		return players
+		pass
+		#players = self.gameserver.get_clients()
+		#return players
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -258,7 +262,7 @@ class Game(Thread):
 		if not self.kill:
 			# self.update_players()
 			# self.netplayers.update(self.blocks)
-			self.playerone.refresh_netplayers()
+			# self.playerone.refresh_netplayers()
 			self.players.update(self.blocks)
 			self.update_bombs()
 			#self.bombs.update()
@@ -300,8 +304,8 @@ class Game(Thread):
 		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=self.playerone, flames=self.flames)
 		if DEBUG:
 			pos = Vector2(10, self.screenh - 10)
-			scount = self.gameserver.get_client_count()
-			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} threads:{threading.active_count()} bsc:{len(self.gameserver.clients)} sc:{scount} {len(self.gameserver.clist)}", (123, 123, 123))
+			
+			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} threads:{threading.active_count()} ", (123, 123, 123))
 			for block in self.blocks:
 				self.font.render_to(self.screen, block.rect.center, f"{block.block_type}", (150, 150, 150))
 			for block in self.powerups:

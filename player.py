@@ -2,12 +2,12 @@ import pygame
 from pygame.sprite import Sprite
 import socket
 from pygame.math import Vector2
-from globals import BasicThing, Block, gen_randid, Bomb
+from things import BasicThing, Block, Bomb
 from loguru import logger
 from signal import SIGPIPE, SIG_DFL 
 from queue import Empty
 from netutils import data_identifiers, DataSender, DataReceiver, get_ip_address
-from globals import ResourceHandler
+from globals import ResourceHandler, gen_randid
 from threading import Thread, Event
 from constants import *
 
@@ -171,13 +171,13 @@ class Player(BasicThing, Thread):
 		self.pos.x = self.rect.x
 		if self.connected:
 			self.sendmsg(msgid=5, msgdata=self.pos)
-		incoming = None
-		outgoing = None
-		if not self.dr.queue.empty():
-			incoming = self.dr.queue.get()
-			self.handle_incoming(data=incoming)
-			# logger.debug(f'[c] incoming from  recvq:{incoming}')
-			self.dr.queue.task_done()
+			incoming = None
+			outgoing = None
+			if not self.dr.queue.empty():
+				incoming = self.dr.queue.get()
+				self.handle_incoming(data=incoming)
+				# logger.debug(f'[c] incoming from  recvq:{incoming}')
+				self.dr.queue.task_done()
 
 	def take_powerup(self, powerup=None):
 		# pick up powerups...
