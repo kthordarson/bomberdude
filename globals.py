@@ -4,7 +4,7 @@ import os
 import random
 import sys
 import time
-from threading import Thread, Event
+from threading import Thread, Event, Event
 from queue import Queue, Empty
 import pygame
 import pygame.locals as pl
@@ -19,13 +19,13 @@ def random_velocity(direction=None):
 	while True:
 		vel = Vector2((random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0)))
 		if direction == "left":
-			vel.x = random.uniform(-3.0, 1)
+			vel.x = random.uniform(-3.0, -1)
 		if direction == "right":
 			vel.x = random.uniform(1, 3.0)
 		if direction == "down":
 			vel.y = random.uniform(1, 3.0)
 		if direction == "up":
-			vel.y = random.uniform(-3.0, 1)
+			vel.y = random.uniform(-3.0, -1)
 		if vel.y != 0 and vel.x != 0:
 			return vel
 		else:
@@ -79,15 +79,6 @@ class ResourceHandler:
 			return img, rect
 		else:
 			return self.__images[filename]
-
-	def has_image(self, filename=None):
-		return filename in self.__images
-
-	def set_image_path(self, imgpath=None):
-		self.__imgpath = imgpath
-
-	def get_image_path(self):
-		return self.__imgpath
 
 
 class BasicThing(Sprite):
@@ -235,7 +226,7 @@ class Particle(BasicThing):
 			# 	self.vel.y += self.vel.y * 0.1
 			# if self.vel.y<=0:
 			# 	self.vel.y -= self.vel.y * 0.1
-			self.vel.y += abs(self.vel.y * 0.1) + 0.001
+			self.vel.y += abs(self.vel.y * 0.1) + 0.045
 			self.pos += self.vel
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y
@@ -437,7 +428,7 @@ def stop_all_threads(threads):
 	for t in threads:
 		logger.debug(f'waiting for {t}')
 		t.kill = True
-		t.join(1)
+		t.join(0)
 	sys.exit()
 
 

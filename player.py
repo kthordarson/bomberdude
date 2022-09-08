@@ -8,12 +8,11 @@ from signal import SIGPIPE, SIG_DFL
 from queue import Empty
 from netutils import data_identifiers
 from globals import ResourceHandler
-from threading import Thread
+from threading import Thread, Event
 from constants import *
 
-class Player(BasicThing, Thread):
+class Player(BasicThing):
 	def __init__(self, pos, image):
-		Thread.__init__(self)
 		self.client_id = gen_randid()
 		self.name = f'player{self.client_id}'
 		BasicThing.__init__(self, pos, image)
