@@ -20,8 +20,8 @@ from threading import enumerate as t_enumerate
 
 
 class ConnectionHandler(Thread):
-	def __init__(self, name='connhandler', remote=None, serverqueue=None, data=None, srvsock=None, stop_event=None):
-		Thread.__init__(self, name='connhandler', daemon=True, args=(stop_event,))
+	def __init__(self, name=None, remote=None, serverqueue=None, data=None, srvsock=None, stop_event=None):
+		Thread.__init__(self, name=f'chthread-{name}', daemon=True, args=(stop_event,))
 		self.name = name
 		#self.socket = socket
 		#self.localaddr = localaddr
@@ -41,14 +41,15 @@ class ConnectionHandler(Thread):
 
 	def update_tick(self):
 		self.tick_count += 1
-		logger.debug(f'[ch] uptick:{self.tick_count}')
+		# logger.debug(f'[ch] uptick:{self.tick_count}')
 
 	def run(self):
 		while True:
 			data = None
 			addr = None
 			try:
-				self.sendmsg(f'connh:{randint(1,1000)}:donk')
+				# clmsgid, clid, clmsg = data.split(':')
+				self.sendmsg(msgid=2, msgdata=self.tick_count)
 				data, addr = self.socket.recvfrom(1024)
 			except socket.error as e:
 				logger.error(f'[s] {e}')
@@ -59,11 +60,12 @@ class ConnectionHandler(Thread):
 				# self.join(0)
 				break
 
-	def sendmsg(self, msg):
-		data = f'ch-{self.clid}:{msg}:fret'.encode('utf-8')
-		logger.debug(f'[connh] id:{self.clid} m:{msg} d:{data} to:{self.remote}')
+	def sendmsg(self, msgid=None, msgdata=None):
+		#data = f'ch-{self.clid}:{msg}'.encode('utf-8')
+		data = f'{msgid}:{self.clid}:{msgdata}'.encode('utf-8')
+		# logger.debug(f'[connh] id:{self.clid} sending m:{msgdata} d:{data} to:{self.remote}')
 		self.socket.sendto(data, self.remote)
-	
+
 	def ch_connect(self):
 		pass
 		# try:
@@ -86,6 +88,12 @@ class BombServer(Thread):
 		self.kill = False
 		self.stop_event = stop_event
 
+	def __repr__(self):
+		return f'[s] {self.name} {self.localaddr} {len(self.clients)} {len(self.clist)}'
+
+	def get_client_count(self):
+		return len(self.clients)
+
 	def get_clients(self):
 		return self.clients
 
@@ -93,34 +101,52 @@ class BombServer(Thread):
 		self.socket.bind(self.localaddr)
 		# self.socket.listen(0)
 		self.kill = False
-		logger.debug(f'[s] {self.localaddr} run')
+		logger.debug(f'[s] run {self} {self.localaddr}')
 		while True:
 			data = None
 			addr = None
 			clmsgid, clid, clmgs = None,None,None
+			[ch.sendmsg(msgid=22, msgdata='pingfromserver') for ch in self.clients]
 			try:
 				data, addr = self.socket.recvfrom(1024)
 			except socket.error as e:
 				logger.error(f'[s] {e}')
-			if data:
-				# logger.debug(f'[s] conn:{data} addr:{addr}')
+			if data:				
 				data = data.decode('utf-8')
+				#logger.debug(data)
 				try:
 					clmsgid, clid, clmsg = data.split(':')
-				except TypeError as e:
-					logger.error(f'[s] {e} data:{data}')
-				if clid:
-					
-					if clid not in self.clist:
-						self.clist[clid] = 1
-						logger.debug(f'[s] clmsgid:{clmsgid} clid:{clid} clmsg:{clmsg}')
-						ch = ConnectionHandler(remote=addr, serverqueue=self.serverq, data=(clmsgid, clid, clmsg), srvsock=self.socket, stop_event=self.stop_event)
-						ch.start()
-						self.clients.append(ch)
-						ch.ch_connect()
-					else:
-						self.clist[clid] += 1
-						[cl.update_tick() for cl in self.clients if cl.get_clid() == clid]
+				except (TypeError, ValueError) as e:
+					logger.warning(f'[s] {e} data:{data}')
+				if clmsgid:
+					clmsgid = int(clmsgid)
+					# logger.debug(f'[s] data:{data} addr:{addr} {clmsgid} {clid} {clmsg}')
+					if clmsgid == 5:
+						pass
+						# logger.debug(f'[s] got posmsg:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')
+					if clmsgid == 3: # movement
+						pass
+						#logger.debug(f'[s] got movemsg:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')
+					if clmsgid == 2: # ticker
+						pass
+						#logger.debug(f'[s] got tick:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')						
+					if clmsgid == 22: # ping
+						pass
+						#logger.debug(f'[s] got ping:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')						
+						#self.clist[clid].update_tick()
+					if clmsgid == 1: # new client connect
+						if clid not in self.clist:
+							self.clist[clid] = 1
+							logger.debug(f'[s] newclient clmsgid:{clmsgid} clid:{clid} clmsg:{clmsg} clients:{len(self.clients)} {len(self.clist)}')
+							ch = ConnectionHandler(remote=addr, serverqueue=self.serverq, data=(clmsgid, clid, clmsg), srvsock=self.socket, stop_event=self.stop_event)
+							ch.start()
+							ch.sendmsg(msgid=11, msgdata='connectsuccess')
+							self.clients.append(ch)
+							ch.ch_connect()
+						else:
+							# logger.debug(f'[s] client clmsgid:{clmsgid} clid:{clid} clmsg:{clmsg}')
+							self.clist[clid] += 1
+							[cl.update_tick() for cl in self.clients if cl.get_clid() == clid]
 
 			if self.kill:
 				logger.debug(f'[s] killing self:{self.name} k:{self.kill}')
@@ -138,6 +164,8 @@ class BombServer(Thread):
 				msg = None
 				try:
 					msg = self.serverq.get_nowait()
+					logger.info(f'[s] got msg:{msg}')
+					self.serverq.task_done()
 				except Empty:
 					pass
 

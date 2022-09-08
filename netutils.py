@@ -126,7 +126,7 @@ class DataSender(Thread):
 		self.server = server
 
 	def run(self):
-		logger.debug(f'[datasender] {self.name} run socket:{self.socket} q:{self.queue.qsize()} server:{self.server}')
+		# logger.debug(f'[datasender] {self.name} run socket:{self.socket} q:{self.queue.qsize()} server:{self.server}')
 		while True:
 			data_id = 1
 			payload = None
@@ -136,6 +136,7 @@ class DataSender(Thread):
 				
 			if not self.queue.empty():
 				payload = self.queue.get(block=None)
+				self.queue.task_done()
 				if payload:
 					# logger.debug(f'[DS] data_id:{data_id} payload:{payload} q:{self.queue.qsize()} server:{self.server}')
 					try:
@@ -159,13 +160,14 @@ class DataReceiver(Thread):
 		self.name = _name
 		self.localaddr = localaddr
 		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-		self.socket.bind(self.localaddr)
+		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.queue = Queue()
 		self.kill = False
 		self.server = server
 
 	def run(self):
-		logger.debug(f'[datareceiver] {self.name} run socket:{self.socket} q:{self.queue.qsize()} server:{self.server}')
+		# logger.debug(f'[datareceiver] {self.name} run socket:{self.socket} q:{self.queue.qsize()} server:{self.server}')
+		self.socket.bind(self.localaddr)
 		while True:
 			data_id = None
 			payload = None
