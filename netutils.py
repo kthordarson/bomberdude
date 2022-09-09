@@ -32,6 +32,10 @@ data_identifiers = {
 
 def get_ip_address():
 	# returns the 'most real' ip address
+	return ('127.0.0.1', 9999)
+
+def get_ip_addressx():
+	# returns the 'most real' ip address
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	s.connect(("8.8.8.8", 80))
 	return s.getsockname()
@@ -124,33 +128,44 @@ class DataSender(Thread):
 		self.queue = Queue()
 		self.kill = False
 		self.server = server
+		self.sendpkts = 0
+		self.qgetcnt = 0
 
+	def __repr__(self):
+		return f'DataSender({self.name}) self.sendpkts:{self.sendpkts} self.qgetcnt:{self.qgetcnt}'
+
+	def update_server(self, server_addr, server_port):
+		logger.debug(f'[ds] updating server from {self.server} to addr:{server_addr} port:{server_port}')
+		self.server = (server_addr, server_port)
+		
 	def run(self):
 		# logger.debug(f'[datasender] {self.name} run socket:{self.socket} q:{self.queue.qsize()} server:{self.server}')
 		while True:
-			data_id = 1
+			data_id = None
 			payload = None
 			if self.kill:
-				logger.debug(f'[datasender] {self.name} kill')
+				logger.debug(f'[datasender] {self} kill ')
 				break
 				
 			if not self.queue.empty():
 				payload = self.queue.get(block=None)
+				self.qgetcnt += 1
 				self.queue.task_done()
 				if payload:
 					# logger.debug(f'[DS] data_id:{data_id} payload:{payload} q:{self.queue.qsize()} server:{self.server}')
 					try:
 						self.socket.sendto(payload, self.server)
+						self.sendpkts += 1
 						# send_data(self.socket, payload=payload, data_id=data_id)
 					except OSError as oserr:
-						logger.error(f'[{self.name}] oserr:{oserr} {data_id} payload:{payload}')
+						logger.error(f'[{self.name}] oserr:{oserr} {data_id} payload:{payload} self.sendpkts:{self.sendpkts} self.qgetcnt:{self.qgetcnt}')
 						if oserr.errno == 9:
 							self.socket.close()
 							self.kill = True
 						if oserr.errno == 32:
 							self.kill = True
 					except Exception as e:
-						logger.error(f'[{self.name}] err:{e} {data_id} payload:{payload}')
+						logger.error(f'[{self.name}] err:{e} {data_id} payload:{payload} self.sendpkts:{self.sendpkts} self.qgetcnt:{self.qgetcnt}')
 						#raise e
 
 class DataReceiver(Thread):
@@ -158,26 +173,37 @@ class DataReceiver(Thread):
 		_name = f'DR-{name}'
 		Thread.__init__(self, name=_name, daemon=True, args=(stop_event,))
 		self.name = _name
+		self.r_socket = r_socket
 		self.localaddr = localaddr
 		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.queue = Queue()
 		self.kill = False
 		self.server = server
+		self.rcvpkts = 0
+		self.qputcnt = 0
+
+	def __repr__(self):
+		return f'DataReceiver({self.name}) self.rcvpkts:{self.rcvpkts} self.qputcnt:{self.qputcnt}'
 
 	def run(self):
 		# logger.debug(f'[datareceiver] {self.name} run socket:{self.socket} q:{self.queue.qsize()} server:{self.server}')
 		self.socket.bind(self.localaddr)
+		self.socket.settimeout(1)
 		while True:
 			data_id = None
 			payload = None
 			if self.kill:
-				logger.debug(f'[datareceiver] {self.name} kill')
+				logger.debug(f'[datareceiver] {self} kill')
 				break
 			try:
 				payload = self.socket.recvfrom(1024)
+				self.rcvpkts += 1
+			except TimeoutError as e:
+				continue
 			except ConnectionRefusedError as e:
-				logger.error(f'[DR] err {e} sock:{self.socket} p:{payload} q:{self.queue.qsize()}')
+				logger.error(f'[DR] err {e} sock:{self.socket} p:{payload} q:{self.queue.qsize()} self.rcvpkts:{self.rcvpkts} self.qputcnt:{self.qputcnt}')
 			if payload:
 				self.queue.put(payload)
-				# logger.debug(f'[{self.name}] recv {data_id} p:{payload} src:{self.socket.getsockname()} dst:{self.socket.getpeername()} qs:{self.queue.qsize()}')
+				self.qputcnt += 1
+				#logger.debug(f'[{self.name}] recv {data_id} p:{payload} qs:{self.queue.qsize()}')

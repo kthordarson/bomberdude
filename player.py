@@ -1,3 +1,4 @@
+import time
 import pygame
 from pygame.sprite import Sprite
 import socket
@@ -10,6 +11,7 @@ from netutils import data_identifiers, DataSender, DataReceiver, get_ip_address
 from globals import ResourceHandler, gen_randid
 from threading import Thread, Event
 from constants import *
+import pickle
 
 class Player(BasicThing, Thread):
 	def __init__(self, pos=None, image=None, client_id=None, stop_event=None):
@@ -37,11 +39,7 @@ class Player(BasicThing, Thread):
 		self.score = 0
 		self.font = pygame.font.SysFont("calibri", 10, True)
 		self.kill = False
-		self.gotmap = False
 		self.connected = False
-		self.net_players = {}
-		self.cnt_sq_request = 0
-		self.cnt_sq_sendyourpos = 0
 		self.netplayers = []
 		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 		self.server = ('192.168.1.122', 6666)
@@ -49,6 +47,7 @@ class Player(BasicThing, Thread):
 		self.ds = DataSender(s_socket=self.socket, server=self.server, name=self.client_id, stop_event=stop_event)
 		self.dr = DataReceiver(r_socket=self.socket, server=self.server, localaddr=self.localaddr, name=self.client_id, stop_event=stop_event)
 		self.pos = Vector2(pos)
+		self.conn_atts = 0
 		logger.debug(f'[p] client:{self} init pos:{pos} ')
 
 	def __str__(self):
@@ -59,19 +58,38 @@ class Player(BasicThing, Thread):
 
 	def cmd_handler(self):
 		pass
+	def get_netdebug(self):
+		debugdata = {'connatts': self.conn_atts, 'dsq':self.ds.queue.qsize(), 'drq':self.dr.queue.qsize(), 'dspkt':self.ds.sendpkts, 'drpkt':self.dr.rcvpkts}
+		return debugdata
+	def run(self):
+		self.ds.start()
+		self.dr.start()
+		# self.socket.settimeout(2)
+		while True:
+			if self.connected:
+				self.sendmsg(msgid=5, msgdata=self.pos)
+			else:
+				self.connect_to_server()
+			incoming = None
+			outgoing = None
+			if not self.dr.queue.empty():
+				incoming = self.dr.queue.get()
+				self.handle_incoming(data=incoming)
+				# logger.debug(f'[c] incoming from  recvq:{incoming}')
+				self.dr.queue.task_done()
 
 	def connect_to_server(self):
-		# newclient clmsgid:clid clid:3d38a632df clmsg:connect
-		try:
-			self.socket.connect(self.server)
-			self.dr.start()
-			self.ds.start()
-			self.sendmsg(msgid=1, msgdata='connect')
-			logger.debug(f'[c-{self.client_id}] connecting s:{self.socket} sq:{self.ds.queue.qsize()} rq;{self.dr.queue.qsize()}')
-		except ConnectionRefusedError as e:
-			logger.warning(f'[c-{self.client_id}] {e}')
-			self.connected = False
-			return False
+		self.conn_atts += 1
+		if self.conn_atts < 10:
+			self.sendmsg(msgid=1, msgdata='connect')			
+			logger.debug(f'[p] {self} connect attempt {self.conn_atts}')
+		else:
+			time.sleep(1)
+			logger.warning(f'[p] {self} connect attempt {self.conn_atts}')
+
+	def get_server_info(self):
+		reqmsg = 'getserverinfo'
+		self.sendmsg(msgid=155, msgdata=reqmsg)
 
 	def refresh_netplayers(self):
 		reqmsg = 'getnetplayers'
@@ -86,6 +104,7 @@ class Player(BasicThing, Thread):
 		# clmsgid, clid, clmsg = data.split(':')
 		msgid, clid, msgdata = None, None, None
 		if data:
+			# logger.deubg(data)
 			try:
 				datamsg, addr = data
 			except ValueError:
@@ -97,24 +116,26 @@ class Player(BasicThing, Thread):
 				logger.warning(f'[c-{self.client_id}] {e} {data} from {addr} len:{len(data)} type:{type(data)}')
 			if msgid:
 				msgid = int(msgid)
+				if msgid == 156:
+					# serverinfo = pickle.loads(msgdata)
+					logger.debug(f'[c-{self.client_id}] msgdata:{msgdata} d:{data}')
 				if msgid == 7:
 					print(msgid)
 					# netplayers todo fixme
 					try:
-						#cl_item, cl_ticks = datamsg.decode('utf-8').split('{')[1].split(':')
-						#cl_item = cl_item.replace('"','').replace("'", '')
-						# cl_ticks = cl_ticks.strip().replace('}','')
 						logger.debug(f'[c-{self.client_id}] netplayer m:{msgid} clid:{clid} m:{msgdata} from {addr} ')
 					except ValueError as e:
 						logger.error(f'[c-{self.client_id}] {e} d:{data} dmsg:{datamsg} from {addr} len:{len(data)} type:{type(data)}')
 				if msgid == 11:
-					if msgdata == 'connectsuccess':
+					logger.debug(f'[c-{self.client_id}] m:{msgid} clid:{clid} m:{msgdata} from {addr} ')
+					if 'connectsuccess' in msgdata:
+						# self.ds.start()
+						# self.dr.start()
 						self.connected = True
-					else:
-						self.connected = False
-					logger.debug(f'[c-{self.client_id}] conn {self.connected} m:{msgdata} from {addr}')
+						# self.ds.update_server(server_addr=self.server[0], server_port=6667)
+						logger.debug(f'[c-{self.client_id}] conn {self.connected} m:{msgdata} from {addr}')
 				if msgid == 22:
-					pass
+					self.connected = True
 					#logger.debug(f'[c] msgid:{msgid} clid:{clid} msgdata:{msgdata}')
 				else:
 					pass
@@ -169,15 +190,6 @@ class Player(BasicThing, Thread):
 				#	self.vel.y = 0
 		self.pos.y = self.rect.y
 		self.pos.x = self.rect.x
-		if self.connected:
-			self.sendmsg(msgid=5, msgdata=self.pos)
-			incoming = None
-			outgoing = None
-			if not self.dr.queue.empty():
-				incoming = self.dr.queue.get()
-				self.handle_incoming(data=incoming)
-				# logger.debug(f'[c] incoming from  recvq:{incoming}')
-				self.dr.queue.task_done()
 
 	def take_powerup(self, powerup=None):
 		# pick up powerups...
