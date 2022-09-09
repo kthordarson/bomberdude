@@ -73,7 +73,7 @@ class ConnectionHandler(Thread):
 			addr = None
 			try:
 				# clmsgid, clid, clmsg = data.split(':')
-				self.sendmsg(msgid=2, msgdata=self.tick_count)
+				self.sendmsg(msgid=95, msgdata=self.tick_count)
 				incoming = None
 				outgoing = None
 				if not self.dr.queue.empty():
@@ -103,6 +103,111 @@ class ConnectionHandler(Thread):
 			logger.debug(f'[connh] id:{self.clid} sending mid:{msgid} m:{msgdata} d:{data} to:{self.remote}')
 		self.socket.sendto(data, self.remote)
 
+class ClientHandler(Thread):
+	def __init__(self, name=None, clientaddr=None, connection_socket=None, packet_trace=False, data=None):
+		Thread.__init__(self, name=f'chthread-{name}', daemon=True)
+		self.name = name
+		self.clid = self.name
+		self.kill = False
+		self.data = data
+		#self.clmsgid, self.clid, self.clmsg = 1,2,3
+		self.tick_count = 0
+		self.packet_trace = packet_trace
+		self.csocket = connection_socket
+		self.caddr = clientaddr
+		self.remote = self.caddr
+		logger.debug(f'[ch] id:{self.clid} init r:{self.caddr} d:{data}')
+
+	def __repr__(self) -> str:
+		return f'[ch] id:{self.clid} r:{self.remote} n:{self.name} t:{self.tick_count}'
+
+	def set_packet_trace(self, state=2): # 0=off, 1=on, 2=toggle
+		if state == 0:
+			self.packet_trace = False
+		if state == 1:
+			self.packet_trace = True
+		if state == 2:
+			self.packet_trace ^= True
+		logger.debug(f'[ch] id:{self.clid} s:{state} pkt:{self.packet_trace}')
+
+	def get_clpos(self):
+		pass
+
+	def get_clid(self):
+		return self.clid
+
+	def update_tick(self):
+		self.tick_count += 1
+		# logger.debug(f'[ch] uptick:{self.tick_count}')
+
+	def handle_incoming(self, rawdata=None):
+		# logger.debug(f'[clch] incoming:{dataraw}')
+		data = rawdata.decode('utf-8')
+		try:
+			msgid, clid, msgdata, *_ = data.split(':')
+		except ValueError as e:
+			logger.error(f'[chincoming] {e} rd:{rawdata} rawlen:{len(rawdata)} d:{data} dlen:{len(data)}')
+			return
+		msgid = int(msgid)
+		if msgid == 1:
+			pass
+		elif msgid == 2:
+			pass
+		else:
+			logger.debug(f'[chincoming] clid:{clid} msgid:{msgid} mt:{type(msgid)} m:{msgdata} r:{rawdata}')
+
+	def run(self):
+		while not self.kill:
+			if self.kill:
+				break
+			if self.csocket._closed or self.kill:
+				logger.warning(f'[ch] socket closed sclosed:{self.csocket._closed} kill:{self.kill}')
+				self.kill = True
+				break
+			else:
+				self.tick_count += 1
+				rawdata = None
+				msg = self.tick_count
+				try:
+					self.sendmsg(msgid=96, msgdata=msg)
+				except BrokenPipeError as e:
+					logger.error(f'[ch] {e} sclosed:{self.csocket._closed} kill:{self.kill}')
+					self.csocket.close()
+					break
+				try:
+					rawdata = self.csocket.recv(1024)
+				except OSError as e:
+					logger.error(f'[connh] {e} sclosed:{self.csocket._closed} kill:{self.kill}')
+					self.csocket.close()
+					self.kill = True
+					break
+				if rawdata:
+					self.handle_incoming(rawdata=rawdata)
+					# logger.debug(f'[srvclh] got data:{rawdata}')
+
+	def sendmsg(self, msgid=None, msgdata=None):
+		if self.csocket._closed:
+			logger.warning(f'[ch] socket closed sclosed:{self.csocket._closed} kill:{self.kill}')
+			self.kill = True
+			return
+		data = f'{msgid}:{self.clid}:{msgdata}'.encode('utf-8')
+		if self.packet_trace:
+			logger.debug(f'[ch] send data:{data} msgid:{msgid} msgdata:{msgdata} clid:{self.clid}')
+		try:
+			self.csocket.send(data)
+		except OSError as e:
+			logger.error(f'[ch] send err {e} msgid:{msgid} msgdata:{msgdata} socket:{self.csocket} sclosed:{self.csocket._closed} kill:{self.kill}')
+			self.csocket.close()
+			self.kill = True
+		# self.ds.queue.put(data)
+
+	def sendmsgx(self, msgid=None, msgdata=None):
+		#data = f'ch-{self.clid}:{msg}'.encode('utf-8')
+		data = f'{msgid}:{self.clid}:{msgdata}'.encode('utf-8')
+		if self.packet_trace:
+			logger.debug(f'[connh] id:{self.clid} sending mid:{msgid} m:{msgdata} d:{data} to:{self.remote}')
+		#self.socket.sendto(data, self.remote)
+
 class BombServer(Thread):
 	def __init__(self, name='BombServer', listenaddr='192.168.1.122', port=6666, serverqueue=None, enginequeue=None, stop_event=None):
 		Thread.__init__(self, name='BombServer', args=(stop_event,), daemon=True)
@@ -110,7 +215,8 @@ class BombServer(Thread):
 		self.enginequeue = enginequeue
 		self.name = name
 		self.localaddr = (listenaddr, port)
-		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+		#self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.clients = []
 		self.clist = {}
@@ -129,6 +235,36 @@ class BombServer(Thread):
 
 	def run(self):
 		self.socket.bind(self.localaddr)
+		#self.socket.setblocking(0)
+		#self.socket.settimeout(0.1)
+		while True:
+			connectionSocket = None
+			clientAddress = None
+			conn_counter = 0
+			try:
+				self.socket.listen(1)
+				#conn = self.socket.accept()
+				#print(conn)
+				try:
+					(connectionSocket, clientAddress) = self.socket.accept()
+				except (TimeoutError, BlockingIOError) as e:
+					logger.warning(f'[server] {e}')
+				if connectionSocket:
+					newclient = ClientHandler(name=f'bdclient{conn_counter}', clientaddr=clientAddress, connection_socket=connectionSocket, packet_trace=self.packet_trace)
+					conn_counter += 1
+					newclient.start()
+					self.clients.append(newclient)
+			except KeyboardInterrupt as e:
+				logger.error(e)
+			for ch in self.clients:
+				if not ch.csocket._closed:
+					msg = f'srvstatus{len(self.clients)}'
+					ch.sendmsg(msgid=22, msgdata=msg)
+				else:
+					logger.warning(f'[srv] client {ch} closed')
+
+	def runx(self):
+		self.socket.bind(self.localaddr)
 		# self.socket.listen(0)
 		self.kill = False
 		logger.debug(f'[s] run {self} {self.localaddr}')
@@ -141,7 +277,7 @@ class BombServer(Thread):
 				data, addr = self.socket.recvfrom(1024)
 			except socket.error as e:
 				logger.error(f'[s] {e}')
-			if data:				
+			if data:
 				if self.packet_trace:
 					logger.debug(f'[pkt] packet:{data} from:{addr}')
 				data = data.decode('utf-8')
@@ -151,7 +287,7 @@ class BombServer(Thread):
 					logger.warning(f'[s] {e} data:{data}')
 				if clmsgid:
 					clmsgid = int(clmsgid)
-					if clmsgid == 1: # new client connect										
+					if clmsgid == 1: # new client connect
 						if clid not in self.clist:
 							logger.debug(f'[s] newclient clmsgid:{clmsgid} clid:{clid} clmsg:{clmsg} clients:{len(self.clients)} {len(self.clist)} clist:{self.clist}')
 							self.clist[clid] = {'clid':clid, 'ticks':0, 'pos':Vector2(), 'msgbuf':'', 'clport':6669}
@@ -186,7 +322,7 @@ class BombServer(Thread):
 						#logger.debug(f'[s] got movemsg:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')
 					if clmsgid == 2: # ticker
 						pass
-						#logger.debug(f'[s] got tick:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')						
+						#logger.debug(f'[s] got tick:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')
 					if clmsgid == 22: # ping
 						pass
 					if clmsgid == 155: #getserverinfo
@@ -203,7 +339,7 @@ class BombServer(Thread):
 						# data = pickle.dumps(serverinfo)
 						#[ch.sendmsg(msgid=156, msgdata=serverinfo) for ch in self.clients]
 						#pass
-						#logger.debug(f'[s] got ping:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')						
+						#logger.debug(f'[s] got ping:{clmsg} from:{addr} msgid:{clmsgid} data:{data}')
 						#self.clist[clid].update_tick()
 #						else:
 							# logger.debug(f'[s] client clmsgid:{clmsgid} clid:{clid} clmsg:{clmsg}')

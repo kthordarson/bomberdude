@@ -12,6 +12,7 @@ from globals import ResourceHandler, gen_randid
 from threading import Thread, Event
 from constants import *
 import pickle
+from testclient import BombClient
 
 class Player(BasicThing, Thread):
 	def __init__(self, pos=None, image=None, client_id=None, stop_event=None):
@@ -39,15 +40,16 @@ class Player(BasicThing, Thread):
 		self.score = 0
 		self.font = pygame.font.SysFont("calibri", 10, True)
 		self.kill = False
-		self.connected = False
+		#self.connected = False
 		self.netplayers = []
-		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-		self.server = ('192.168.1.122', 6666)
-		self.localaddr = (get_ip_address()[0], 6669)
-		self.ds = DataSender(s_socket=self.socket, server=self.server, name=self.client_id, stop_event=stop_event)
-		self.dr = DataReceiver(r_socket=self.socket, server=self.server, localaddr=self.localaddr, name=self.client_id, stop_event=stop_event)
-		self.pos = Vector2(pos)
-		self.conn_atts = 0
+		self.bombclient = BombClient(name=self.client_id)
+		#self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+		#self.server = ('192.168.1.122', 6666)
+		#self.localaddr = (get_ip_address()[0], 6669)
+		#self.ds = DataSender(s_socket=self.socket, server=self.server, name=self.client_id, stop_event=stop_event)
+		#self.dr = DataReceiver(r_socket=self.socket, server=self.server, localaddr=self.localaddr, name=self.client_id, stop_event=stop_event)
+		#self.pos = Vector2(pos)
+		#self.conn_atts = 0
 		logger.debug(f'[p] client:{self} init pos:{pos} ')
 
 	def __str__(self):
@@ -58,12 +60,14 @@ class Player(BasicThing, Thread):
 
 	def cmd_handler(self):
 		pass
+
 	def get_netdebug(self):
-		debugdata = {'connatts': self.conn_atts, 'dsq':self.ds.queue.qsize(), 'drq':self.dr.queue.qsize(), 'dspkt':self.ds.sendpkts, 'drpkt':self.dr.rcvpkts}
+		debugdata = '' #  {'connatts': self.conn_atts, 'dsq':self.ds.queue.qsize(), 'drq':self.dr.queue.qsize(), 'dspkt':self.ds.sendpkts, 'drpkt':self.dr.rcvpkts}
 		return debugdata
+
 	def run(self):
-		self.ds.start()
-		self.dr.start()
+		# self.ds.start()
+		# self.dr.start()
 		# self.socket.settimeout(2)
 		while True:
 			if self.connected:
