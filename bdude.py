@@ -93,7 +93,7 @@ class Engine(Thread):
 			except RuntimeError as e:
 				logger.error(f'[engine] {e} failed to join {t} active:{threading.active_count()} tl:{len(threads)} tle:{len(threading.enumerate())}')
 
-	def engine_init(self):	
+	def engine_init(self):
 		pass
 
 	def network_update(self):
@@ -154,120 +154,83 @@ class Game(Thread):
 		self.gui = GameGUI(self.screen, font)
 		self.bg_color = pygame.Color("black")
 		self.running = False
-		self.all_sprites = []
 		self.blocks = Group()
-		self.all_sprites.append(self.blocks)
 		self.players = Group()
-		self.all_sprites.append(self.players)
 		self.netplayers = Group()
-		self.all_sprites.append(self.netplayers)
 		self.particles = Group()
-		self.all_sprites.append(self.particles)
 		self.powerups = Group()
-		self.all_sprites.append(self.powerups)
 		self.bombs = Group()
-		self.all_sprites.append(self.bombs)
 		self.flames = Group()
-		self.all_sprites.append(self.flames)
-		self.playerone = Player(pos=(300, 300), image='data/playerone.png', stop_event=stop_event)
+		self.playerone = Player(pos=(300, 300), image='data/playerone.png', stop_event=stop_event, is_dummy=False, visible=False)
 		self.players.add(self.playerone)
-		# self.gameclient = BombClient(name=self.playerone.client_id, stop_event=stop_event, playerone=self.playerone)
-		#self.gameserver = BombServer(name=f'bombserver-{self.playerone.client_id}', serverqueue=self.serverqueue, enginequeue=self.enginequeue, stop_event=stop_event)
-		# self.gameserver = GameServerDummy()
 		self.is_server = False
 		self.gamemap = gamemap
-		# self.mapgrid = []
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.rm = rm
-		
-		#= [(self.blocks, self.players, self.netplayers, self.particles, self.powerups, self.bombs, self.flames)]
-		
+
 
 	def __repr__(self):
 		return f'[game] {self.name}'
 
 	def update_players(self):
 		pass
-		# players = self.gameserver.get_clients()
-		# local_ids = [k.clid for k in players]
-		# for p in players:
-		# 	# logger.debug(f'[GP] p:{len(players)} lids:{len(local_ids)} player:{p}')
-		# 	if p.clid not in local_ids:
-		# 		np = Player(pos=(300, 300), image='data/netplayer.png', client_id=p.clid)
-		# 		self.netplayers.add(p)
-		# 		logger.debug(f'[GP] adding player p:{p} np:{np} players:{len(players)} lids:{len(local_ids)} netplayers:{len(self.netplayers)}')
-		# 	else:
-		# 		logger.warning(f'[GP] not adding player p:{p} players:{len(players)} lids:{len(local_ids)} netplayers:{len(self.netplayers)}')
-		# 		logger.info(f'[GP] lids: {local_ids}')
-		# logger.debug(f'[G] get_players:{len(players)}')
 
 	def get_players(self):
 		pass
-		#players = self.gameserver.get_clients()
-		#return players
 
 	def update_bombs(self):
 		self.bombs.update()
-#		qtemp = [b.thingq.qsize() for b in self.bombs]
-#		if len(qtemp) > 0:
-#			logger.debug(f'[btq] q:{qtemp}')
 		for bomb in self.bombs:
 			# logger.debug(f'[btq] b:{bomb} q:{bomb.thingq.qsize()}')
-			if not bomb.thingq.empty():
-				bmsg = bomb.thingq.get_nowait()
-				self.flames = bmsg.get('flames')
-				bomb.thingq.task_done()
-				#logger.debug(f'[btq] {flames} q:{bomb.thingq.qsize()}')
+			dt = pygame.time.get_ticks()
+			if dt - bomb.start_time >= bomb.timer:
+				flames = bomb.exploder()
+				for fl in flames:
+					self.flames.add(fl)
+					# logger.debug(f'[bombflames] fl:{fl} flv:{fl.vel} self.flames:{len(self.flames)} nf:{len(flames)}')
 				bomb.kill()
 
-#			bomb.dt = pygame.time.get_ticks()
-#			if bomb.dt - bomb.start_time >= bomb.bomb_fuse:
-#				self.flames.add(bomb.gen_flames())
-#				bomb.bomber_id.bombs_left += 1
-#				bomb.kill()
-
 	def update_flames(self):
-		self.flames.update()
+		self.flames.update(surface=self.screen)
 		for flame in self.flames:
 			# check if flame collides with blocks
 			flame_coll = spritecollide(flame, self.blocks, False)
 			for block in flame_coll:
-				if block.block_type != 0:
-					pos, gridpos, particles = block.hit(flame)
+				if DEBUG:
+					if block.block_type == 0:
+						pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
+					else:
+						pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
+				pos, gridpos, particles, newblock, powerblock = block.hit(flame)
+				if particles:
 					self.particles.add(particles)
-					flame.kill()
-				if block.permanent:
-					flame.kill()
-				elif block.solid:
-					if block.block_type in range(1, 10):
-						# types 1 and 2 create powerups
-						powerup = Powerup(pos=block.rect.center, reshandler=self.rm)
-						if powerup.powertype != 0:
-							self.powerups.add(powerup)
-
-						newblock = Block(pos, gridpos, block_type=0, reshandler=self.rm)
-						self.gamemap.set_block(gridpos[0], gridpos[1], 0)
-
-						block.kill()
-						self.blocks.add(newblock)
+				if newblock:
+					self.blocks.add(newblock)
+					if powerblock:
+						self.powerups.add(powerblock)
+					block.kill()
 
 	def update_particles(self):
-		self.particles.update(self.blocks)
+		self.particles.update(self.blocks, self.screen)
 		for particle in self.particles:
 			blocks = spritecollide(particle, self.blocks, dokill=False)
 			for block in blocks:
 				if block.solid:
-					particle.hit()
+					if DEBUG:
+						pygame.draw.circle(self.screen, (111,111,111), particle.rect.center, 2)
+						pygame.draw.rect(self.screen, (85,85,85), rect=block.rect, width=1)
+					particle.hit(block)
 
 	# self.particles.remove(particle)
 
 	def update_powerups(self, player):
 		self.powerups.update()
-		powerblock_coll = spritecollide(player, self.powerups, False)
-		for pc in powerblock_coll:
-			# logger.debug(f'[pwrb] type:{pc.powertype} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
-			player.take_powerup(pc.powertype)
-			pc.kill()
+		if player:
+			powerblock_coll = spritecollide(player, self.powerups, False)
+			for pc in powerblock_coll:
+				# logger.debug(f'[pwrb] type:{pc.powertype} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
+				player.take_powerup(pc.powertype)
+				pc.kill()
 
 	def update(self):
 		if not self.kill:
@@ -280,57 +243,59 @@ class Game(Thread):
 			self.update_flames()
 			self.update_particles()
 			self.update_powerups(self.playerone)
-			gamemsg = None
-			try:
+			# gamemsg = None
+			# try:
+			# 	gamemsg = self.gamequeue.get_nowait()
+			# except Empty:
+			# 	pass
+			if not self.gamequeue.empty():
 				gamemsg = self.gamequeue.get_nowait()
-			except Empty:
-				pass
-			if gamemsg:
 				logger.debug(f'[e] engmsg:{gamemsg}')
 				self.gamequeue.task_done()
-				if isinstance(gamemsg, dict):
-					newblocks = gamemsg.get('blocks')
-					flames = gamemsg.get('flames')
-					if newblocks:
-						logger.debug(f'[g] msg:{gamemsg} newblocks: {newblocks} ')
-						self.blocks = newblocks
-					if flames:
-						logger.debug(f'[g] msg:{gamemsg} fl: {flames} ')
-						self.flames = flames
-
+#				if isinstance(gamemsg, dict):
+				newblocks = gamemsg.get('blocks')
+				flames = gamemsg.get('flames')
+				if newblocks:
+					logger.debug(f'[g] msg:{gamemsg} newblocks: {newblocks} ')
+					self.blocks.add(newblocks)
+				if flames:
+					logger.debug(f'[g] msg:{gamemsg} fl: {flames} ')
+					self.flames.add(flames)
 
 	def draw(self):
 		# draw on screen
 		pygame.display.flip()
 		self.screen.fill(self.bg_color)
-#		for spg in self.all_sprites:
-#			logger.debug(f'[draw] spg:{spg}')
-#			spg.draw(self.screen)
 		self.blocks.draw(self.screen)
 		self.bombs.draw(self.screen)
 		self.powerups.draw(self.screen)
 		self.particles.draw(self.screen)
-		self.players.draw(self.screen)
-		self.netplayers.draw(self.screen)
+		self.playerone.draw(self.screen)
+		#self.players.draw(self.screen)
+		#self.netplayers.draw(self.screen)
 		self.flames.draw(self.screen)
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
 		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=self.playerone, flames=self.flames)
 		if DEBUG:
-			pos = Vector2(10, self.screenh - 50)			
+			pos = Vector2(10, self.screenh - 50)
 			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} threads:{threading.active_count()}", (123, 123, 123))
-			pos += (0,15)
-			netdebug = self.playerone.get_netdebug()
-			self.font.render_to(self.screen, pos, f"connected: {self.playerone.connected} dbg:{netdebug}", (123, 123, 123))
-			#self.font.render_to(self.screen, pos, f"p1c:{self.playerone.connected} sendp:{self.playerone.ds.sendpkts} qget:{self.playerone.ds.qgetcnt} qsize:{self.playerone.ds.queue.qsize()}", (123, 123, 123))
-			for block in self.blocks:
-				pass
-				#self.font.render_to(self.screen, block.rect.center, f"{block.block_type}", (150, 150, 150))
-			for block in self.powerups:
-				pass
+			# pos += (0,15)
+			# netdebug = self.playerone.get_netdebug()
+			# self.font.render_to(self.screen, pos, f"connected: {self.playerone.bombclient.connected} dbg:{netdebug}", (123, 123, 123))
+			#self.font.render_to(self.screen, pos, f"p1c:{self.playerone.bombclient.connected} sendp:{self.playerone.ds.sendpkts} qget:{self.playerone.ds.qgetcnt} qsize:{self.playerone.ds.queue.qsize()}", (123, 123, 123))
+#			for block in self.blocks:
+#				pass
+				#self.font.render_to(self.screen, block.rect.center, f"{block.block_type}", (250,  0,  0))
+#			for block in self.powerups:
+#				pass
 				#self.font.render_to(self.screen, block.rect.center + (0, 5), f"p:{block.timeleft:.1f}", (190, 190, 190))
-			for p in self.particles:
-				pass
+#			for p in self.particles:
+#				pass
+#			for flame in self.flames:
+#				self.font.render_to(self.screen, flame.rect.center, f"{flame.timeleft:.1f}", (190, 190, 190))
+				#self.font.render_to(self.screen, flame.rect.center + (0, 5), f"{flame.pos}", (190, 190, 190))
+
 
 	# self.font.render_to(self.screen, p.rect.center, f"{p.hits}", (10,255,190))
 
@@ -338,9 +303,10 @@ class Game(Thread):
 		# mainmenu
 		if selection == "Start":
 			# self.gameserver.start()
+			# self.playerone.visible = True
 			self.playerone.start()
-			self.playerone.connect_to_server()
-			self.gui.show_mainmenu ^= True			
+			#self.playerone.connect_to_server()
+			self.gui.show_mainmenu ^= True
 			self.enginequeue.put('reset_map')
 		# self.reset_map(reset_grid=True)
 
@@ -383,16 +349,18 @@ class Game(Thread):
 					self.running = False
 					self.enginequeue.put('quit')
 				if event.key == pygame.K_1:
-					if not self.playerone.connected:
-						logger.debug(f'[c] connecting to server p1c:{self.playerone.connected}')
-						self.playerone.connect_to_server()
-					else:
-						logger.warning(f'[c] already connected p1c:{self.playerone.connected}')
+					pass
+					# if not self.playerone.bombclient.connected:
+					# 	logger.debug(f'[c] connecting to server p1c:{self.playerone.bombclient.connected}')
+					# 	self.playerone.connect_to_server()
+					# else:
+					# 	logger.warning(f'[c] already connected p1c:{self.playerone.bombclient.connected}')
 				if event.key == pygame.K_2:
-					logger.debug(f'[c] req serverinfo p1c:{self.playerone.connected}')
-					self.playerone.get_server_info()
-					logger.debug(f'[c] req netplayers p1c:{self.playerone.connected}')
-					self.playerone.refresh_netplayers()
+					pass
+					# logger.debug(f'[c] req serverinfo p1c:{self.playerone.bombclient.connected}')
+					# self.playerone.get_server_info()
+					# logger.debug(f'[c] req netplayers p1c:{self.playerone.bombclient.connected}')
+					# self.playerone.refresh_netplayers()
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
