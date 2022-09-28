@@ -1,6 +1,6 @@
 import pygame
 DEBUG = True
-#DEFAULTFONT = "data/DejaVuSans.ttf"
+DEFAULTFONT = "data/DejaVuSans.ttf"
 from pygame import Color
 COLOR_INACTIVE = Color('lightskyblue3')
 COLOR_ACTIVE = Color('dodgerblue2')
@@ -17,16 +17,16 @@ DUMMYSIZE = [int(x // 2) for x in BLOCKSIZE]
 POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
 BOMBSIZE = [int(x // 2.5) for x in BLOCKSIZE]
 PARTICLESIZE = [int(x // 4) for x in BLOCKSIZE]
-FLAMESIZE = [10, 5]
+FLAMESIZE = [10, 10]
 # FLAMESIZE = [int(x // 6) for x in BLOCKSIZE]
-
+MAXPARTICLES = 5
 # POWERUPSIZE = (12, 12)
 # BOMBSIZE = (16, 16)
 # FLAMESIZE = (8,8)
 # FLAMELENGTH = 20
 # PARTICLESIZE = (3,3)
 SCREENSIZE = (BLOCKSIZE[0] * (GRIDSIZE[0] + 1), BLOCKSIZE[1] * GRIDSIZE[1] + 100)
-# SCREENSIZE = (700, 700)
+#SCREENSIZE = (700, 700)
 FPS = 30
 POWERUPS = {
 	"bombpower": 11,
@@ -50,7 +50,7 @@ BLOCKTYPES = {
 		"size": BLOCKSIZE,
 		"bitmap": "data/blocksprite5a.png",
 		"bgbitmap": "data/black.png",
-		"powerup": False,
+		"powerup": True,
 	},
 	2: {
 		"solid": True,
