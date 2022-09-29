@@ -190,10 +190,11 @@ class Game(Thread):
 				pygame.draw.circle(self.screen, (255, 0, 0), pos, 10, 0)
 				self.font.render_to(self.screen, pos, str(np), (255, 255, 255))
 			if self.playerone.client_id == np:
-				pos = self.playerone.client.netplayers[np].get('pos')
-				pygame.draw.circle(self.screen, (255, 255, 255), pos, 10, 0)
-				self.font.render_to(self.screen, pos, str(np), (255, 155, 255))
-				self.font.render_to(self.screen, pos+(0,10), f'p1:{self.playerone.pos} np:{pos}', (255, 155, 255))
+				pass
+				#pos = self.playerone.client.netplayers[np].get('pos')
+				#pygame.draw.circle(self.screen, (255, 255, 255), pos, 5, 0)
+				#self.font.render_to(self.screen, pos, str(np), (255, 155, 255))
+				#self.font.render_to(self.screen, pos+(0,10), f'p1:{self.playerone.pos} np:{pos}', (255, 155, 255))
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
 		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=self.playerone, flames=self.flames)

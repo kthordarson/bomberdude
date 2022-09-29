@@ -15,6 +15,8 @@ class BombClient(Thread):
 		self.connected = False
 		self.pos = (0,0)
 		self.netplayers = {}
+		self.gamemap = None
+		self.gotmap = False
 
 	def __str__(self):
 		return f'{self.client_id}'
@@ -42,6 +44,9 @@ class BombClient(Thread):
 				logger.debug(F'[bc] {self} killed')
 				break
 			if self.connected:
+				if not self.gotmap:
+					#payload = {'msgtype': dataid['reqmap'], 'payload':self.client_id}
+					send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id})
 				msgid, payload = None, None
 				msgid,payload = receive_data(conn=self.socket)
 				if msgid == 4:
@@ -60,6 +65,12 @@ class BombClient(Thread):
 							if netplayers:
 								for np in netplayers:
 									self.netplayers[np] = netplayers[np]
+						elif payload.get('payload').get('msgtype') == 'mapfromserver':
+							gamemap = payload.get('payload').get('gamemap')
+							logger.debug(f'[bc] mapfromserver p={payload} g={gamemap}')
+							self.gamemap = gamemap
+							self.gotmap = True
+
 				else:
 					logger.warning(f'[bc] resp={payload}')
 			else:

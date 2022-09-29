@@ -5,7 +5,6 @@ import pickle
 from pickle import UnpicklingError
 from loguru import logger
 dataid = {
-	'auth':101,
 	'info': 0,
 	'data': 1,
 	'dummy': 2,
@@ -13,11 +12,12 @@ dataid = {
 	'update': 4,
 	'updatefromserver':5,
 	'gamegrid': 6,
-	'requestgrid': 7,
-	'error':1000,
+	'reqmap': 7,
 	'requpdate':8,
 	'gameevent':9,
 	'eventfromserver':10,
+	'auth':101,
+	'error':1000,
 	'errorfromserver':1001,
 	'UnpicklingError':1002
 	}

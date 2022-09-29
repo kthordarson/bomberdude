@@ -22,7 +22,7 @@ from queue import Queue as OldQueue
 
 
 class BombClientHandler(Thread):
-	def __init__(self, conn=None,  addr=None):
+	def __init__(self, conn=None,  addr=None, gamemap=None):
 		Thread.__init__(self)
 		self.queue = Queue()
 		self.sendq = Queue() # multiprocessing.Manager().Queue()
@@ -32,6 +32,7 @@ class BombClientHandler(Thread):
 		self.addr = addr
 		self.netplayers = {}
 		self.pos = Vector2(0,0)
+		self.gamemap = gamemap
 		logger.info(f'[BC] {self} BombClientHandler init conn:{self.conn} addr:{self.addr} client_id:{self.client_id}')
 
 	def __str__(self):
@@ -113,6 +114,9 @@ class BombClientHandler(Thread):
 				logger.debug(f'[BC] {self} auth received id:{rid} resp={resp}')
 				clid = resp.get('client_id')
 				self.client_id = clid
+			elif rtype == dataid['reqmap'] or rid == 7:
+				logger.debug(f'[BC] {self} reqmap received id:{rid} resp={resp}')
+				self.sendq.put_nowait({'msgtype':'mapfromserver', 'gamemap':self.gamemap})
 			elif rtype == dataid['UnpicklingError'] or rid == 1002:
 				logger.warning(f'[BC] {self} UnpicklingError rid:{rid}')
 			else:
@@ -176,7 +180,7 @@ class BombServer(Thread):
 					conn = data.get('conn')
 					addr = data.get('addr')
 					# clid = data.get('clid')
-					bc = BombClientHandler(conn=conn,addr=addr)
+					bc = BombClientHandler(conn=conn, addr=addr, gamemap=self.gamemap)
 					logger.debug(f'[server] new player:{bc} cl:{len(self.bombclients)}')
 					self.bombclients.append(bc)
 					bc.start()
