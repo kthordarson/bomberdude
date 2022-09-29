@@ -122,11 +122,22 @@ class Game(Thread):
 			#send_data(conn=self.conn, data_id=dataid['playerpos'], payload=resp)
 			# resp = receive_data(self.conn)
 			#logger.debug(f"[e] type:{type} cl:{gamemsg.get('client_id')} pos:{gamemsg.get('pos')} resp:{resp}")
-		if type == 'bombdrop':
+		elif type == 'bombdrop':
 			resp = {'authkey':self.authkey, 'msgtype':'bombdrop', 'client_id': gamemsg.get('client_id'), 'pos': gamemsg.get('pos'), 'data_id': dataid['gameevent']}
 			if self.playerone.connected:
 				self.sendq.put_nowait(resp)
 			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} Sending to sendq resplen:{len(resp)} resp={resp}')
+		elif type == 'gamemap':
+			gamemap = gamemsg.get('gamemap')
+			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemap:{len(gamemap.grid)}')
+			if len(gamemap.grid) > 1:
+				self.gamemap = gamemap
+				newblocks = Group()
+				for k in range(0, GRIDSIZE[0]):
+					for j in range(0, GRIDSIZE[1]):
+						newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=gamemap.grid[j][k])
+						newblocks.add(newblock)
+				self.blocks.add(newblocks)
 			
 	def handle_netq(self, gamemsg):
 		netmsg = gamemsg.get('data').get('msgtype')
@@ -183,6 +194,7 @@ class Game(Thread):
 			self.screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 			return
 		self.screen.fill(self.bg_color)
+		self.blocks.draw(self.screen)
 		self.players.draw(self.screen)
 		for np in self.playerone.client.netplayers:
 			if self.playerone.client_id != np:
