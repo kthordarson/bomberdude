@@ -14,6 +14,7 @@ import pickle
 from network import send_data, receive_data, dataid
 # from multiprocessing import Queue
 from queue import Full
+from bclient import BombClient
 
 class Player(BasicThing, Thread):
 	def __init__(self, pos=None, visible=False, mainqueue=None):
@@ -28,6 +29,7 @@ class Player(BasicThing, Thread):
 		self.pos = pos
 		self.rect = self.image.get_rect(center=self.pos)
 		self.speed = 3
+		self.client = BombClient(client_id=self.client_id, serveraddress='127.0.0.1', serverport=9696)
 
 
 	# def run(self):
@@ -37,6 +39,9 @@ class Player(BasicThing, Thread):
 	# 		if self.connected:
 	# 			self.mainqueue.put_nowait({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
 
+	def start_client(self):
+		self.client.start()
+
 	def bombdrop(self):
 		pass
 
@@ -44,6 +49,7 @@ class Player(BasicThing, Thread):
 		self.pos += self.vel
 		self.rect.center = self.pos
 		if self.connected:
+			self.client.pos = self.pos
 			self.mainqueue.put_nowait({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
 
 	def take_powerup(self, powerup=None):

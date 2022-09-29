@@ -40,7 +40,7 @@ def send_data(conn=None, data_id=None, payload=None):
 	#dpkt = struct.pack('>I', data_id)
 	#conn.sendall(pktlen)
 	#conn.sendall(dpkt)
-	if splen > 254:
+	if splen > 512:
 		logger.warning(f'[send] payload size {splen} {pktlen}')
 	conn.sendall(pktlen)
 	conn.sendall(serialized_payload)

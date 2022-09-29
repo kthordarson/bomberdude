@@ -66,6 +66,7 @@ class Game(Thread):
 		self.bombs = Group()
 		self.flames = Group()
 		self.playerone = Player(pos=(300, 300), visible=False, mainqueue=self.mainqueue)
+		self.p1connected = False
 		self.players.add(self.playerone)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.authkey = 'foobar'
@@ -183,16 +184,16 @@ class Game(Thread):
 			return
 		self.screen.fill(self.bg_color)
 		self.players.draw(self.screen)
-		# for np in self.netplayers:
-		# 	if self.playerone.client_id != np:
-		# 		pos = self.netplayers[np].get('pos')
-		# 		pygame.draw.circle(self.screen, (255, 0, 0), pos, 10, 0)
-		# 		self.font.render_to(self.screen, pos, str(np), (255, 255, 255))
-		# 	if self.playerone.client_id == np:
-		# 		pos = self.netplayers[np].get('pos')
-		# 		pygame.draw.circle(self.screen, (255, 255, 255), pos, 10, 0)
-		# 		self.font.render_to(self.screen, pos, str(np), (255, 155, 255))
-		# 		self.font.render_to(self.screen, pos+(0,10), f'p1:{self.playerone.pos} np:{pos}', (255, 155, 255))
+		for np in self.playerone.client.netplayers:
+			if self.playerone.client_id != np:
+				pos = self.playerone.client.netplayers[np].get('pos')
+				pygame.draw.circle(self.screen, (255, 0, 0), pos, 10, 0)
+				self.font.render_to(self.screen, pos, str(np), (255, 255, 255))
+			if self.playerone.client_id == np:
+				pos = self.playerone.client.netplayers[np].get('pos')
+				pygame.draw.circle(self.screen, (255, 255, 255), pos, 10, 0)
+				self.font.render_to(self.screen, pos, str(np), (255, 155, 255))
+				self.font.render_to(self.screen, pos+(0,10), f'p1:{self.playerone.pos} np:{pos}', (255, 155, 255))
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
 		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=self.playerone, flames=self.flames)
@@ -201,14 +202,19 @@ class Game(Thread):
 			pos = Vector2(10, self.screenh - 100)
 			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} threads:{threading.active_count()}", (123, 123, 123))
 			pos += (0, 15)
-			self.font.render_to(self.screen, pos, f"threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()}", (123, 123, 123))
+			self.font.render_to(self.screen, pos, f"threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()} p1c:{self.p1connected} np:{len(self.playerone.client.netplayers)}", (123, 123, 123))
 
 	def handle_menu(self, selection):
 		# mainmenu
 		if selection == "Start":
 			# self.playerone.start()
 			self.gui.show_mainmenu ^= True
-			self.playerone.connected = True
+			self.p1connected = self.playerone.client.connect_to_server()
+			if self.p1connected:
+				self.playerone.connected = True
+				logger.debug(f'[game] p1 connected:{self.p1connected} {self.playerone.connected} {self.playerone.client.connected}')
+				self.playerone.start_client()
+			
 
 		if selection == "Connect to server":
 			pass

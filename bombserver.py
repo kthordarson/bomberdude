@@ -22,9 +22,9 @@ from queue import Queue as OldQueue
 
 
 class BombClientHandler(Thread):
-	def __init__(self, conn=None, serverq=None, addr=None):
+	def __init__(self, conn=None,  addr=None):
 		Thread.__init__(self)
-		self.queue = serverq
+		self.queue = Queue()
 		self.sendq = Queue() # multiprocessing.Manager().Queue()
 		self.client_id = None
 		self.kill = False
@@ -53,6 +53,22 @@ class BombClientHandler(Thread):
 					break
 				# self.sendq.task_done()
 
+	def server_comms(self):
+		logger.info(f'[BC] {self} server_comm started')
+		while True:
+			if self.kill:
+				logger.warning(f'[BC] {self} server_comm killed')
+				break
+			payload = None
+			if not self.queue.empty():
+				payload = self.queue.get()
+				if payload:
+					if payload.get('msgtype') == 'netplayers':
+						netplayers = payload.get('netplayers')
+						for np in netplayers:
+							self.netplayers[np] = netplayers[np]
+							#logger.debug(f'[srvcomm] {self} payload:{payload}')
+
 	def get_client_id(self):
 		payload = {'msgtype':'bcgetid', 'payload':'sendclientid'}
 		self.sendq.put_nowait(payload)
@@ -61,6 +77,8 @@ class BombClientHandler(Thread):
 		logger.debug(f'[BC] {self.client_id} run ')
 		st = Thread(target=self.sender, daemon=True)
 		st.start()
+		srvcomm = Thread(target=self.server_comms, daemon=True)
+		srvcomm.start()
 		while True:
 			if self.client_id is None:
 				self.get_client_id()
@@ -76,8 +94,8 @@ class BombClientHandler(Thread):
 			try:
 				rid, resp = receive_data(self.conn)
 				# logger.debug(f'[BCH] {self} rid:{rid} resp:{resp}')
-			except (ConnectionResetError, BrokenPipeError) as e:
-				logger.error(f'[BC] {self} connection error:{e}')
+			except (ConnectionResetError, BrokenPipeError, struct.error) as e:
+				logger.error(f'[BC] {self} receive_data error:{e}')
 				#self.kill = True
 				#break
 			rtype = dataid.get(rid, None)
@@ -86,7 +104,7 @@ class BombClientHandler(Thread):
 			elif rtype == dataid.get('playerpos') or rid == 3:
 				s_clid = resp.get('client_id')
 				s_pos = resp.get('pos')
-				logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
+				#logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
 				self.pos = s_pos
 				self.queue.put({'msgtype':'playerpos', 'client_id':s_clid, 'pos':s_pos})
 			elif rtype == dataid.get('gameevent') or rid == 9:
@@ -136,6 +154,12 @@ class BombServer(Thread):
 		#update_thread.start()
 		logger.debug(f'[server] run')
 		while not self.kill:
+			for bc in self.bombclients:
+				if bc.client_id:
+					np = {'client_id':bc.client_id, 'pos':bc.pos}
+					self.netplayers[bc.client_id] = np
+					payload = {'msgtype':'netplayers', 'netplayers':self.netplayers}
+					bc.queue.put(payload)
 			if self.kill:
 				logger.debug(f'[server] killed')
 				for c in self.bombclients:
@@ -152,7 +176,7 @@ class BombServer(Thread):
 					conn = data.get('conn')
 					addr = data.get('addr')
 					# clid = data.get('clid')
-					bc = BombClientHandler(conn=conn,addr=addr, serverq=self.queue)
+					bc = BombClientHandler(conn=conn,addr=addr)
 					logger.debug(f'[server] new player:{bc} cl:{len(self.bombclients)}')
 					self.bombclients.append(bc)
 					bc.start()
