@@ -4,8 +4,23 @@ import struct
 import pickle
 from pickle import UnpicklingError
 from loguru import logger
-dataid = {'auth':101, 'info': 0, 'data': 1, 'dummy': 2, 'playerpos': 3, 'update': 4, 'updatefromserver':5, 'gamegrid': 6, 'requestgrid': 7, 'error':1000, 'requpdate':8, 'gameevent':9, 'eventfromserver':10, 'errorfromserver':1001, 'UnpicklingError':1002}
-
+dataid = {
+	'auth':101,
+	'info': 0,
+	'data': 1,
+	'dummy': 2,
+	'playerpos': 3,
+	'update': 4,
+	'updatefromserver':5,
+	'gamegrid': 6,
+	'requestgrid': 7,
+	'error':1000,
+	'requpdate':8,
+	'gameevent':9,
+	'eventfromserver':10,
+	'errorfromserver':1001,
+	'UnpicklingError':1002
+	}
 def send_data(conn=None, data_id=None, payload=None):
 	if conn is None or conn._closed:
 		logger.error(f'No connection conn:{conn} data_id:{data_id} payload:{payload}')

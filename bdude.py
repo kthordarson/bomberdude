@@ -4,6 +4,7 @@ import struct
 import sys
 import socket
 import time
+from argparse import ArgumentParser
 from random import randint
 from argparse import ArgumentParser
 from turtle import circle
@@ -25,24 +26,7 @@ from multiprocessing import Queue as mpQueue
 from queue import Queue, Empty
 #from bombserver import BombServer
 from network import dataid, send_data, receive_data
-
-class ConnectionHandler(Thread):
-	def __init__(self, conn=None, conn_name=None, client_id=None):
-		Thread.__init__(self)
-		self.conn = conn
-		self.conn_name = conn_name
-		self.client_id = client_id
-		self.kill = False
-
-	def __str__(self):
-		return f'{self.client_id}'
-
-	def run(self):
-		logger.debug(f'[ch] {self.client_id} run! ')
-		while True:
-			if self.kill:
-				logger.debug(F'[ch] {self} killed')
-				break
+from bclient import BombClient
 
 
 class GameGUI:
@@ -132,13 +116,15 @@ class Game(Thread):
 		# logger.debug(f"[e] type:{type} cl:{gamemsg.get('client_id')} pos:{gamemsg.get('pos')} resp:{resp}")
 		if type == 'playerpos':
 			resp = {'msgtype':dataid["playerpos"], 'authkey':self.authkey, 'client_id': gamemsg.get('client_id'), 'pos': gamemsg.get('pos'), 'data_id': dataid['playerpos']}
-			self.sendq.put_nowait(resp)
+			if self.playerone.connected:
+				self.sendq.put_nowait(resp)
 			#send_data(conn=self.conn, data_id=dataid['playerpos'], payload=resp)
 			# resp = receive_data(self.conn)
 			#logger.debug(f"[e] type:{type} cl:{gamemsg.get('client_id')} pos:{gamemsg.get('pos')} resp:{resp}")
 		if type == 'bombdrop':
 			resp = {'authkey':self.authkey, 'msgtype':'bombdrop', 'client_id': gamemsg.get('client_id'), 'pos': gamemsg.get('pos'), 'data_id': dataid['gameevent']}
-			self.sendq.put_nowait(resp)
+			if self.playerone.connected:
+				self.sendq.put_nowait(resp)
 			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} Sending to sendq resplen:{len(resp)} resp={resp}')
 			
 	def handle_netq(self, gamemsg):
@@ -163,7 +149,8 @@ class Game(Thread):
 			resp = {'data_id':dataid["auth"], 'msgtype':'auth', 'authkey':self.authkey, 'client_id':self.playerone.client_id}
 			# resp = self.authresp
 			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()}  auth got type:{type} engmsg:{len(gamemsg)} Sending to sendq resplen:{len(resp)} resp={resp}')
-			self.sendq.put_nowait(resp)
+			if self.playerone.connected:
+				self.sendq.put_nowait(resp)
 		else:
 			logger.warning(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()}  unknown type:{type} gamemsg:{gamemsg}')
 
@@ -231,11 +218,11 @@ class Game(Thread):
 
 		if selection == "Pause":
 			self.gui.show_mainmenu ^= True
-			self.pause_game()
+			# self.pause_game()
 
 		if selection == "Restart":
 			self.gui.show_mainmenu ^= True
-			self.restart_game()
+			# self.restart_game()
 
 		if selection == "Start server":
 			pass
@@ -314,32 +301,60 @@ class Game(Thread):
 				logger.warning(f'[pgevent] quit {event.type}')
 				self.running = False
 
+def run_testclient():
+	bc = BombClient(client_id=1, serveraddress='127.0.0.1', serverport=9696)
+	logger.info(f'test bombclient bc:{bc}')
+	conn = bc.connect_to_server()
+	if conn:
+		logger.info(f'test bombclient bc:{bc} conn={conn}')
+		while True:
+			msgid, payload = None, None
+			testpayload = {'client_id': bc.client_id, 'pos': (100,100)}
+			send_data(conn=bc.socket, data_id=dataid['playerpos'], payload=testpayload)
+			msgid,payload = receive_data(conn=bc.socket)
+			if msgid == 4:
+				if payload.get('msgtype') == 'bcnetupdate':
+					if payload.get('payload').get('msgtype') == 'bcgetid':
+						if payload.get('payload').get('payload') == 'sendclientid':
+							logger.debug(f'[bct] resp={payload}')
+							authpayload = {'client_id': bc.client_id, 'pos': (100,100)}
+							send_data(conn=bc.socket, data_id=dataid['auth'], payload=authpayload)
+	else:
+		logger.warning(f'test bombclient bc:{bc} conn failed conn={conn}')
+	#client.run()
+
 
 if __name__ == "__main__":
-	pygame.init()
-	screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
-	dt = pygame.time.Clock()
-	mainqueue = Queue()
-	netqueue = Queue()
-	sendq = Queue()
-	stop_event = Event()
-	#mainqueue = OldQueue()#  multiprocessing.Manager().Queue()
-	# engine = Engine(stop_event=stop_event, name='engine')
-	game = Game(screen=screen, mainqueue=mainqueue, sendq=sendq, netqueue=netqueue)
-	game.daemon = True
-	game.start()
-	game.running = True
-	while game.running:
-		if game.kill:
-			game.running = False
-			break
-		try:
-			t1 = time.time()
-		except KeyboardInterrupt as e:
-			logger.warning(f'[kb] {e}')
-			# game.kill_engine(killmsg=f'killed by {e}')
-			break
-	pygame.quit()
+	parser = ArgumentParser(description='bdude')
+	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
+	args = parser.parse_args()
+	if args.testclient:
+		run_testclient()
+	else:
+		pygame.init()
+		screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
+		dt = pygame.time.Clock()
+		mainqueue = Queue()
+		netqueue = Queue()
+		sendq = Queue()
+		stop_event = Event()
+		#mainqueue = OldQueue()#  multiprocessing.Manager().Queue()
+		# engine = Engine(stop_event=stop_event, name='engine')
+		game = Game(screen=screen, mainqueue=mainqueue, sendq=sendq, netqueue=netqueue)
+		game.daemon = True
+		game.start()
+		game.running = True
+		while game.running:
+			if game.kill:
+				game.running = False
+				break
+			try:
+				t1 = time.time()
+			except KeyboardInterrupt as e:
+				logger.warning(f'[kb] {e}')
+				# game.kill_engine(killmsg=f'killed by {e}')
+				break
+		pygame.quit()
 
 
 

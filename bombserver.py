@@ -21,23 +21,21 @@ from queue import Queue as OldQueue
 
 
 
-class BombClient(Thread):
-	def __init__(self, conn=None, conn_name=None, gamegrid=None, client_id=None, serverq=None, addr=None):
+class BombClientHandler(Thread):
+	def __init__(self, conn=None, serverq=None, addr=None):
 		Thread.__init__(self)
 		self.queue = serverq
 		self.sendq = Queue() # multiprocessing.Manager().Queue()
-		self.client_id = client_id
-		self.gamegrid = gamegrid
+		self.client_id = None
 		self.kill = False
 		self.conn = conn
-		self.conn_name = conn_name
 		self.addr = addr
 		self.netplayers = {}
 		self.pos = Vector2(0,0)
-		logger.info(f'[BC] {self} senderthread init conn:{self.conn} addr:{self.addr} client_id:{self.client_id}')
+		logger.info(f'[BC] {self} BombClientHandler init conn:{self.conn} addr:{self.addr} client_id:{self.client_id}')
 
 	def __str__(self):
-		return f'[BC]{self.client_id}'
+		return f'[BCID] {self.client_id}'
 
 	def sender(self):
 		logger.info(f'[BC] {self} senderthread started')
@@ -55,12 +53,17 @@ class BombClient(Thread):
 					break
 				# self.sendq.task_done()
 
+	def get_client_id(self):
+		payload = {'msgtype':'bcgetid', 'payload':'sendclientid'}
+		self.sendq.put_nowait(payload)
 
 	def run(self):
 		logger.debug(f'[BC] {self.client_id} run ')
 		st = Thread(target=self.sender, daemon=True)
 		st.start()
 		while True:
+			if self.client_id is None:
+				self.get_client_id()
 			rid, resp = None, None
 			if self.kill:
 				logger.debug(F'[BC] {self} killed')
@@ -72,23 +75,26 @@ class BombClient(Thread):
 			#send_data(self.conn, payload={'msgtype':'bcupdate', 'payload':'kren'}, data_id=dataid['update'])
 			try:
 				rid, resp = receive_data(self.conn)
+				# logger.debug(f'[BCH] {self} rid:{rid} resp:{resp}')
 			except (ConnectionResetError, BrokenPipeError) as e:
 				logger.error(f'[BC] {self} connection error:{e}')
 				#self.kill = True
 				#break
 			rtype = dataid.get(rid, None)
-			if rid == 0:
+			if rid == dataid.get('info'):
 				self.queue.put({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
 			elif rtype == dataid.get('playerpos') or rid == 3:
-				s_clid = resp.get('payload').get('client_id')
-				s_pos = resp.get('payload').get('pos')
-				#logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
+				s_clid = resp.get('client_id')
+				s_pos = resp.get('pos')
+				logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
 				self.pos = s_pos
 				self.queue.put({'msgtype':'playerpos', 'client_id':s_clid, 'pos':s_pos})
 			elif rtype == dataid.get('gameevent') or rid == 9:
 				logger.debug(f'[BC] {self} gamevent received id:{rid} resp={resp}')
 			elif rtype == dataid['auth'] or rid == 101:
 				logger.debug(f'[BC] {self} auth received id:{rid} resp={resp}')
+				clid = resp.get('client_id')
+				self.client_id = clid
 			elif rtype == dataid['UnpicklingError'] or rid == 1002:
 				logger.warning(f'[BC] {self} UnpicklingError rid:{rid}')
 			else:
@@ -145,19 +151,19 @@ class BombServer(Thread):
 					# logger.debug(f'[server] q: {data}')
 					conn = data.get('conn')
 					addr = data.get('addr')
-					clid = data.get('clid')
-					bc = BombClient(client_id=clid,conn=conn,addr=addr, serverq=self.queue)
+					# clid = data.get('clid')
+					bc = BombClientHandler(conn=conn,addr=addr, serverq=self.queue)
 					logger.debug(f'[server] new player:{bc} cl:{len(self.bombclients)}')
 					self.bombclients.append(bc)
 					bc.start()
-				if type == 'playerpos':
-					# logger.debug(f'[server] q: {data}')
-					for bc in self.bombclients:
-						clid = data.get('client_id')
-						pos = data.get('pos')
-						if clid != bc.client_id:
-							bc.netplayers[clid] = {'pos':pos}
-							self.netplayers[clid] = {'pos':pos}
+				# if type == 'playerpos':
+				# 	# logger.debug(f'[server] q: {data}')
+				# 	for bc in self.bombclients:
+				# 		clid = data.get('client_id')
+				# 		pos = data.get('pos')
+				# 		if clid != bc.client_id:
+				# 			bc.netplayers[clid] = {'pos':pos}
+				# 			self.netplayers[clid] = {'pos':pos}
 					#foo=[f'{k} {self.netplayers[k].get("pos")}' for k in self.netplayers]
 					#logger.debug(f'[server] netplayers {foo}')
 			# try:
@@ -191,45 +197,46 @@ def main():
 		try:
 			if server.kill:
 				break
-			try:
-				rid, resp, clid, akey = None, None, None, None
-				conn, addr = server.conn.accept()
-				# serverq.put({'msgtype':'newclient', 'clid':clid, 'conn':conn, 'addr':addr})
-				send_data(conn, payload={'msgtype':'auth', 'msg':'doauth'}, data_id=dataid['auth'])
-				rid, resp = receive_data(conn)
-				if rid == dataid['UnpicklingError']:
-					conn.close()
-					#send_data(conn, payload={'msgtype':'auth', 'msg':'doauth'}, data_id=dataid['auth'])
-					#rid, resp = receive_data(conn)
-				clid, akey = None,None
-				logger.debug(f'[s] new connection rid:{rid} resp:{resp}')
-				try:
-					if resp:
-						clid = resp.get('payload').get('client_id')
-						akey = resp.get('payload').get('authkey')
-						if not akey:
-							akey = resp.get('authkey')
-						if resp.get('msgtype') == 'engineupdate' or resp.get('msgtype') == 'auth' or rid == 101:
-							#logger.debug(f'[newconn] authkey={resp.get("authkey")} rid:{rid} resp:{resp} clid:{clid}')
-							server.queue.put({'msgtype':'newclient', 'clid':clid, 'conn':conn, 'addr':addr})
-							clients += 1
-						# elif akey == 'foobar':
-						# 	#pass
-						# 	logger.debug(f'[newconn] rid:{rid} resp:{resp} clid:{clid}')
-						elif resp.get('msgtype') == dataid['playerpos']:
-							logger.warning(f'[s] clid:{clid} rid:{rid} resp:{resp} ')
-							# serverq.put({'msgtype':'playerpos', 'clid':clid, 'conn':conn, 'addr':addr, 'payload':resp.get('payload')})
-						else:
-							logger.warning(f'[s] autherr authkey={akey} rid:{rid} resp:{resp}')
-							conn.close()
-				except AttributeError as e:
-					logger.warning(f'[s] AttributeError authkey={resp.get("authkey")} rid:{rid} resp:{resp}')
-					#serverq.put({'msgtype':rid, 'clid':resp.get('client_id'), 'pos':resp.get('pos')})
-					conn.close()
-			except OSError as e:
-				pass
+#			try:
+			rid, resp, clid, akey = None, None, None, None
+			conn, addr = server.conn.accept()
+			server.queue.put({'msgtype':'newclient', 'conn':conn, 'addr':addr})
+			#send_data(conn, payload={'msgtype':'auth', 'msg':'doauth'}, data_id=dataid['auth'])
+			#rid, resp = receive_data(conn)
+			#if rid == dataid['UnpicklingError']:
+		#		conn.close()
+				#send_data(conn, payload={'msgtype':'auth', 'msg':'doauth'}, data_id=dataid['auth'])
+				#rid, resp = receive_data(conn)
+			# clid, akey = None,None
+			# logger.debug(f'[s] new connection rid:{rid} resp:{resp}')
+			# try:
+			# 	if resp:
+			# 		clid = resp.get('payload').get('client_id')
+			# 		akey = resp.get('payload').get('authkey')
+			# 		if not akey:
+			# 			akey = resp.get('authkey')
+			# 		if resp.get('msgtype') == 'engineupdate' or resp.get('msgtype') == 'auth' or rid == 101:
+			# 			#logger.debug(f'[newconn] authkey={resp.get("authkey")} rid:{rid} resp:{resp} clid:{clid}')
+			# 			server.queue.put({'msgtype':'newclient', 'clid':clid, 'conn':conn, 'addr':addr})
+			# 			clients += 1
+			# 		# elif akey == 'foobar':
+			# 		# 	#pass
+			# 		# 	logger.debug(f'[newconn] rid:{rid} resp:{resp} clid:{clid}')
+			# 		elif resp.get('msgtype') == dataid['playerpos']:
+			# 			logger.warning(f'[s] clid:{clid} rid:{rid} resp:{resp} ')
+			# 			# serverq.put({'msgtype':'playerpos', 'clid':clid, 'conn':conn, 'addr':addr, 'payload':resp.get('payload')})
+			# 		else:
+			# 			logger.warning(f'[s] autherr authkey={akey} rid:{rid} resp:{resp}')
+			# 			conn.close()
+			# except AttributeError as e:
+			# 	logger.warning(f'[s] AttributeError {e}')
+			# 	#serverq.put({'msgtype':rid, 'clid':resp.get('client_id'), 'pos':resp.get('pos')})
+			# 	conn.close()
+			# except OSError as e:
+			# 	logger.warning(f'[s] oserror {e}')
+			# 	conn.close()
 		except KeyboardInterrupt as e:
-			logger.debug(f'KeyboardInterrupt:{e} serverq:{server.queue} server:{server}')
+			logger.warning(f'KeyboardInterrupt:{e} serverq:{server.queue} server:{server}')
 			server.kill = True
 			#serverq.join()
 			break
