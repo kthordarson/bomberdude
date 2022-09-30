@@ -22,8 +22,8 @@ class BombClient(Thread):
 	def __str__(self):
 		return f'[bc] {self.client_id}'
 
-	def send_bomb(self):
-		payload = {'data_id':dataid['update'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':self.pos}
+	def send_bomb(self, pos=None):
+		payload = {'data_id':dataid['update'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos}
 		send_data(conn=self.socket, data_id=dataid['update'], payload=payload)
 		logger.debug(f'{self} send_bomb {payload}')
 	

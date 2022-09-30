@@ -116,7 +116,8 @@ class BasicThing(Sprite):
 
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type):		
-		BasicThing.__init__(self, pos, None)
+		super().__init__(pos, None)
+		#BasicThing.__init__(self, pos, None)
 		self.block_type = block_type
 		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
@@ -212,17 +213,16 @@ class Powerup(BasicThing):
 
 class Bomb(BasicThing):
 	def __init__(self, pos, bomber_id, bomb_power=20):
+		self.pos = pos
+		BasicThing.__init__(self, self.pos, None)
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
-		self.pos = pos
-		BasicThing.__init__(self, self.pos, self.image)
 		self.bomber_id = bomber_id
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.centerx = self.pos.x
 		self.rect.centery = self.pos.y
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.start_time = pygame.time.get_ticks() / 1000
-		self.timer = 3000
+		self.timer = 4000
 		self.bomb_timer = 1
 		self.bomb_fuse = 1
 		self.bomb_end = 2
@@ -238,6 +238,9 @@ class Bomb(BasicThing):
 
 	def __str__(self):
 		return f'[bomb] {self.pos}'
+
+	def draw(self, screen):
+		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
 
 	def gen_flames(self):
 		if not self.flamesout:
@@ -265,8 +268,8 @@ class Particle(BasicThing):
 		self.pos = pos
 		xsize = random.randint(1,3)
 		ysize = random.randint(1,3)
+		BasicThing.__init__(self, self.pos, None)
 		self.image = pygame.Surface((xsize ,ysize))
-		BasicThing.__init__(self, self.pos, self.image)
 		self.image.fill((95, 95, 95))
 		#self.image.fill((random.randint(0,255),random.randint(0,255),random.randint(0,255)))
 		self.rect = self.image.get_rect(center = pos)
@@ -313,11 +316,11 @@ class Particle(BasicThing):
 
 class Flame(BasicThing):
 	def __init__(self, pos, vel, flame_length, rect):
+		self.pos = pos
+		BasicThing.__init__(self, self.pos, None)
 		self.image = pygame.Surface((5,5), pygame.SRCALPHA)
 		self.image.fill((255,0,0))
 		self.rect = self.image.get_rect()
-		self.pos = pos
-		BasicThing.__init__(self, self.pos, self.image)
 		self.size = FLAMESIZE
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y

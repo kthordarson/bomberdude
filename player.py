@@ -20,6 +20,8 @@ class Player(BasicThing, Thread):
 	def __init__(self, pos=None, visible=False, mainqueue=None):
 		Thread.__init__(self, daemon=True)
 		self.image = pygame.image.load('data/playerone.png')
+		self.size = PLAYERSIZE
+		self.image = pygame.transform.scale(self.image, self.size)
 		BasicThing.__init__(self, pos, self.image)
 		self.mainqueue = mainqueue
 		self.visible = visible
