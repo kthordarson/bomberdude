@@ -13,9 +13,11 @@ from globals import ResourceHandler, random_velocity
 # from queue import Queue as OldQueue
 
 class BasicThing(Sprite):
-	def __init__(self, pos, image):
+	rm = ResourceHandler()
+	def __init__(self, pos, image=None):
 		Sprite.__init__(self)
 		# self.thingq = OldQueue() # multiprocessing.Manager().Queue()
+		
 		self.pos = Vector2(pos)
 		self.vel = Vector2()
 		self.start_time = pygame.time.get_ticks()
@@ -26,15 +28,15 @@ class BasicThing(Sprite):
 
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type):		
+		BasicThing.__init__(self, pos, None)
 		self.block_type = block_type
 		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
 		self.size = BLOCKTYPES.get(self.block_type)["size"]
 		self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
-		self.rm = ResourceHandler()
+		
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
-		BasicThing.__init__(self, pos, self.image)
 		self.explode = False
 		self.poweruptime = 10
 		self.gridpos = gridpos  # Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
@@ -48,12 +50,59 @@ class Block(BasicThing):
 	def __str__(self):
 		return f'[block] {self.pos}'
 
+	def hit(self):
+		self.bitmap = BLOCKTYPES.get(11)["bitmap"]
+		self.solid = False
+		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
+
+	def gen_particles(self, flame):
+		# called when block is hit by a flame
+		# generate particles and set initial velocity based on direction of flame impact
+		#self.particles = Group()
+		self.rect.x = self.pos.x
+		self.rect.y = self.pos.y
+		# flame.vel = Vector2(flame.vel[0], flame.vel[1])
+		particles = Group()
+		for k in range(1, 10):
+			if flame.vel.x < 0: # flame come from left
+				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right"))) # make particle go right
+			elif flame.vel.x > 0: # right
+				particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left"))) # for k in range(1,2)]
+			elif flame.vel.y > 0: # down
+				particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up"))) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
+			elif flame.vel.y < 0: # up
+				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down"))) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
+		return particles
+
 class Powerup(BasicThing):
-	pass
+	def __init__(self, pos):
+		# super().__init__()
+		self.powertype = random.choice([1,2,3])
+		if self.powertype == 1:
+			self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
+		if self.powertype == 2:
+			self.image, self.rect = self.rm.get_image(filename='data/newbomb.png', force=False)
+		if self.powertype == 3:
+			self.image, self.rect = self.rm.get_image(filename='data/bombpwr.png', force=False)
+		self.size = POWERUPSIZE
+		self.image = pygame.transform.scale(self.image, self.size)
+		self.pos = pos
+		BasicThing.__init__(self, self.pos, self.image)
+		self.rect = self.image.get_rect()
+		self.rect.center = pos
+		self.alpha = 255
+		self.image.set_alpha(self.alpha)
+		self.timer = 5
+		self.start_time = pygame.time.get_ticks() / 1000
+
+	def update(self, items=None):
+		self.dt = pygame.time.get_ticks() / 1000
+		# logger.debug(f'[pu] {dt - self.start_time} {self.timer}')
+		if self.dt - self.start_time >= self.timer:
+			self.kill()
 
 class Bomb(BasicThing):
 	def __init__(self, pos, bomber_id, bomb_power=10):
-		self.rm = ResourceHandler()
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.pos = pos
@@ -81,4 +130,110 @@ class Bomb(BasicThing):
 		return f'[bomb] {self.pos}'
 
 	def gen_flames(self):
-		pass
+		if not self.flamesout:
+			self.flames = Group()
+			dirs = [Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1), Vector2(0, -1)]
+			flex = [Flame(pos=Vector2(self.pos), vel=k, flame_length=self.flame_len) for k in dirs]
+			for f in flex:
+				self.flames.add(f)
+			self.flamesout = True
+		return self.flames
+
+class Particle(BasicThing):
+	def __init__(self, pos, vel):
+		# super().__init__()
+		self.image, self.rect = self.rm.get_image(filename='data/greenorb.png', force=False)
+		self.size = PARTICLESIZE
+		self.image = pygame.transform.scale(self.image, self.size)
+		self.pos = pos
+		BasicThing.__init__(self, self.pos, self.image)
+		self.alpha = 255
+		self.image.set_alpha(self.alpha)
+		self.rect = self.image.get_rect(topleft=self.pos)
+		self.rect.x = self.pos.x
+		self.rect.y = self.pos.y
+		self.start_time = 1 # pygame.time.get_ticks() // 1000
+		self.timer = 10
+		self.hits = 0
+		self.maxhits = 2
+		self.start_time = pygame.time.get_ticks() / 1000
+		self.angle = math.degrees(0)
+		self.mass = 11
+		self.vel = vel # Vector2(random.uniform(-2, 2), random.uniform(-2, 2)) # Vector2(0, 0)
+
+	def update(self, items=None):
+		self.dt = pygame.time.get_ticks() / 1000
+		if self.dt - self.start_time >= self.timer:
+			# logger.debug(f'[px] timer p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+			self.kill()
+			return
+		elif self.rect.top <= 0 or self.rect.left <= 0:
+			# logger.warning(f'[px] bounds p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+			self.kill()
+			return
+		#self.alpha -= random.randrange(1, 5)
+		elif self.alpha <= 0:
+			# logger.debug(f'[px] amax p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+			self.kill()
+			return
+		elif self.hits >= self.maxhits:
+			#logger.debug(f'[px] maxhits p:{self.pos} v:{self.vel} al:{self.alpha} dt:{self.dt} st:{self.start_time} t:{self.timer} dt-st:{self.dt - self.start_time} timechk:{self.dt - self.start_time >= self.timer} hits:{self.hits}' )
+			self.kill()
+			return
+		else:
+			self.image.set_alpha(self.alpha)
+			self.vel -= self.accel
+			if self.vel.y>=0:
+				self.vel.y += self.vel.y * 0.1
+			if self.vel.y<=0:
+				self.vel.y -= self.vel.y * 0.1
+			self.pos += self.vel
+			self.rect.x = self.pos.x
+			self.rect.y = self.pos.y
+	
+	def hit(self):
+		self.hits += 1
+		self.vel.x = (self.vel.x * -1)
+		self.vel.y = (self.vel.y * -1)
+		self.alpha = int(self.alpha * 0.5)
+
+class Flame(BasicThing):
+	def __init__(self, pos, vel, flame_length):
+		# super().__init__()
+		if vel[0] == -1 or vel[0] == 1:
+			self.image, self.rect = self.rm.get_image(filename='data/flame4.png', force=False)
+		elif vel[1] == -1 or vel[1] == 1:
+			self.image, self.rect = self.rm.get_image(filename='data/flame3.png', force=False)
+		self.image = pygame.transform.scale(self.image, FLAMESIZE)
+		self.pos = pos
+		BasicThing.__init__(self, self.pos, self.image)
+		# dirs = [(-1, 0), (1, 0), (0, 1), (0, -1)]
+		self.size = FLAMESIZE		
+		self.rect.x = self.pos.x
+		self.rect.y = self.pos.y
+		self.start_pos = Vector2(pos)
+		self.vel = Vector2(vel[0], vel[1]) # flame direction
+		self.timer = 10
+		self.start_time = pygame.time.get_ticks() / 1000
+		self.flame_length = flame_length
+		self.stopped = False
+
+	def update(self):
+		if not self.stopped:
+			self.dt = pygame.time.get_ticks() / 1000
+			self.pos += self.vel
+			distance = abs(int(self.pos.distance_to(self.start_pos)))
+			center = self.rect.center
+			if self.vel[0] == -1 or self.vel[0] == 1:
+				self.image = pygame.transform.scale(self.image, (self.size[0] + distance, self.size[1]))
+			if self.vel[1] == -1 or self.vel[1] == 1:
+				self.image = pygame.transform.scale(self.image, (self.size[0], self.size[1] + distance))
+			self.rect = self.image.get_rect()
+			self.rect = self.image.get_rect(topleft=self.pos)
+			self.rect.center = center
+			self.rect.x = self.pos.x
+			self.rect.y = self.pos.y
+			if distance >= self.flame_length: # or (self.dt - self.start_time >= self.timer):
+				self.kill()
+			if self.dt - self.start_time >= self.timer:
+				pass

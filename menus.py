@@ -92,7 +92,7 @@ class Menu:
 			self.menufont.render_to(screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
 			pos_y += 25
 
-	def draw_panel(self, blocks, particles, player1, flames):
+	def draw_panel(self, blocks, particles, playerone, flames):
 		pass
 
 	def get_selection(self):

@@ -81,6 +81,10 @@ class Game(Thread):
 			self.draw()
 			self.handle_input()
 			self.players.update()
+			self.update_bombs()
+			self.update_flames()
+			self.update_particles()
+			self.update_powerups(self.playerone)
 			gamemsg = None
 			netmsg = None
 			try:
@@ -121,23 +125,48 @@ class Game(Thread):
 				self.blocks.add(newblocks)
 			
 
-	def update_players(self):
-		pass
-
-	def get_players(self):
-		pass
-
 	def update_bombs(self):
-		pass
+		self.bombs.update()
+		for bomb in self.bombs:
+			bomb.dt = pygame.time.get_ticks() / 1000
+			if bomb.dt - bomb.start_time >= bomb.bomb_fuse:				
+				self.flames.add(bomb.gen_flames())
+				# bomb.bomber_id.bombs_left += 1
+				bomb.kill()
+				#self.bombs.remove(bomb)
 
 	def update_flames(self):
-		pass
+		self.flames.update()
+		for flame in self.flames:
+			# check if flame collides with blocks
+			flame_coll = spritecollide(flame, self.blocks, False)
+			for block in flame_coll:
+				if block.solid:
+					if block.block_type == 1 or block.block_type == 2: # or block.block_type == '3' or block.block_type == '4':
+						# types 1 and 2 create powerups
+						powerup = Powerup(pos=block.rect.center)
+						self.powerups.add(powerup)
+					block.hit()					
+					self.particles.add(block.gen_particles(flame))
+					flame.kill()
+				# self.blocks.remove(block)
 
 	def update_particles(self):
-		pass
+		self.particles.update(self.blocks)
+		for particle in self.particles:
+			blocks = spritecollide(particle, self.blocks, dokill=False)
+			for block in blocks:
+				if block.solid:
+					particle.hit()
+					#self.particles.remove(particle)
 
-	def update_powerups(self, player):
-		pass
+	def update_powerups(self, playerone):
+		if len(self.powerups) > 0:
+			powerblock_coll = spritecollide(playerone, self.powerups, False)
+			for pc in powerblock_coll:
+				logger.debug(f'[pwrb] type:{pc.powertype} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
+				playerone.take_powerup(pc.powertype)
+				pc.kill()
 
 	def draw(self):
 		# draw on screen
@@ -165,7 +194,7 @@ class Game(Thread):
 				#self.font.render_to(self.screen, pos+(0,10), f'p1:{self.playerone.pos} np:{pos}', (255, 155, 255))
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
-		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, player1=self.playerone, flames=self.flames)
+		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames)
 
 		if DEBUG:
 			pos = Vector2(10, self.screenh - 100)
