@@ -21,6 +21,10 @@ class BombClient(Thread):
 	def __str__(self):
 		return f'{self.client_id}'
 
+	def send_bomb(self):
+		payload = {'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':self.pos}
+		send_data(conn=self.socket, data_id=dataid['update'], payload=payload)
+
 	def connect_to_server(self):
 		if not self.connected:
 			logger.debug(f'[bc] {self} connect_to_server {self.server}')
@@ -70,7 +74,12 @@ class BombClient(Thread):
 							logger.debug(f'[bc] mapfromserver p={payload} g={gamemap}')
 							self.gamemap = gamemap
 							self.gotmap = True
-
+							testpayload = {'client_id': self.client_id, 'pos': self.pos}
+							send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
+						else:
+							logger.warning(f'[bc] unknown msgtype {msgid} {payload}')
+					else:
+						logger.warning(f'[bc] unknown msgtype {msgid} {payload}')
 				else:
 					logger.warning(f'[bc] resp={payload}')
 			else:

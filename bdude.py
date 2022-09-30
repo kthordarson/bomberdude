@@ -98,18 +98,18 @@ class Game(Thread):
 			if gamemsg:
 				self.mainqueue.task_done()
 				self.handle_mainq(gamemsg)				
-			try:
-				netmsg = self.netqueue.get_nowait()
-				# logger.debug(f'[game] netmsg:{netmsg}')
-			except Empty as e:
-				pass
-				# logger.warning(f'[game] {self.mainqueue.qsize()}')
-			if netmsg:
-				self.netqueue.task_done()
-				self.handle_netq(netmsg)
-				# self.netqueue.task_done()
-				# logger.debug(f'[game] done netmsg:{netmsg}')
-				netmsg = None
+			# try:
+			# 	netmsg = self.netqueue.get_nowait()
+			# 	# logger.debug(f'[game] netmsg:{netmsg}')
+			# except Empty as e:
+			# 	pass
+			# 	# logger.warning(f'[game] {self.mainqueue.qsize()}')
+			# if netmsg:
+			# 	self.netqueue.task_done()
+			# 	self.handle_netq(netmsg)
+			# 	# self.netqueue.task_done()
+			# 	logger.debug(f'[game] done netmsg:{netmsg}')
+			# 	netmsg = None
 
 
 	def handle_mainq(self, gamemsg):
@@ -117,15 +117,15 @@ class Game(Thread):
 		# logger.debug(f"[e] type:{type} cl:{gamemsg.get('client_id')} pos:{gamemsg.get('pos')} resp:{resp}")
 		if type == 'playerpos':
 			resp = {'msgtype':dataid["playerpos"], 'authkey':self.authkey, 'client_id': gamemsg.get('client_id'), 'pos': gamemsg.get('pos'), 'data_id': dataid['playerpos']}
-			if self.playerone.connected:
-				self.sendq.put_nowait(resp)
+			# if self.playerone.connected:
+			# 	self.sendq.put_nowait(resp)
 			#send_data(conn=self.conn, data_id=dataid['playerpos'], payload=resp)
 			# resp = receive_data(self.conn)
 			#logger.debug(f"[e] type:{type} cl:{gamemsg.get('client_id')} pos:{gamemsg.get('pos')} resp:{resp}")
 		elif type == 'bombdrop':
 			resp = {'authkey':self.authkey, 'msgtype':'bombdrop', 'client_id': gamemsg.get('client_id'), 'pos': gamemsg.get('pos'), 'data_id': dataid['gameevent']}
-			if self.playerone.connected:
-				self.sendq.put_nowait(resp)
+			# if self.playerone.connected:
+			# 	self.sendq.put_nowait(resp)
 			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} Sending to sendq resplen:{len(resp)} resp={resp}')
 		elif type == 'gamemap':
 			gamemap = gamemsg.get('gamemap')
@@ -258,6 +258,7 @@ class Game(Thread):
 						self.handle_menu(selection)
 					elif not self.gui.show_mainmenu:
 						self.mainqueue.put_nowait({'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'pos': self.playerone.pos})
+						self.playerone.client.send_bomb()
 #						if b != 0:
 #							self.bombs.add(b)
 				if event.key == pygame.K_ESCAPE:
@@ -338,6 +339,8 @@ def run_testclient():
 							logger.debug(f'[bct] resp={payload}')
 							authpayload = {'client_id': bc.client_id, 'pos': (100,100)}
 							send_data(conn=bc.socket, data_id=dataid['auth'], payload=authpayload)
+			else:
+				logger.warning(f'[')
 	else:
 		logger.warning(f'test bombclient bc:{bc} conn failed conn={conn}')
 	#client.run()

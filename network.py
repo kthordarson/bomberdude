@@ -16,6 +16,7 @@ dataid = {
 	'requpdate':8,
 	'gameevent':9,
 	'eventfromserver':10,
+	'bombdrop': 11,
 	'auth':101,
 	'error':1000,
 	'errorfromserver':1001,
@@ -40,7 +41,7 @@ def send_data(conn=None, data_id=None, payload=None):
 	#dpkt = struct.pack('>I', data_id)
 	#conn.sendall(pktlen)
 	#conn.sendall(dpkt)
-	if splen > 512:
+	if splen > 1024:
 		logger.warning(f'[send] payload size {splen} {pktlen}')
 	conn.sendall(pktlen)
 	conn.sendall(serialized_payload)

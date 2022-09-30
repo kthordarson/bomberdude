@@ -51,7 +51,7 @@ class Player(BasicThing, Thread):
 		self.rect.center = self.pos
 		if self.connected:
 			self.client.pos = self.pos
-			self.mainqueue.put_nowait({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
+			#self.mainqueue.put_nowait({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
 			if not self.gotmap:
 				if self.client.gotmap:
 					self.mainqueue.put_nowait({'msgtype':'gamemap', 'client_id':self.client_id, 'gamemap':self.client.gamemap})
