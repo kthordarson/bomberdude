@@ -7,7 +7,7 @@ from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
 import pygame
 from loguru import logger
-from things import Block, Powerup, Bomb
+from globals import Block, Powerup, Bomb
 from map import Gamemap
 from globals import ResourceHandler
 from constants import DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, SCREENSIZE, FPS, DEFAULTGRID,DEFAULTFONT

@@ -11,7 +11,7 @@ from pygame.sprite import Group
 from threading import Thread, Event
 import pickle
 
-from things import Block
+# from things import Block
 from constants import GRIDSIZE
 from map import Gamemap
 from globals import gen_randid

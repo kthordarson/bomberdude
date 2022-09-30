@@ -3,7 +3,7 @@ import pygame
 from pygame.sprite import Sprite
 import socket
 from pygame.math import Vector2
-from things import BasicThing, Block, Bomb
+from globals import BasicThing, Block, Bomb
 from loguru import logger
 from signal import SIGPIPE, SIG_DFL
 # from netutils import dataid, DataSender, DataReceiver, get_ip_address
