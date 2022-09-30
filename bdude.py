@@ -80,7 +80,8 @@ class Game(Thread):
 				break
 			self.draw()
 			self.handle_input()
-			self.players.update()
+			#self.playerone.update(self.blocks)
+			self.players.update(self.blocks)
 			self.update_bombs()
 			self.update_flames()
 			self.update_particles()
@@ -145,10 +146,15 @@ class Game(Thread):
 					if block.block_type == 1 or block.block_type == 2: # or block.block_type == '3' or block.block_type == '4':
 						# types 1 and 2 create powerups
 						powerup = Powerup(pos=block.rect.center)
-						self.powerups.add(powerup)
-					block.hit()					
-					self.particles.add(block.gen_particles(flame))
-					flame.kill()
+						if powerup.powertype != 0:
+							self.powerups.add(powerup)
+						pos, gridpos, particles = block.hit(flame)
+						newblock =  Block(pos, gridpos, block_type=0)
+						#self.gamemap.set_block(gridpos[0], gridpos[1], 0)
+						self.particles.add(particles)
+						flame.kill()
+						block.kill()
+						self.blocks.add(newblock)
 				# self.blocks.remove(block)
 
 	def update_particles(self):
@@ -177,8 +183,10 @@ class Game(Thread):
 			self.screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 			return
 		self.screen.fill(self.bg_color)
-		self.blocks.draw(self.screen)
+		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
+		self.blocks.draw(self.screen)
+		self.flames.draw(self.screen)
 		self.players.draw(self.screen)
 		
 		for np in self.playerone.client.netplayers:

@@ -38,7 +38,7 @@ class Player(BasicThing, Thread):
 	def bombdrop(self):
 		pass
 
-	def update(self):
+	def update(self, blocks):
 		self.client.pos = (self.pos[0], self.pos[1])
 		self.pos += self.vel
 		self.rect.center = self.pos
@@ -49,6 +49,38 @@ class Player(BasicThing, Thread):
 					self.mainqueue.put_nowait({'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.client.gamemapgrid})
 					self.gotmap = True
 					logger.debug(f'[{self}] gotmap:{self.gotmap} grid:{len(self.client.gamemapgrid)}')
+		oldy = self.rect.y
+		oldx = self.rect.x
+		self.pos.x += self.vel.x
+		self.pos.y += self.vel.y
+		self.rect.x = self.pos.x
+		self.rect.y = self.pos.y
+		block_hit_list = self.collide(blocks)
+		for block in block_hit_list:
+			if isinstance(block, Block):
+				if self.vel.x != 0 and self.vel.y != 0 and block.solid:
+					self.vel.x = 0
+					self.vel.y = 0
+					self.rect.x = oldx
+					self.rect.y = oldy
+					break
+				if self.vel.x > 0 and block.solid:
+					self.rect.right = block.rect.left
+					self.vel.x = 0
+				if self.vel.x < 0 and block.solid:
+					self.rect.left = block.rect.right
+					self.vel.x = 0
+				if self.vel.y > 0 and block.solid:
+					self.rect.bottom = block.rect.top
+					self.vel.y = 0
+				if self.vel.y < 0 and block.solid:
+					self.rect.top = block.rect.bottom
+					self.vel.y = 0
+				#elif self.vel.x != 0 and self.vel.y != 0:
+				#	self.vel.x = 0
+				#	self.vel.y = 0
+		self.pos.y = self.rect.y
+		self.pos.x = self.rect.x
 
 
 	def take_powerup(self, powerup=None):

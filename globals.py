@@ -100,15 +100,19 @@ class BasicThing(Sprite):
 	rm = ResourceHandler()
 	def __init__(self, pos, image=None):
 		Sprite.__init__(self)
-		# self.thingq = OldQueue() # multiprocessing.Manager().Queue()
-		
+		# self.thingq = OldQueue() # multiprocessing.Manager().Queue()		
 		self.pos = Vector2(pos)
 		self.vel = Vector2()
 		self.start_time = pygame.time.get_ticks()
 		self.image = image
+		self.accel = Vector2(0, 0)
 
 	def __str__(self):
 		return f'[basic] {self.pos}'
+
+	def collide(self, items=None):
+		self.collisions = spritecollide(self, items, False)
+		return self.collisions
 
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type):		
@@ -134,10 +138,22 @@ class Block(BasicThing):
 	def __str__(self):
 		return f'[block] {self.pos}'
 
-	def hit(self):
-		self.bitmap = BLOCKTYPES.get(11)["bitmap"]
-		self.solid = False
-		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
+	def hit(self, flame):
+		# self.bitmap = BLOCKTYPES.get(11)["bitmap"]
+		# self.solid = False
+		# self.permanent = True
+		# self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
+		particles = Group()
+		for k in range(1, 10):
+			if flame.vel.x < 0: # flame come from left
+				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right"))) # make particle go right
+			elif flame.vel.x > 0: # right
+				particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left"))) # for k in range(1,2)]
+			elif flame.vel.y > 0: # down
+				particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up"))) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
+			elif flame.vel.y < 0: # up
+				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down"))) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
+		return self.pos, self.gridpos, particles
 
 	def gen_particles(self, flame):
 		# called when block is hit by a flame
