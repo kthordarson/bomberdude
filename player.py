@@ -32,14 +32,6 @@ class Player(BasicThing, Thread):
 		self.client = BombClient(client_id=self.client_id, serveraddress='127.0.0.1', serverport=9696, mainqueue=self.mainqueue)
 		self.gotmap = False
 
-
-	# def run(self):
-	# 	self.visible = True
-	# 	logger.debug(f'[player] run c:{self.connected}')
-	# 	while True:
-	# 		if self.connected:
-	# 			self.mainqueue.put_nowait({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
-
 	def start_client(self):
 		self.client.start()
 
@@ -52,7 +44,6 @@ class Player(BasicThing, Thread):
 		self.rect.center = self.pos
 		if self.connected:
 			self.client.send_pos((self.pos[0], self.pos[1]))
-			#self.mainqueue.put_nowait({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
 			if not self.gotmap:
 				if self.client.gotmap:
 					self.mainqueue.put_nowait({'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.client.gamemapgrid})

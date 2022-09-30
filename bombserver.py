@@ -29,15 +29,6 @@ class Sender(Thread):
 
 	def __str__(self):
 		return f'[sender] count={self.sendcount} sq:{self.queue.qsize()}'
-	
-	# def send(self, conn, payload):
-	# 	logger.debug(f'[send] {self} {conn} {payload}')
-	# 	try:
-	# 		send_data(conn, payload={'msgtype':'bcnetupdate', 'payload':payload}, data_id=dataid['update'])
-	# 	except BrokenPipeError as e:
-	# 		logger.error(f'[BC] {self} senderthread BrokenPipeError:{e}')
-	# 		self.kill = True
-	# 	return
 
 	def run(self):
 		logger.info(f'{self} run')
@@ -193,14 +184,8 @@ class BombClientHandler(Thread):
 			elif rtype == dataid.get('update') or rid == 4:
 				# logger.debug(f'{self} bomb received id:{rid} resp={resp}')
 				self.srvcomm.queue.put({'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos')})
-
 			elif rtype == dataid['reqmap'] or rid == 7:
-				#logger.debug(f'{self} reqmap received id:{rid} resp={resp}')
-				#self.sendq.put_nowait({'msgtype':'mapfromserver', 'gamemap':self.gamemap})
 				self.send_map()
-				#payload = {'msgtype':'mapfromserver', 'gamemap':self.gamemap}
-				#self.sender.send(self.conn, payload)
-				#self.sender.queue.put_nowait((self.conn, payload))
 			elif rtype == dataid.get('gameevent') or rid == 9:
 				logger.debug(f'{self} gamevent received id:{rid} resp={resp}')
 			elif rtype == dataid['auth'] or rid == 101:
@@ -209,10 +194,6 @@ class BombClientHandler(Thread):
 				self.client_id = clid
 			elif rtype == dataid['UnpicklingError'] or rid == 1002:
 				logger.warning(f'{self} UnpicklingError rid:{rid}')
-				# payload = {'msgtype':'bcpoll', 'payload':self.client_id, 'netplayers':self.netplayers}
-				# self.sendq.put_nowait(payload)
-				#self.sender.send(self.conn, payload)
-				# self.sender.queue.put_nowait((self.conn, payload))
 			else:
 				if resp:
 					logger.warning(f'{self} unknownevent rid:{rid} rtype:{rtype}  resp={len(resp)} resp={resp}')
@@ -229,8 +210,6 @@ class BombServer(Thread):
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.netplayers = {}
-		
-
 
 	def run(self):
 		logger.debug(f'[server] run')
@@ -279,28 +258,6 @@ class BombServer(Thread):
 						bc.bombevent(data)
 				else:
 					logger.warning(f'[server] data={data}')
-				# 	# logger.debug(f'[server] q: {data}')
-				# 	for bc in self.bombclients:
-				# 		clid = data.get('client_id')
-				# 		pos = data.get('pos')
-				# 		if clid != bc.client_id:
-				# 			bc.netplayers[clid] = {'pos':pos}
-				# 			self.netplayers[clid] = {'pos':pos}
-					#foo=[f'{k} {self.netplayers[k].get("pos")}' for k in self.netplayers]
-					#logger.debug(f'[server] netplayers {foo}')
-			# try:
-			# 	cmd = input(f'[{len(self.bombclients)}]> ')
-			# 	if cmd[:1] == 'd':
-			# 		logger.info(f'[dump] ')
-			# 	if cmd[:1] == 'u':
-			# 		pass
-			# 	if cmd[:1] == 'q':
-			# 		logger.info(f'quit')
-			# 		self.kill = True
-			# except KeyboardInterrupt as e:
-			# 	logger.warning(f'KeyboardInterrupt:{e}')
-			# 	self.kill = True
-			# 	return
 
 
 def main():

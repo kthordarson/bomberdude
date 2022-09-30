@@ -1,18 +1,12 @@
 #!/bin/python3.9
 # bomberdude
-import struct
-import sys
-import socket
 import time
-from argparse import ArgumentParser
-from random import randint
 from argparse import ArgumentParser
 from turtle import circle
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
 import pygame
 from loguru import logger
-# from pygame import mixer # Load the popular external library
 from things import Block, Powerup, Bomb
 from map import Gamemap
 from globals import ResourceHandler
@@ -106,17 +100,8 @@ class Game(Thread):
 		# logger.debug(f"[e] type:{type} cl:{gamemsg.get('client_id')} pos:{gamemsg.get('pos')} resp:{resp}")
 		if type == 'playerpos':
 			resp = {'msgtype':dataid["playerpos"], 'authkey':self.authkey, 'client_id': gamemsg.get('client_id'), 'pos': gamemsg.get('pos'), 'data_id': dataid['playerpos']}
-			# if self.playerone.connected:
-			# 	self.sendq.put_nowait(resp)
-			#send_data(conn=self.conn, data_id=dataid['playerpos'], payload=resp)
-			# resp = receive_data(self.conn)
-			#logger.debug(f"[e] type:{type} cl:{gamemsg.get('client_id')} pos:{gamemsg.get('pos')} resp:{resp}")
 		elif type == 'bombdrop':
 			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemsg={gamemsg}')
-			#bomberid = gamemsg.get('bombdata').get('client_id')
-			#bombpos = gamemsg.get('bombdata').get('bombpos')
-			#newbomb = Bomb(pos=bombpos, bomberid=bomberid)
-			#self.bombs.add(newbomb)
 		elif type == 'netbomb':
 			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemsg={gamemsg}')
 			bomber_id = gamemsg.get('bombdata').get('client_id')
@@ -230,8 +215,6 @@ class Game(Thread):
 					elif not self.gui.show_mainmenu:
 						self.mainqueue.put_nowait({'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'pos': self.playerone.pos})
 						self.playerone.client.send_bomb()
-#						if b != 0:
-#							self.bombs.add(b)
 				if event.key == pygame.K_ESCAPE:
 					self.gui.show_mainmenu ^= True
 				if event.key == pygame.K_q:

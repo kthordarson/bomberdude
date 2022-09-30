@@ -34,8 +34,6 @@ class BombClient(Thread):
 	def send_pos(self, pos):
 		payload = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1])}
 		send_data(conn=self.socket, data_id=dataid['playerpos'], payload=payload)
-		#send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id, 'payload':'reqmap'})
-		# logger.debug(f'{self} sendpos conn:{self.connected} map:{self.gotmap} p={self.pos}')
 
 	def connect_to_server(self):
 		if not self.connected:
@@ -47,10 +45,6 @@ class BombClient(Thread):
 				self.connected = False
 				return False
 			self.connected = True
-			#logger.debug(f'[bc] sending auth')
-			#authpayload = {'client_id': self.client_id, 'pos': (100,100)}
-			#send_data(conn=self.socket, data_id=dataid['auth'], payload=authpayload)
-			# msgid,payload = receive_data(conn=self.socket)
 			return True
 
 	def run(self):
@@ -62,12 +56,6 @@ class BombClient(Thread):
 			if self.connected:
 				if not self.gotmap:
 					self.send_mapreq()
-					#payload = {'msgtype': dataid['reqmap'], 'payload':self.client_id}
-					#send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id})
-					#logger.debug(f'[bc] {self.client_id} gotmap conn:{self.connected} map:{self.gotmap} ')
-#				testpayload = {'client_id': self.client_id, 'pos': self.pos}
-#				send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
-				# self.send_pos()
 				msgid, payload = None, None
 				payload = receive_data(conn=self.socket)
 				# logger.debug(f'{self}  payload:{payload}')
@@ -79,12 +67,8 @@ class BombClient(Thread):
 						if payload.get('payload').get('msgtype') == 'bcgetid':
 							if payload.get('payload').get('payload') == 'sendclientid':
 								logger.debug(f'sending client_id ')
-								authpayload = {'client_id': self.client_id, 'pos': self.pos}
-								#send_data(conn=self.socket, data_id=dataid['auth'], payload=authpayload)
 						elif payload.get('payload').get('msgtype') == 'bcpoll':
 							#logger.debug(f'[bc] {self} bcpoll resp={payload}')
-							testpayload = {'client_id': self.client_id, 'pos': self.pos}
-							#send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
 							netplayers = None
 							netplayers = payload.get('payload').get('netplayers')
 							if netplayers:
@@ -95,8 +79,6 @@ class BombClient(Thread):
 							logger.debug(f'mapfromserver g={len(gamemapgrid)}')
 							self.gamemapgrid = gamemapgrid
 							self.gotmap = True
-							#testpayload = {'client_id': self.client_id, 'pos': self.pos}
-							#send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
 						elif payload.get('payload').get('msgtype') == 'netbomb':
 							logger.debug(f'bombfromserver payload={payload}')
 							bombmsg = {'msgtype':'netbomb', 'bombdata':payload.get('payload')}
