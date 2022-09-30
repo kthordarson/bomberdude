@@ -39,20 +39,11 @@ class Player(BasicThing, Thread):
 		pass
 
 	def update(self, blocks):
-		self.client.pos = (self.pos[0], self.pos[1])
-		self.pos += self.vel
-		self.rect.center = self.pos
-		if self.connected:
-			self.client.send_pos((self.pos[0], self.pos[1]))
-			if not self.gotmap:
-				if self.client.gotmap:
-					self.mainqueue.put_nowait({'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.client.gamemapgrid})
-					self.gotmap = True
-					logger.debug(f'[{self}] gotmap:{self.gotmap} grid:{len(self.client.gamemapgrid)}')
 		oldy = self.rect.y
 		oldx = self.rect.x
-		self.pos.x += self.vel.x
-		self.pos.y += self.vel.y
+		self.pos += self.vel
+		#self.pos.x += self.vel.x
+		#self.pos.y += self.vel.y
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		block_hit_list = self.collide(blocks)
@@ -81,6 +72,17 @@ class Player(BasicThing, Thread):
 				#	self.vel.y = 0
 		self.pos.y = self.rect.y
 		self.pos.x = self.rect.x
+
+		self.client.pos = (self.pos[0], self.pos[1])
+		#self.pos += self.vel
+		#self.rect.center = self.pos
+		if self.connected:
+			self.client.send_pos((self.pos[0], self.pos[1]))
+			if not self.gotmap:
+				if self.client.gotmap:
+					self.mainqueue.put_nowait({'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.client.gamemapgrid})
+					self.gotmap = True
+					logger.debug(f'[{self}] gotmap:{self.gotmap} grid:{len(self.client.gamemapgrid)}')
 
 
 	def take_powerup(self, powerup=None):

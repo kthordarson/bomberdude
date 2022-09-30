@@ -10,7 +10,7 @@ from loguru import logger
 from globals import Block, Powerup, Bomb
 from map import Gamemap
 from globals import ResourceHandler
-from constants import DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, SCREENSIZE, FPS, DEFAULTGRID,DEFAULTFONT
+from constants import DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, SCREENSIZE ,DEFAULTFONT
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread, Event
@@ -129,42 +129,45 @@ class Game(Thread):
 	def update_bombs(self):
 		self.bombs.update()
 		for bomb in self.bombs:
-			bomb.dt = pygame.time.get_ticks() / 1000
-			if bomb.dt - bomb.start_time >= bomb.bomb_fuse:				
-				self.flames.add(bomb.gen_flames())
-				# bomb.bomber_id.bombs_left += 1
+			# logger.debug(f'[btq] b:{bomb} q:{bomb.thingq.qsize()}')
+			dt = pygame.time.get_ticks()
+			if dt - bomb.start_time >= bomb.timer:
+				flames = bomb.exploder()
+				for fl in flames:
+					self.flames.add(fl)
+					# logger.debug(f'[bombflames] fl:{fl} flv:{fl.vel} self.flames:{len(self.flames)} nf:{len(flames)}')
 				bomb.kill()
-				#self.bombs.remove(bomb)
 
 	def update_flames(self):
-		self.flames.update()
+		self.flames.update(surface=self.screen)
 		for flame in self.flames:
 			# check if flame collides with blocks
 			flame_coll = spritecollide(flame, self.blocks, False)
 			for block in flame_coll:
-				if block.solid:
-					if block.block_type == 1 or block.block_type == 2: # or block.block_type == '3' or block.block_type == '4':
-						# types 1 and 2 create powerups
-						powerup = Powerup(pos=block.rect.center)
-						if powerup.powertype != 0:
-							self.powerups.add(powerup)
-						pos, gridpos, particles = block.hit(flame)
-						newblock =  Block(pos, gridpos, block_type=0)
-						#self.gamemap.set_block(gridpos[0], gridpos[1], 0)
-						self.particles.add(particles)
-						flame.kill()
-						block.kill()
-						self.blocks.add(newblock)
-				# self.blocks.remove(block)
+				if DEBUG:
+					if block.block_type == 0:
+						pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
+					else:
+						pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
+				pos, gridpos, particles, newblock, powerblock = block.hit(flame)
+				if particles:
+					self.particles.add(particles)
+				if newblock:
+					self.blocks.add(newblock)
+					if powerblock:
+						self.powerups.add(powerblock)
+					block.kill()
 
 	def update_particles(self):
-		self.particles.update(self.blocks)
+		self.particles.update(self.blocks, self.screen)
 		for particle in self.particles:
 			blocks = spritecollide(particle, self.blocks, dokill=False)
 			for block in blocks:
 				if block.solid:
-					particle.hit()
-					#self.particles.remove(particle)
+					if DEBUG:
+						pygame.draw.circle(self.screen, (111,111,111), particle.rect.center, 2)
+						pygame.draw.rect(self.screen, (85,85,85), rect=block.rect, width=1)
+					particle.hit(block)
 
 	def update_powerups(self, playerone):
 		if len(self.powerups) > 0:

@@ -1,6 +1,6 @@
 import random
 from loguru import logger
-from constants import BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, GRIDSIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID
+from constants import BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, GRIDSIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, DEFAULTGRID2
 
 def inside_circle(radius, pos_x, pos_y):
 	x = int(radius)  # radius is the radius
@@ -11,7 +11,7 @@ def inside_circle(radius, pos_x, pos_y):
 
 class Gamemap:
 	def __init__(self, genmap=True):
-		self.grid = DEFAULTGRID
+		self.grid = DEFAULTGRID2
 		# if genmap:
 		# 	self.grid = self.generate()
 		# else:
