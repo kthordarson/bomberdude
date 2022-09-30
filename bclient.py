@@ -80,7 +80,7 @@ class BombClient(Thread):
 							self.gamemapgrid = gamemapgrid
 							self.gotmap = True
 						elif payload.get('payload').get('msgtype') == 'netbomb':
-							logger.debug(f'bombfromserver payload={payload}')
+							# logger.debug(f'bombfromserver payload={payload}')
 							bombmsg = {'msgtype':'netbomb', 'bombdata':payload.get('payload')}
 							self.mainqueue.put_nowait(bombmsg)
 

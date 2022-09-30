@@ -21,9 +21,11 @@ class BasicThing(Sprite):
 		self.start_time = pygame.time.get_ticks()
 		self.image = image
 
+	def __str__(self):
+		return f'[basic] {self.pos}'
+
 class Block(BasicThing):
-	def __init__(self, pos, gridpos, block_type):
-		
+	def __init__(self, pos, gridpos, block_type):		
 		self.block_type = block_type
 		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
@@ -42,6 +44,9 @@ class Block(BasicThing):
 		self.rect.y = self.pos.y
 		self.image.set_alpha(255)
 		self.image.set_colorkey((0, 0, 0))
+
+	def __str__(self):
+		return f'[block] {self.pos}'
 
 class Powerup(BasicThing):
 	pass
@@ -71,6 +76,9 @@ class Bomb(BasicThing):
 		self.flame_width = 10
 		self.flamesout = False
 		self.flames = Group()
+
+	def __str__(self):
+		return f'[bomb] {self.pos}'
 
 	def gen_flames(self):
 		pass
