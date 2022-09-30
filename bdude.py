@@ -269,9 +269,9 @@ class Game(Thread):
 					self.playerone.kill = True
 					self.running = False
 				if event.key == pygame.K_1:
-					pass
+					self.playerone.client.send_mapreq()
 				if event.key == pygame.K_2:
-					pass
+					self.playerone.client.send_pos(pos=self.playerone.pos)
 				if event.key == pygame.K_3:
 					pass
 				if event.key == pygame.K_c:

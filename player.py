@@ -47,10 +47,11 @@ class Player(BasicThing, Thread):
 		pass
 
 	def update(self):
+		self.client.pos = self.pos
 		self.pos += self.vel
 		self.rect.center = self.pos
 		if self.connected:
-			self.client.pos = self.pos
+			self.client.send_pos(self.pos)
 			#self.mainqueue.put_nowait({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
 			if not self.gotmap:
 				if self.client.gotmap:

@@ -19,19 +19,30 @@ class BombClient(Thread):
 		self.gotmap = False
 
 	def __str__(self):
-		return f'{self.client_id}'
+		return f'[bc] {self.client_id}'
 
 	def send_bomb(self):
 		payload = {'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':self.pos}
 		send_data(conn=self.socket, data_id=dataid['update'], payload=payload)
+		logger.debug(f'{self} send_bomb {payload}')
+	
+	def send_mapreq(self):
+		send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id, 'payload':'reqmap'})
+		logger.debug(f'{self} send_mapreq conn:{self.connected} map:{self.gotmap} ')
+
+	def send_pos(self, pos):
+		payload = {'client_id': self.client_id, 'pos': pos}
+		send_data(conn=self.socket, data_id=dataid['playerpos'], payload=payload)
+		#send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id, 'payload':'reqmap'})
+		# logger.debug(f'{self} sendpos conn:{self.connected} map:{self.gotmap} p={self.pos}')
 
 	def connect_to_server(self):
 		if not self.connected:
-			logger.debug(f'[bc] {self} connect_to_server {self.server}')
+			logger.debug(f'{self} connect_to_server {self.server}')
 			try:
 				self.socket.connect(self.server)
 			except Exception as e:
-				logger.error(f'[bc] {self} connect_to_server err:{e}')
+				logger.error(f'{self} connect_to_server err:{e}')
 				self.connected = False
 				return False
 			self.connected = True
@@ -42,28 +53,33 @@ class BombClient(Thread):
 			return True
 
 	def run(self):
-		logger.debug(f'[bc] {self.client_id} run! ')
+		logger.debug(f'{self} run! conn:{self.connected} map:{self.gotmap} ')
 		while True:
 			if self.kill:
-				logger.debug(F'[bc] {self} killed')
+				logger.debug(F'{self} killed')
 				break
 			if self.connected:
 				if not self.gotmap:
+					self.send_mapreq()
 					#payload = {'msgtype': dataid['reqmap'], 'payload':self.client_id}
-					send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id})
+					#send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id})
+					#logger.debug(f'[bc] {self.client_id} gotmap conn:{self.connected} map:{self.gotmap} ')
+#				testpayload = {'client_id': self.client_id, 'pos': self.pos}
+#				send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
+				# self.send_pos()
 				msgid, payload = None, None
 				msgid,payload = receive_data(conn=self.socket)
 				if msgid == 4:
 					if payload.get('msgtype') == 'bcnetupdate':
 						if payload.get('payload').get('msgtype') == 'bcgetid':
 							if payload.get('payload').get('payload') == 'sendclientid':
-								logger.debug(f'[bc] sending client_id ')
+								logger.debug(f'sending client_id ')
 								authpayload = {'client_id': self.client_id, 'pos': self.pos}
-								send_data(conn=self.socket, data_id=dataid['auth'], payload=authpayload)
+								#send_data(conn=self.socket, data_id=dataid['auth'], payload=authpayload)
 						elif payload.get('payload').get('msgtype') == 'bcpoll':
 							#logger.debug(f'[bc] {self} bcpoll resp={payload}')
 							testpayload = {'client_id': self.client_id, 'pos': self.pos}
-							send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
+							#send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
 							netplayers = None
 							netplayers = payload.get('payload').get('netplayers')
 							if netplayers:
@@ -71,16 +87,16 @@ class BombClient(Thread):
 									self.netplayers[np] = netplayers[np]
 						elif payload.get('payload').get('msgtype') == 'mapfromserver':
 							gamemap = payload.get('payload').get('gamemap')
-							logger.debug(f'[bc] mapfromserver p={payload} g={gamemap}')
+							logger.debug(f'mapfromserver p={payload} g={gamemap}')
 							self.gamemap = gamemap
 							self.gotmap = True
 							testpayload = {'client_id': self.client_id, 'pos': self.pos}
-							send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
+							#send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
 						else:
-							logger.warning(f'[bc] unknown msgtype {msgid} {payload}')
+							logger.warning(f'{self} unknown msgtype {msgid} {payload}')
 					else:
-						logger.warning(f'[bc] unknown msgtype {msgid} {payload}')
+						logger.warning(f'{self} unknown msgtype {msgid} {payload}')
 				else:
-					logger.warning(f'[bc] resp={payload}')
+					logger.warning(f'{self} resp={payload}')
 			else:
-				logger.warning(f'[bc] {self} not connected')
+				logger.warning(f'{self} not connected')
