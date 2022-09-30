@@ -4,7 +4,7 @@ from threading import Thread
 from loguru import logger
 from network import send_data, receive_data, dataid
 class BombClient(Thread):
-	def __init__(self, client_id=None, serveraddress=None, serverport=None):
+	def __init__(self, client_id=None, serveraddress=None, serverport=None, mainqueue=None):
 		Thread.__init__(self, daemon=True)
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.client_id = client_id
@@ -17,21 +17,22 @@ class BombClient(Thread):
 		self.netplayers = {}
 		self.gamemap = None
 		self.gotmap = False
+		self.mainqueue = mainqueue
 
 	def __str__(self):
 		return f'[bc] {self.client_id}'
 
 	def send_bomb(self):
-		payload = {'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':self.pos}
+		payload = {'data_id':dataid['update'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':self.pos}
 		send_data(conn=self.socket, data_id=dataid['update'], payload=payload)
 		logger.debug(f'{self} send_bomb {payload}')
 	
 	def send_mapreq(self):
-		send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id, 'payload':'reqmap'})
+		send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap']})
 		logger.debug(f'{self} send_mapreq conn:{self.connected} map:{self.gotmap} ')
 
 	def send_pos(self, pos):
-		payload = {'client_id': self.client_id, 'pos': pos}
+		payload = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1])}
 		send_data(conn=self.socket, data_id=dataid['playerpos'], payload=payload)
 		#send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id, 'payload':'reqmap'})
 		# logger.debug(f'{self} sendpos conn:{self.connected} map:{self.gotmap} p={self.pos}')
@@ -68,9 +69,13 @@ class BombClient(Thread):
 #				send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
 				# self.send_pos()
 				msgid, payload = None, None
-				msgid,payload = receive_data(conn=self.socket)
-				if msgid == 4:
-					if payload.get('msgtype') == 'bcnetupdate':
+				payload = receive_data(conn=self.socket)
+				# logger.debug(f'{self}  payload:{payload}')
+				if payload:
+					msgid = payload.get('payload').get('data_id')
+					#logger.debug(f'{self} msgid:{msgid} payload:{payload}')
+					if msgid == 4 or payload.get('msgtype') == 'bcnetupdate':
+						# logger.debug(f'{self} payload:{payload}')
 						if payload.get('payload').get('msgtype') == 'bcgetid':
 							if payload.get('payload').get('payload') == 'sendclientid':
 								logger.debug(f'sending client_id ')
@@ -86,17 +91,20 @@ class BombClient(Thread):
 								for np in netplayers:
 									self.netplayers[np] = netplayers[np]
 						elif payload.get('payload').get('msgtype') == 'mapfromserver':
-							gamemap = payload.get('payload').get('gamemap')
-							logger.debug(f'mapfromserver p={payload} g={gamemap}')
-							self.gamemap = gamemap
+							gamemapgrid = payload.get('payload').get('gamemapgrid')
+							logger.debug(f'mapfromserver g={len(gamemapgrid)}')
+							self.gamemapgrid = gamemapgrid
 							self.gotmap = True
-							testpayload = {'client_id': self.client_id, 'pos': self.pos}
+							#testpayload = {'client_id': self.client_id, 'pos': self.pos}
 							#send_data(conn=self.socket, data_id=dataid['playerpos'], payload=testpayload)
+						elif payload.get('payload').get('msgtype') == 'netbomb':
+							logger.debug(f'bombfromserver payload={payload}')
+							bombmsg = {'msgtype':'netbomb', 'bombdata':payload.get('payload')}
+							self.mainqueue.put_nowait(bombmsg)
+
 						else:
-							logger.warning(f'{self} unknown msgtype {msgid} {payload}')
+							logger.warning(f'{self} unknownpayload msgid={msgid} p={payload}')
 					else:
-						logger.warning(f'{self} unknown msgtype {msgid} {payload}')
-				else:
-					logger.warning(f'{self} resp={payload}')
+						logger.warning(f'{self} unknownmsgid={msgid} resp={payload}')
 			else:
 				logger.warning(f'{self} not connected')

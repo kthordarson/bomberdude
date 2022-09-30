@@ -47,4 +47,30 @@ class Powerup(BasicThing):
 	pass
 
 class Bomb(BasicThing):
-	pass
+	def __init__(self, pos, bomber_id, bomb_power=10):
+		self.rm = ResourceHandler()
+		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
+		self.image = pygame.transform.scale(self.image, BOMBSIZE)
+		self.pos = pos
+		BasicThing.__init__(self, self.pos, self.image)
+		self.bomber_id = bomber_id
+		self.rect = self.image.get_rect(topleft=self.pos)
+		self.rect.centerx = self.pos.x
+		self.rect.centery = self.pos.y
+		self.font = pygame.font.SysFont("calibri", 10, True)
+		self.start_time = pygame.time.get_ticks() / 1000
+		self.bomb_timer = 1
+		self.bomb_fuse = 1
+		self.bomb_end = 2
+		self.bomb_size = 5
+		self.explode = False
+		self.exp_radius = 1
+		self.done = False
+		self.flame_power = bomb_power
+		self.flame_len = bomb_power
+		self.flame_width = 10
+		self.flamesout = False
+		self.flames = Group()
+
+	def gen_flames(self):
+		pass

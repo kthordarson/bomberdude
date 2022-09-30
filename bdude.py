@@ -98,21 +98,10 @@ class Game(Thread):
 			if gamemsg:
 				self.mainqueue.task_done()
 				self.handle_mainq(gamemsg)				
-			# try:
-			# 	netmsg = self.netqueue.get_nowait()
-			# 	# logger.debug(f'[game] netmsg:{netmsg}')
-			# except Empty as e:
-			# 	pass
-			# 	# logger.warning(f'[game] {self.mainqueue.qsize()}')
-			# if netmsg:
-			# 	self.netqueue.task_done()
-			# 	self.handle_netq(netmsg)
-			# 	# self.netqueue.task_done()
-			# 	logger.debug(f'[game] done netmsg:{netmsg}')
-			# 	netmsg = None
 
 
 	def handle_mainq(self, gamemsg):
+		# logger.debug(f'[game] {self} gamemsg:{gamemsg}')
 		type = gamemsg.get('msgtype')
 		# logger.debug(f"[e] type:{type} cl:{gamemsg.get('client_id')} pos:{gamemsg.get('pos')} resp:{resp}")
 		if type == 'playerpos':
@@ -123,49 +112,29 @@ class Game(Thread):
 			# resp = receive_data(self.conn)
 			#logger.debug(f"[e] type:{type} cl:{gamemsg.get('client_id')} pos:{gamemsg.get('pos')} resp:{resp}")
 		elif type == 'bombdrop':
-			resp = {'authkey':self.authkey, 'msgtype':'bombdrop', 'client_id': gamemsg.get('client_id'), 'pos': gamemsg.get('pos'), 'data_id': dataid['gameevent']}
-			# if self.playerone.connected:
-			# 	self.sendq.put_nowait(resp)
-			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} Sending to sendq resplen:{len(resp)} resp={resp}')
-		elif type == 'gamemap':
-			gamemap = gamemsg.get('gamemap')
-			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemap:{len(gamemap.grid)}')
-			if len(gamemap.grid) > 1:
-				self.gamemap = gamemap
+			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemsg={gamemsg}')
+			#bomberid = gamemsg.get('bombdata').get('client_id')
+			#bombpos = gamemsg.get('bombdata').get('bombpos')
+			#newbomb = Bomb(pos=bombpos, bomberid=bomberid)
+			#self.bombs.add(newbomb)
+		elif type == 'netbomb':
+			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemsg={gamemsg}')
+			bomber_id = gamemsg.get('bombdata').get('client_id')
+			bombpos = gamemsg.get('bombdata').get('bombpos')
+			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
+			self.bombs.add(newbomb)
+		elif type == 'gamemapgrid':
+			gamemapgrid = gamemsg.get('gamemapgrid')
+			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemapgrid:{len(gamemapgrid)}')
+			if len(gamemapgrid) > 1:
+				self.gamemapgrid = gamemapgrid
 				newblocks = Group()
 				for k in range(0, GRIDSIZE[0]):
 					for j in range(0, GRIDSIZE[1]):
-						newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=gamemap.grid[j][k])
+						newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=gamemapgrid[j][k])
 						newblocks.add(newblock)
 				self.blocks.add(newblocks)
 			
-	def handle_netq(self, gamemsg):
-		netmsg = gamemsg.get('data').get('msgtype')
-		# logger.debug(F'[netq] {self.netqueue.qsize()} got type:{netmsg} engmsg:{len(gamemsg)}')
-		# if type == 'network':
-		# 	netmsg = None
-		# 	try:
-		# 		netmsg = gamemsg.get('data').get('msgtype')
-		# 	except AttributeError as e:
-		# 		logger.error(f'[game]{self.mainqueue.qsize()} {self.sendq.qsize()}  {type} AttributeError:{e} {gamemsg}')
-		# 		netmsg = None
-		# 	if netmsg:
-		if netmsg == 'bcnetupdate':
-			if gamemsg.get('data').get('payload').get('netplayers'):
-				self.netplayers = gamemsg.get('data').get('payload').get('netplayers')
-			if gamemsg.get('data').get('payload').get('msgtype') == 'bcpoll':
-				resp = {'msgtype':dataid["playerpos"], 'authkey':self.authkey, 'client_id': self.playerone.client_id, 'pos': self.playerone.pos, 'data_id': dataid['playerpos']}
-				# resp = {'data_id':dataid["auth"], 'msgtype':'auth', 'authkey':self.authkey, 'client_id':self.playerone.client_id}
-				self.sendq.put_nowait(resp)
-		elif gamemsg.get('msgtype') == 'auth' or gamemsg.get('data').get('msgtype') == 'auth':
-			resp = {'data_id':dataid["auth"], 'msgtype':'auth', 'authkey':self.authkey, 'client_id':self.playerone.client_id}
-			# resp = self.authresp
-			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()}  auth got type:{type} engmsg:{len(gamemsg)} Sending to sendq resplen:{len(resp)} resp={resp}')
-			if self.playerone.connected:
-				self.sendq.put_nowait(resp)
-		else:
-			logger.warning(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()}  unknown type:{type} gamemsg:{gamemsg}')
-
 
 	def update_players(self):
 		pass
@@ -195,7 +164,9 @@ class Game(Thread):
 			return
 		self.screen.fill(self.bg_color)
 		self.blocks.draw(self.screen)
+		self.bombs.draw(self.screen)
 		self.players.draw(self.screen)
+		
 		for np in self.playerone.client.netplayers:
 			if self.playerone.client_id != np:
 				pos = self.playerone.client.netplayers[np].get('pos')
@@ -321,29 +292,6 @@ class Game(Thread):
 				logger.warning(f'[pgevent] quit {event.type}')
 				self.running = False
 
-def run_testclient():
-	bc = BombClient(client_id=1, serveraddress='127.0.0.1', serverport=9696)
-	logger.info(f'test bombclient bc:{bc}')
-	conn = bc.connect_to_server()
-	if conn:
-		logger.info(f'test bombclient bc:{bc} conn={conn}')
-		while True:
-			msgid, payload = None, None
-			testpayload = {'client_id': bc.client_id, 'pos': (100,100)}
-			send_data(conn=bc.socket, data_id=dataid['playerpos'], payload=testpayload)
-			msgid,payload = receive_data(conn=bc.socket)
-			if msgid == 4:
-				if payload.get('msgtype') == 'bcnetupdate':
-					if payload.get('payload').get('msgtype') == 'bcgetid':
-						if payload.get('payload').get('payload') == 'sendclientid':
-							logger.debug(f'[bct] resp={payload}')
-							authpayload = {'client_id': bc.client_id, 'pos': (100,100)}
-							send_data(conn=bc.socket, data_id=dataid['auth'], payload=authpayload)
-			else:
-				logger.warning(f'[')
-	else:
-		logger.warning(f'test bombclient bc:{bc} conn failed conn={conn}')
-	#client.run()
 
 
 if __name__ == "__main__":
@@ -351,7 +299,8 @@ if __name__ == "__main__":
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
 	args = parser.parse_args()
 	if args.testclient:
-		run_testclient()
+		pass
+
 	else:
 		pygame.init()
 		screen = pygame.display.set_mode(SCREENSIZE, 0, 32)

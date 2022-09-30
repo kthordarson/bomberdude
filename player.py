@@ -29,7 +29,7 @@ class Player(BasicThing, Thread):
 		self.pos = pos
 		self.rect = self.image.get_rect(center=self.pos)
 		self.speed = 3
-		self.client = BombClient(client_id=self.client_id, serveraddress='127.0.0.1', serverport=9696)
+		self.client = BombClient(client_id=self.client_id, serveraddress='127.0.0.1', serverport=9696, mainqueue=self.mainqueue)
 		self.gotmap = False
 
 
@@ -47,17 +47,17 @@ class Player(BasicThing, Thread):
 		pass
 
 	def update(self):
-		self.client.pos = self.pos
+		self.client.pos = (self.pos[0], self.pos[1])
 		self.pos += self.vel
 		self.rect.center = self.pos
 		if self.connected:
-			self.client.send_pos(self.pos)
+			self.client.send_pos((self.pos[0], self.pos[1]))
 			#self.mainqueue.put_nowait({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
 			if not self.gotmap:
 				if self.client.gotmap:
-					self.mainqueue.put_nowait({'msgtype':'gamemap', 'client_id':self.client_id, 'gamemap':self.client.gamemap})
+					self.mainqueue.put_nowait({'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.client.gamemapgrid})
 					self.gotmap = True
-					logger.debug(f'[player] gotmap:{self.gotmap}')
+					logger.debug(f'[{self}] gotmap:{self.gotmap} grid:{len(self.client.gamemapgrid)}')
 
 
 	def take_powerup(self, powerup=None):
