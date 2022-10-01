@@ -238,8 +238,8 @@ class Bomb(BasicThing):
 	def __str__(self):
 		return f'[bomb] {self.pos}'
 
-	def draw(self, screen):
-		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
+#	def draw(self, screen):
+#		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
 
 	def gen_flames(self):
 		if not self.flamesout:

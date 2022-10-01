@@ -1,3 +1,4 @@
+import time
 import pygame
 from globals import BasicThing, Block, Bomb
 from loguru import logger

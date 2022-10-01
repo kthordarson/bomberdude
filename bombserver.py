@@ -33,7 +33,8 @@ class Sender(Thread):
 				conn, payload = self.queue.get()
 				# logger.debug(f'{self} senderthread sending payload:{payload}')
 				try:
-					send_data(conn, payload={'msgtype':'bcnetupdate', 'payload':payload}, data_id=dataid['update'])
+					# send_data(conn, payload={'msgtype':'bcnetupdate', 'payload':payload})
+					send_data(conn, payload)
 				except (BrokenPipeError, ConnectionResetError) as e:
 					logger.error(f'{self} senderr {e}')
 					self.kill = True
@@ -72,6 +73,9 @@ class Servercomm(Thread):
 					elif payload.get('msgtype') == 'netbomb':
 						#logger.debug(f'{self} bomb payload:{payload}')
 						self.serverqueue.put(payload)
+					elif payload.get('msgtype') == 'netgrid':
+						#logger.debug(f'{self} bomb payload:{payload}')
+						self.serverqueue.put(payload)
 				#logger.debug(f'{self} payload:{payload}')
 
 
@@ -100,12 +104,16 @@ class BombClientHandler(Thread):
 		#self.sender.send(self.conn, payload)
 		self.sender.queue.put_nowait((self.conn, payload))
 
+	def gridupdate(self, data):
+		logger.debug(f'{self} griddata:{len(data)}')
+		self.sender.queue.put_nowait((self.conn, data))
+
 	def bombevent(self, data):
 		logger.debug(f'{self} bombevent data:{data}')
 		self.sender.queue.put_nowait((self.conn, data))
 
 	def get_client_id(self):
-		payload = {'msgtype':'bcgetid', 'payload':'sendclientid'}
+		payload = {'msgtype':'bcgetid', 'payload':'sendclientid', 'data_id':dataid['getid']}
 		self.sender.queue.put_nowait((self.conn, payload))
 		logger.debug(f'{self} sent payload:{payload}')
 		#self.sender.send(self.conn, payload)
@@ -113,11 +121,6 @@ class BombClientHandler(Thread):
 		try:
 			resp = receive_data(self.conn)
 			rid = resp.get('data_id')
-			if rid == dataid['UnpicklingError']:
-				logger.error(f'{self} UnpicklingError rid={rid} resp={resp}')
-				self.conn.close()
-				self.kill = True
-				return
 			if resp or rid:
 				logger.debug(f'{self} rid:{rid} resp:{resp}')
 				clid = resp.get('client_id')
@@ -149,11 +152,8 @@ class BombClientHandler(Thread):
 				self.kill = True
 				break
 			#if len(self.netplayers) >= 1:
-			payload = {'msgtype':'bcpoll', 'client_id':self.client_id, 'netplayers':self.netplayers}
-			# self.sendq.put_nowait(payload)
-			#self.sender.send(self.conn, payload)
+			payload = {'msgtype':dataid['netplayers'], 'client_id':self.client_id, 'netplayers':self.netplayers, 'data_id':dataid['netplayers']}
 			self.sender.queue.put_nowait((self.conn, payload))
-			#send_data(self.conn, payload={'msgtype':'bcupdate', 'payload':'kren'}, data_id=dataid['update'])
 			try:
 				resp = receive_data(self.conn)
 				# logger.debug(f'{self} rid:{rid} resp:{resp}')
@@ -173,12 +173,26 @@ class BombClientHandler(Thread):
 				s_pos = resp.get('pos')
 				#logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
 				self.pos = s_pos
-				self.srvcomm.queue.put({'msgtype':'playerpos', 'client_id':s_clid, 'pos':s_pos})
+				posmsg = {'msgtype':'playerpos', 'client_id':s_clid, 'pos':s_pos}
+				self.srvcomm.queue.put(posmsg)
 			elif rtype == dataid.get('update') or rid == 4:
-				# logger.debug(f'{self} bomb received id:{rid} resp={resp}')
-				self.srvcomm.queue.put({'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos')})
+				pass
+				# logger.debug(f'{self} received id:{rid} resp={resp}')
+			elif rtype == dataid.get('netbomb') or rid == 14:
+				updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
+				self.srvcomm.queue.put(updatemsg)
 			elif rtype == dataid['reqmap'] or rid == 7:
 				self.send_map()
+			elif rtype == dataid['gridupdate'] or rid == 12:
+				# new grid and send update to clients
+				senderid = resp.get('client_id')
+				newgrid = resp.get('gamemapgrid')
+				gridmsg = {'msgtype': 'netgrid', 'client_id': senderid, 'gamemapgrid': newgrid, 'data_id': dataid['gridupdate']}
+				self.srvcomm.queue.put(gridmsg)
+				#self.gamemap.grid = newgrid
+				#self.send_map()
+				logger.debug(f'{self} gridupdate senderid:{senderid} newgrid:{len(newgrid)}')
+
 			elif rtype == dataid.get('gameevent') or rid == 9:
 				logger.debug(f'{self} gamevent received id:{rid} resp={resp}')
 			elif rtype == dataid['auth'] or rid == 101:
@@ -249,6 +263,10 @@ class BombServer(Thread):
 					logger.debug(f'[server] netbomb {data}')
 					for bc in self.bombclients:
 						bc.bombevent(data)
+				elif type == 'netgrid':
+					logger.debug(f'[server] netgrid {len(data)}')
+					for bc in self.bombclients:
+						bc.gridupdate(data)
 				else:
 					logger.warning(f'[server] data={data}')
 

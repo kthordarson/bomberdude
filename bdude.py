@@ -123,6 +123,8 @@ class Game(Thread):
 		elif type == 'newblock':
 			blk = gamemsg.get('blockdata')
 			self.blocks.add(blk)
+			self.gamemapgrid[blk.gridpos[0]][blk.gridpos[1]] = 0
+			self.playerone.client.send_gridupdate(self.gamemapgrid)
 			logger.debug(f'[blk] self.blocks:{len(self.blocks)} {blk} ')
 		elif type == 'gamemapgrid':
 			gamemapgrid = gamemsg.get('gamemapgrid')
@@ -162,12 +164,13 @@ class Game(Thread):
 						pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
 					else:
 						pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
-				pos, gridpos, particles, newblock, powerblock = block.hit(flame)
+				pos, gridpos, particles, newblock, powerblock = block.hit(flame)				
 				if particles:
 					particlemsg = {'msgtype': 'particles', 'particledata': particles}
 					self.mainqueue.put(particlemsg)
 					#self.particles.add(particles)
 				if newblock:
+					# self.gamemap.set_block(gridpos[0], gridpos[1], 0)
 					blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
 					self.mainqueue.put(blockmsg)
 					# self.blocks.add(newblock)
@@ -183,10 +186,9 @@ class Game(Thread):
 			blocks = spritecollide(particle, self.blocks, dokill=False)
 			for block in blocks:
 				if block.solid:
-					if DEBUG:
-						pygame.draw.circle(self.screen, (111,111,111), particle.rect.center, 2)
-						pygame.draw.rect(self.screen, (85,85,85), rect=block.rect, width=1)
-					particle.hit(block)
+					particle.hit()
+
+	# self.particles.remove(particle)
 
 	def update_powerups(self, playerone):
 		if len(self.powerups) > 0:
@@ -291,6 +293,10 @@ class Game(Thread):
 					self.playerone.client.send_pos(pos=self.playerone.pos)
 				if event.key == pygame.K_3:
 					pass
+					# logger.debug(f'[c] req serverinfo p1c:{self.playerone.bombclient.connected}')
+					# self.playerone.get_server_info()
+					# logger.debug(f'[c] req netplayers p1c:{self.playerone.bombclient.connected}')
+					# self.playerone.refresh_netplayers()
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
@@ -365,13 +371,6 @@ if __name__ == "__main__":
 			if game.kill:
 				game.running = False
 				break
-			try:
-				t1 = time.time()
-			except KeyboardInterrupt as e:
-				logger.warning(f'[kb] {e}')
-				# game.kill_engine(killmsg=f'killed by {e}')
-				break
-		pygame.quit()
-
-
-
+		except KeyboardInterrupt as e:
+			print(f'[kb] {e}')
+			engine.kill_engine(killmsg=f'killed by {e}')
