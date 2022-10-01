@@ -40,6 +40,13 @@ class BombClient(Thread):
 		send_data(conn=self.socket, payload=gridmsg)
 		logger.debug(f'{self} send_gridupdate {len(gridmsg)}')
 
+	def disconnect(self):
+		quitmsg = {'data_id': dataid['clientquit'], 'client_id': self.client_id, 'payload': 'quit'}
+		send_data(conn=self.socket, payload=quitmsg)
+		self.kill = True
+		self.connected = False
+		self.socket.close()
+
 	def connect_to_server(self):
 		if not self.connected:
 			logger.debug(f'{self} connect_to_server {self.server}')

@@ -286,8 +286,8 @@ class Game(Thread):
 					self.gui.show_mainmenu ^= True
 				if event.key == pygame.K_q:
 					# quit game
+					self.playerone.client.disconnect()
 					self.kill = True
-					self.playerone.kill = True
 					self.running = False
 				if event.key == pygame.K_1:
 					self.playerone.client.send_mapreq()
