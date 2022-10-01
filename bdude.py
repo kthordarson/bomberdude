@@ -371,6 +371,12 @@ if __name__ == "__main__":
 			if game.kill:
 				game.running = False
 				break
-		except KeyboardInterrupt as e:
-			print(f'[kb] {e}')
-			engine.kill_engine(killmsg=f'killed by {e}')
+			try:
+				t1 = time.time()
+			except KeyboardInterrupt as e:
+				logger.warning(f'[kb] {e}')
+				# game.kill_engine(killmsg=f'killed by {e}')
+				break
+		pygame.quit()
+
+
