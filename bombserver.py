@@ -1,277 +1,308 @@
-from itertools import chain
+import struct
 import socket
-from signal import signal, SIGPIPE, SIG_DFL
-from random import randint
 import sys
-import time
-from queue import Empty, Queue
-
 from loguru import logger
-from pygame.math import Vector2
-from pygame.sprite import Group
+from threading import Thread
 
-from things import Block
+# from things import Block
 from constants import GRIDSIZE
 from map import Gamemap
 from globals import gen_randid
-from netutils import data_identifiers, DataReceiver, DataSender,get_ip_address
-from threading import Thread, Event
-from threading import enumerate as t_enumerate
-import pickle
+from network import receive_data, send_data, dataid
 
+from queue import Queue
 
-
-class ClientHandler(Thread):
-	def __init__(self, name=None, clientaddr=None, connection_socket=None, packet_trace=False, data=None):
-		Thread.__init__(self, name=f'chthread-{name}', daemon=True)
-		self.name = name
-		self.clid = self.name
-		self.kill = False
-		self.data = data
-		#self.clmsgid, self.clid, self.clmsg = 1,2,3
-		self.tick_count = 0
-		self.s_count = 0
-		self.r_count = 0
-		self.dork_count = 0
-		self.packet_trace = packet_trace
-		self.csocket = connection_socket
-		self.caddr = clientaddr
-		self.remote = self.caddr
-		self.clpos = Vector2()
-		self.pos_list = {}
-		logger.debug(f'[ch] id:{self.clid} init r:{self.caddr} d:{data}')
-
-	def __repr__(self) -> str:
-		return f'[ch] id:{self.clid} r:{self.remote} n:{self.name} t:{self.tick_count}'
-
-	def get_dorks(self):
-		self.dork_count += 1
-		return f'{self} clid:{self.clid} n:{self.name} t:{self.tick_count} rs:{self.r_count}/{self.s_count} dorks:{self.dork_count}'
-
-	def set_packet_trace(self, state=2): # 0=off, 1=on, 2=toggle
-		if state == 0:
-			self.packet_trace = False
-		if state == 1:
-			self.packet_trace = True
-		if state == 2:
-			self.packet_trace ^= True
-		logger.debug(f'[ch] id:{self.clid} s:{state} pkt:{self.packet_trace}')
-
-	def get_clpos(self):
-		return self.clpos
-
-	def get_clid(self):
-		return self.clid
-
-	def update_tick(self):
-		self.tick_count += 1
-
-	def handle_incoming(self, rawdata=None):
-		# logger.debug(f'[clch] incoming:{dataraw}')
-		data = rawdata.decode('utf-8')
-		try:
-			msgid, clid, msgdata, *_ = data.split(':')
-		except ValueError as e:
-			# logger.error(f'[chincoming] {e} rd:{rawdata} rawlen:{len(rawdata)} d:{data} dlen:{len(data)}')
-			return
-		try:
-			msgid = int(msgid)
-		except ValueError as e:
-			pass
-		if msgid == 1:
-			pass
-		elif msgid == 2:
-			pass
-		elif msgid == 2:
-			pass
-		elif msgid == 5:
-			#logger.debug(f'[chincoming] pos clid:{clid} msgid:{msgid} mt:{type(msgid)} m:{msgdata} r:{rawdata}')
-			x = float(msgdata.strip().replace('(','').replace(')','').split(',')[0])
-			y = float(msgdata.strip().replace('(','').replace(')','').split(',')[1])
-			clpos = Vector2(x,y)
-			#self.pos_list[clid] = clpos
-			#logger.debug(f'[chincoming] pos:{clpos} from clid:{clid} m:{msgdata}')
-		elif msgid == 6:
-			logger.debug(f'[chincoming] getnetplayers clid:{clid} msgid:{msgid} mt:{type(msgid)} m:{msgdata} r:{rawdata}')
-		elif msgid == 155:
-			logger.debug(f'[chincoming] getserverinfo clid:{clid} msgid:{msgid} mt:{type(msgid)} m:{msgdata} r:{rawdata}')
-		else:
-			if self.packet_trace:
-				logger.warning(f'[chincoming] unknownmsgid clid:{clid} msgid:{msgid} mt:{type(msgid)} m:{msgdata} r:{rawdata}')
-
-	def run(self):
-		while not self.kill:
-			if self.kill:
-				break
-			if self.csocket._closed or self.kill:
-				logger.warning(f'[ch] socket closed sclosed:{self.csocket._closed} kill:{self.kill}')
-				self.kill = True
-				break
-			else:
-				self.tick_count += 1
-				rawdata = None
-				msg = self.tick_count
-				try:
-					self.sendmsg(msgid=96, msgdata=msg)
-				except BrokenPipeError as e:
-					logger.error(f'[ch] {e} sclosed:{self.csocket._closed} kill:{self.kill}')
-					self.csocket.close()
-					break
-				try:
-					rawdata = self.csocket.recv(1024)
-				except OSError as e:
-					logger.error(f'[connh] {e} sclosed:{self.csocket._closed} kill:{self.kill}')
-					self.csocket.close()
-					self.kill = True
-					break
-				if rawdata:
-					self.handle_incoming(rawdata=rawdata)
-					self.r_count += 1
-					# logger.debug(f'[srvclh] got data:{rawdata}')
-
-	def sendmsg(self, msgid=None, msgdata=None):
-		if self.csocket._closed:
-			logger.warning(f'[ch] socket closed sclosed:{self.csocket._closed} kill:{self.kill}')
-			self.kill = True
-			return
-		data = f'{msgid}:{self.clid}:{msgdata}'.encode('utf-8')
-		if self.packet_trace:
-			logger.debug(f'[ch] send data:{data} msgid:{msgid} msgdata:{msgdata} clid:{self.clid}')
-		try:
-			self.csocket.send(data)
-			self.s_count += 1
-		except OSError as e:
-			logger.error(f'[ch] send err {e} msgid:{msgid} msgdata:{msgdata} socket:{self.csocket} sclosed:{self.csocket._closed} kill:{self.kill}')
-			self.csocket.close()
-			self.kill = True
-		# self.ds.queue.put(data)
-
-	def sendmsgx(self, msgid=None, msgdata=None):
-		#data = f'ch-{self.clid}:{msg}'.encode('utf-8')
-		data = f'{msgid}:{self.clid}:{msgdata}'.encode('utf-8')
-		if self.packet_trace:
-			logger.debug(f'[connh] id:{self.clid} sending mid:{msgid} m:{msgdata} d:{data} to:{self.remote}')
-		#self.socket.sendto(data, self.remote)
-
-class BListener(Thread):
-	def __init__(self, socket=None, localaddr=None, packet_trace=None):
-		Thread.__init__(self, name='blistener', daemon=True)
-		self.localaddr = localaddr
-		self.socket = socket
-		self.packet_trace = packet_trace
+class Sender(Thread):
+	def __init__(self):
+		Thread.__init__(self)
 		self.kill = False
 		self.queue = Queue()
-	
-	def run(self):
-		self.socket.bind(self.localaddr)
-		self.socket.listen()
-		while not self.kill:
-			connectionSocket = None
-			clientAddress = None
-			conn_counter = 0
-			try:
-				try:
-					(connectionSocket, clientAddress) = self.socket.accept()
-				except (TimeoutError, BlockingIOError) as e:
-					logger.warning(f'[server] {e}')
-				if connectionSocket:
-					newclient = ClientHandler(name=f'bdclient{conn_counter}', clientaddr=clientAddress, connection_socket=connectionSocket, packet_trace=self.packet_trace)
-					self.queue.put(newclient)
-			except KeyboardInterrupt as e:
-				logger.error(e)
-	
-class BombServer(Thread):
-	def __init__(self, name='BombServer', listenaddr='192.168.1.122', port=6666, serverqueue=None, enginequeue=None, stop_event=None):
-		Thread.__init__(self, name='BombServer', args=(stop_event,), daemon=True)
-		self.serverq = serverqueue
-		self.enginequeue = enginequeue
-		self.name = name
-		self.localaddr = (listenaddr, port)
-		self.socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self.packet_trace = False
-		self.listener = BListener(socket=self.socket, localaddr=self.localaddr, packet_trace=self.packet_trace)
-		self.clients = []
-		self.clist = {}
-		self.kill = False
-		self.stop_event = stop_event
+		self.sendcount = 0
+		logger.info(f'[BC] {self} senderthread init')
 
-	def __repr__(self):
-		return f'[s] {self.name} {self.localaddr} {len(self.clients)} {len(self.clist)}'
-
-	def get_client_count(self):
-		return len(self.clients)
-
-	def get_clients(self):
-		return self.clients
+	def __str__(self):
+		return f'[sender] count={self.sendcount} sq:{self.queue.qsize()}'
 
 	def run(self):
-		self.listener.start()
-		conn_counter = 0
+		logger.info(f'{self} run')
 		while True:
-			if not self.listener.queue.empty():
-				newclient = self.listener.queue.get()
-				logger.debug(f'[qitem] {newclient} {type(newclient)}') 
-				connectionSocket, clientAddress = None, None
-				conn_counter += 1
-				self.listener.queue.task_done()
-				self.clients.append(newclient)
-				newclient.start()
-				logger.debug(f'[newconn] {newclient} clients:{len(self.clients)} cs:{newclient.csocket} caddr:{newclient.caddr}')
+			if self.kill:
+				logger.warning(f'{self} killed')
+				break
+			if not self.queue.empty():
+				conn, payload = self.queue.get()
+				# logger.debug(f'{self} senderthread sending payload:{payload}')
+				try:
+					# send_data(conn, payload={'msgtype':'bcnetupdate', 'payload':payload})
+					send_data(conn, payload)
+				except (BrokenPipeError, ConnectionResetError) as e:
+					logger.error(f'{self} senderr {e}')
+					self.kill = True
+					break
+				self.sendcount += 1
+				self.queue.task_done()
+
+class Servercomm(Thread):
+	def __init__(self, serverqueue=None):
+		Thread.__init__(self)
+		self.kill = False
+		self.serverqueue = serverqueue
+		self.queue = Queue()
+		self.netplayers = {}
+		self.srvcount = 0
+		logger.info(f'[BC] {self} server_comm init')
+
+	def __str__(self):
+		return f'[scomm] count={self.srvcount} np={len(self.netplayers)} sq:{self.queue.qsize()}'
+
+	def run(self):
+		logger.info(f'{self} server_comm run')
+		while True:
+			if self.kill:
+				logger.warning(f'{self} server_comm killed')
+				break
+			payload = None
+			if not self.queue.empty():
+				payload = self.queue.get()
+				self.srvcount += 1
+				if payload:
+					if payload.get('msgtype') == 'netplayers':
+						netplayers = payload.get('netplayers')
+						for np in netplayers:
+							self.netplayers[np] = netplayers[np]
+					elif payload.get('msgtype') == 'netbomb':
+						#logger.debug(f'{self} bomb payload:{payload}')
+						self.serverqueue.put(payload)
+					elif payload.get('msgtype') == 'netgrid':
+						#logger.debug(f'{self} bomb payload:{payload}')
+						self.serverqueue.put(payload)
+				#logger.debug(f'{self} payload:{payload}')
 
 
-if __name__ == '__main__':
+class BombClientHandler(Thread):
+	def __init__(self, conn=None,  addr=None, gamemap=None, srvcomm=None):
+		Thread.__init__(self)
+		self.queue = Queue()
+		self.sendq = Queue() # multiprocessing.Manager().Queue()
+		self.client_id = None
+		self.kill = False
+		self.conn = conn
+		self.addr = addr
+		self.netplayers = {}
+		self.pos = (0,0)
+		self.gamemap = gamemap
+		self.sender = Sender()
+		self.srvcomm = srvcomm #Servercomm(self.queue)
+		logger.info(f'[BC] {self} BombClientHandler init conn:{self.conn} addr:{self.addr} client_id:{self.client_id}')
+
+	def __str__(self):
+		return f'[BCH] {self.client_id} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.srvcomm}'
+
+	def send_map(self):
+		logger.info(f'{self} send_map')
+		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid']}
+		#self.sender.send(self.conn, payload)
+		self.sender.queue.put_nowait((self.conn, payload))
+
+	def gridupdate(self, data):
+		logger.debug(f'{self} griddata:{len(data)}')
+		self.sender.queue.put_nowait((self.conn, data))
+
+	def bombevent(self, data):
+		logger.debug(f'{self} bombevent data:{data}')
+		self.sender.queue.put_nowait((self.conn, data))
+
+	def get_client_id(self):
+		payload = {'msgtype':'bcgetid', 'payload':'sendclientid', 'data_id':dataid['getid']}
+		self.sender.queue.put_nowait((self.conn, payload))
+		logger.debug(f'{self} sent payload:{payload}')
+		#self.sender.send(self.conn, payload)
+		rid, resp = None, None
+		try:
+			resp = receive_data(self.conn)
+			rid = resp.get('data_id')
+			if resp or rid:
+				logger.debug(f'{self} rid:{rid} resp:{resp}')
+				clid = resp.get('client_id')
+				self.client_id = clid
+				logger.info(f'{self} rid:{rid} resp:{resp}')
+				if resp == 'reqmap':
+					self.send_map()
+		except (ConnectionResetError, BrokenPipeError, struct.error, EOFError) as e:
+			logger.error(f'{self} receive_data error:{e}')
+		#self.sendq.put_nowait(payload)
+
+	def run(self):
+		self.get_client_id()
+		logger.debug(f'[BC] {self.client_id} run ')
+		#st = Thread(target=self.sender, daemon=True)
+		#st.start()
+		#srvcomm = Thread(target=self.server_comms, daemon=True)
+		#srvcomm.start()
+		self.sender.start()
+		#self.srvcomm.start()
+		while True:
+			self.netplayers = self.srvcomm.netplayers
+			# logger.debug(f'{self} np={self.netplayers}')
+			if self.client_id is None:
+				self.get_client_id()
+			rid, resp = None, None
+			if self.kill or self.sender.kill:
+				logger.debug(F'{self} killed')
+				self.kill = True
+				break
+			#if len(self.netplayers) >= 1:
+			payload = {'msgtype':dataid['netplayers'], 'client_id':self.client_id, 'netplayers':self.netplayers, 'data_id':dataid['netplayers']}
+			self.sender.queue.put_nowait((self.conn, payload))
+			try:
+				resp = receive_data(self.conn)
+				# logger.debug(f'{self} rid:{rid} resp:{resp}')
+			except (ConnectionResetError, BrokenPipeError, struct.error, EOFError) as e:
+				logger.error(f'{self} receive_data error:{e}')
+				self.conn.close()
+				self.kill = True
+				break
+			if resp:
+				rid = resp.get('data_id')
+				rtype = dataid.get(rid, None)
+			if rid == dataid.get('info') or rid == 0:
+				self.srvcomm.queue.put({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
+			elif rtype == dataid.get('playerpos') or rid == 3:
+				#logger.debug(f'{self} {rtype} {rid} {resp}')
+				s_clid = resp.get('client_id')
+				s_pos = resp.get('pos')
+				#logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
+				self.pos = s_pos
+				posmsg = {'msgtype':'playerpos', 'client_id':s_clid, 'pos':s_pos}
+				self.srvcomm.queue.put(posmsg)
+			elif rtype == dataid.get('update') or rid == 4:
+				pass
+				# logger.debug(f'{self} received id:{rid} resp={resp}')
+			elif rtype == dataid.get('netbomb') or rid == 14:
+				updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
+				self.srvcomm.queue.put(updatemsg)
+			elif rtype == dataid['reqmap'] or rid == 7:
+				self.send_map()
+			elif rtype == dataid['gridupdate'] or rid == 12:
+				# new grid and send update to clients
+				senderid = resp.get('client_id')
+				newgrid = resp.get('gamemapgrid')
+				gridmsg = {'msgtype': 'netgrid', 'client_id': senderid, 'gamemapgrid': newgrid, 'data_id': dataid['gridupdate']}
+				self.srvcomm.queue.put(gridmsg)
+				#self.gamemap.grid = newgrid
+				#self.send_map()
+				logger.debug(f'{self} gridupdate senderid:{senderid} newgrid:{len(newgrid)}')
+
+			elif rtype == dataid.get('gameevent') or rid == 9:
+				logger.debug(f'{self} gamevent received id:{rid} resp={resp}')
+			elif rtype == dataid['auth'] or rid == 101:
+				logger.debug(f'{self} auth received id:{rid} resp={resp}')
+				clid = resp.get('client_id')
+				self.client_id = clid
+			elif rtype == dataid['UnpicklingError'] or rid == 1002:
+				logger.warning(f'{self} UnpicklingError rid:{rid}')
+			else:
+				if resp:
+					logger.warning(f'{self} unknownevent rid:{rid} rtype:{rtype}  resp={len(resp)} resp={resp}')
+				else:
+					pass
+					#logger.error(f'{self} unknownevent noresp rid:{rid} rtype:{rtype}  resp={type(resp)}')
+
+class BombServer(Thread):
+	def __init__(self):
+		Thread.__init__(self, daemon=True)
+		self.bombclients  = []
+		self.gamemap = Gamemap()
+		self.kill = False
+		self.queue = Queue() # multiprocessing.Manager().Queue()
+		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.netplayers = {}
+
+	def run(self):
+		logger.debug(f'[server] run')
+		#self.srvcomm.start()
+		while not self.kill:
+			for bc in self.bombclients:
+				if bc.client_id:
+					np = {'client_id':bc.client_id, 'pos':bc.pos}
+					self.netplayers[bc.client_id] = np
+					payload = {'msgtype':'netplayers', 'netplayers':self.netplayers}
+					bc.srvcomm.queue.put(payload)
+			if self.kill:
+				logger.debug(f'[server] killed')
+				for c in self.bombclients:
+					logger.debug(f'[server] killing {c}')
+					c.kill = True
+				break
+			if not self.queue.empty():
+				data = self.queue.get()
+				# logger.debug(f'[server] getq data:{data}')
+				type = data.get('msgtype')
+				# self.queue.task_done()
+				if type == 'newclient':
+					# logger.debug(f'[server] q: {data}')
+					conn = data.get('conn')
+					addr = data.get('addr')
+					# clid = data.get('clid')
+					srvcomm = Servercomm(serverqueue=self.queue)
+					bc = BombClientHandler(conn=conn, addr=addr, gamemap=self.gamemap, srvcomm=srvcomm)
+					srvcomm.start()
+					logger.debug(f'[server] new player:{bc} cl:{len(self.bombclients)}')
+					self.bombclients.append(bc)
+					bc.start()
+				elif type == 'playerpos':
+					for bc in self.bombclients:
+						clid = data.get('client_id')
+						pos = data.get('pos')
+						if clid != bc.client_id:
+							bc.netplayers[clid] = {'pos':pos}
+							self.netplayers[clid] = {'pos':pos}
+				elif type == 'netplayers':
+					pass
+				elif type == 'netbomb':
+					logger.debug(f'[server] netbomb {data}')
+					for bc in self.bombclients:
+						bc.bombevent(data)
+				elif type == 'netgrid':
+					logger.debug(f'[server] netgrid {len(data)}')
+					for bc in self.bombclients:
+						bc.gridupdate(data)
+				else:
+					logger.warning(f'[server] data={data}')
+
+
+def main():
 	mainthreads = []
-	squeue = Queue()
-	server = BombServer(name='bombserver', serverqueue=squeue)
-	server.daemon = True
+	key_message = 'bomberdude'
+	logger.debug(f'[bombserver] started')
+	clients = 0
+	# serverq = Queue()
+	server = BombServer()
+	server.conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+	server.conn.bind(('127.0.0.1', 9696))
+	server.conn.listen()
 	server.start()
 	while True:
+		logger.debug(f'[bombserver] waiting for connection clients:{clients}')
 		try:
-			cmd = input(f': ')
-			if cmd[:1] == 'q':
+			if server.kill:
 				break
-			if cmd[:1] == 'd':
-				logger.debug(f'[maindebug]')
-				for cl in server.clients:
-					logger.debug(f'\t[d] client:{cl} server.clients:{len(server.clients)} cl:{cl.remote}')
-					cl.sendmsg(msgid=99, msgdata='debugfromserver')
-				logger.debug(f'[dorkdebug]')
-				for ch in server.clients:
-					dorks = ch.get_dorks()
-					logger.debug(f'\t[chd] {ch} dorks:{dorks}')
-			if cmd[:1] == 'p':
-				logger.debug(f'[clientlist] total:{len(server.clients)}')
-				for cl in server.clients:
-					logger.debug(f'\tclient: {cl} ')
-				logger.debug(f'[clist] total:{len(server.clist)}')
-				for cl in server.clist:
-					logger.debug(f'\tc: {cl} {server.clist[cl]}')
-			if cmd[:2] == 't0':
-				server.packet_trace = False
-				logger.debug(f'[pkt] packet_trace:{server.packet_trace}')
-				[ch.set_packet_trace(state=0) for ch in server.clients]
-			if cmd[:2] == 't1':
-				server.packet_trace = True
-				logger.debug(f'[pkt] packet_trace:{server.packet_trace}')
-				[ch.set_packet_trace(state=1) for ch in server.clients]
-			if cmd[:2] == 't2':
-				server.packet_trace ^= True
-				logger.debug(f'[pkt] packet_trace:{server.packet_trace}')
-				[ch.set_packet_trace(state=2) for ch in server.clients]
-			if cmd[:1] == '1':
-				pass
-			if cmd[:1] == '2':
-				pass
-			if cmd[:1] == '3':
-				pass
-				#m.send_items_to_q()
+			conn, addr = server.conn.accept()
+			server.queue.put({'msgtype':'newclient', 'conn':conn, 'addr':addr})
 		except KeyboardInterrupt as e:
-			logger.debug(f'KeyboardInterrupt {e}')
-			break
-		except Exception as e:
-			logger.debug(f'E in main {e}')
-			#break
+			server.conn.close()
+			logger.warning(f'KeyboardInterrupt:{e} serverq:{server.queue} server:{server}')
+			for bc in server.bombclients:
+				logger.warning(f'kill bc:{bc}')
+				bc.kill = True
+				bc.join()
+			server.kill = True
+			server.join()
+			logger.warning(f'kill server:{server}')
+			return
 
-
-				#newclient = ClientHandler(name=f'bdclient{conn_counter}', clientaddr=clientAddress, connection_socket=connectionSocket, packet_trace=self.packet_trace)
+if __name__ == '__main__':
+	logger.info('start')
+	main()
+	logger.info('done')
+	sys.exit(0)

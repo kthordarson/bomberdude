@@ -92,12 +92,8 @@ class Menu:
 			self.menufont.render_to(screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
 			pos_y += 25
 
-	def draw_panel(self, blocks, particles, player1, flames):
-		pos = Vector2(10, self.screenh - 90)
-		idx = 0
-		# self.panelfont.render_to(self.screen, pos, f"[{idx}/{len(list(player1.net_players))}] playerid: {player1.client_id} ", self.panelfont_color)
-		self.panelfont.render_to(self.screen, pos, f"playerid: {player1.client_id} pos:{player1.rect} vel:{player1.vel} accel:{player1.accel} ", self.panelfont_color)
-		self.panelfont.render_to(self.screen, (pos.x, pos.y + 15), f"speed: {player1.speed} bombs: {player1.bombs_left} bombpower: {player1.bomb_power} score: {player1.score}", self.panelfont_color)
+	def draw_panel(self, blocks, particles, playerone, flames):
+		pass
 
 	def get_selection(self):
 		return self.menuitems[self.selected_item]
