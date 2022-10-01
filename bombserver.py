@@ -1,3 +1,4 @@
+import pygame
 import struct
 import socket
 import sys
@@ -5,7 +6,7 @@ from loguru import logger
 from threading import Thread
 
 # from things import Block
-from constants import GRIDSIZE
+from constants import GRIDSIZE, FPS
 from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data, dataid
@@ -97,10 +98,11 @@ class BombClientHandler(Thread):
 		self.gamemap = gamemap
 		self.sender = Sender()
 		self.srvcomm = srvcomm #Servercomm(self.queue)
+		self.clock = pygame.time.Clock()
 		logger.info(f'[BC] {self} BombClientHandler init conn:{self.conn} addr:{self.addr} client_id:{self.client_id}')
 
 	def __str__(self):
-		return f'[BCH] {self.client_id} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.srvcomm}'
+		return f'[BCH] {self.client_id} clock:{self.clock.get_time()} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.srvcomm}'
 
 	def quitplayer(self, quitter):
 		logger.info(f'{self} quitplayer quitter:{quitter}')
@@ -153,6 +155,7 @@ class BombClientHandler(Thread):
 		self.sender.start()
 		#self.srvcomm.start()
 		while True:
+			self.clock.tick(FPS)
 			self.netplayers = self.srvcomm.netplayers
 			# logger.debug(f'{self} np={self.netplayers}')
 			if self.client_id is None:
@@ -256,6 +259,8 @@ class BombServer(Thread):
 					self.netplayers[bc.client_id] = np
 					payload = {'msgtype':'netplayers', 'netplayers':self.netplayers}
 					bc.srvcomm.queue.put(payload)
+					if bc.clock.get_time() > 500:
+						logger.warning(f'[server] {bc} timeout')
 			if self.kill:
 				logger.debug(f'[server] killed')
 				for c in self.bombclients:

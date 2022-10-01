@@ -88,7 +88,7 @@ class Game(Thread):
 				# logger.warning(f'[game] {self.mainqueue.qsize()}')
 			if gamemsg:
 				# self.mainqueue.task_done()
-				self.handle_mainq(gamemsg)				
+				self.handle_mainq(gamemsg)
 
 
 	def handle_mainq(self, gamemsg):
@@ -136,7 +136,7 @@ class Game(Thread):
 						newblocks.add(newblock)
 				self.blocks.empty()
 				self.blocks.add(newblocks)
-			
+
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -163,7 +163,7 @@ class Game(Thread):
 						pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
 					else:
 						pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
-				pos, gridpos, particles, newblock, powerblock = block.hit(flame)				
+				pos, gridpos, particles, newblock, powerblock = block.hit(flame)
 				if particles:
 					particlemsg = {'msgtype': 'particles', 'particledata': particles}
 					self.mainqueue.put(particlemsg)
@@ -191,6 +191,7 @@ class Game(Thread):
 					particle.hit(block)
 
 	def update_powerups(self, playerone):
+		self.powerups.update()
 		if len(self.powerups) > 0:
 			powerblock_coll = spritecollide(playerone, self.powerups, False)
 			for pc in powerblock_coll:
@@ -218,9 +219,12 @@ class Game(Thread):
 		# 	pygame.draw.circle(self.screen, (255, 0, 0), bomb.pos, 10, 0)
 		for np in self.playerone.client.netplayers:
 			if self.playerone.client_id != np:
-				pos = self.playerone.client.netplayers[np].get('centerpos')				
-				pygame.draw.circle(self.screen, (255, 0, 0), pos, 10, 0)
-				self.font.render_to(self.screen, pos, str(np), (255, 255, 255))
+				cpos = Vector2(self.playerone.client.netplayers[np].get('centerpos'))
+				rpos = Vector2(self.playerone.client.netplayers[np].get('centerpos'))
+				pygame.draw.circle(self.screen, (255, 0, 0), cpos, 10, 0)
+				self.font.render_to(self.screen, rpos, str(np), (255, 255, 255))
+				rpos += (0,10)
+				self.font.render_to(self.screen, rpos, f'{cpos} {rpos}', (255, 255, 255))
 			if self.playerone.client_id == np:
 				pass
 				#pos = self.playerone.client.netplayers[np].get('pos')
@@ -247,7 +251,7 @@ class Game(Thread):
 				self.playerone.connected = True
 				logger.debug(f'[game] p1 connected:{self.p1connected} {self.playerone.connected} {self.playerone.client.connected}')
 				self.playerone.start_client()
-				self.playerone.client.send_mapreq()			
+				self.playerone.client.send_mapreq()
 
 		if selection == "Connect to server":
 			pass
