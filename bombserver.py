@@ -76,6 +76,9 @@ class Servercomm(Thread):
 					elif payload.get('msgtype') == 'netgrid':
 						#logger.debug(f'{self} bomb payload:{payload}')
 						self.serverqueue.put(payload)
+					elif payload.get('msgtype') == 'clientquit':
+						logger.debug(f'{self} quit payload:{payload}')
+						self.serverqueue.put(payload)
 				#logger.debug(f'{self} payload:{payload}')
 
 
@@ -98,6 +101,13 @@ class BombClientHandler(Thread):
 	def __str__(self):
 		return f'[BCH] {self.client_id} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.srvcomm}'
 
+	def quitplayer(self, quitter):
+		logger.info(f'{self} quitplayer quitter:{quitter}')
+		if quitter == self.client_id:
+			self.kill = True
+			self.sender.kill = True
+			self.conn.close()
+
 	def send_map(self):
 		logger.info(f'{self} send_map')
 		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid']}
@@ -109,7 +119,7 @@ class BombClientHandler(Thread):
 		self.sender.queue.put_nowait((self.conn, data))
 
 	def bombevent(self, data):
-		logger.debug(f'{self} bombevent data:{data}')
+		logger.debug(f'{self} bombevent bomber:{data.get("client_id")} pos:{data.get("bombpos")}')
 		self.sender.queue.put_nowait((self.conn, data))
 
 	def get_client_id(self):
@@ -178,9 +188,6 @@ class BombClientHandler(Thread):
 			elif rtype == dataid.get('update') or rid == 4:
 				pass
 				# logger.debug(f'{self} received id:{rid} resp={resp}')
-			elif rtype == dataid.get('netbomb') or rid == 14:
-				updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
-				self.srvcomm.queue.put(updatemsg)
 			elif rtype == dataid['reqmap'] or rid == 7:
 				self.send_map()
 			elif rtype == dataid['gridupdate'] or rid == 12:
@@ -195,6 +202,23 @@ class BombClientHandler(Thread):
 
 			elif rtype == dataid.get('gameevent') or rid == 9:
 				logger.debug(f'{self} gamevent received id:{rid} resp={resp}')
+			elif rtype == dataid['gridupdate'] or rid == 12:
+				# new grid and send update to clients
+				senderid = resp.get('client_id')
+				newgrid = resp.get('gamemapgrid')
+				gridmsg = {'msgtype': 'netgrid', 'client_id': senderid, 'gamemapgrid': newgrid, 'data_id': dataid['gridupdate']}
+				self.srvcomm.queue.put(gridmsg)
+				#self.gamemap.grid = newgrid
+				#self.send_map()
+				logger.debug(f'{self} gridupdate senderid:{senderid} newgrid:{len(newgrid)}')
+			elif rtype == dataid.get('netbomb') or rid == 14:
+				updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
+				self.srvcomm.queue.put(updatemsg)
+
+			elif rtype == dataid.get('clientquit') or rid == 16:
+				qmsg = {'msgtype':'clientquit', 'client_id':self.client_id}
+				self.srvcomm.queue.put(qmsg)
+
 			elif rtype == dataid['auth'] or rid == 101:
 				logger.debug(f'{self} auth received id:{rid} resp={resp}')
 				clid = resp.get('client_id')
@@ -260,13 +284,19 @@ class BombServer(Thread):
 				elif type == 'netplayers':
 					pass
 				elif type == 'netbomb':
-					logger.debug(f'[server] netbomb {data}')
+					logger.debug(f'[server] netbomb from {data.get("client_id")} pos={data.get("bombpos")}')
 					for bc in self.bombclients:
 						bc.bombevent(data)
 				elif type == 'netgrid':
-					logger.debug(f'[server] netgrid {len(data)}')
+					self.gamemap.grid = data.get('gamemapgrid')
+					# logger.debug(f'[server] netgrid {len(data)}')
 					for bc in self.bombclients:
 						bc.gridupdate(data)
+				elif type == 'clientquit':
+					logger.debug(f'[server] quit {data}')
+					quitter = data.get('client_id')
+					for bc in self.bombclients:
+						bc.quitplayer(quitter)
 				else:
 					logger.warning(f'[server] data={data}')
 

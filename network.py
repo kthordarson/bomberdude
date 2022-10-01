@@ -18,6 +18,7 @@ dataid = {
 	'netplayers': 13,
 	'netbomb': 14,
 	'getid': 15,
+	'clientquit': 16,
 	'auth':101,
 	'error':1000,
 	'errorfromserver':1001,

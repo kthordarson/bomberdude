@@ -24,7 +24,7 @@ class BombClient(Thread):
 	def send_bomb(self, pos=None):
 		payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos}
 		send_data(conn=self.socket, payload=payload)
-		logger.debug(f'{self} send_bomb {payload}')
+		logger.debug(f'{self} send_bomb pos={payload.get("bombpos")}')
 	
 	def send_mapreq(self):
 		regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap']}
@@ -39,6 +39,13 @@ class BombClient(Thread):
 		gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'gamemapgrid': gamemapgrid}
 		send_data(conn=self.socket, payload=gridmsg)
 		logger.debug(f'{self} send_gridupdate {len(gridmsg)}')
+
+	def disconnect(self):
+		quitmsg = {'data_id': dataid['clientquit'], 'client_id': self.client_id, 'payload': 'quit'}
+		send_data(conn=self.socket, payload=quitmsg)
+		self.kill = True
+		self.connected = False
+		self.socket.close()
 
 	def connect_to_server(self):
 		if not self.connected:
