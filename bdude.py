@@ -12,7 +12,7 @@ from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread, Event
 import threading
-from queue import Queue, Empty
+from queue import Queue
 #from bombserver import BombServer
 
 
@@ -82,14 +82,12 @@ class Game(Thread):
 			self.update_powerups(self.playerone)
 			gamemsg = None
 			netmsg = None
-			try:
+			if not self.mainqueue.empty():
 				gamemsg = self.mainqueue.get_nowait()
 				# logger.debug(f'[game] gamemsg:{gamemsg}')
-			except Empty as e:
-				pass
 				# logger.warning(f'[game] {self.mainqueue.qsize()}')
 			if gamemsg:
-				self.mainqueue.task_done()
+				# self.mainqueue.task_done()
 				self.handle_mainq(gamemsg)				
 
 
@@ -220,7 +218,7 @@ class Game(Thread):
 		# 	pygame.draw.circle(self.screen, (255, 0, 0), bomb.pos, 10, 0)
 		for np in self.playerone.client.netplayers:
 			if self.playerone.client_id != np:
-				pos = self.playerone.client.netplayers[np].get('pos')
+				pos = self.playerone.client.netplayers[np].get('centerpos')				
 				pygame.draw.circle(self.screen, (255, 0, 0), pos, 10, 0)
 				self.font.render_to(self.screen, pos, str(np), (255, 255, 255))
 			if self.playerone.client_id == np:
@@ -249,7 +247,7 @@ class Game(Thread):
 				self.playerone.connected = True
 				logger.debug(f'[game] p1 connected:{self.p1connected} {self.playerone.connected} {self.playerone.client.connected}')
 				self.playerone.start_client()
-			
+				self.playerone.client.send_mapreq()			
 
 		if selection == "Connect to server":
 			pass

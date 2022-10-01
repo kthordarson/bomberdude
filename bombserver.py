@@ -40,7 +40,7 @@ class Sender(Thread):
 					self.kill = True
 					break
 				self.sendcount += 1
-				self.queue.task_done()
+				# self.queue.task_done()
 
 class Servercomm(Thread):
 	def __init__(self, serverqueue=None):
@@ -93,6 +93,7 @@ class BombClientHandler(Thread):
 		self.addr = addr
 		self.netplayers = {}
 		self.pos = (0,0)
+		self.centerpos = (0,0)
 		self.gamemap = gamemap
 		self.sender = Sender()
 		self.srvcomm = srvcomm #Servercomm(self.queue)
@@ -167,23 +168,26 @@ class BombClientHandler(Thread):
 			try:
 				resp = receive_data(self.conn)
 				# logger.debug(f'{self} rid:{rid} resp:{resp}')
-			except (ConnectionResetError, BrokenPipeError, struct.error, EOFError) as e:
+			except (ConnectionResetError, BrokenPipeError, struct.error, EOFError, OSError) as e:
 				logger.error(f'{self} receive_data error:{e}')
 				self.conn.close()
 				self.kill = True
 				break
+			rtype = None
 			if resp:
 				rid = resp.get('data_id')
 				rtype = dataid.get(rid, None)
 			if rid == dataid.get('info') or rid == 0:
-				self.srvcomm.queue.put({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos})
+				self.srvcomm.queue.put({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos})
 			elif rtype == dataid.get('playerpos') or rid == 3:
 				#logger.debug(f'{self} {rtype} {rid} {resp}')
 				s_clid = resp.get('client_id')
 				s_pos = resp.get('pos')
+				c_pos = resp.get('centerpos')
 				#logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
 				self.pos = s_pos
-				posmsg = {'msgtype':'playerpos', 'client_id':s_clid, 'pos':s_pos}
+				self.centerpos = c_pos
+				posmsg = {'msgtype':'playerpos', 'client_id':s_clid, 'pos':s_pos, 'centerpos':c_pos}
 				self.srvcomm.queue.put(posmsg)
 			elif rtype == dataid.get('update') or rid == 4:
 				pass
@@ -248,7 +252,7 @@ class BombServer(Thread):
 		while not self.kill:
 			for bc in self.bombclients:
 				if bc.client_id:
-					np = {'client_id':bc.client_id, 'pos':bc.pos}
+					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos}
 					self.netplayers[bc.client_id] = np
 					payload = {'msgtype':'netplayers', 'netplayers':self.netplayers}
 					bc.srvcomm.queue.put(payload)
@@ -278,9 +282,10 @@ class BombServer(Thread):
 					for bc in self.bombclients:
 						clid = data.get('client_id')
 						pos = data.get('pos')
+						centerpos = data.get('centerpos')
 						if clid != bc.client_id:
-							bc.netplayers[clid] = {'pos':pos}
-							self.netplayers[clid] = {'pos':pos}
+							bc.netplayers[clid] = {'pos':pos, 'centerpos':centerpos}
+							self.netplayers[clid] = {'pos':pos, 'centerpos':centerpos}
 				elif type == 'netplayers':
 					pass
 				elif type == 'netbomb':

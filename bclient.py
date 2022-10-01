@@ -13,6 +13,7 @@ class BombClient(Thread):
 		self.kill = False
 		self.connected = False
 		self.pos = (0,0)
+		self.centerpos = (0,0)
 		self.netplayers = {}
 		self.gamemap = None
 		self.gotmap = False
@@ -31,9 +32,10 @@ class BombClient(Thread):
 		send_data(conn=self.socket,  payload=regmsg)
 		logger.debug(f'{self} send_mapreq conn:{self.connected} map:{self.gotmap} ')
 
-	def send_pos(self, pos):
+	def send_pos(self, pos=None, center=None):
 		self.pos = pos
-		posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1])}
+		self.centerpos = center
+		posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center}
 		send_data(conn=self.socket, payload=posmsg)
 
 	def send_gridupdate(self, gamemapgrid):
@@ -58,7 +60,7 @@ class BombClient(Thread):
 				self.connected = False
 				return False
 			self.connected = True
-			return True
+		return True
 
 	def run(self):
 		logger.debug(f'{self} run! conn:{self.connected} map:{self.gotmap} ')
@@ -67,8 +69,8 @@ class BombClient(Thread):
 				logger.debug(F'{self} killed')
 				break
 			if self.connected:
-				if not self.gotmap:
-					self.send_mapreq()
+				#if not self.gotmap:
+				#	self.send_mapreq()
 				msgid, payload = None, None
 				payload = receive_data(conn=self.socket)
 				# logger.debug(f'{self}  payload:{payload}')
