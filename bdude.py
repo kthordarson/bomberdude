@@ -123,6 +123,8 @@ class Game(Thread):
 		elif type == 'newblock':
 			blk = gamemsg.get('blockdata')
 			self.blocks.add(blk)
+			self.gamemapgrid[blk.gridpos[0]][blk.gridpos[1]] = 0
+			self.playerone.client.send_gridupdate(self.gamemapgrid)
 			logger.debug(f'[blk] self.blocks:{len(self.blocks)} {blk} ')
 		elif type == 'gamemapgrid':
 			gamemapgrid = gamemsg.get('gamemapgrid')
@@ -162,12 +164,13 @@ class Game(Thread):
 						pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
 					else:
 						pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
-				pos, gridpos, particles, newblock, powerblock = block.hit(flame)
+				pos, gridpos, particles, newblock, powerblock = block.hit(flame)				
 				if particles:
 					particlemsg = {'msgtype': 'particles', 'particledata': particles}
 					self.mainqueue.put(particlemsg)
 					#self.particles.add(particles)
 				if newblock:
+					# self.gamemap.set_block(gridpos[0], gridpos[1], 0)
 					blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
 					self.mainqueue.put(blockmsg)
 					# self.blocks.add(newblock)
