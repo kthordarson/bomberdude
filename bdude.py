@@ -2,25 +2,19 @@
 # bomberdude
 import time
 from argparse import ArgumentParser
-from turtle import circle
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
 import pygame
 from loguru import logger
 from globals import Block, Powerup, Bomb
-from map import Gamemap
-from globals import ResourceHandler
 from constants import DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, SCREENSIZE ,DEFAULTFONT
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread, Event
 import threading
-import multiprocessing
-from multiprocessing import Queue as mpQueue
 from queue import Queue, Empty
 #from bombserver import BombServer
-from network import dataid, send_data, receive_data
-from bclient import BombClient
+
 
 
 class GameGUI:
@@ -100,19 +94,38 @@ class Game(Thread):
 
 
 	def handle_mainq(self, gamemsg):
-		# logger.debug(f'[game] {self} gamemsg:{gamemsg}')
+		#logger.debug(f'[game] {self} gamemsg:{gamemsg}')
 		type = gamemsg.get('msgtype')
 		# logger.debug(f"[e] type:{type} cl:{gamemsg.get('client_id')} pos:{gamemsg.get('pos')} resp:{resp}")
-		if type == 'playerpos':
-			resp = {'msgtype':dataid["playerpos"], 'authkey':self.authkey, 'client_id': gamemsg.get('client_id'), 'pos': gamemsg.get('pos'), 'data_id': dataid['playerpos']}
-		elif type == 'bombdrop':
-			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemsg={gamemsg}')
-		elif type == 'netbomb':
+		#if type == 'playerpos':
+		#	resp = {'msgtype':dataid["playerpos"], 'authkey':self.authkey, 'client_id': gamemsg.get('client_id'), 'pos': gamemsg.get('pos'), 'data_id': dataid['playerpos']}
+		if type == 'bombdrop' or type == 'netbomb':
+			#logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemsg={gamemsg}')
 			bomber_id = gamemsg.get('bombdata').get('client_id')
 			bombpos = gamemsg.get('bombdata').get('bombpos')
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
 			self.bombs.add(newbomb)
-			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} bomb:{newbomb}')
+			logger.debug(f'[mainq] bombs:{len(self.bombs)} {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} bomb:{newbomb}')
+		elif type == 'flames':
+			flames = gamemsg.get('flamedata')
+			for fl in flames:
+				self.flames.add(fl)
+			logger.debug(f'[bfl] self.flames:{len(self.flames)} nf:{len(flames)}')
+		elif type == 'particles':
+			particles = gamemsg.get('particledata')
+			for p in particles:
+				self.particles.add(p)
+			logger.debug(f'[p] self.particles:{len(self.particles)} ')
+		elif type == 'powerup':
+			pwrup = gamemsg.get('powerupdata')
+			self.powerups.add(pwrup)
+			logger.debug(f'[p] self.powerups:{len(self.powerups)} {pwrup} ')
+		elif type == 'newblock':
+			blk = gamemsg.get('blockdata')
+			self.blocks.add(blk)
+			self.gamemapgrid[blk.gridpos[0]][blk.gridpos[1]] = 0
+			self.playerone.client.send_gridupdate(self.gamemapgrid)
+			logger.debug(f'[blk] self.blocks:{len(self.blocks)} {blk} ')
 		elif type == 'gamemapgrid':
 			gamemapgrid = gamemsg.get('gamemapgrid')
 			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemapgrid:{len(gamemapgrid)}')
@@ -133,8 +146,10 @@ class Game(Thread):
 			dt = pygame.time.get_ticks()
 			if dt - bomb.start_time >= bomb.timer:
 				flames = bomb.exploder()
-				for fl in flames:
-					self.flames.add(fl)
+				flamemsg = {'msgtype': 'flames', 'flamedata': flames}
+				self.mainqueue.put(flamemsg)
+				#for fl in flames:
+				#	self.flames.add(fl)
 					# logger.debug(f'[bombflames] fl:{fl} flv:{fl.vel} self.flames:{len(self.flames)} nf:{len(flames)}')
 				bomb.kill()
 
@@ -149,13 +164,20 @@ class Game(Thread):
 						pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
 					else:
 						pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
-				pos, gridpos, particles, newblock, powerblock = block.hit(flame)
+				pos, gridpos, particles, newblock, powerblock = block.hit(flame)				
 				if particles:
-					self.particles.add(particles)
+					particlemsg = {'msgtype': 'particles', 'particledata': particles}
+					self.mainqueue.put(particlemsg)
+					#self.particles.add(particles)
 				if newblock:
-					self.blocks.add(newblock)
+					# self.gamemap.set_block(gridpos[0], gridpos[1], 0)
+					blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
+					self.mainqueue.put(blockmsg)
+					# self.blocks.add(newblock)
 					if powerblock:
-						self.powerups.add(powerblock)
+						powerupmsg = {'msgtype': 'powerup', 'powerupdata': powerblock}
+						self.mainqueue.put(powerupmsg)
+						#self.powerups.add(powerblock)
 					block.kill()
 
 	def update_particles(self):
@@ -186,12 +208,15 @@ class Game(Thread):
 			self.screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 			return
 		self.screen.fill(self.bg_color)
+		self.blocks.draw(self.screen)
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
-		self.blocks.draw(self.screen)
 		self.flames.draw(self.screen)
 		self.players.draw(self.screen)
-		
+		self.powerups.draw(self.screen)
+		# for bomb in self.bombs:
+		# 	bomb.draw(self.screen)
+		# 	pygame.draw.circle(self.screen, (255, 0, 0), bomb.pos, 10, 0)
 		for np in self.playerone.client.netplayers:
 			if self.playerone.client_id != np:
 				pos = self.playerone.client.netplayers[np].get('pos')
@@ -253,8 +278,9 @@ class Game(Thread):
 						selection = self.gui.game_menu.get_selection()
 						self.handle_menu(selection)
 					elif not self.gui.show_mainmenu:
-						self.mainqueue.put_nowait({'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'pos': self.playerone.pos})
-						self.playerone.client.send_bomb()
+						#bombmsg = {'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos}
+						#self.mainqueue.put_nowait(bombmsg)
+						self.playerone.client.send_bomb(pos=self.playerone.rect.center)
 				if event.key == pygame.K_ESCAPE:
 					self.gui.show_mainmenu ^= True
 				if event.key == pygame.K_q:
