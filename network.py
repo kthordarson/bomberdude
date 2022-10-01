@@ -1,9 +1,5 @@
 from threading import Thread
-import time
-import struct
-import pickle
 import json
-from pickle import HIGHEST_PROTOCOL, UnpicklingError
 from loguru import logger
 dataid = {
 	'info': 0,
@@ -18,20 +14,21 @@ dataid = {
 	'gameevent':9,
 	'eventfromserver':10,
 	'bombdrop': 11,
+	'gridupdate': 12,
+	'netplayers': 13,
+	'netbomb': 14,
+	'getid': 15,
 	'auth':101,
 	'error':1000,
 	'errorfromserver':1001,
 	'UnpicklingError':1002
 	}
-def send_data(conn=None, data_id=None, payload=None):
+def send_data(conn=None, payload=None):
 	if conn is None or conn._closed:
-		logger.error(f'No connection conn:{conn} data_id:{data_id} payload:{payload}')
+		logger.error(f'No connection conn:{conn} payload:{payload}')
 		return
 	if payload is None:
 		logger.error('No payload')
-		return
-	if data_id is None:
-		logger.error('No data_id')
 		return
 	data = json.dumps(payload).encode('utf-8')
 	#logger.debug(f'[send] pl={len(payload)} d={len(data)} p={payload} d={data}')
