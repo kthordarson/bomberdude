@@ -1,15 +1,8 @@
 import struct
 import socket
 import sys
-import time
-import multiprocessing
-from multiprocessing import Queue as mQueue
-from xml.sax import ContentHandler
 from loguru import logger
-from pygame.math import Vector2
-from pygame.sprite import Group
-from threading import Thread, Event
-import pickle
+from threading import Thread
 
 # from things import Block
 from constants import GRIDSIZE

@@ -2,25 +2,19 @@
 # bomberdude
 import time
 from argparse import ArgumentParser
-from turtle import circle
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
 import pygame
 from loguru import logger
 from globals import Block, Powerup, Bomb
-from map import Gamemap
-from globals import ResourceHandler
 from constants import DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, SCREENSIZE ,DEFAULTFONT
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread, Event
 import threading
-import multiprocessing
-from multiprocessing import Queue as mpQueue
 from queue import Queue, Empty
 #from bombserver import BombServer
-from network import dataid, send_data, receive_data
-from bclient import BombClient
+
 
 
 class GameGUI:

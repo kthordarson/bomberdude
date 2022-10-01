@@ -4,10 +4,7 @@ import os
 import random
 import sys
 import time
-from threading import Thread, Event, Event
-# from multiprocessing import Queue
 import pygame
-import pygame.locals as pl
 from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
@@ -99,7 +96,7 @@ def start_all_threads(threads):
 class BasicThing(Sprite):
 	rm = ResourceHandler()
 	def __init__(self, pos, image=None):
-		Sprite.__init__(self)
+		super().__init__()
 		# self.thingq = OldQueue() # multiprocessing.Manager().Queue()		
 		self.pos = Vector2(pos)
 		self.vel = Vector2()
@@ -117,7 +114,6 @@ class BasicThing(Sprite):
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type):		
 		super().__init__(pos, None)
-		#BasicThing.__init__(self, pos, None)
 		self.block_type = block_type
 		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
@@ -186,7 +182,7 @@ class Block(BasicThing):
 
 class Powerup(BasicThing):
 	def __init__(self, pos):
-		# super().__init__()
+		super().__init__(pos, None)
 		self.powertype = random.choice([1,2,3])
 		if self.powertype == 1:
 			self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
@@ -214,7 +210,7 @@ class Powerup(BasicThing):
 class Bomb(BasicThing):
 	def __init__(self, pos, bomber_id, bomb_power=20):
 		self.pos = pos
-		BasicThing.__init__(self, self.pos, None)
+		super().__init__(pos, None)
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.bomber_id = bomber_id
@@ -263,12 +259,11 @@ class Bomb(BasicThing):
 
 class Particle(BasicThing):
 	def __init__(self, pos, vel):
-		# super().__init__()
+		super().__init__(pos, None)
 		#self.image, self.rect = self.rm.get_image(filename='data/greenorb.png', force=False)
 		self.pos = pos
 		xsize = random.randint(1,3)
 		ysize = random.randint(1,3)
-		BasicThing.__init__(self, self.pos, None)
 		self.image = pygame.Surface((xsize ,ysize))
 		self.image.fill((95, 95, 95))
 		#self.image.fill((random.randint(0,255),random.randint(0,255),random.randint(0,255)))
@@ -317,7 +312,7 @@ class Particle(BasicThing):
 class Flame(BasicThing):
 	def __init__(self, pos, vel, flame_length, rect):
 		self.pos = pos
-		BasicThing.__init__(self, self.pos, None)
+		super().__init__(pos, None)
 		self.image = pygame.Surface((5,5), pygame.SRCALPHA)
 		self.image.fill((255,0,0))
 		self.rect = self.image.get_rect()
