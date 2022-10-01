@@ -1,4 +1,3 @@
-import time
 import socket
 from threading import Thread
 from loguru import logger
@@ -22,18 +21,24 @@ class BombClient(Thread):
 	def __str__(self):
 		return f'[bc] {self.client_id}'
 
-	def send_bomb(self):
-		payload = {'data_id':dataid['update'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':self.pos}
-		send_data(conn=self.socket, data_id=dataid['update'], payload=payload)
+	def send_bomb(self, pos=None):
+		payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos}
+		send_data(conn=self.socket, payload=payload)
 		logger.debug(f'{self} send_bomb {payload}')
 	
 	def send_mapreq(self):
-		send_data(conn=self.socket, data_id=dataid['reqmap'], payload={'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap']})
+		regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap']}
+		send_data(conn=self.socket,  payload=regmsg)
 		logger.debug(f'{self} send_mapreq conn:{self.connected} map:{self.gotmap} ')
 
 	def send_pos(self, pos):
-		payload = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1])}
-		send_data(conn=self.socket, data_id=dataid['playerpos'], payload=payload)
+		posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1])}
+		send_data(conn=self.socket, payload=posmsg)
+
+	def send_gridupdate(self, gamemapgrid):
+		gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'gamemapgrid': gamemapgrid}
+		send_data(conn=self.socket, payload=gridmsg)
+		logger.debug(f'{self} send_gridupdate {len(gridmsg)}')
 
 	def connect_to_server(self):
 		if not self.connected:
@@ -60,33 +65,35 @@ class BombClient(Thread):
 				payload = receive_data(conn=self.socket)
 				# logger.debug(f'{self}  payload:{payload}')
 				if payload:
-					msgid = payload.get('payload').get('data_id')
+					msgid = payload.get('data_id')
 					#logger.debug(f'{self} msgid:{msgid} payload:{payload}')
-					if msgid == 4 or payload.get('msgtype') == 'bcnetupdate':
+					if msgid:
 						# logger.debug(f'{self} payload:{payload}')
-						if payload.get('payload').get('msgtype') == 'bcgetid':
-							if payload.get('payload').get('payload') == 'sendclientid':
+						if payload.get('msgtype') == 'bcgetid':
+							if payload.get('payload') == 'sendclientid':
 								logger.debug(f'sending client_id ')
-						elif payload.get('payload').get('msgtype') == 'bcpoll':
+						elif payload.get('msgtype') == dataid['netplayers']:
 							#logger.debug(f'[bc] {self} bcpoll resp={payload}')
 							netplayers = None
-							netplayers = payload.get('payload').get('netplayers')
+							netplayers = payload.get('netplayers')
 							if netplayers:
 								for np in netplayers:
 									self.netplayers[np] = netplayers[np]
-						elif payload.get('payload').get('msgtype') == 'mapfromserver':
-							gamemapgrid = payload.get('payload').get('gamemapgrid')
+						elif payload.get('msgtype') == 'mapfromserver' or payload.get('msgtype') == 'netgrid':
+							gamemapgrid = payload.get('gamemapgrid')
 							logger.debug(f'mapfromserver g={len(gamemapgrid)}')
+							mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid}
+							self.mainqueue.put_nowait(mapmsg)
 							self.gamemapgrid = gamemapgrid
 							self.gotmap = True
-						elif payload.get('payload').get('msgtype') == 'netbomb':
+						elif payload.get('msgtype') == 'netbomb':
 							# logger.debug(f'bombfromserver payload={payload}')
-							bombmsg = {'msgtype':'netbomb', 'bombdata':payload.get('payload')}
+							bombmsg = {'msgtype':'netbomb', 'bombdata':payload, 'data_id':dataid['netbomb']}
 							self.mainqueue.put_nowait(bombmsg)
 
 						else:
 							logger.warning(f'{self} unknownpayload msgid={msgid} p={payload}')
 					else:
-						logger.warning(f'{self} unknownmsgid={msgid} resp={payload}')
+						logger.warning(f'{self} unknownmsgid={msgid} p={payload}')
 			else:
 				logger.warning(f'{self} not connected')
