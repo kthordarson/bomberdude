@@ -7,7 +7,7 @@ from pygame.math import Vector2
 import pygame
 from loguru import logger
 from globals import Block, Powerup, Bomb
-from constants import DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, SCREENSIZE ,DEFAULTFONT
+from constants import DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, PLAYERSIZE, SCREENSIZE ,DEFAULTFONT, NETPLAYERSIZE
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread, Event
@@ -223,10 +223,14 @@ class Game(Thread):
 					ckill = self.playerone.client.netplayers[np].get('kill')
 					cpos = Vector2(self.playerone.client.netplayers[np].get('centerpos'))
 					rpos = Vector2(self.playerone.client.netplayers[np].get('pos'))
-					pygame.draw.circle(self.screen, (255, 0, 0), cpos, 10, 0)
+					nprect = pygame.Rect(rpos, NETPLAYERSIZE)
+					surf = pygame.display.get_surface()
+					surf.fill(color=(255,0,0), rect=nprect, special_flags=pygame.BLEND_ADD)
+					#pygame.draw.rect(self.screen, (255, 0, 0), rect=nprect, width=1)
+					#pygame.draw.circle(self.screen, (255, 0, 0), cpos, 10, 0)
 					self.font.render_to(self.screen, rpos, f'{np} {ckill}', (255, 255, 255))
-					rpos += (0,15)
-					self.font.render_to(self.screen, rpos, f'{cpos} {rpos}', (255, 255, 255))
+					#rpos += (0,15)
+					#self.font.render_to(self.screen, rpos, f'{cpos} {rpos}', (255, 255, 255))
 			if self.playerone.client_id == np:
 				pass
 				#pos = self.playerone.client.netplayers[np].get('pos')
@@ -254,6 +258,9 @@ class Game(Thread):
 				logger.debug(f'[game] p1 connected:{self.p1connected} {self.playerone.connected} {self.playerone.client.connected}')
 				self.playerone.start_client()
 				self.playerone.client.send_mapreq()
+				while not self.playerone.client.gotmap:
+					time.sleep(1)
+					self.playerone.client.send_mapreq()
 
 		if selection == "Connect to server":
 			pass
