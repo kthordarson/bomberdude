@@ -219,12 +219,14 @@ class Game(Thread):
 		# 	pygame.draw.circle(self.screen, (255, 0, 0), bomb.pos, 10, 0)
 		for np in self.playerone.client.netplayers:
 			if self.playerone.client_id != np:
-				cpos = Vector2(self.playerone.client.netplayers[np].get('centerpos'))
-				rpos = Vector2(self.playerone.client.netplayers[np].get('centerpos'))
-				pygame.draw.circle(self.screen, (255, 0, 0), cpos, 10, 0)
-				self.font.render_to(self.screen, rpos, str(np), (255, 255, 255))
-				rpos += (0,10)
-				self.font.render_to(self.screen, rpos, f'{cpos} {rpos}', (255, 255, 255))
+				if not self.playerone.client.netplayers[np].get('kill'):
+					ckill = self.playerone.client.netplayers[np].get('kill')
+					cpos = Vector2(self.playerone.client.netplayers[np].get('centerpos'))
+					rpos = Vector2(self.playerone.client.netplayers[np].get('pos'))
+					pygame.draw.circle(self.screen, (255, 0, 0), cpos, 10, 0)
+					self.font.render_to(self.screen, rpos, f'{np} {ckill}', (255, 255, 255))
+					rpos += (0,15)
+					self.font.render_to(self.screen, rpos, f'{cpos} {rpos}', (255, 255, 255))
 			if self.playerone.client_id == np:
 				pass
 				#pos = self.playerone.client.netplayers[np].get('pos')
