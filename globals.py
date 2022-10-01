@@ -4,10 +4,7 @@ import os
 import random
 import sys
 import time
-from threading import Thread, Event, Event
-# from multiprocessing import Queue
 import pygame
-import pygame.locals as pl
 from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
@@ -99,7 +96,7 @@ def start_all_threads(threads):
 class BasicThing(Sprite):
 	rm = ResourceHandler()
 	def __init__(self, pos, image=None):
-		Sprite.__init__(self)
+		super().__init__()
 		# self.thingq = OldQueue() # multiprocessing.Manager().Queue()		
 		self.pos = Vector2(pos)
 		self.vel = Vector2()
@@ -116,7 +113,7 @@ class BasicThing(Sprite):
 
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type):		
-		BasicThing.__init__(self, pos, None)
+		super().__init__(pos, None)
 		self.block_type = block_type
 		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
@@ -185,7 +182,7 @@ class Block(BasicThing):
 
 class Powerup(BasicThing):
 	def __init__(self, pos):
-		# super().__init__()
+		super().__init__(pos, None)
 		self.powertype = random.choice([1,2,3])
 		if self.powertype == 1:
 			self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
@@ -201,7 +198,7 @@ class Powerup(BasicThing):
 		self.rect.center = pos
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
-		self.timer = 5
+		self.timer = 10
 		self.start_time = pygame.time.get_ticks() / 1000
 
 	def update(self, items=None):
@@ -210,19 +207,21 @@ class Powerup(BasicThing):
 		if self.dt - self.start_time >= self.timer:
 			self.kill()
 
+#	def draw(self, screen):
+#		pygame.draw.circle(screen, (0,255,0), self.rect.center, 15)
+
 class Bomb(BasicThing):
 	def __init__(self, pos, bomber_id, bomb_power=20):
+		self.pos = pos
+		super().__init__(pos, None)
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
-		self.pos = pos
-		BasicThing.__init__(self, self.pos, self.image)
 		self.bomber_id = bomber_id
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.centerx = self.pos.x
 		self.rect.centery = self.pos.y
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.start_time = pygame.time.get_ticks() / 1000
-		self.timer = 3000
+		self.timer = 4000
 		self.bomb_timer = 1
 		self.bomb_fuse = 1
 		self.bomb_end = 2
@@ -238,6 +237,9 @@ class Bomb(BasicThing):
 
 	def __str__(self):
 		return f'[bomb] {self.pos}'
+
+#	def draw(self, screen):
+#		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
 
 	def gen_flames(self):
 		if not self.flamesout:
@@ -260,13 +262,12 @@ class Bomb(BasicThing):
 
 class Particle(BasicThing):
 	def __init__(self, pos, vel):
-		# super().__init__()
+		super().__init__(pos, None)
 		#self.image, self.rect = self.rm.get_image(filename='data/greenorb.png', force=False)
 		self.pos = pos
 		xsize = random.randint(1,3)
 		ysize = random.randint(1,3)
 		self.image = pygame.Surface((xsize ,ysize))
-		BasicThing.__init__(self, self.pos, self.image)
 		self.image.fill((95, 95, 95))
 		#self.image.fill((random.randint(0,255),random.randint(0,255),random.randint(0,255)))
 		self.rect = self.image.get_rect(center = pos)
@@ -313,11 +314,11 @@ class Particle(BasicThing):
 
 class Flame(BasicThing):
 	def __init__(self, pos, vel, flame_length, rect):
+		self.pos = pos
+		super().__init__(pos, None)
 		self.image = pygame.Surface((5,5), pygame.SRCALPHA)
 		self.image.fill((255,0,0))
 		self.rect = self.image.get_rect()
-		self.pos = pos
-		BasicThing.__init__(self, self.pos, self.image)
 		self.size = FLAMESIZE
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
