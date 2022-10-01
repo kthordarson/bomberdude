@@ -32,6 +32,7 @@ class BombClient(Thread):
 		logger.debug(f'{self} send_mapreq conn:{self.connected} map:{self.gotmap} ')
 
 	def send_pos(self, pos):
+		self.pos = pos
 		posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1])}
 		send_data(conn=self.socket, payload=posmsg)
 

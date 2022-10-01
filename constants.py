@@ -12,7 +12,7 @@ DEBUGFONTCOLOR = (123, 123, 123)
 GRIDSIZE = (20, 20)
 BLOCK = 30
 BLOCKSIZE = (BLOCK, BLOCK)
-PLAYERSIZE = [int(x // 1.6) for x in BLOCKSIZE]
+PLAYERSIZE = [int(x // 1.3) for x in BLOCKSIZE]
 DUMMYSIZE = [int(x // 2) for x in BLOCKSIZE]
 POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
 BOMBSIZE = [int(x // 2.5) for x in BLOCKSIZE]
@@ -43,6 +43,7 @@ BLOCKTYPES = {
 		"bitmap": "data/blackfloor.png",
 		"bgbitmap": "data/black.png",
 		"powerup": False,
+		"powertype" : 0,
 	},
 	1: {
 		"solid": True,
@@ -51,6 +52,7 @@ BLOCKTYPES = {
 		"bitmap": "data/blocksprite5a.png",
 		"bgbitmap": "data/black.png",
 		"powerup": True,
+		"powertype" : 1,
 	},
 	2: {
 		"solid": True,
@@ -58,7 +60,8 @@ BLOCKTYPES = {
 		"size": BLOCKSIZE,
 		"bitmap": "data/blocksprite3b.png",
 		"bgbitmap": "data/black.png",
-		"powerup": False,
+		"powerup": True,
+		"powertype" : 2,
 	},
 	3: {
 		"solid": True,
@@ -66,7 +69,9 @@ BLOCKTYPES = {
 		"size": BLOCKSIZE,
 		"bitmap": "data/blocksprite6.png",
 		"bgbitmap": "data/black.png",
-		"powerup": False,
+		"powerup": True,
+		"powertype" : 3,
+
 	},
 	4: {
 		"solid": True,
@@ -75,6 +80,7 @@ BLOCKTYPES = {
 		"bitmap": "data/blocksprite3.png",
 		"bgbitmap": "data/black.png",
 		"powerup": False,
+		"powertype" : 0,
 	},
 	5: {
 		"solid": True,
@@ -83,6 +89,7 @@ BLOCKTYPES = {
 		"bitmap": "data/blocksprite1b.png",
 		"bgbitmap": "data/black.png",
 		"powerup": False,
+		"powertype" : 0,
 	},
 	10: {
 		"solid": True,
@@ -91,6 +98,7 @@ BLOCKTYPES = {
 		"bitmap": "data/blocksprite1.png",
 		"bgbitmap": "data/black.png",
 		"powerup": False,
+		"powertype" : 0,
 	},
 	11: {
 		"solid": False,
@@ -99,6 +107,7 @@ BLOCKTYPES = {
 		"bitmap": "data/blocksprite1c.png",
 		"bgbitmap": "data/blackfloor.png",
 		"powerup": False,
+		"powertype" : 0,
 	},
 	20: {
 		"solid": False,
@@ -107,6 +116,7 @@ BLOCKTYPES = {
 		"bitmap": "data/heart.png",
 		"bgbitmap": "data/blackfloor.png",
 		"powerup": True,
+		"powertype" : 0,
 	},
 }
 

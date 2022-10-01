@@ -190,6 +190,16 @@ class BombClientHandler(Thread):
 				# logger.debug(f'{self} received id:{rid} resp={resp}')
 			elif rtype == dataid['reqmap'] or rid == 7:
 				self.send_map()
+			elif rtype == dataid['gridupdate'] or rid == 12:
+				# new grid and send update to clients
+				senderid = resp.get('client_id')
+				newgrid = resp.get('gamemapgrid')
+				gridmsg = {'msgtype': 'netgrid', 'client_id': senderid, 'gamemapgrid': newgrid, 'data_id': dataid['gridupdate']}
+				self.srvcomm.queue.put(gridmsg)
+				#self.gamemap.grid = newgrid
+				#self.send_map()
+				logger.debug(f'{self} gridupdate senderid:{senderid} newgrid:{len(newgrid)}')
+
 			elif rtype == dataid.get('gameevent') or rid == 9:
 				logger.debug(f'{self} gamevent received id:{rid} resp={resp}')
 			elif rtype == dataid['gridupdate'] or rid == 12:

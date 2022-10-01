@@ -295,6 +295,10 @@ class Game(Thread):
 					self.playerone.client.send_pos(pos=self.playerone.pos)
 				if event.key == pygame.K_3:
 					pass
+					# logger.debug(f'[c] req serverinfo p1c:{self.playerone.bombclient.connected}')
+					# self.playerone.get_server_info()
+					# logger.debug(f'[c] req netplayers p1c:{self.playerone.bombclient.connected}')
+					# self.playerone.refresh_netplayers()
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
@@ -376,6 +380,5 @@ if __name__ == "__main__":
 				# game.kill_engine(killmsg=f'killed by {e}')
 				break
 		pygame.quit()
-
 
 

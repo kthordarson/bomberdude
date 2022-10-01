@@ -120,7 +120,7 @@ class Block(BasicThing):
 		self.size = BLOCKTYPES.get(self.block_type)["size"]
 		self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
-		
+		self.powertype = BLOCKTYPES.get(self.block_type)["powertype"]		
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		self.explode = False
 		self.poweruptime = 10
@@ -155,7 +155,7 @@ class Block(BasicThing):
 				elif flame.vel.y < 0:  # up
 					particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
 			if self.powerup:
-				powerblock = Powerup(pos=self.rect.center)
+				powerblock = Powerup(pos=self.rect.center, type=self.powertype)
 			newblock = Block(self.pos, self.gridpos, block_type=0)
 			flame.kill()
 			self.kill()
@@ -181,9 +181,9 @@ class Block(BasicThing):
 		return particles
 
 class Powerup(BasicThing):
-	def __init__(self, pos):
+	def __init__(self, pos, type):
 		super().__init__(pos, None)
-		self.powertype = random.choice([1,2,3])
+		self.powertype = type # random.choice([1,2,3])
 		if self.powertype == 1:
 			self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
 		if self.powertype == 2:
@@ -240,6 +240,9 @@ class Bomb(BasicThing):
 
 	def __str__(self):
 		return f'[bomb] pos={self.pos} bomber={self.bomber_id} timer={self.timer}'
+
+#	def draw(self, screen):
+#		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
 
 #	def draw(self, screen):
 #		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
