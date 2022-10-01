@@ -67,7 +67,7 @@ class Player(BasicThing, Thread):
 		self.pos.y = self.rect.y
 		self.pos.x = self.rect.x
 
-		self.client.pos = (self.pos[0], self.pos[1])
+		# self.client.pos = (self.pos[0], self.pos[1])
 		#self.pos += self.vel
 		#self.rect.center = self.pos
 		if self.connected:
