@@ -198,7 +198,7 @@ class Powerup(BasicThing):
 		self.rect.center = pos
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
-		self.timer = 5
+		self.timer = 10
 		self.start_time = pygame.time.get_ticks() / 1000
 
 	def update(self, items=None):
@@ -206,6 +206,9 @@ class Powerup(BasicThing):
 		# logger.debug(f'[pu] {dt - self.start_time} {self.timer}')
 		if self.dt - self.start_time >= self.timer:
 			self.kill()
+
+#	def draw(self, screen):
+#		pygame.draw.circle(screen, (0,255,0), self.rect.center, 15)
 
 class Bomb(BasicThing):
 	def __init__(self, pos, bomber_id, bomb_power=20):

@@ -106,6 +106,24 @@ class Game(Thread):
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
 			self.bombs.add(newbomb)
 			logger.debug(f'[mainq] bombs:{len(self.bombs)} {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} bomb:{newbomb}')
+		elif type == 'flames':
+			flames = gamemsg.get('flamedata')
+			for fl in flames:
+				self.flames.add(fl)
+			logger.debug(f'[bfl] self.flames:{len(self.flames)} nf:{len(flames)}')
+		elif type == 'particles':
+			particles = gamemsg.get('particledata')
+			for p in particles:
+				self.particles.add(p)
+			logger.debug(f'[p] self.particles:{len(self.particles)} ')
+		elif type == 'powerup':
+			pwrup = gamemsg.get('powerupdata')
+			self.powerups.add(pwrup)
+			logger.debug(f'[p] self.powerups:{len(self.powerups)} {pwrup} ')
+		elif type == 'newblock':
+			blk = gamemsg.get('blockdata')
+			self.blocks.add(blk)
+			logger.debug(f'[blk] self.blocks:{len(self.blocks)} {blk} ')
 		elif type == 'gamemapgrid':
 			gamemapgrid = gamemsg.get('gamemapgrid')
 			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemapgrid:{len(gamemapgrid)}')
@@ -126,8 +144,10 @@ class Game(Thread):
 			dt = pygame.time.get_ticks()
 			if dt - bomb.start_time >= bomb.timer:
 				flames = bomb.exploder()
-				for fl in flames:
-					self.flames.add(fl)
+				flamemsg = {'msgtype': 'flames', 'flamedata': flames}
+				self.mainqueue.put(flamemsg)
+				#for fl in flames:
+				#	self.flames.add(fl)
 					# logger.debug(f'[bombflames] fl:{fl} flv:{fl.vel} self.flames:{len(self.flames)} nf:{len(flames)}')
 				bomb.kill()
 
@@ -144,11 +164,17 @@ class Game(Thread):
 						pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
 				pos, gridpos, particles, newblock, powerblock = block.hit(flame)
 				if particles:
-					self.particles.add(particles)
+					particlemsg = {'msgtype': 'particles', 'particledata': particles}
+					self.mainqueue.put(particlemsg)
+					#self.particles.add(particles)
 				if newblock:
-					self.blocks.add(newblock)
+					blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
+					self.mainqueue.put(blockmsg)
+					# self.blocks.add(newblock)
 					if powerblock:
-						self.powerups.add(powerblock)
+						powerupmsg = {'msgtype': 'powerup', 'powerupdata': powerblock}
+						self.mainqueue.put(powerupmsg)
+						#self.powerups.add(powerblock)
 					block.kill()
 
 	def update_particles(self):
@@ -184,6 +210,7 @@ class Game(Thread):
 		self.bombs.draw(self.screen)
 		self.flames.draw(self.screen)
 		self.players.draw(self.screen)
+		self.powerups.draw(self.screen)
 		# for bomb in self.bombs:
 		# 	bomb.draw(self.screen)
 		# 	pygame.draw.circle(self.screen, (255, 0, 0), bomb.pos, 10, 0)

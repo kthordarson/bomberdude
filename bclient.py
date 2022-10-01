@@ -76,6 +76,8 @@ class BombClient(Thread):
 						elif payload.get('payload').get('msgtype') == 'mapfromserver':
 							gamemapgrid = payload.get('payload').get('gamemapgrid')
 							logger.debug(f'mapfromserver g={len(gamemapgrid)}')
+							mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid}
+							self.mainqueue.put_nowait(mapmsg)
 							self.gamemapgrid = gamemapgrid
 							self.gotmap = True
 						elif payload.get('payload').get('msgtype') == 'netbomb':

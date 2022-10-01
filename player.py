@@ -74,7 +74,7 @@ class Player(BasicThing, Thread):
 			self.client.send_pos((self.pos[0], self.pos[1]))
 			if not self.gotmap:
 				if self.client.gotmap:
-					self.mainqueue.put_nowait({'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.client.gamemapgrid})
+					#self.mainqueue.put_nowait({'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.client.gamemapgrid})
 					self.gotmap = True
 					logger.debug(f'[{self}] gotmap:{self.gotmap} grid:{len(self.client.gamemapgrid)}')
 
