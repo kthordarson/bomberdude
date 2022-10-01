@@ -109,7 +109,7 @@ class BombClientHandler(Thread):
 		self.sender.queue.put_nowait((self.conn, data))
 
 	def bombevent(self, data):
-		logger.debug(f'{self} bombevent data:{data}')
+		logger.debug(f'{self} bombevent bomber:{data.get("client_id")} pos:{data.get("bombpos")}')
 		self.sender.queue.put_nowait((self.conn, data))
 
 	def get_client_id(self):
@@ -260,11 +260,12 @@ class BombServer(Thread):
 				elif type == 'netplayers':
 					pass
 				elif type == 'netbomb':
-					logger.debug(f'[server] netbomb {data}')
+					logger.debug(f'[server] netbomb from {data.get("client_id")} pos={data.get("bombpos")}')
 					for bc in self.bombclients:
 						bc.bombevent(data)
 				elif type == 'netgrid':
-					logger.debug(f'[server] netgrid {len(data)}')
+					self.gamemap.grid = data.get('gamemapgrid')
+					# logger.debug(f'[server] netgrid {len(data)}')
 					for bc in self.bombclients:
 						bc.gridupdate(data)
 				else:

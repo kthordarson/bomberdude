@@ -133,7 +133,7 @@ class Block(BasicThing):
 		self.image.set_colorkey((0, 0, 0))
 
 	def __str__(self):
-		return f'[block] {self.pos}'
+		return f'[block] pos={self.pos} gp={self.gridpos} type={self.block_type}'
 
 	def hit(self, flame):
 		# self.bitmap = BLOCKTYPES.get(11)["bitmap"]
@@ -201,6 +201,9 @@ class Powerup(BasicThing):
 		self.timer = 10
 		self.start_time = pygame.time.get_ticks() / 1000
 
+	def __str__(self):
+		return f'[pwrup] pos={self.pos} type={self.powertype}'
+
 	def update(self, items=None):
 		self.dt = pygame.time.get_ticks() / 1000
 		# logger.debug(f'[pu] {dt - self.start_time} {self.timer}')
@@ -236,7 +239,7 @@ class Bomb(BasicThing):
 		self.flames = Group()
 
 	def __str__(self):
-		return f'[bomb] {self.pos}'
+		return f'[bomb] pos={self.pos} bomber={self.bomber_id} timer={self.timer}'
 
 #	def draw(self, screen):
 #		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
@@ -286,7 +289,7 @@ class Particle(BasicThing):
 		self.vel = vel
 
 	def __str__(self) -> str:
-		return f'Particle: {self.pos} {self.vel}'
+		return f'[particle] pos={self.pos} vel={self.vel}'
 
 	def update(self, items=None, surface=None):
 		if pygame.time.get_ticks() - self.start_time >= self.timer:
@@ -327,6 +330,9 @@ class Flame(BasicThing):
 		self.timer = 2000
 		self.flame_length = flame_length
 		self.timeleft = self.timer
+
+	def __str__(self) -> str:
+		return f'[flame] pos={self.pos} vel={self.vel}'
 
 	def update(self, surface=None):
 		self.timeleft = self.timer - (pygame.time.get_ticks() - self.start_time)

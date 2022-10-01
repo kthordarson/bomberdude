@@ -33,7 +33,7 @@ class GameGUI:
 
 
 class Game(Thread):
-	def __init__(self, screen=None, mainqueue=None, conn=None, sendq=None, netqueue=None):
+	def __init__(self, mainqueue=None, conn=None, sendq=None, netqueue=None):
 		Thread.__init__(self, name='game')
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.conn = conn
@@ -42,7 +42,7 @@ class Game(Thread):
 		self.sendq = sendq
 		self.netqueue = netqueue
 		self.kill = False
-		self.screen = screen
+		self.screen =  pygame.display.set_mode(SCREENSIZE, 0, 32)
 		self.gui = GameGUI(self.screen)
 		self.bg_color = pygame.Color("black")
 		self.running = False
@@ -105,7 +105,7 @@ class Game(Thread):
 			bombpos = gamemsg.get('bombdata').get('bombpos')
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
 			self.bombs.add(newbomb)
-			logger.debug(f'[mainq] bombs:{len(self.bombs)} {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} bomb:{newbomb}')
+			logger.debug(f'[mainq] bombs:{len(self.bombs)} {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} bomb:{newbomb.pos}')
 		elif type == 'flames':
 			flames = gamemsg.get('flamedata')
 			for fl in flames:
@@ -119,13 +119,13 @@ class Game(Thread):
 		elif type == 'powerup':
 			pwrup = gamemsg.get('powerupdata')
 			self.powerups.add(pwrup)
-			logger.debug(f'[p] self.powerups:{len(self.powerups)} {pwrup} ')
+			logger.debug(f'[p] self.powerups:{len(self.powerups)} pwr={pwrup.powertype} ')
 		elif type == 'newblock':
 			blk = gamemsg.get('blockdata')
 			self.blocks.add(blk)
-			self.gamemapgrid[blk.gridpos[0]][blk.gridpos[1]] = 0
+			self.gamemapgrid[blk.gridpos[0]][blk.gridpos[1]] = blk.block_type
 			self.playerone.client.send_gridupdate(self.gamemapgrid)
-			logger.debug(f'[blk] self.blocks:{len(self.blocks)} {blk} ')
+			logger.debug(f'[blk] self.blocks:{len(self.blocks)} newblk={blk} ')
 		elif type == 'gamemapgrid':
 			gamemapgrid = gamemsg.get('gamemapgrid')
 			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemapgrid:{len(gamemapgrid)}')
@@ -136,6 +136,7 @@ class Game(Thread):
 					for j in range(0, GRIDSIZE[1]):
 						newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=gamemapgrid[j][k])
 						newblocks.add(newblock)
+				self.blocks.empty()
 				self.blocks.add(newblocks)
 			
 
@@ -178,7 +179,7 @@ class Game(Thread):
 						powerupmsg = {'msgtype': 'powerup', 'powerupdata': powerblock}
 						self.mainqueue.put(powerupmsg)
 						#self.powerups.add(powerblock)
-					block.kill()
+				#block.kill()
 
 	def update_particles(self):
 		self.particles.update(self.blocks, self.screen)
@@ -352,7 +353,7 @@ if __name__ == "__main__":
 
 	else:
 		pygame.init()
-		screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
+		#screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 		dt = pygame.time.Clock()
 		mainqueue = Queue()
 		netqueue = Queue()
@@ -360,7 +361,7 @@ if __name__ == "__main__":
 		stop_event = Event()
 		#mainqueue = OldQueue()#  multiprocessing.Manager().Queue()
 		# engine = Engine(stop_event=stop_event, name='engine')
-		game = Game(screen=screen, mainqueue=mainqueue, sendq=sendq, netqueue=netqueue)
+		game = Game(mainqueue=mainqueue, sendq=sendq, netqueue=netqueue)
 		game.daemon = True
 		game.start()
 		game.running = True
