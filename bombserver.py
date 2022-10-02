@@ -8,7 +8,7 @@ from loguru import logger
 from threading import Thread
 
 # from things import Block
-from constants import GRIDSIZE, FPS, DEFAULTFONT, BLOCK
+from constants import FPS, DEFAULTFONT, BLOCK
 from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data, dataid
@@ -163,8 +163,11 @@ class BombClientHandler(Thread):
 	def send_map(self, newgrid=None):
 		# send mapgrid to player
 		if newgrid:
-			logger.info(f'{self} send_map newgrid:{len(newgrid)}')
 			self.gamemap.grid = newgrid
+			newgrid, nx,ny = self.gamemap.placeplayer(newgrid)
+			newpos = (nx, ny)
+			logger.info(f'{self} send_map newgrid:{len(newgrid)} newpos={newpos}')
+			self.pos = newpos
 		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid'], 'newgrid':newgrid}
 		#self.sender.send(self.conn, payload)
 		self.sender.queue.put_nowait((self.conn, payload))

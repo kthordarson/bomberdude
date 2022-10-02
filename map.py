@@ -1,6 +1,6 @@
 import random
 from loguru import logger
-from constants import BLOCK, BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, GRIDSIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, DEFAULTGRID2, DEFAULTGRID15
+from constants import BLOCK, BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, DEFAULTGRID2, DEFAULTGRID15
 
 def inside_circle(radius, pos_x, pos_y):
 	x = int(radius)  # radius is the radius
@@ -12,11 +12,12 @@ def inside_circle(radius, pos_x, pos_y):
 class Gamemap:
 	def __init__(self, genmap=True):
 		self.grid = DEFAULTGRID15
+		self.gridsize = (len(self.grid[0]), len(self.grid[0]))
 
 	def generate(self):
-		grid = [[random.randint(0, 5) for k in range(GRIDSIZE[1])] for j in range(GRIDSIZE[0])]
+		grid = [[random.randint(0, 5) for k in range(self.gridsize[1])] for j in range(self.gridsize[0])]
 		# set edges to solid blocks, 10 = solid blockwalkk
-		for x in range(GRIDSIZE[0]):
+		for x in range(self.gridsize[0]):
 			grid[x][0] = 10
 			grid[0][x] = 10
 			grid[-1][x] = 10
@@ -36,8 +37,8 @@ class Gamemap:
 		return grid
 
 	def clear_center(self):
-		x = int(GRIDSIZE[0] // 2)  # random.randint(2, GRIDSIZE[0] - 2)
-		y = int(GRIDSIZE[1] // 2)  # random.randint(2, GRIDSIZE[1] - 2)
+		x = int(self.gridsize[0] // 2)  # random.randint(2, self.gridsize[0] - 2)
+		y = int(self.gridsize[1] // 2)  # random.randint(2, self.gridsize[1] - 2)
 		# x = int(x)
 		self.grid[x][y] = 0
 		# make a clear radius around spawn point
@@ -75,13 +76,13 @@ class Gamemap:
 			logger.error(f'[place_player] grid is empty')
 			return None
 		if location == 0:  # center pos
-			x = int(GRIDSIZE[0] // 2)  # random.randint(2, GRIDSIZE[0] - 2)
-			y = int(GRIDSIZE[1] // 2)  # random.randint(2, GRIDSIZE[1] - 2)
+			x = int(self.gridsize[0] // 2)  # random.randint(2, self.gridsize[0] - 2)
+			y = int(self.gridsize[1] // 2)  # random.randint(2, self.gridsize[1] - 2)
 			# x = int(x)
 			try:
 				grid[x][y] = 0
 			except IndexError as e:
-				logger.error(f'IndexError {e} x:{x} y:{y} gz:{GRIDSIZE} g:{type(grid)} {len(grid)}')
+				logger.error(f'IndexError {e} x:{x} y:{y} gz:{self.gridsize} g:{type(grid)} {len(grid)}')
 				return None
 			# make a clear radius around spawn point
 			for block in list(inside_circle(3, x, y)):

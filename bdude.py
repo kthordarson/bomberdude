@@ -8,7 +8,7 @@ from pygame.math import Vector2
 import pygame
 from loguru import logger
 from globals import Block, Powerup, Bomb
-from constants import BLOCK, DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, PLAYERSIZE, SCREENSIZE ,DEFAULTFONT, NETPLAYERSIZE
+from constants import BLOCK, DEBUG, DEBUGFONTCOLOR, BLOCKSIZE, PLAYERSIZE, SCREENSIZE ,DEFAULTFONT, NETPLAYERSIZE
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread, Event
@@ -180,8 +180,8 @@ class Game(Thread):
 		self.gamemapgrid = gamemapgrid
 		self.gotgamemapgrid = True
 		newblocks = Group()
-		for k in range(0, GRIDSIZE[0]):
-			for j in range(0, GRIDSIZE[1]):
+		for k in range(0, len(gamemapgrid[0])):
+			for j in range(0, len(gamemapgrid[1])):
 				newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=gamemapgrid[j][k])
 				newblocks.add(newblock)
 		self.blocks.empty()
