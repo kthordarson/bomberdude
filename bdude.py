@@ -1,13 +1,14 @@
 #!/bin/python3.9
 # bomberdude
 import time
+import random
 from argparse import ArgumentParser
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
 import pygame
 from loguru import logger
 from globals import Block, Powerup, Bomb
-from constants import DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, PLAYERSIZE, SCREENSIZE ,DEFAULTFONT, NETPLAYERSIZE
+from constants import BLOCK, DEBUG, DEBUGFONTCOLOR, GRIDSIZE, BLOCKSIZE, PLAYERSIZE, SCREENSIZE ,DEFAULTFONT, NETPLAYERSIZE
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread, Event
@@ -53,12 +54,14 @@ class Game(Thread):
 		self.powerups = Group()
 		self.bombs = Group()
 		self.flames = Group()
-		self.playerone = Player(pos=(300, 300), visible=False, mainqueue=self.mainqueue)
+		self.playerone = Player(pos=(1, 1), visible=False, mainqueue=self.mainqueue)
 		self.p1connected = False
 		self.players.add(self.playerone)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.authkey = 'foobar'
 		self.netplayers = {}
+		self.gamemapgrid = []
+		self.gotgamemapgrid = False
 		# self.authresp = {}
 
 
@@ -107,6 +110,18 @@ class Game(Thread):
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
 			self.bombs.add(newbomb)
 			logger.debug(f'[mainq] bombs:{len(self.bombs)} {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} bomb:{newbomb.pos}')
+		elif type == 'newnetpos':
+			# logger.debug(f'[mainq] gamemsg={gamemsg}')
+			posdata = gamemsg.get('posdata')
+			newgrid = posdata.get('newgrid')
+			client_id = posdata.get('client_id')
+			newpos = posdata.get('newpos')
+			logger.debug(f'[mainq] posupdate {client_id} newpos={newpos} newgrid={len(newgrid)}')
+			self.updategrid(newgrid)
+			if client_id == self.playerone.client_id:
+				if not self.playerone.visible:
+					self.playerone.setpos(newpos)
+					self.playerone.visible = True
 		elif type == 'flames':
 			flames = gamemsg.get('flamedata')
 			for fl in flames:
@@ -131,15 +146,18 @@ class Game(Thread):
 			gamemapgrid = gamemsg.get('gamemapgrid')
 			logger.debug(f'[mainq] {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{type} engmsg:{len(gamemsg)} gamemapgrid:{len(gamemapgrid)}')
 			if len(gamemapgrid) > 1:
-				self.gamemapgrid = gamemapgrid
-				newblocks = Group()
-				for k in range(0, GRIDSIZE[0]):
-					for j in range(0, GRIDSIZE[1]):
-						newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=gamemapgrid[j][k])
-						newblocks.add(newblock)
-				self.blocks.empty()
-				self.blocks.add(newblocks)
+				self.updategrid(gamemapgrid)
 
+	def updategrid(self, gamemapgrid):
+		self.gamemapgrid = gamemapgrid
+		self.gotgamemapgrid = True
+		newblocks = Group()
+		for k in range(0, GRIDSIZE[0]):
+			for j in range(0, GRIDSIZE[1]):
+				newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=gamemapgrid[j][k])
+				newblocks.add(newblock)
+		self.blocks.empty()
+		self.blocks.add(newblocks)
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -202,6 +220,7 @@ class Game(Thread):
 				playerone.take_powerup(pc.powertype)
 				pc.kill()
 
+		
 	def draw(self):
 		# draw on screen
 		try:
@@ -215,7 +234,8 @@ class Game(Thread):
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
 		self.flames.draw(self.screen)
-		self.players.draw(self.screen)
+		if self.playerone.visible:
+			self.players.draw(self.screen)
 		self.powerups.draw(self.screen)
 		# for bomb in self.bombs:
 		# 	bomb.draw(self.screen)
@@ -258,12 +278,19 @@ class Game(Thread):
 			self.p1connected = self.playerone.client.connect_to_server()
 			if self.p1connected:
 				self.playerone.connected = True
-				logger.debug(f'[game] p1 connected:{self.p1connected} {self.playerone.connected} {self.playerone.client.connected}')
+				logger.debug(f'[game] p1 connecting c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
 				self.playerone.start_client()
-				self.playerone.client.send_mapreq()
 				while not self.playerone.client.gotmap:
-					time.sleep(1)
 					self.playerone.client.send_mapreq()
+					time.sleep(0.5)
+					logger.debug(f'[game] p1 connecting c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
+				
+				# while not self.gotgamemapgrid:
+				# 	time.sleep(0.5)
+				# 	logger.debug(f'[game] waiting for grid pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
+				# p1pos = self.placeplayer()
+				# self.playerone.setpos(p1pos)
+				# logger.debug(f'[game] p1pos={p1pos} ppos={self.playerone.pos} pclpos={self.playerone.client.pos} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
 
 		if selection == "Connect to server":
 			pass

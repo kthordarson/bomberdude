@@ -27,18 +27,24 @@ class BombClient(Thread):
 			payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos}
 			send_data(conn=self.socket, payload=payload)
 			logger.debug(f'{self} send_bomb pos={payload.get("bombpos")}')
-	
+
+	def send_reqpos(self):
+		if self.connected and not self.kill:
+			reqmsg = {'data_id': dataid['reqpos'], 'client_id': self.client_id, 'payload': 'reqpos'}
+			send_data(conn=self.socket, payload=reqmsg)
+
 	def send_mapreq(self):
 		if self.connected and not self.kill:
 			regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap']}
 			send_data(conn=self.socket,  payload=regmsg)
 			logger.debug(f'{self} send_mapreq conn:{self.connected} map:{self.gotmap} ')
+			self.send_reqpos()
 
 	def send_pos(self, pos=None, center=None):
 		if self.connected and not self.kill:		
 			self.pos = pos
 			self.centerpos = center
-			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center}
+			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center, 'kill':self.kill}
 			send_data(conn=self.socket, payload=posmsg)
 
 	def send_gridupdate(self, gamemapgrid):
@@ -106,6 +112,10 @@ class BombClient(Thread):
 							# logger.debug(f'bombfromserver payload={payload}')
 							bombmsg = {'msgtype':'netbomb', 'bombdata':payload, 'data_id':dataid['netbomb']}
 							self.mainqueue.put_nowait(bombmsg)
+						elif msgid == dataid['posupdate']:
+							# logger.debug(f'bombfromserver payload={payload}')
+							posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload}
+							self.mainqueue.put_nowait(posmsg)
 
 						else:
 							logger.warning(f'{self} unknownpayload msgid={msgid} p={payload}')

@@ -1,6 +1,6 @@
 import random
 from loguru import logger
-from constants import BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, GRIDSIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, DEFAULTGRID2
+from constants import BLOCK, BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, GRIDSIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, DEFAULTGRID2, DEFAULTGRID15
 
 def inside_circle(radius, pos_x, pos_y):
 	x = int(radius)  # radius is the radius
@@ -11,7 +11,7 @@ def inside_circle(radius, pos_x, pos_y):
 
 class Gamemap:
 	def __init__(self, genmap=True):
-		self.grid = DEFAULTGRID2
+		self.grid = DEFAULTGRID15
 		# if genmap:
 		# 	self.grid = self.generate()
 		# else:
@@ -27,6 +27,16 @@ class Gamemap:
 			grid[x][-1] = 10
 		return grid
 
+	def generate_custom(self, squaresize):
+		grid = [[random.randint(0, 5) for k in range(squaresize)] for j in range(squaresize)]
+		# set edges to solid blocks, 10 = solid blockwalkk
+		for x in range(squaresize):
+			grid[x][0] = 10
+			grid[0][x] = 10
+			grid[-1][x] = 10
+			grid[x][-1] = 10
+		return grid
+
 	def clear_center(self):
 		x = int(GRIDSIZE[0] // 2)  # random.randint(2, GRIDSIZE[0] - 2)
 		y = int(GRIDSIZE[1] // 2)  # random.randint(2, GRIDSIZE[1] - 2)
@@ -36,7 +46,20 @@ class Gamemap:
 		for block in list(inside_circle(3, x, y)):
 			self.grid[block[0]][block[1]] = 0
 
-	# return grid
+	def placeplayer(self, grid):
+		# find a random spot on the map to place the player
+		xpos = random.randint(2, len(grid[0])-2)
+		ypos = random.randint(2, len(grid[1])-2)
+		# clear spot aound player
+		grid[xpos][ypos] = 0
+		grid[xpos-1][ypos] = 0
+		grid[xpos+1][ypos] = 0
+		grid[xpos][ypos-1] = 0
+		grid[xpos][ypos+1] = 0
+		xp = xpos * BLOCK
+		yp = ypos * BLOCK
+		logger.debug(f'[placeplayer] xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
+		return grid, xp, yp
 
 	def place_player(self, grid, location=0):
 		# place player somewhere where there is no block

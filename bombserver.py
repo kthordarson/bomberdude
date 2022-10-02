@@ -1,4 +1,5 @@
 from pygame.math import Vector2
+import random
 import pygame
 import struct
 import socket
@@ -7,7 +8,7 @@ from loguru import logger
 from threading import Thread
 
 # from things import Block
-from constants import GRIDSIZE, FPS, DEFAULTFONT
+from constants import GRIDSIZE, FPS, DEFAULTFONT, BLOCK
 from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data, dataid
@@ -99,6 +100,9 @@ class Servercomm(Thread):
 					elif payload.get('msgtype') == 'clientquit':
 						logger.debug(f'{self} quit payload:{payload}')
 						self.serverqueue.put(payload)
+					elif payload.get('msgtype') == 'reqpos':
+						logger.debug(f'{self} reqpos payload:{payload}')
+						self.serverqueue.put(payload)
 				#logger.debug(f'{self} payload:{payload}')
 
 
@@ -124,6 +128,14 @@ class BombClientHandler(Thread):
 
 	def __str__(self):
 		return f'[BCH] {self.client_id} t:{pygame.time.get_ticks()-self.start_time} l:{self.lastupdate} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.srvcomm}'
+
+	def posupdate(self, data):
+		newgrid, nx,ny = self.gamemap.placeplayer(self.gamemap.grid)
+		newpos = (nx, ny)
+		logger.debug(f'{self} posupdate data={data} newpos={newpos} mypos={self.pos}')
+		self.pos = newpos
+		payload = {'msgtype':dataid["posupdate"], 'client_id':self.client_id, 'pos':self.pos, 'newpos':newpos, 'newgrid':newgrid, 'data_id':dataid["posupdate"]}
+		self.sender.queue.put_nowait((self.conn, payload))
 
 	def quitplayer(self, quitter):
 		logger.info(f'{self} quitplayer quitter:{quitter}')
@@ -222,16 +234,6 @@ class BombClientHandler(Thread):
 				# logger.debug(f'{self} received id:{rid} resp={resp}')
 			elif rtype == dataid['reqmap'] or rid == 7:
 				self.send_map()
-			elif rtype == dataid['gridupdate'] or rid == 12:
-				# new grid and send update to clients
-				senderid = resp.get('client_id')
-				newgrid = resp.get('gamemapgrid')
-				gridmsg = {'msgtype': 'netgrid', 'client_id': senderid, 'gamemapgrid': newgrid, 'data_id': dataid['gridupdate']}
-				self.srvcomm.queue.put(gridmsg)
-				#self.gamemap.grid = newgrid
-				#self.send_map()
-				logger.debug(f'{self} gridupdate senderid:{senderid} newgrid:{len(newgrid)}')
-
 			elif rtype == dataid.get('gameevent') or rid == 9:
 				logger.debug(f'{self} gamevent received id:{rid} resp={resp}')
 			elif rtype == dataid['gridupdate'] or rid == 12:
@@ -250,6 +252,10 @@ class BombClientHandler(Thread):
 			elif rtype == dataid.get('clientquit') or rid == 16:
 				qmsg = {'msgtype':'clientquit', 'client_id':self.client_id}
 				self.srvcomm.queue.put(qmsg)
+
+			elif rtype == dataid.get('reqpos') or rid == 17:
+				msg = {'msgtype':'reqpos', 'client_id':self.client_id}
+				self.srvcomm.queue.put(msg)
 
 			elif rtype == dataid['auth'] or rid == 101:
 				logger.debug(f'{self} auth received id:{rid} resp={resp}')
@@ -274,6 +280,7 @@ class BombServer(Thread):
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.netplayers = {}
 		self.gui = gui # ServerGUI()
+
 
 	def serverevents(self):
 		events = pygame.event.get()
@@ -385,10 +392,10 @@ class BombServer(Thread):
 						if ckill:
 							bc.kill = True
 							logger.warning(f'[server] {bc} kill')
-							bc.netplayers[clid] = {'kill':True}
-							self.netplayers[clid] = {'kill':True}
+							bc.netplayers[clid]['kill'] = True
+							self.netplayers[clid]['kill'] = True
 				elif type == 'netplayers':
-					pass
+					logger.debug(f'[server] netplayersmsg data={data}')
 				elif type == 'netbomb':
 					logger.debug(f'[server] netbomb from {data.get("client_id")} pos={data.get("bombpos")}')
 					for bc in self.bombclients:
@@ -403,6 +410,11 @@ class BombServer(Thread):
 					quitter = data.get('client_id')
 					for bc in self.bombclients:
 						bc.quitplayer(quitter)
+				elif type == 'reqpos':
+					clid = data.get('client_id')
+					logger.debug(f'[server] reqpos from {clid} {data}')
+					for bc in self.bombclients:
+						bc.posupdate(data)
 				else:
 					logger.warning(f'[server] data={data}')
 

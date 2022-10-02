@@ -72,7 +72,8 @@ class Player(BasicThing, Thread):
 		#self.pos += self.vel
 		if self.connected:
 			try:
-				self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
+				if self.visible:
+					self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
 			except ConnectionResetError as e:
 				logger.error(f'[{self}] {e}')
 				self.connected = False
@@ -92,3 +93,7 @@ class Player(BasicThing, Thread):
 
 	def add_score(self):
 		self.score += 1
+	
+	def setpos(self, pos):
+		self.pos = pos
+
