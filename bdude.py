@@ -14,7 +14,7 @@ from player import Player
 from threading import Thread, Event
 import threading
 from queue import Queue
-#from bombserver import BombServer
+from map import Gamemap
 
 
 
@@ -34,8 +34,9 @@ class GameGUI:
 
 
 class Game(Thread):
-	def __init__(self, mainqueue=None, conn=None, sendq=None, netqueue=None):
+	def __init__(self, mainqueue=None, conn=None, sendq=None, netqueue=None, args=None):
 		Thread.__init__(self, name='game')
+		self.args = args
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.conn = conn
 		self.name = 'game'
@@ -62,6 +63,16 @@ class Game(Thread):
 		self.netplayers = {}
 		self.gamemapgrid = []
 		self.gotgamemapgrid = False
+		if self.args.testmode:
+			g=Gamemap()
+			grid,nx,ny = g.placeplayer(g.grid)
+			self.playerone.setpos((nx,ny))
+			self.gamemapgrid = grid
+			self.gotgamemapgrid = True
+			self.playerone.gotmap = True
+			self.playerone.visible = True
+			self.gui.show_mainmenu ^= True
+			self.updategrid(self.gamemapgrid)
 		# self.authresp = {}
 
 
@@ -82,11 +93,12 @@ class Game(Thread):
 			self.draw()
 			self.handle_input()
 			#self.playerone.update(self.blocks)
-			self.players.update(self.blocks)
-			self.update_bombs()
-			self.update_flames()
-			self.update_particles()
-			self.update_powerups(self.playerone)
+			if self.playerone.visible:
+				self.players.update(blocks=self.blocks, screen=self.screen)
+				self.update_bombs()
+				self.update_flames()
+				self.update_particles()
+				self.update_powerups(self.playerone)
 			gamemsg = None
 			if not self.mainqueue.empty():
 				gamemsg = self.mainqueue.get_nowait()
@@ -248,10 +260,11 @@ class Game(Thread):
 					rpos = Vector2(self.playerone.client.netplayers[np].get('pos'))
 					nprect = pygame.Rect(rpos, NETPLAYERSIZE)
 					surf = pygame.display.get_surface()
-					surf.fill(color=(255,0,0), rect=nprect, special_flags=pygame.BLEND_ADD)
+					surf.fill(color=(211,0,0), rect=nprect, special_flags=pygame.BLEND_ADD)
 					#pygame.draw.rect(self.screen, (255, 0, 0), rect=nprect, width=1)
 					#pygame.draw.circle(self.screen, (255, 0, 0), cpos, 10, 0)
-					self.font.render_to(self.screen, rpos, f'{np} {ckill}', (255, 255, 255))
+					rpos.x -= 20
+					self.font.render_to(self.screen, rpos, f'{np}', (255, 255, 255))
 					#rpos += (0,15)
 					#self.font.render_to(self.screen, rpos, f'{cpos} {rpos}', (255, 255, 255))
 			if self.playerone.client_id == np:
@@ -280,10 +293,12 @@ class Game(Thread):
 				self.playerone.connected = True
 				logger.debug(f'[game] p1 connecting c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
 				self.playerone.start_client()
+				mapreqcnt = 0
 				while not self.playerone.client.gotmap:
 					self.playerone.client.send_mapreq()
+					mapreqcnt += 1
 					time.sleep(0.5)
-					logger.debug(f'[game] p1 connecting c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
+					logger.debug(f'[game] p1 mapreqcnt:{mapreqcnt} c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
 				
 				# while not self.gotgamemapgrid:
 				# 	time.sleep(0.5)
@@ -392,6 +407,7 @@ class Game(Thread):
 if __name__ == "__main__":
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
+	parser.add_argument('--testmode', default=False, action='store_true', dest='testmode')
 	args = parser.parse_args()
 	if args.testclient:
 		pass
@@ -406,7 +422,7 @@ if __name__ == "__main__":
 		stop_event = Event()
 		#mainqueue = OldQueue()#  multiprocessing.Manager().Queue()
 		# engine = Engine(stop_event=stop_event, name='engine')
-		game = Game(mainqueue=mainqueue, sendq=sendq, netqueue=netqueue)
+		game = Game(mainqueue=mainqueue, sendq=sendq, netqueue=netqueue, args=args)
 		game.daemon = True
 		game.start()
 		game.running = True
