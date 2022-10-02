@@ -42,7 +42,7 @@ class Game(Thread):
 		self.sendq = sendq
 		self.netqueue = netqueue
 		self.kill = False
-		self.screen =  pygame.display.set_mode(SCREENSIZE, 0, 32)
+		self.screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 		self.gui = GameGUI(self.screen)
 		self.bg_color = pygame.Color("black")
 		self.running = False

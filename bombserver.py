@@ -1,3 +1,4 @@
+from pygame.math import Vector2
 import pygame
 import struct
 import socket
@@ -6,12 +7,25 @@ from loguru import logger
 from threading import Thread
 
 # from things import Block
-from constants import GRIDSIZE, FPS
+from constants import GRIDSIZE, FPS, DEFAULTFONT
 from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data, dataid
 
 from queue import Queue
+
+class ServerGUI(Thread):
+	def __init__(self):
+		super().__init__()
+		self.screen =  pygame.display.set_mode((800,600), 0, 32)
+		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		self.menusize = (250, 180)
+		self.image = pygame.Surface(self.menusize)
+		self.pos = Vector2(self.screenw // 2 - self.menusize[0] // 2, self.screenh // 2 - self.menusize[1] // 2)
+		self.rect = self.image.get_rect(topleft=self.pos)
+		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+		self.font_color = (255, 255, 255)
+		self.bg_color = pygame.Color("black")
 
 class Sender(Thread):
 	def __init__(self, client_id):
@@ -179,7 +193,7 @@ class BombClientHandler(Thread):
 			self.sender.queue.put_nowait((self.conn, payload))
 			try:
 				resp = receive_data(self.conn)
-				
+
 				# logger.debug(f'{self} rid:{rid} resp:{resp}')
 			except (ConnectionResetError, BrokenPipeError, struct.error, EOFError, OSError) as e:
 				logger.error(f'{self} receive_data error:{e}')
@@ -251,7 +265,7 @@ class BombClientHandler(Thread):
 					#logger.error(f'{self} unknownevent noresp rid:{rid} rtype:{rtype}  resp={type(resp)}')
 
 class BombServer(Thread):
-	def __init__(self):
+	def __init__(self, gui):
 		Thread.__init__(self, daemon=True)
 		self.bombclients  = []
 		self.gamemap = Gamemap()
@@ -259,25 +273,52 @@ class BombServer(Thread):
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.netplayers = {}
+		self.gui = gui # ServerGUI()
 
 	def run(self):
 		logger.debug(f'[server] run')
 		#self.srvcomm.start()
+		self.gui.start()
 		while not self.kill:
+			try:
+				pygame.display.flip()
+			except:
+				self.gui.screen = pygame.display.set_mode((800,600), 0, 32)
+			self.gui.screen.fill(self.gui.bg_color)
+			ctextpos = [10, 10]
+			self.gui.font.render_to(self.gui.screen, ctextpos, f'clients:{len(self.bombclients)} np:{len(self.netplayers)} q:{self.queue.qsize()}', (150,150,150))
+			ctextpos = [15, 25]
+			npidx = 1
+			for np in self.netplayers:
+				self.gui.font.render_to(self.gui.screen, (ctextpos[0]+13, ctextpos[1] ), f'[{npidx}/{len(self.netplayers)}] np:{self.netplayers[np]}', (130,30,130))
+				ctextpos[1] += 20
+			bidx = 1
 			for bc in self.bombclients:
 				if bc.client_id:
 					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':bc.kill}
 					self.netplayers[bc.client_id] = np
+					bc.netplayers[bc.client_id] = np
+					self.gui.font.render_to(self.gui.screen, ctextpos, f'[{bidx}/{len(self.bombclients)}] bc={bc.client_id} pos={bc.pos} np:{len(bc.netplayers)}', (130,130,130))
+					bidx += 1
+					ctextpos[1] += 20
+					self.gui.font.render_to(self.gui.screen, (ctextpos[0]+10, ctextpos[1]), f'np={np}', (140,140,140))
+					ctextpos[1] += 20
+					npidx = 1
+					for npitem in bc.netplayers:						
+						bcnp = bc.netplayers[npitem]
+						self.gui.font.render_to(self.gui.screen, (ctextpos[0]+15, ctextpos[1]), f'[{npidx}/{len(bc.netplayers)}] bcnp={bcnp}', (145,145,145))
+						npidx += 1
+						ctextpos[1] += 20
+					
+					pygame.draw.circle(self.gui.screen, (255,0,0), center=bc.pos, radius=5)
 					payload = {'msgtype':'netplayers', 'netplayers':self.netplayers}
 					bc.srvcomm.queue.put(payload)
 					if pygame.time.get_ticks()-bc.lastupdate > 3000:
 						bc.kill = True
 						bc.netplayers[bc.client_id] = {'kill':True}
 						self.netplayers[bc.client_id] = {'kill':True}
-						logger.warning(f'[server] {bc} timeout')						
+						logger.warning(f'[server] {bc} timeout')
 						self.bombclients.pop(self.bombclients.index(bc))
-				else:
-					logger.warning(f'[server] {bc} no client_id')
 			if self.kill:
 				logger.debug(f'[server] killed')
 				for c in self.bombclients:
@@ -342,7 +383,8 @@ def main():
 	logger.debug(f'[bombserver] started')
 	clients = 0
 	# serverq = Queue()
-	server = BombServer()
+	gui = ServerGUI()
+	server = BombServer(gui)
 	server.conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	server.conn.bind(('127.0.0.1', 9696))
 	server.conn.listen()
@@ -365,6 +407,8 @@ def main():
 			server.join()
 			logger.warning(f'kill server:{server}')
 			return
+
+
 
 if __name__ == '__main__':
 	logger.info('start')
