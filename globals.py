@@ -170,7 +170,7 @@ class Block(BasicThing):
 		self.rect.y = self.pos.y
 		# flame.vel = Vector2(flame.vel[0], flame.vel[1])
 		particles = Group()
-		for k in range(1, 10):
+		for k in range(1, random.randint(4,15)):
 			if flame.vel.x < 0: # flame come from left
 				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right"))) # make particle go right
 			elif flame.vel.x > 0: # right
@@ -313,7 +313,7 @@ class Particle(BasicThing):
 		else:
 			self.image.set_alpha(self.alpha)
 			self.vel -= self.accel
-			self.vel.y += abs(self.vel.y * 0.1) + 0.025
+			self.vel.y += abs(self.vel.y * 0.1) + random.triangular(0.01,0.03) # 0.025
 			self.pos += self.vel
 			self.rect.x = self.pos.x
 			self.rect.y = self.pos.y

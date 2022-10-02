@@ -28,6 +28,7 @@ class Player(BasicThing, Thread):
 		self.speed = 3
 		self.client = BombClient(client_id=self.client_id, serveraddress='127.0.0.1', serverport=9696, mainqueue=self.mainqueue)
 		self.gotmap = False
+		self.gotpos = False
 
 	def __str__(self):
 		return f'player {self.client_id} pos={self.pos} k={self.kill} ck={self.client.kill}'
