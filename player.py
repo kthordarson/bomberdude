@@ -1,4 +1,5 @@
 import pygame
+from pygame.math import Vector2
 from globals import BasicThing, Block, Bomb
 from loguru import logger
 from globals import gen_randid
@@ -27,6 +28,7 @@ class Player(BasicThing, Thread):
 		self.speed = 3
 		self.client = BombClient(client_id=self.client_id, serveraddress='127.0.0.1', serverport=9696, mainqueue=self.mainqueue)
 		self.gotmap = False
+		self.gotpos = False
 
 	def __str__(self):
 		return f'player {self.client_id} pos={self.pos} k={self.kill} ck={self.client.kill}'
@@ -34,39 +36,30 @@ class Player(BasicThing, Thread):
 	def start_client(self):
 		self.client.start()
 
-	def update(self, blocks):
-		self.rect.center = self.pos
-		self.centerpos = (self.rect.center[0], self.rect.center[1])
-		oldy = self.rect.y
-		oldx = self.rect.x
-		self.pos += self.vel
+	def update(self, blocks=None, screen=None):
+		if not self.visible:
+			return
+		#self.rect.center = self.pos
 		#self.pos.x += self.vel.x
 		#self.pos.y += self.vel.y
-		self.rect.x = self.pos.x
-		self.rect.y = self.pos.y
+		oldrect = self.rect
+		oldpos = (self.pos[0], self.pos[1])
+
+		self.pos += self.vel
+		self.centerpos = (self.rect.center[0], self.rect.center[1])
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
+		#self.pos.y = self.rect.y
+		#self.pos.x = self.rect.x
 		block_hit_list = self.collide(blocks)
 		for block in block_hit_list:
-			if isinstance(block, Block):
-				if self.vel.x != 0 and self.vel.y != 0 and block.solid:
-					self.vel.x = 0
-					self.vel.y = 0
-					self.rect.x = oldx
-					self.rect.y = oldy
-					break
-				if self.vel.x > 0 and block.solid:
-					self.rect.right = block.rect.left
-					self.vel.x = 0
-				if self.vel.x < 0 and block.solid:
-					self.rect.left = block.rect.right
-					self.vel.x = 0
-				if self.vel.y > 0 and block.solid:
-					self.rect.bottom = block.rect.top
-					self.vel.y = 0
-				if self.vel.y < 0 and block.solid:
-					self.rect.top = block.rect.bottom
-					self.vel.y = 0
-		self.pos.y = self.rect.y
-		self.pos.x = self.rect.x
+			if isinstance(block, Block):				
+				if pygame.Rect.colliderect(block.rect, self.rect) and block.solid:
+					self.vel = Vector2(0,0)
+					self.rect = oldrect
+					self.pos = oldpos
+					#pygame.draw.rect(surface=screen, color=(255, 0, 0), rect=block.rect, border_radius=0 )
+					#pygame.draw.circle(screen, center=(block.rect.x, block.rect.y), color=(0,255,0), radius=5)
 
 		# self.client.pos = (self.pos[0], self.pos[1])
 		#self.pos += self.vel

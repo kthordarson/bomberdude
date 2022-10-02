@@ -47,9 +47,10 @@ class BombClient(Thread):
 			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center, 'kill':self.kill}
 			send_data(conn=self.socket, payload=posmsg)
 
-	def send_gridupdate(self, gamemapgrid):
+	def send_gridupdate(self, gridpos=None, blktype=None):
+		# gridpos=blk.gridpos, blktype=blk.block_type)
 		if self.connected and not self.kill:
-			gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'gamemapgrid': gamemapgrid}
+			gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'gridpos': gridpos, 'blktype': blktype}
 			send_data(conn=self.socket, payload=gridmsg)
 			logger.debug(f'{self} send_gridupdate {len(gridmsg)}')
 
@@ -101,11 +102,19 @@ class BombClient(Thread):
 							if netplayers:
 								for np in netplayers:
 									self.netplayers[np] = netplayers[np]
-						elif payload.get('msgtype') == 'mapfromserver' or payload.get('msgtype') == 'netgrid':
+						elif payload.get('msgtype') == 'netgridupdate':
+							logger.debug(f'{self} netgridupdate {payload}')
+							gridpos = payload.get('gridpos')
+							blktype = payload.get('blktype')
+							logger.debug(f'mapfromserver g={gridpos}')
+							mapmsg = {'msgtype':'netgridupdate', 'client_id':self.client_id, 'gridpos':gridpos, 'blktype':blktype}
+							self.mainqueue.put_nowait(mapmsg)
+							self.gamemapgrid[gridpos[0]][gridpos[1]] = blktype
+						elif payload.get('msgtype') == 'mapfromserver':
 							gamemapgrid = payload.get('gamemapgrid')
 							logger.debug(f'mapfromserver g={len(gamemapgrid)}')
 							mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid}
-							self.mainqueue.put_nowait(mapmsg)
+							self.mainqueue.put_nowait(mapmsg)							
 							self.gamemapgrid = gamemapgrid
 							self.gotmap = True
 						elif payload.get('msgtype') == 'netbomb':

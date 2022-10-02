@@ -239,12 +239,13 @@ class BombClientHandler(Thread):
 			elif rtype == dataid['gridupdate'] or rid == 12:
 				# new grid and send update to clients
 				senderid = resp.get('client_id')
-				newgrid = resp.get('gamemapgrid')
-				gridmsg = {'msgtype': 'netgrid', 'client_id': senderid, 'gamemapgrid': newgrid, 'data_id': dataid['gridupdate']}
+				gridpos = resp.get('gridpos')
+				blktype = resp.get('blktype')
+				gridmsg = {'msgtype': 'netgridupdate', 'client_id': senderid, 'gridpos': gridpos, 'blktype':blktype, 'data_id': dataid['gridupdate']}
 				self.srvcomm.queue.put(gridmsg)
 				#self.gamemap.grid = newgrid
 				#self.send_map()
-				logger.debug(f'{self} gridupdate senderid:{senderid} newgrid:{len(newgrid)}')
+				logger.debug(f'{self} gridupdate senderid:{senderid} gp={gridpos} bt={blktype}')
 			elif rtype == dataid.get('netbomb') or rid == 14:
 				updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
 				self.srvcomm.queue.put(updatemsg)

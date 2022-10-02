@@ -56,8 +56,15 @@ class Gamemap:
 		grid[xpos+1][ypos] = 0
 		grid[xpos][ypos-1] = 0
 		grid[xpos][ypos+1] = 0
+		grid[xpos-1][ypos-1] = 0
+		grid[xpos+1][ypos+1] = 0
 		xp = xpos * BLOCK
 		yp = ypos * BLOCK
+		for x in range(len(grid[0])):
+			grid[x][0] = 10
+			grid[0][x] = 10
+			grid[-1][x] = 10
+			grid[x][-1] = 10
 		logger.debug(f'[placeplayer] xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
 		return grid, xp, yp
 
