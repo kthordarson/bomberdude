@@ -131,12 +131,15 @@ class BombClientHandler(Thread):
 		return f'[BCH] {self.client_id} t:{pygame.time.get_ticks()-self.start_time} l:{self.lastupdate} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.srvcomm}'
 
 	def set_pos(self, newpos):
+		# called when server generates new map and new player position
+		# todo fix
 		self.pos = newpos
 		# payload = {'msgtype':dataid["posupdate"], 'client_id':self.client_id, 'pos':self.pos, 'newpos':newpos, 'newgrid':newgrid, 'data_id':dataid["posupdate"]}
 		posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos}
 		self.sender.queue.put_nowait((self.conn, posmsg))
 
 	def posupdate(self, data):
+		# when server sends new player position
 		newgrid, nx,ny = self.gamemap.placeplayer(self.gamemap.grid)
 		newpos = (nx, ny)
 		if not self.gotpos:
@@ -150,6 +153,7 @@ class BombClientHandler(Thread):
 			logger.warning(f'{self} dupeposupdate data={data} newpos={newpos} mypos={self.pos}')
 
 	def quitplayer(self, quitter):
+		# when player quits or times out
 		logger.info(f'{self} quitplayer quitter:{quitter}')
 		if quitter == self.client_id:
 			self.kill = True
@@ -157,22 +161,26 @@ class BombClientHandler(Thread):
 			self.conn.close()
 
 	def send_map(self, newgrid=None):
-		logger.info(f'{self} send_map newgrid:{newgrid}')
+		# send mapgrid to player
 		if newgrid:
+			logger.info(f'{self} send_map newgrid:{len(newgrid)}')
 			self.gamemap.grid = newgrid
-		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid']}
+		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid'], 'newgrid':newgrid}
 		#self.sender.send(self.conn, payload)
 		self.sender.queue.put_nowait((self.conn, payload))
 
 	def gridupdate(self, data):
+		# when client send update after bomb explosion
 		logger.debug(f'{self} griddata:{len(data)}')
 		self.sender.queue.put_nowait((self.conn, data))
 
 	def bombevent(self, data):
+		# when client sends bomb
 		logger.debug(f'{self} bombevent bomber:{data.get("client_id")} pos:{data.get("bombpos")}')
 		self.sender.queue.put_nowait((self.conn, data))
 
 	def get_client_id(self):
+		# get real client id from remote client
 		payload = {'msgtype':'bcgetid', 'payload':'sendclientid', 'data_id':dataid['getid']}
 		self.sender.queue.put_nowait((self.conn, payload))
 		logger.debug(f'{self} sent payload:{payload}')
@@ -331,6 +339,7 @@ class BombServer(Thread):
 				self.gamemap.grid = newgrid
 				for bc in self.bombclients:
 					bcg, nx, ny = self.gamemap.placeplayer(self.gamemap.grid)
+					bc.gamemap.grid = bcg
 					bc.send_map(newgrid=bcg)
 					self.gamemap.grid = bcg
 			ctextpos = [15, 25]
@@ -416,16 +425,21 @@ class BombServer(Thread):
 							np = {'pos':pos, 'centerpos':centerpos, 'kill':ckill}
 							bc.netplayers[clid] = np
 							self.netplayers[clid] = np
+						elif clid == bc.client_id:
+							logger.warning(f'[server] clid={clid} bc={bc} skipping')
 						if ckill:
+							# client kill flag set, kill bombclient and remove from list
 							bc.kill = True
 							logger.warning(f'[server] {bc} kill')
 							bc.netplayers[clid]['kill'] = True
 							self.netplayers[clid]['kill'] = True
 				elif type == 'netplayers':
+					# unused
 					logger.debug(f'[server] netplayersmsg data={data}')
 				elif type == 'netbomb':
 					logger.debug(f'[server] netbomb from {data.get("client_id")} pos={data.get("bombpos")}')
 					for bc in self.bombclients:
+						# inform all clients about bomb
 						bc.bombevent(data)
 				elif type == 'netgrid':
 					self.gamemap.grid = data.get('gamemapgrid')
@@ -433,11 +447,13 @@ class BombServer(Thread):
 					for bc in self.bombclients:
 						bc.gridupdate(data)
 				elif type == 'clientquit':
+					# inform all clients about client quit
 					logger.debug(f'[server] quit {data}')
 					quitter = data.get('client_id')
 					for bc in self.bombclients:
 						bc.quitplayer(quitter)
 				elif type == 'reqpos':
+					# todo write text...
 					clid = data.get('client_id')
 					logger.debug(f'[server] reqpos from {clid} {data}')
 					for bc in self.bombclients:

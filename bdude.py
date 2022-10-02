@@ -55,7 +55,7 @@ class Game(Thread):
 		self.powerups = Group()
 		self.bombs = Group()
 		self.flames = Group()
-		self.playerone = Player(pos=(1, 1), visible=False, mainqueue=self.mainqueue)
+		self.playerone = Player(pos=(1, 1),  mainqueue=self.mainqueue)
 		self.p1connected = False
 		self.players.add(self.playerone)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
@@ -70,7 +70,7 @@ class Game(Thread):
 			self.gamemapgrid = grid
 			self.gotgamemapgrid = True
 			self.playerone.gotmap = True
-			self.playerone.visible = True
+			self.playerone.ready = True
 			self.gui.show_mainmenu ^= True
 			self.updategrid(self.gamemapgrid)
 		# self.authresp = {}
@@ -78,12 +78,15 @@ class Game(Thread):
 
 	def __repr__(self):
 		return f'[game] {self.name}'
+
 	def get_block_count(self):
+		# get number of killable blocks on map
 		cnt = 0
 		for block in self.blocks:
 			if block.block_type in range(1,9):
 				cnt += 1
 		return cnt
+
 	def run(self):
 		logger.debug(f'[game] {self} started mq:{self.mainqueue.qsize()} sq:{self.sendq.qsize()} nq:{self.netqueue.qsize()}')
 		while True:
@@ -98,7 +101,7 @@ class Game(Thread):
 			self.draw()
 			self.handle_input()
 			#self.playerone.update(self.blocks)
-			if self.playerone.visible:
+			if self.playerone.ready:
 				self.players.update(blocks=self.blocks, screen=self.screen)
 				self.update_bombs()
 				self.update_flames()
@@ -137,7 +140,7 @@ class Game(Thread):
 			if client_id == self.playerone.client_id:
 				if not self.playerone.gotpos:
 					self.playerone.setpos(newpos)
-					self.playerone.visible = True
+					self.playerone.ready = True
 					self.playerone.gotpos = True
 					logger.debug(f'[mainq] posupdate {client_id} newpos={newpos} newgrid={len(newgrid)}')
 			else:
@@ -264,7 +267,7 @@ class Game(Thread):
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
 		self.flames.draw(self.screen)
-		if self.playerone.visible:
+		if self.playerone.ready:
 			self.players.draw(self.screen)
 		self.powerups.draw(self.screen)
 		for np in self.playerone.client.netplayers:
@@ -302,15 +305,11 @@ class Game(Thread):
 				while not self.playerone.client.gotmap:
 					self.playerone.client.send_mapreq()
 					mapreqcnt += 1
-					time.sleep(0.5)
+					time.sleep(1)
 					logger.debug(f'[game] p1 mapreqcnt:{mapreqcnt} c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
-
-				# while not self.gotgamemapgrid:
-				# 	time.sleep(0.5)
-				# 	logger.debug(f'[game] waiting for grid pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
-				# p1pos = self.placeplayer()
-				# self.playerone.setpos(p1pos)
-				# logger.debug(f'[game] p1pos={p1pos} ppos={self.playerone.pos} pclpos={self.playerone.client.pos} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
+			else:
+				logger.warning(f'[game] p1 not connected c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
+				self.gui.show_mainmenu ^= True
 
 		if selection == "Connect to server":
 			pass

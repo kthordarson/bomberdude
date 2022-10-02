@@ -9,7 +9,7 @@ from network import dataid
 from bclient import BombClient
 
 class Player(BasicThing, Thread):
-	def __init__(self, pos=None, visible=False, mainqueue=None):
+	def __init__(self, pos=None, mainqueue=None):
 		Thread.__init__(self, daemon=True)
 		super().__init__(pos, None)
 		self.image = pygame.image.load('data/playerone.png')
@@ -17,7 +17,7 @@ class Player(BasicThing, Thread):
 		self.image = pygame.transform.scale(self.image, self.size)
 		# BasicThing.__init__(self, pos, self.image)
 		self.mainqueue = mainqueue
-		self.visible = visible
+		self.ready = False
 		self.client_id = gen_randid()
 		self.name = f'player{self.client_id}'
 		self.connected = False
@@ -37,7 +37,7 @@ class Player(BasicThing, Thread):
 		self.client.start()
 
 	def update(self, blocks=None, screen=None):
-		if not self.visible:
+		if not self.ready:
 			return
 		#self.rect.center = self.pos
 		#self.pos.x += self.vel.x
@@ -65,7 +65,7 @@ class Player(BasicThing, Thread):
 		#self.pos += self.vel
 		if self.connected:
 			try:
-				if self.visible:
+				if self.ready:
 					self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
 			except ConnectionResetError as e:
 				logger.error(f'[{self}] {e}')
@@ -74,12 +74,6 @@ class Player(BasicThing, Thread):
 				self.client.socket.close()
 				self.kill = True
 				return
-			if not self.gotmap:
-				if self.client.gotmap:
-					#self.mainqueue.put_nowait({'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.client.gamemapgrid})
-					self.gotmap = True
-					logger.debug(f'[{self}] gotmap:{self.gotmap} grid:{len(self.client.gamemapgrid)}')
-
 
 	def take_powerup(self, powerup=None):
 		pass
