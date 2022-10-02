@@ -25,7 +25,9 @@ dataid = {
 	'UnpicklingError':1002
 	}
 def send_data(conn=None, payload=None):
-	if conn is None or conn._closed:
+	if conn._closed:
+		return
+	if conn is None:
 		logger.error(f'No connection conn:{conn} payload:{payload}')
 		return
 	if payload is None:
@@ -40,6 +42,8 @@ def send_data(conn=None, payload=None):
 		conn.close()
 
 def receive_data(conn):
+	if conn._closed:
+		return None
 	rid, data = None, None
 	try:
 		rawdata = conn.recv(4096).decode('utf-8')

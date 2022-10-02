@@ -303,6 +303,12 @@ class BombServer(Thread):
 			self.gui.font.render_to(self.gui.screen, ctextpos, f'clients:{len(self.bombclients)} np:{len(self.netplayers)} q:{self.queue.qsize()}', (150,150,150))
 			ctextpos = [15, 25]
 			npidx = 1
+			try:
+				self.netplayers.pop([self.netplayers.get(k) for k in self.netplayers if self.netplayers[k]['kill']][0].get('client_id'))
+			except IndexError:
+				pass
+			#netplrs = [self.netplayers[k] for k in self.netplayers if not self.netplayers[k]['kill']]
+			#self.netplayers = netplrs
 			for np in self.netplayers:
 				snp = self.netplayers[np]
 				try:
@@ -314,6 +320,10 @@ class BombServer(Thread):
 			plcolor = [255,0,0]
 			for bc in self.bombclients:
 				if bc.client_id:
+					try:
+						bc.netplayers.pop([bc.netplayers.get(k) for k in bc.netplayers if bc.netplayers[k]['kill']][0].get('client_id'))
+					except IndexError:
+						pass
 					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':bc.kill}
 					self.netplayers[bc.client_id] = np
 					bc.netplayers[bc.client_id] = np
@@ -325,7 +335,7 @@ class BombServer(Thread):
 					npidx = 1
 					for npitem in bc.netplayers:						
 						bcnp = bc.netplayers[npitem]
-						self.gui.font.render_to(self.gui.screen, (ctextpos[0]+15, ctextpos[1]), f'[{npidx}/{len(bc.netplayers)}] bcnp={bcnp["client_id"]} pos={bcnp["pos"]}', (145,145,145))
+						self.gui.font.render_to(self.gui.screen, (ctextpos[0]+15, ctextpos[1]), f'[{npidx}/{len(bc.netplayers)}] bcnp={bcnp["client_id"]} pos={bcnp["pos"]} kill={bcnp["kill"]}', (145,145,145))
 						npidx += 1
 						ctextpos[1] += 20					
 					pygame.draw.circle(self.gui.screen, plcolor, center=bc.pos, radius=5)
