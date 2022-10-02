@@ -13,7 +13,6 @@ class DebugDialog:
 		self.image = pygame.Surface(self.menusize)
 		self.font = font  # pygame.freetype.Font(font, 12)
 		self.font_color = (255, 255, 255)
-		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		# self.pos = Vector2(self.screenw-self.menusize[0],self.screenh-80)
 		self.pos = Vector2(10, 500)
 		self.rect = self.image.get_rect(topleft=self.pos)

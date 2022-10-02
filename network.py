@@ -19,13 +19,18 @@ dataid = {
 	'netbomb': 14,
 	'getid': 15,
 	'clientquit': 16,
+	'reqpos'	: 17,
+	'netpos'	: 18,
+	'posupdate': 19,
 	'auth':101,
 	'error':1000,
 	'errorfromserver':1001,
 	'UnpicklingError':1002
 	}
 def send_data(conn=None, payload=None):
-	if conn is None or conn._closed:
+	if conn._closed:
+		return
+	if conn is None:
 		logger.error(f'No connection conn:{conn} payload:{payload}')
 		return
 	if payload is None:
@@ -33,11 +38,21 @@ def send_data(conn=None, payload=None):
 		return
 	data = json.dumps(payload).encode('utf-8')
 	#logger.debug(f'[send] pl={len(payload)} d={len(data)} p={payload} d={data}')
-	conn.sendall(data)
+	try:
+		conn.sendall(data)
+	except BrokenPipeError as e:
+		logger.error(f'[send] BrokenPipeError:{e} conn:{conn} payload:{payload}')
+		conn.close()
 
 def receive_data(conn):
+	if conn._closed:
+		return None
 	rid, data = None, None
-	rawdata = conn.recv(4096).decode('utf-8')
+	try:
+		rawdata = conn.recv(4096).decode('utf-8')
+	except OSError as e:
+		logger.error(f'[recv] OSError:{e} conn:{conn}')
+		return None
 	try:
 		data = json.loads(rawdata)
 		#rid = data.get('data_id')

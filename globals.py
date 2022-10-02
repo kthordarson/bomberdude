@@ -9,7 +9,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
-from constants import BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, GRIDSIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, MAXPARTICLES
+from constants import FPS,BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, GRIDSIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, MAXPARTICLES
 
 
 def random_velocity(direction=None):
@@ -101,6 +101,7 @@ class BasicThing(Sprite):
 		self.pos = Vector2(pos)
 		self.vel = Vector2()
 		self.start_time = pygame.time.get_ticks()
+		self.clock = pygame.time.Clock()
 		self.image = image
 		self.accel = Vector2(0, 0)
 
@@ -198,17 +199,23 @@ class Powerup(BasicThing):
 		self.rect.center = pos
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
-		self.timer = 10
-		self.start_time = pygame.time.get_ticks() / 1000
+		self.timer = 10000
+		#self.clock = pygame.time.Clock()
+		self.start_time = pygame.time.get_ticks()
 
 	def __str__(self):
 		return f'[pwrup] pos={self.pos} type={self.powertype}'
 
 	def update(self, items=None):
-		self.dt = pygame.time.get_ticks() / 1000
-		# logger.debug(f'[pu] {dt - self.start_time} {self.timer}')
-		if self.dt - self.start_time >= self.timer:
+		#logger.debug(f'[pu] st:{self.timer} < {pygame.time.get_ticks() - self.start_time}')
+		if self.timer < pygame.time.get_ticks() - self.start_time:
+			logger.debug(f'[pu] st:{self.timer} < {pygame.time.get_ticks() - self.start_time}')
 			self.kill()
+
+		#self.dt = pygame.time.get_ticks() / 1000
+		# logger.debug(f'[pu] {dt - self.start_time} {self.timer}')
+		#if self.dt - self.start_time >= self.timer:
+		#	self.kill()
 
 #	def draw(self, screen):
 #		pygame.draw.circle(screen, (0,255,0), self.rect.center, 15)
@@ -328,40 +335,20 @@ class Flame(BasicThing):
 		self.size = FLAMESIZE
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
-		self.start_pos = Vector2((rect.centerx, rect.centery))
+		self.start_pos = self.pos
+		self.start_pos2 = Vector2((rect.centerx, rect.centery))
 		self.vel = Vector2(vel)
-		self.timer = 2000
+		self.timer = 4000
 		self.flame_length = flame_length
-		self.timeleft = self.timer
 
 	def __str__(self) -> str:
 		return f'[flame] pos={self.pos} vel={self.vel}'
 
 	def update(self, surface=None):
-		self.timeleft = self.timer - (pygame.time.get_ticks() - self.start_time)
 		if pygame.time.get_ticks() - self.start_time >= self.timer:
 			self.kill()
 		self.pos += self.vel
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
 		pygame.draw.line(surface, (155, 0, 0), self.start_pos, self.rect.center, 2)
-
-	def xxupdate(self):
-		if not self.stopped:
-			self.dt = pygame.time.get_ticks() / 1000
-			self.pos += self.vel
-			distance = abs(int(self.pos.distance_to(self.start_pos)))
-			center = self.rect.center
-			if self.vel[0] == -1 or self.vel[0] == 1:
-				self.image = pygame.transform.scale(self.image, (self.size[0] + distance, self.size[1]))
-			if self.vel[1] == -1 or self.vel[1] == 1:
-				self.image = pygame.transform.scale(self.image, (self.size[0], self.size[1] + distance))
-			self.rect = self.image.get_rect()
-			self.rect = self.image.get_rect(topleft=self.pos)
-			self.rect.center = center
-			self.rect.x = self.pos.x
-			self.rect.y = self.pos.y
-			if distance >= self.flame_length: # or (self.dt - self.start_time >= self.timer):
-				self.kill()
-			if self.dt - self.start_time >= self.timer:
-				pass
+		pygame.draw.line(surface, (155, 0, 111), self.start_pos2, self.rect.center, 2)

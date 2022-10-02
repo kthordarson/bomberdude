@@ -20,19 +20,23 @@ class Player(BasicThing, Thread):
 		self.client_id = gen_randid()
 		self.name = f'player{self.client_id}'
 		self.connected = False
+		self.kill = False
 		self.pos = pos
 		self.rect = self.image.get_rect(center=self.pos)
+		self.centerpos = (self.rect.center[0], self.rect.center[1])
 		self.speed = 3
 		self.client = BombClient(client_id=self.client_id, serveraddress='127.0.0.1', serverport=9696, mainqueue=self.mainqueue)
 		self.gotmap = False
 
+	def __str__(self):
+		return f'player {self.client_id} pos={self.pos} k={self.kill} ck={self.client.kill}'
+
 	def start_client(self):
 		self.client.start()
 
-	def bombdrop(self):
-		pass
-
 	def update(self, blocks):
+		self.rect.center = self.pos
+		self.centerpos = (self.rect.center[0], self.rect.center[1])
 		oldy = self.rect.y
 		oldx = self.rect.x
 		self.pos += self.vel
@@ -61,17 +65,22 @@ class Player(BasicThing, Thread):
 				if self.vel.y < 0 and block.solid:
 					self.rect.top = block.rect.bottom
 					self.vel.y = 0
-				#elif self.vel.x != 0 and self.vel.y != 0:
-				#	self.vel.x = 0
-				#	self.vel.y = 0
 		self.pos.y = self.rect.y
 		self.pos.x = self.rect.x
 
 		# self.client.pos = (self.pos[0], self.pos[1])
 		#self.pos += self.vel
-		#self.rect.center = self.pos
 		if self.connected:
-			self.client.send_pos((self.pos[0], self.pos[1]))
+			try:
+				if self.visible:
+					self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
+			except ConnectionResetError as e:
+				logger.error(f'[{self}] {e}')
+				self.connected = False
+				self.client.kill = True
+				self.client.socket.close()
+				self.kill = True
+				return
 			if not self.gotmap:
 				if self.client.gotmap:
 					#self.mainqueue.put_nowait({'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.client.gamemapgrid})
@@ -84,3 +93,7 @@ class Player(BasicThing, Thread):
 
 	def add_score(self):
 		self.score += 1
+	
+	def setpos(self, pos):
+		self.pos = pos
+
