@@ -21,7 +21,8 @@ class Gamemap:
 			grid[0][x] = 10
 			grid[-1][x] = 10
 			grid[x][-1] = 10
-		return grid
+		self.grid = grid
+		return self.grid
 
 	def generate_custom(self, squaresize):
 		grid = [[random.randint(0, 5) for k in range(squaresize)] for j in range(squaresize)]
@@ -31,6 +32,7 @@ class Gamemap:
 			grid[0][x] = 10
 			grid[-1][x] = 10
 			grid[x][-1] = 10
+		self.grid = grid
 		return grid
 
 	def clear_center(self):
@@ -62,6 +64,7 @@ class Gamemap:
 			grid[-1][x] = 10
 			grid[x][-1] = 10
 		logger.debug(f'[placeplayer] xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
+		self.grid = grid
 		return grid, xp, yp
 
 	def place_player(self, grid, location=0):
@@ -115,6 +118,25 @@ class Gamemap:
 			logger.error(f"[get_block] {e} x:{x} y:{y}")
 			return -1
 		return value
+
+	def is_empty(self):
+		cnt = 0
+		for row in self.grid:
+			for item in row:
+				if item in range(1,9):
+					cnt += 1
+		if cnt == 0:
+			return True
+		else:
+			return False
+
+	def get_bcount(self, cval=0):
+		cnt = 0
+		for row in self.grid:
+			for item in row:
+				if item == cval:
+					cnt += 1
+		return cnt
 
 	def get_block_real(self, x, y):
 		x = x // BLOCKSIZE[0]

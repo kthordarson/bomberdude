@@ -78,7 +78,12 @@ class Game(Thread):
 
 	def __repr__(self):
 		return f'[game] {self.name}'
-
+	def get_block_count(self):
+		cnt = 0
+		for block in self.blocks:
+			if block.block_type in range(1,9):
+				cnt += 1
+		return cnt
 	def run(self):
 		logger.debug(f'[game] {self} started mq:{self.mainqueue.qsize()} sq:{self.sendq.qsize()} nq:{self.netqueue.qsize()}')
 		while True:
@@ -279,7 +284,7 @@ class Game(Thread):
 
 		if DEBUG:
 			pos = Vector2(10, self.screenh - 100)
-			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} threads:{threading.active_count()}", (173, 173, 173))
+			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} b:{self.get_block_count()} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} threads:{threading.active_count()}", (173, 173, 173))
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()} p1c:{self.p1connected} np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
 

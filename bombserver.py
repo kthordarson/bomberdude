@@ -117,6 +117,7 @@ class BombClientHandler(Thread):
 		self.addr = addr
 		self.netplayers = {}
 		self.pos = (0,0)
+		self.gotpos = False
 		self.centerpos = (0,0)
 		self.gamemap = gamemap
 		self.sender = Sender(client_id=self.client_id)
@@ -129,13 +130,24 @@ class BombClientHandler(Thread):
 	def __str__(self):
 		return f'[BCH] {self.client_id} t:{pygame.time.get_ticks()-self.start_time} l:{self.lastupdate} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.srvcomm}'
 
+	def set_pos(self, newpos):
+		self.pos = newpos
+		# payload = {'msgtype':dataid["posupdate"], 'client_id':self.client_id, 'pos':self.pos, 'newpos':newpos, 'newgrid':newgrid, 'data_id':dataid["posupdate"]}
+		posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos}
+		self.sender.queue.put_nowait((self.conn, posmsg))
+
 	def posupdate(self, data):
 		newgrid, nx,ny = self.gamemap.placeplayer(self.gamemap.grid)
 		newpos = (nx, ny)
-		logger.debug(f'{self} posupdate data={data} newpos={newpos} mypos={self.pos}')
-		self.pos = newpos
-		payload = {'msgtype':dataid["posupdate"], 'client_id':self.client_id, 'pos':self.pos, 'newpos':newpos, 'newgrid':newgrid, 'data_id':dataid["posupdate"]}
-		self.sender.queue.put_nowait((self.conn, payload))
+		if not self.gotpos:
+			logger.debug(f'{self} posupdate data={data} newpos={newpos} mypos={self.pos}')
+			self.pos = newpos
+			self.gamemap.grid = newgrid
+			payload = {'msgtype':dataid["posupdate"], 'client_id':self.client_id, 'pos':self.pos, 'newpos':newpos, 'newgrid':newgrid, 'data_id':dataid["posupdate"]}
+			self.sender.queue.put_nowait((self.conn, payload))
+			self.gotpos = True
+		else:
+			logger.warning(f'{self} dupeposupdate data={data} newpos={newpos} mypos={self.pos}')
 
 	def quitplayer(self, quitter):
 		logger.info(f'{self} quitplayer quitter:{quitter}')
@@ -144,8 +156,10 @@ class BombClientHandler(Thread):
 			self.sender.kill = True
 			self.conn.close()
 
-	def send_map(self):
-		logger.info(f'{self} send_map')
+	def send_map(self, newgrid=None):
+		logger.info(f'{self} send_map newgrid:{newgrid}')
+		if newgrid:
+			self.gamemap.grid = newgrid
 		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid']}
 		#self.sender.send(self.conn, payload)
 		self.sender.queue.put_nowait((self.conn, payload))
@@ -241,6 +255,7 @@ class BombClientHandler(Thread):
 				senderid = resp.get('client_id')
 				gridpos = resp.get('gridpos')
 				blktype = resp.get('blktype')
+				self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
 				gridmsg = {'msgtype': 'netgridupdate', 'client_id': senderid, 'gridpos': gridpos, 'blktype':blktype, 'data_id': dataid['gridupdate']}
 				self.srvcomm.queue.put(gridmsg)
 				#self.gamemap.grid = newgrid
@@ -308,7 +323,16 @@ class BombServer(Thread):
 				self.gui.screen = pygame.display.set_mode((800,600), 0, 32)
 			self.gui.screen.fill(self.gui.bg_color)
 			ctextpos = [10, 10]
-			self.gui.font.render_to(self.gui.screen, ctextpos, f'clients:{len(self.bombclients)} np:{len(self.netplayers)} q:{self.queue.qsize()}', (150,150,150))
+			msgtxt = f'clients:{len(self.bombclients)} np:{len(self.netplayers)} q:{self.queue.qsize()} mapempty:{self.gamemap.is_empty()} get_bcount0:{self.gamemap.get_bcount(0)}'
+			self.gui.font.render_to(self.gui.screen, ctextpos, msgtxt, (150,150,150))
+			if self.gamemap.is_empty():
+				logger.info(f'[server] map is empty')
+				newgrid = self.gamemap.generate_custom(squaresize=15)
+				self.gamemap.grid = newgrid
+				for bc in self.bombclients:
+					bcg, nx, ny = self.gamemap.placeplayer(self.gamemap.grid)
+					bc.send_map(newgrid=bcg)
+					self.gamemap.grid = bcg
 			ctextpos = [15, 25]
 			npidx = 1
 			try:
@@ -320,7 +344,8 @@ class BombServer(Thread):
 			for np in self.netplayers:
 				snp = self.netplayers[np]
 				try:
-					self.gui.font.render_to(self.gui.screen, (ctextpos[0]+13, ctextpos[1] ), f'[{npidx}/{len(self.netplayers)}] servernp:{snp["client_id"]} pos={snp["pos"]} snpkill={snp["kill"]}', (130,30,130))
+					msgtxt = f'[{npidx}/{len(self.netplayers)}] servernp:{snp["client_id"]} pos={snp["pos"]} snpkill={snp["kill"]}'
+					self.gui.font.render_to(self.gui.screen, (ctextpos[0]+13, ctextpos[1] ), msgtxt, (130,30,130))
 					ctextpos[1] += 20
 				except KeyError as e:
 					logger.warning(f'[server] KeyError:{e} np={np} snp={snp}')
@@ -328,6 +353,7 @@ class BombServer(Thread):
 			plcolor = [255,0,0]
 			for bc in self.bombclients:
 				if bc.client_id:
+					self.gamemap.grid = bc.gamemap.grid
 					try:
 						bc.netplayers.pop([bc.netplayers.get(k) for k in bc.netplayers if bc.netplayers[k]['kill']][0].get('client_id'))
 					except IndexError:
