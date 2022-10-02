@@ -2,7 +2,7 @@ from pygame.math import Vector2
 import pygame
 import struct
 import socket
-import sys
+import sys,os
 from loguru import logger
 from threading import Thread
 
@@ -275,11 +275,25 @@ class BombServer(Thread):
 		self.netplayers = {}
 		self.gui = gui # ServerGUI()
 
+	def serverevents(self):
+		events = pygame.event.get()
+		for event in events:
+			if event.type == pygame.KEYDOWN:
+				if event.key == pygame.K_q:
+					self.kill = True
+
 	def run(self):
 		logger.debug(f'[server] run')
 		#self.srvcomm.start()
 		self.gui.start()
 		while not self.kill:
+			events = pygame.event.get()
+			for event in events:
+				if event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_q:
+						self.kill = True
+						self.conn.close()
+						break
 			try:
 				pygame.display.flip()
 			except:
@@ -290,41 +304,48 @@ class BombServer(Thread):
 			ctextpos = [15, 25]
 			npidx = 1
 			for np in self.netplayers:
-				self.gui.font.render_to(self.gui.screen, (ctextpos[0]+13, ctextpos[1] ), f'[{npidx}/{len(self.netplayers)}] np:{self.netplayers[np]}', (130,30,130))
-				ctextpos[1] += 20
+				snp = self.netplayers[np]
+				try:
+					self.gui.font.render_to(self.gui.screen, (ctextpos[0]+13, ctextpos[1] ), f'[{npidx}/{len(self.netplayers)}] servernp:{snp["client_id"]} pos={snp["pos"]} snpkill={snp["kill"]}', (130,30,130))
+					ctextpos[1] += 20
+				except KeyError as e:
+					logger.warning(f'[server] KeyError:{e} np={np} snp={snp}')
 			bidx = 1
+			plcolor = [255,0,0]
 			for bc in self.bombclients:
 				if bc.client_id:
 					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':bc.kill}
 					self.netplayers[bc.client_id] = np
 					bc.netplayers[bc.client_id] = np
 					self.gui.font.render_to(self.gui.screen, ctextpos, f'[{bidx}/{len(self.bombclients)}] bc={bc.client_id} pos={bc.pos} np:{len(bc.netplayers)}', (130,130,130))
+					ctextpos[1] += 20
 					bidx += 1
-					ctextpos[1] += 20
-					self.gui.font.render_to(self.gui.screen, (ctextpos[0]+10, ctextpos[1]), f'np={np}', (140,140,140))
-					ctextpos[1] += 20
+					#self.gui.font.render_to(self.gui.screen, (ctextpos[0]+10, ctextpos[1]), f'np={np}', (140,140,140))
+					#ctextpos[1] += 20
 					npidx = 1
 					for npitem in bc.netplayers:						
 						bcnp = bc.netplayers[npitem]
-						self.gui.font.render_to(self.gui.screen, (ctextpos[0]+15, ctextpos[1]), f'[{npidx}/{len(bc.netplayers)}] bcnp={bcnp}', (145,145,145))
+						self.gui.font.render_to(self.gui.screen, (ctextpos[0]+15, ctextpos[1]), f'[{npidx}/{len(bc.netplayers)}] bcnp={bcnp["client_id"]} pos={bcnp["pos"]}', (145,145,145))
 						npidx += 1
-						ctextpos[1] += 20
-					
-					pygame.draw.circle(self.gui.screen, (255,0,0), center=bc.pos, radius=5)
+						ctextpos[1] += 20					
+					pygame.draw.circle(self.gui.screen, plcolor, center=bc.pos, radius=5)
+					plcolor[1] += 60
+					plcolor[2] += 60
 					payload = {'msgtype':'netplayers', 'netplayers':self.netplayers}
 					bc.srvcomm.queue.put(payload)
 					if pygame.time.get_ticks()-bc.lastupdate > 3000:
 						bc.kill = True
-						bc.netplayers[bc.client_id] = {'kill':True}
-						self.netplayers[bc.client_id] = {'kill':True}
+						bc.netplayers[bc.client_id]['kill'] = True
+						self.netplayers[bc.client_id]['kill'] = True
 						logger.warning(f'[server] {bc} timeout')
 						self.bombclients.pop(self.bombclients.index(bc))
 			if self.kill:
-				logger.debug(f'[server] killed')
 				for c in self.bombclients:
 					logger.debug(f'[server] killing {c}')
 					c.kill = True
-				break
+				logger.debug(f'[server] killed')
+				self.conn.close()
+				os._exit(0)
 			if not self.queue.empty():
 				data = self.queue.get()
 				# logger.debug(f'[server] getq data:{data}')
@@ -393,6 +414,8 @@ def main():
 		logger.debug(f'[bombserver] waiting for connection clients:{clients}')
 		try:
 			if server.kill:
+				logger.warning(f'[bombserver] server killed')
+				server.conn.close()
 				break
 			conn, addr = server.conn.accept()
 			server.queue.put({'msgtype':'newclient', 'conn':conn, 'addr':addr})

@@ -33,11 +33,19 @@ def send_data(conn=None, payload=None):
 		return
 	data = json.dumps(payload).encode('utf-8')
 	#logger.debug(f'[send] pl={len(payload)} d={len(data)} p={payload} d={data}')
-	conn.sendall(data)
+	try:
+		conn.sendall(data)
+	except BrokenPipeError as e:
+		logger.error(f'[send] BrokenPipeError:{e} conn:{conn} payload:{payload}')
+		conn.close()
 
 def receive_data(conn):
 	rid, data = None, None
-	rawdata = conn.recv(4096).decode('utf-8')
+	try:
+		rawdata = conn.recv(4096).decode('utf-8')
+	except OSError as e:
+		logger.error(f'[recv] OSError:{e} conn:{conn}')
+		return None
 	try:
 		data = json.loads(rawdata)
 		#rid = data.get('data_id')

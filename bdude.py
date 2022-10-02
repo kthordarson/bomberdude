@@ -72,6 +72,10 @@ class Game(Thread):
 			if self.kill:
 				logger.warning(f'game kill')
 				break
+			if self.playerone.kill:
+				logger.warning(f'{self} playerone kill {self.playerone}')
+				self.kill = True
+				break
 			self.draw()
 			self.handle_input()
 			#self.playerone.update(self.blocks)
@@ -81,7 +85,6 @@ class Game(Thread):
 			self.update_particles()
 			self.update_powerups(self.playerone)
 			gamemsg = None
-			netmsg = None
 			if not self.mainqueue.empty():
 				gamemsg = self.mainqueue.get_nowait()
 				# logger.debug(f'[game] gamemsg:{gamemsg}')

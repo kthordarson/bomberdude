@@ -20,6 +20,7 @@ class Player(BasicThing, Thread):
 		self.client_id = gen_randid()
 		self.name = f'player{self.client_id}'
 		self.connected = False
+		self.kill = False
 		self.pos = pos
 		self.rect = self.image.get_rect(center=self.pos)
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
@@ -28,7 +29,7 @@ class Player(BasicThing, Thread):
 		self.gotmap = False
 
 	def __str__(self):
-		return f'player {self.client_id} pos={self.pos}'
+		return f'player {self.client_id} pos={self.pos} k={self.kill} ck={self.client.kill}'
 
 	def start_client(self):
 		self.client.start()
@@ -70,7 +71,15 @@ class Player(BasicThing, Thread):
 		# self.client.pos = (self.pos[0], self.pos[1])
 		#self.pos += self.vel
 		if self.connected:
-			self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
+			try:
+				self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
+			except ConnectionResetError as e:
+				logger.error(f'[{self}] {e}')
+				self.connected = False
+				self.client.kill = True
+				self.client.socket.close()
+				self.kill = True
+				return
 			if not self.gotmap:
 				if self.client.gotmap:
 					#self.mainqueue.put_nowait({'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.client.gamemapgrid})

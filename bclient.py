@@ -23,25 +23,29 @@ class BombClient(Thread):
 		return f'[bc] {self.client_id}'
 
 	def send_bomb(self, pos=None):
-		payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos}
-		send_data(conn=self.socket, payload=payload)
-		logger.debug(f'{self} send_bomb pos={payload.get("bombpos")}')
+		if self.connected and not self.kill:
+			payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos}
+			send_data(conn=self.socket, payload=payload)
+			logger.debug(f'{self} send_bomb pos={payload.get("bombpos")}')
 	
 	def send_mapreq(self):
-		regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap']}
-		send_data(conn=self.socket,  payload=regmsg)
-		logger.debug(f'{self} send_mapreq conn:{self.connected} map:{self.gotmap} ')
+		if self.connected and not self.kill:
+			regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap']}
+			send_data(conn=self.socket,  payload=regmsg)
+			logger.debug(f'{self} send_mapreq conn:{self.connected} map:{self.gotmap} ')
 
 	def send_pos(self, pos=None, center=None):
-		self.pos = pos
-		self.centerpos = center
-		posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center}
-		send_data(conn=self.socket, payload=posmsg)
+		if self.connected and not self.kill:		
+			self.pos = pos
+			self.centerpos = center
+			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center}
+			send_data(conn=self.socket, payload=posmsg)
 
 	def send_gridupdate(self, gamemapgrid):
-		gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'gamemapgrid': gamemapgrid}
-		send_data(conn=self.socket, payload=gridmsg)
-		logger.debug(f'{self} send_gridupdate {len(gridmsg)}')
+		if self.connected and not self.kill:
+			gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'gamemapgrid': gamemapgrid}
+			send_data(conn=self.socket, payload=gridmsg)
+			logger.debug(f'{self} send_gridupdate {len(gridmsg)}')
 
 	def disconnect(self):
 		quitmsg = {'data_id': dataid['clientquit'], 'client_id': self.client_id, 'payload': 'quit'}
@@ -64,9 +68,11 @@ class BombClient(Thread):
 
 	def run(self):
 		logger.debug(f'{self} run! conn:{self.connected} map:{self.gotmap} ')
-		while True:
-			if self.kill:
+		while not self.kill:
+			if self.kill or self.socket._closed:
 				logger.debug(F'{self} killed')
+				self.kill = True
+				self.connected = False
 				break
 			if self.connected:
 				#if not self.gotmap:
