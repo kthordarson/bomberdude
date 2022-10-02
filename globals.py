@@ -278,13 +278,13 @@ class Particle(BasicThing):
 		super().__init__(pos, None)
 		#self.image, self.rect = self.rm.get_image(filename='data/greenorb.png', force=False)
 		self.pos = pos
-		xsize = random.randint(1,3)
-		ysize = random.randint(1,3)
+		xsize = random.randint(1,4)
+		ysize = random.randint(1,4)
 		self.image = pygame.Surface((xsize ,ysize))
 		self.image.fill((95, 95, 95))
 		#self.image.fill((random.randint(0,255),random.randint(0,255),random.randint(0,255)))
 		self.rect = self.image.get_rect(center = pos)
-		self.size = PARTICLESIZE
+		# self.size = PARTICLESIZE
 		#self.image = pygame.transform.scale(self.image, self.size)
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
@@ -293,8 +293,7 @@ class Particle(BasicThing):
 		#self.rect.y = self.pos.y
 		self.timer = 20000
 		self.hits = 0
-		self.maxhits = 1
-		self.angle = math.degrees(0)
+		self.maxhits = random.randint(1,3)
 		self.mass = 11
 		self.vel = vel
 
@@ -330,13 +329,13 @@ class Flame(BasicThing):
 		self.pos = pos
 		super().__init__(pos, None)
 		self.image = pygame.Surface((5,5), pygame.SRCALPHA)
-		self.image.fill((255,0,0))
+		#self.image.fill((255,0,0))
 		self.rect = self.image.get_rect()
 		self.size = FLAMESIZE
-		self.rect.x = self.pos.x
-		self.rect.y = self.pos.y
+		self.rect.centerx = self.pos[0]
+		self.rect.centery = self.pos[1]
 		self.start_pos = self.pos
-		self.start_pos2 = Vector2((rect.centerx, rect.centery))
+		self.start_center = Vector2((rect.centerx, rect.centery))
 		self.vel = Vector2(vel)
 		self.timer = 4000
 		self.flame_length = flame_length
@@ -350,5 +349,7 @@ class Flame(BasicThing):
 		self.pos += self.vel
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
-		pygame.draw.line(surface, (155, 0, 0), self.start_pos, self.rect.center, 2)
-		pygame.draw.line(surface, (155, 0, 111), self.start_pos2, self.rect.center, 2)
+		pygame.draw.line(surface, (200, 5, 5), self.start_center, self.pos, 4)
+		pygame.draw.circle(surface, color=(200, 5, 5), center=self.rect.center, radius=7, width=1)
+		#pygame.draw.line(surface, (1, 255, 0), self.start_pos, self.rect.center, 2)
+		#pygame.draw.line(surface, (255, 0, 1), self.start_center, self.rect.center, 2)

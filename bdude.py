@@ -196,21 +196,24 @@ class Game(Thread):
 						pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
 					else:
 						pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
-				pos, gridpos, particles, newblock, powerblock = block.hit(flame)
-				if particles:
-					particlemsg = {'msgtype': 'particles', 'particledata': particles}
-					self.mainqueue.put(particlemsg)
-					#self.particles.add(particles)
-				if newblock:
-					# self.gamemap.set_block(gridpos[0], gridpos[1], 0)
-					blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
-					self.mainqueue.put(blockmsg)
-					# self.blocks.add(newblock)
-					if powerblock:
-						powerupmsg = {'msgtype': 'powerup', 'powerupdata': powerblock}
-						self.mainqueue.put(powerupmsg)
-						#self.powerups.add(powerblock)
-				#block.kill()
+				if block.block_type == 10:
+					flame.kill()
+				if block.block_type != 10:
+					pos, gridpos, particles, newblock, powerblock = block.hit(flame)
+					if particles:
+						particlemsg = {'msgtype': 'particles', 'particledata': particles}
+						self.mainqueue.put(particlemsg)
+						#self.particles.add(particles)
+					if newblock:
+						# self.gamemap.set_block(gridpos[0], gridpos[1], 0)
+						blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
+						self.mainqueue.put(blockmsg)
+						# self.blocks.add(newblock)
+						if powerblock:
+							powerupmsg = {'msgtype': 'powerup', 'powerupdata': powerblock}
+							self.mainqueue.put(powerupmsg)
+							#self.powerups.add(powerblock)
+					#block.kill()
 
 	def update_particles(self):
 		self.particles.update(self.blocks, self.screen)
