@@ -106,64 +106,66 @@ class BombClient(Thread):
 				#if not self.gotmap:
 				#	self.send_mapreq()
 				msgid, payload = None, None
-				payload = receive_data(conn=self.socket)
+				payloads = []
+				payloads = receive_data(conn=self.socket)
 				# logger.debug(f'[ {self} ]  payload:{payload}')
-				if payload:
-					msgid = payload.get('data_id')
-					#logger.debug(f'[ {self} ] msgid:{msgid} payload:{payload}')
-					# logger.debug(f'[ {self} ] payload:{payload}')
-					if payload.get('msgtype') == 'bcgetid':
-						if payload.get('payload') == 'sendclientid':
-							# todo work on this....
-							self.send_clientid()								
-					elif payload.get('msgtype') == dataid['netplayers']:
-						netplayers = None
-						netplayers = payload.get('netplayers')
-						if netplayers:
-							#logger.debug(f'[ {self} ] netplayers {len(netplayers)} {netplayers}')
-							# update netplayers
-							for np in netplayers:
-								self.netplayers[np] = netplayers[np]
-					elif payload.get('msgtype') == 'netgridupdate':
-						# received gridupdate from server
-						gridpos = payload.get('gridpos')
-						blktype = payload.get('blktype')
-						logger.debug(f'[ {self} ] netgridupdate g={gridpos} b={blktype}')
-						mapmsg = {'msgtype':'netgridupdate', 'client_id':self.client_id, 'gridpos':gridpos, 'blktype':blktype}
-						# send grid update to mainqueue
-						self.mainqueue.put_nowait(mapmsg)
-						# update local grid
-						self.gamemapgrid[gridpos[0]][gridpos[1]] = blktype
-					elif payload.get('msgtype') == 'mapfromserver':
-						# complete grid from server
-						gamemapgrid = payload.get('gamemapgrid')
-						newpos = payload.get('newpos')
-						logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos}')
-						mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos}
-						self.mainqueue.put_nowait(mapmsg)							
-						self.gamemapgrid = gamemapgrid
-						self.gotmap = True
+				if payloads:
+					for payload in payloads:
+						msgid = payload.get('data_id')
+						#logger.debug(f'[ {self} ] msgid:{msgid} payload:{payload}')
+						# logger.debug(f'[ {self} ] payload:{payload}')
+						if payload.get('msgtype') == 'bcgetid':
+							if payload.get('payload') == 'sendclientid':
+								# todo work on this....
+								self.send_clientid()								
+						elif payload.get('msgtype') == dataid['netplayers']:
+							netplayers = None
+							netplayers = payload.get('netplayers')
+							if netplayers:
+								#logger.debug(f'[ {self} ] netplayers {len(netplayers)} {netplayers}')
+								# update netplayers
+								for np in netplayers:
+									self.netplayers[np] = netplayers[np]
+						elif payload.get('msgtype') == 'netgridupdate':
+							# received gridupdate from server
+							gridpos = payload.get('gridpos')
+							blktype = payload.get('blktype')
+							logger.debug(f'[ {self} ] netgridupdate g={gridpos} b={blktype}')
+							mapmsg = {'msgtype':'netgridupdate', 'client_id':self.client_id, 'gridpos':gridpos, 'blktype':blktype}
+							# send grid update to mainqueue
+							self.mainqueue.put_nowait(mapmsg)
+							# update local grid
+							self.gamemapgrid[gridpos[0]][gridpos[1]] = blktype
+						elif payload.get('msgtype') == 'mapfromserver':
+							# complete grid from server
+							gamemapgrid = payload.get('gamemapgrid')
+							newpos = payload.get('newpos')
+							logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos}')
+							mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos}
+							self.mainqueue.put_nowait(mapmsg)							
+							self.gamemapgrid = gamemapgrid
+							self.gotmap = True
 
-					elif payload.get('msgtype') == 'netbomb':
-						# received bomb from server, forward to mainqueue
-						# logger.debug(f'bombfromserver payload={payload}')
-						bombmsg = {'msgtype':'netbomb', 'bombdata':payload, 'data_id':dataid['netbomb']}
-						self.mainqueue.put_nowait(bombmsg)
+						elif payload.get('msgtype') == 'netbomb':
+							# received bomb from server, forward to mainqueue
+							# logger.debug(f'bombfromserver payload={payload}')
+							bombmsg = {'msgtype':'netbomb', 'bombdata':payload, 'data_id':dataid['netbomb']}
+							self.mainqueue.put_nowait(bombmsg)
 
-					elif msgid == dataid['posupdate']:
-						# received posupdate from server, forward to mainqueue
-						logger.debug(f'[ {self} ] payload={payload}')
-						posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos}
-						self.mainqueue.put_nowait(posmsg)
-					elif payload.get('msgtype') == 'playerpos':
-						# received playerpos from server, forward to mainqueue
-						newpos = payload.get('pos')
-						if newpos:
-							self.pos = newpos
-							logger.debug(f'[ {self} ] newpos={newpos} payload={payload}')
-						posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos, 'newpos':newpos}
-						self.mainqueue.put_nowait(posmsg)
-					else:
-						logger.warning(f'[ {self} ] unknownpayload msgid={msgid} p={payload}')
+						elif msgid == dataid['posupdate']:
+							# received posupdate from server, forward to mainqueue
+							logger.debug(f'[ {self} ] payload={payload}')
+							posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos}
+							self.mainqueue.put_nowait(posmsg)
+						elif payload.get('msgtype') == 'playerpos':
+							# received playerpos from server, forward to mainqueue
+							newpos = payload.get('pos')
+							if newpos:
+								self.pos = newpos
+								logger.debug(f'[ {self} ] newpos={newpos} payload={payload}')
+							posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos, 'newpos':newpos}
+							self.mainqueue.put_nowait(posmsg)
+						else:
+							logger.warning(f'[ {self} ] unknownpayload msgid={msgid} p={payload}')
 			else:
 				logger.warning(f'[ {self} ] not connected')

@@ -26,7 +26,7 @@ class Player(BasicThing, Thread):
 		self.rect = self.image.get_rect(center=self.pos)
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
 		self.speed = 3
-		self.client = BombClient(client_id=self.client_id, serveraddress='192.168.1.168', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
+		self.client = BombClient(client_id=self.client_id, serveraddress='192.168.1.122', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
 		self.gotmap = False
 		self.gotpos = False
 

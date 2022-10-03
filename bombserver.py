@@ -69,7 +69,7 @@ class Servercomm(Thread):
 		self.kill = False
 		self.serverqueue = serverqueue
 		self.queue = Queue()
-		np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':False}
+		np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':0}
 		self.netplayers = {}
 		self.netplayers[np['client_id']] = np
 		self.srvcount = 0
@@ -120,7 +120,7 @@ class BombClientHandler(Thread):
 		self.kill = False
 		self.conn = conn
 		self.addr = addr
-		np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':False}
+		np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':0}
 		self.netplayers = {}
 		self.netplayers[np['client_id']] = np
 		self.pos = npos
@@ -239,97 +239,99 @@ class BombClientHandler(Thread):
 			npayload = {'msgtype':dataid['netplayers'], 'client_id':self.client_id, 'netplayers':self.netplayers, 'data_id':dataid['netplayers']}
 			self.sender.queue.put_nowait((self.conn, npayload))			
 
-			rid, resp, rtype = None, None, None
+			rid, rtype = None, None
+			resps = []
 			try:
-				resp = receive_data(self.conn)
+				resps = receive_data(self.conn)
 				# logger.debug(f'[ {self} ] rid:{rid} resp:{resp}')
 			except (ConnectionResetError, BrokenPipeError, struct.error, EOFError, OSError) as e:
 				logger.error(f'[ {self} ] receive_data error:{e}')
 				self.conn.close()
 				self.kill = True
 				break
-			if resp:
-				self.lastupdate = pygame.time.get_ticks()
-				try:
-					if isinstance(resp, int):
-						rid = resp
-					else:
-						rid = resp.get('data_id')
-					rtype = dataid.get(rid, None)
-				except AttributeError as e:
-					logger.warning(f'[ {self} ] AttributeError:{e}  self.lastupdate={self.lastupdate} resp={resp}')
-				if rid == dataid.get('info') or rid == 0:
-					self.servercomm.queue.put({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos})
-				elif rtype == dataid.get('playerpos') or rid == 3:
-					#logger.debug(f'[ {self} ] {rtype} {rid} {resp}')
-					s_clid = resp.get('client_id')
-					if not self.client_id:
-						self.client_id = s_clid
-						logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
-					s_pos = resp.get('pos')
-					c_pos = resp.get('centerpos')
-					#logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
-					self.pos = s_pos
-					self.centerpos = c_pos
-					posmsg = {'msgtype':'playerpos', 'client_id':s_clid, 'pos':s_pos, 'centerpos':c_pos}
-					self.servercomm.queue.put(posmsg)
+			if resps:
+				for resp in resps:
+					self.lastupdate = pygame.time.get_ticks()
+					try:
+						if isinstance(resp, int):
+							rid = resp
+						else:
+							rid = resp.get('data_id')
+						rtype = dataid.get(rid, None)
+					except AttributeError as e:
+						logger.warning(f'[ {self} ] AttributeError:{e}  self.lastupdate={self.lastupdate} resp={resp}')
+					if rid == dataid.get('info') or rid == 0:
+						self.servercomm.queue.put({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos})
+					elif rtype == dataid.get('playerpos') or rid == 3:
+						#logger.debug(f'[ {self} ] {rtype} {rid} {resp}')
+						s_clid = resp.get('client_id')
+						if not self.client_id:
+							self.client_id = s_clid
+							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+						s_pos = resp.get('pos')
+						c_pos = resp.get('centerpos')
+						#logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
+						self.pos = s_pos
+						self.centerpos = c_pos
+						posmsg = {'msgtype':'playerpos', 'client_id':s_clid, 'pos':s_pos, 'centerpos':c_pos}
+						self.servercomm.queue.put(posmsg)
 
-				elif rtype == dataid.get('update') or rid == 4:
-					pass
-					# logger.debug(f'[ {self} ] received id:{rid} resp={resp}')
-
-				elif rtype == dataid['reqmap'] or rid == 7:
-					self.send_map(newgrid=self.gamemap.grid, randpos=True)
-
-				elif rtype == dataid.get('gameevent') or rid == 9:
-					logger.debug(f'[ {self} ] gamevent received id:{rid} resp={resp}')
-
-				elif rtype == dataid['gridupdate'] or rid == 12:
-					# new grid and send update to clients
-					senderid = resp.get('client_id')
-					gridpos = resp.get('gridpos')
-					blktype = resp.get('blktype')
-					self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
-					gridmsg = {'msgtype': 'netgridupdate', 'client_id': senderid, 'gridpos': gridpos, 'blktype':blktype, 'data_id': dataid['gridupdate']}
-					self.servercomm.queue.put(gridmsg)
-					#self.gamemap.grid = newgrid
-					#self.send_map()
-					logger.debug(f'[ {self} ] gridupdate senderid:{senderid} gp={gridpos} bt={blktype}')
-
-				elif rtype == dataid.get('netbomb') or rid == 14:
-					updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
-					self.servercomm.queue.put(updatemsg)
-
-				elif rtype == dataid.get('clientquit') or rid == 16:
-					qmsg = {'msgtype':'clientquit', 'client_id':self.client_id}
-					self.servercomm.queue.put(qmsg)
-
-				elif rtype == dataid.get('reqpos') or rid == 17:
-					msg = {'msgtype':'reqpos', 'client_id':self.client_id}
-					self.servercomm.queue.put(msg)
-
-				elif rtype == dataid.get('posupdate') or rid == 19:
-					# client sent posupdate
-					msg = {'msgtype':'posupdate', 'client_id':self.client_id, 'posupdata':resp}
-					self.servercomm.queue.put(msg)
-
-				elif rtype == dataid.get('resetmap') or rid == 20:
-					# make new mapgrid and send to all clients
-					msg = {'msgtype':'resetmap', 'client_id':self.client_id}
-					self.servercomm.queue.put(msg)
-
-				elif rtype == dataid['auth'] or rid == 101:
-					logger.debug(f'[ {self} ] auth received id:{rid} resp={resp}')
-					clid = resp.get('client_id')
-					self.client_id = clid
-
-				elif rtype == dataid['UnpicklingError'] or rid == 1002:
-					logger.warning(f'[ {self} ] UnpicklingError rid:{rid}')
-				else:
-					if resp:
-						logger.warning(f'[ {self} ] unknownevent rid:{rid} rtype:{rtype}  resp={resp}')
-					else:
+					elif rtype == dataid.get('update') or rid == 4:
 						pass
+						# logger.debug(f'[ {self} ] received id:{rid} resp={resp}')
+
+					elif rtype == dataid['reqmap'] or rid == 7:
+						self.send_map(newgrid=self.gamemap.grid, randpos=True)
+
+					elif rtype == dataid.get('gameevent') or rid == 9:
+						logger.debug(f'[ {self} ] gamevent received id:{rid} resp={resp}')
+
+					elif rtype == dataid['gridupdate'] or rid == 12:
+						# new grid and send update to clients
+						senderid = resp.get('client_id')
+						gridpos = resp.get('gridpos')
+						blktype = resp.get('blktype')
+						self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
+						gridmsg = {'msgtype': 'netgridupdate', 'client_id': senderid, 'gridpos': gridpos, 'blktype':blktype, 'data_id': dataid['gridupdate']}
+						self.servercomm.queue.put(gridmsg)
+						#self.gamemap.grid = newgrid
+						#self.send_map()
+						logger.debug(f'[ {self} ] gridupdate senderid:{senderid} gp={gridpos} bt={blktype}')
+
+					elif rtype == dataid.get('netbomb') or rid == 14:
+						updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
+						self.servercomm.queue.put(updatemsg)
+
+					elif rtype == dataid.get('clientquit') or rid == 16:
+						qmsg = {'msgtype':'clientquit', 'client_id':self.client_id}
+						self.servercomm.queue.put(qmsg)
+
+					elif rtype == dataid.get('reqpos') or rid == 17:
+						msg = {'msgtype':'reqpos', 'client_id':self.client_id}
+						self.servercomm.queue.put(msg)
+
+					elif rtype == dataid.get('posupdate') or rid == 19:
+						# client sent posupdate
+						msg = {'msgtype':'posupdate', 'client_id':self.client_id, 'posupdata':resp}
+						self.servercomm.queue.put(msg)
+
+					elif rtype == dataid.get('resetmap') or rid == 20:
+						# make new mapgrid and send to all clients
+						msg = {'msgtype':'resetmap', 'client_id':self.client_id}
+						self.servercomm.queue.put(msg)
+
+					elif rtype == dataid['auth'] or rid == 101:
+						logger.debug(f'[ {self} ] auth received id:{rid} resp={resp}')
+						clid = resp.get('client_id')
+						self.client_id = clid
+
+					elif rtype == dataid['UnpicklingError'] or rid == 1002:
+						logger.warning(f'[ {self} ] UnpicklingError rid:{rid}')
+					else:
+						if resp:
+							logger.warning(f'[ {self} ] unknownevent rid:{rid} rtype:{rtype}  resp={resp}')
+						else:
+							pass
 						#logger.error(f'[ {self} ] unknownevent noresp rid:{rid} rtype:{rtype}  resp={type(resp)}')
 
 class BombServer(Thread):
@@ -340,7 +342,7 @@ class BombServer(Thread):
 		self.kill = False
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':False}
+		np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':0}
 		self.netplayers = {}
 		self.netplayers[np['client_id']] = np
 		self.gui = gui # ServerGUI()
@@ -428,8 +430,8 @@ class BombServer(Thread):
 					bc.servercomm.queue.put(payload)
 					if pygame.time.get_ticks()-bc.lastupdate > 3000:
 						bc.kill = True
-						bc.netplayers[bc.client_id]['kill'] = True
-						self.netplayers[bc.client_id]['kill'] = True
+						bc.netplayers[bc.client_id]['kill'] = 1
+						self.netplayers[bc.client_id]['kill'] = 1
 						logger.warning(f'[ {self} ] {bc} timeout')
 						self.bombclients.pop(self.bombclients.index(bc))
 			if self.kill:
@@ -479,8 +481,8 @@ class BombServer(Thread):
 							# client kill flag set, kill bombclient and remove from list
 							bc.kill = True
 							logger.warning(f'[ {self} ] {bc} kill')
-							bc.netplayers[clid]['kill'] = True
-							self.netplayers[clid]['kill'] = True
+							bc.netplayers[clid]['kill'] = 1
+							self.netplayers[clid]['kill'] = 1
 				elif type == 'netplayers':
 					# unused
 					logger.debug(f'[ {self} ] netplayersmsg data={data}')
