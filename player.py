@@ -42,7 +42,8 @@ class Player(BasicThing, Thread):
 			logger.warning(f'{self} not ready but connected r:{self.ready} c:{self.connected} cc:{self.client.connected}')
 			#return
 		elif not self.connected and not self.ready:
-			logger.warning(f'{self} not connected not ready r:{self.ready} c:{self.connected} cc:{self.client.connected}')
+			pass
+			#logger.warning(f'{self} not connected not ready r:{self.ready} c:{self.connected} cc:{self.client.connected}')
 			#return
 		elif not self.client.connected and self.ready:
 			logger.warning(f'{self} ready but client not connected r:{self.ready} c:{self.connected} cc:{self.client.connected}')

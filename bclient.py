@@ -33,7 +33,7 @@ class BombClient(Thread):
 		if self.connected and not self.kill:
 			payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos}
 			send_data(conn=self.socket, payload=payload)
-			logger.debug(f'[ {self} ] send_bomb pos={payload.get("bombpos")}')
+			# logger.debug(f'[ {self} ] send_bomb pos={payload.get("bombpos")}')
 
 	def send_reqpos(self):
 		# get initial position from server

@@ -490,8 +490,12 @@ class BombServer(Thread):
 					clid = data.get('client_id')
 					logger.debug(f'[ {self} ] resetmap from {clid} {data}')
 					basegrid = self.gamemap.generate_custom(squaresize=15, players=self.netplayers)
+					self.gamemap.grid = basegrid
 					for bc in self.bombclients:
-						pass
+						#bcg = self.gamemap.placeplayer(self.gamemap.grid, bc.pos)
+						#bc.gamemap.grid = bcg
+						bc.send_map(newgrid=basegrid)
+						#self.gamemap.grid = bcg
 				else:
 					logger.warning(f'[ {self} ] data={data}')
 

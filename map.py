@@ -35,6 +35,20 @@ class Gamemap:
 			grid[0][x] = 10
 			grid[-1][x] = 10
 			grid[x][-1] = 10
+		if players:
+			for pl in players:
+				player = players[pl]
+				logger.debug(f'[map] generate_custom player={player}')
+				xpos = int(player['pos'][0] // BLOCK)
+				ypos = int(player['pos'][1] // BLOCK)
+				#ypos = int(player.pos[1] // BLOCK)
+				grid[xpos][ypos] = 0
+				grid[xpos-1][ypos] = 0
+				grid[xpos+1][ypos] = 0
+				grid[xpos][ypos-1] = 0
+				grid[xpos][ypos+1] = 0
+				grid[xpos-1][ypos-1] = 0
+				grid[xpos+1][ypos+1] = 0
 		self.grid = grid
 		return grid
 
@@ -51,12 +65,11 @@ class Gamemap:
 		# find a random spot on the map to place the player
 		#xpos = random.randint(2, len(grid[0])-2)
 		#ypos = random.randint(2, len(grid[1])-2)
-		xpos = pos[0]
-		ypos = pos[1]
+		xpos = int(pos[0] // BLOCK)
+		ypos = int(pos[1] // BLOCK)
+		logger.info(f'[map] placeplayer pos={pos} x={xpos} y={ypos}')
 		if xpos == 0 or ypos == 0:
 			logger.warning(f'[map] placeplayer xpos:{xpos} ypos:{ypos} grid={grid}')
-			xpos = 4
-			ypos = 4
 		# clear spot aound player
 		grid[xpos][ypos] = 0
 		grid[xpos-1][ypos] = 0
