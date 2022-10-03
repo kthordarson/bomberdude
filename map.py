@@ -37,7 +37,7 @@ class Gamemap:
 			grid[x][-1] = 10
 		self.grid = grid
 		return grid
-		
+
 	def placeplayers(self, players):
 		grid = self.grid
 		for pl in players:
@@ -65,12 +65,17 @@ class Gamemap:
 		for block in list(inside_circle(3, x, y)):
 			self.grid[block[0]][block[1]] = 0
 
-	def placeplayer(self, grid, pos):
-		# find a random spot on the map to place the player
-		#xpos = random.randint(2, len(grid[0])-2)
-		#ypos = random.randint(2, len(grid[1])-2)
-		xpos = int(pos[0] // BLOCK)
-		ypos = int(pos[1] // BLOCK)
+	def placeplayer(self, grid=None, pos=None, randpos=False):
+		logger.debug(f'[map] placeplayer g:{len(grid)} {len(grid[0])} pos={pos} randpos={randpos}')
+		if randpos:
+			# find a random spot on the map to place the player
+			
+			xpos = random.randint(2, len(grid[0])-2)
+			ypos = random.randint(2, len(grid[0])-2)
+		else:
+			# clear spot around player
+			xpos = int(pos[0] // BLOCK)
+			ypos = int(pos[1] // BLOCK)
 		# logger.info(f'[map] placeplayer pos={pos} x={xpos} y={ypos}')
 		if xpos == 0 or ypos == 0:
 			logger.warning(f'[map] placeplayer xpos:{xpos} ypos:{ypos} grid={grid}')
@@ -91,7 +96,7 @@ class Gamemap:
 			grid[x][-1] = 10
 		logger.info(f'[placeplayer] pos={pos} xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
 		self.grid = grid
-		return grid
+		return grid, (xp, yp)
 
 	def place_player(self, grid, location=0):
 		# place player somewhere where there is no block

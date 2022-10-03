@@ -166,7 +166,7 @@ class Game(Thread):
 				newblocks.add(newblock)
 		self.blocks.empty()
 		self.blocks.add(newblocks)
-		self.playerone.pos = (100,100)
+		# self.playerone.pos = (100,100)
 		logger.debug(f'[ {self} ] {self.mainqueue.qsize()} {self.sendq.qsize()} gamemapgrid:{len(gamemapgrid)}')
 
 	def update_bombs(self):

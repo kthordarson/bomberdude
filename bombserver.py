@@ -161,14 +161,19 @@ class BombClientHandler(Thread):
 			self.sender.kill = True
 			self.conn.close()
 
-	def send_map(self, newgrid=None):
+	def send_map(self, newgrid=None, randpos=True):
 		# send mapgrid to player
+		# todo fix player pos on grid
 		if newgrid:
-			ng = self.gamemap.placeplayer(newgrid, self.pos)
-			logger.info(f'[ {self} ] send_map newgrid:{len(newgrid)} ')
+			ng, nx,ny = self.gamemap.placeplayer(grid=newgrid, pos=self.pos, randpos=randpos)
+			newpos = (nx,ny)
+			oldpos = self.pos
+			self.set_pos(newpos=newpos)
+			self.pos = newpos
+			logger.info(f'[ {self} ] send_map newgrid:{len(newgrid)} self.pos:{self.pos} newpos={newpos} oldpos={oldpos} randpos={randpos}')
 			self.gamemap.grid = ng
 		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid'], 'newgrid':newgrid}
-		logger.debug(f'[ {self} ] send_map payload={len(payload)}')
+		# logger.debug(f'[ {self} ] send_map payload={len(payload)} randpos={randpos}')
 		self.sender.queue.put_nowait((self.conn, payload))
 
 	def gridupdate(self, data):

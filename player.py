@@ -68,13 +68,9 @@ class Player(BasicThing, Thread):
 					self.vel = Vector2(0,0)
 					self.rect = oldrect
 					self.pos = oldpos
-					#pygame.draw.rect(surface=screen, color=(255, 0, 0), rect=block.rect, border_radius=0 )
-					#pygame.draw.circle(screen, center=(block.rect.x, block.rect.y), color=(0,255,0), radius=5)
-
-		# self.client.pos = (self.pos[0], self.pos[1])
-		#self.pos += self.vel
 		if self.connected:
 			try:
+				# self.client.pos = (self.pos[0], self.pos[1])
 				self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
 			except ConnectionResetError as e:
 				logger.error(f'[ {self} ] {e}')
