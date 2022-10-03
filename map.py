@@ -25,7 +25,7 @@ class Gamemap:
 		self.grid = grid
 		return self.grid
 
-	def generate_custom(self, squaresize=None, players=None):
+	def generate_custom(self, squaresize=None):
 		# generate a custom map, squaresize is max blocks x and y
 		# players = list of players, clear spot around each player
 		grid = [[random.randint(0, 5) for k in range(squaresize)] for j in range(squaresize)]
@@ -47,11 +47,10 @@ class Gamemap:
 		for block in list(inside_circle(3, x, y)):
 			self.grid[block[0]][block[1]] = 0
 
-	def placeplayer(self, grid=None, pos=None, randpos=False):
+	def placeplayer(self, grid=None, pos=None, randpos=True):
 		logger.debug(f'[map] placeplayer g:{len(grid)} {len(grid[0])} pos={pos} randpos={randpos}')
 		if randpos:
-			# find a random spot on the map to place the player
-			
+			# find a random spot on the map to place the player			
 			xpos = random.randint(2, len(grid[0])-2)
 			ypos = random.randint(2, len(grid[0])-2)
 		else:

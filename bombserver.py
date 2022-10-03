@@ -110,7 +110,7 @@ class Servercomm(Thread):
 
 
 class BombClientHandler(Thread):
-	def __init__(self, conn=None,  addr=None, gamemap=None, srvcomm=None):
+	def __init__(self, conn=None,  addr=None, gamemap=None, srvcomm=None, npos=None):
 		Thread.__init__(self)
 		self.queue = Queue()
 		self.sendq = Queue() # multiprocessing.Manager().Queue()
@@ -119,7 +119,7 @@ class BombClientHandler(Thread):
 		self.conn = conn
 		self.addr = addr
 		self.netplayers = {}
-		self.pos = (0,0)
+		self.pos = npos
 		self.gotpos = False
 		self.centerpos = (0,0)
 		self.gamemap = gamemap
@@ -193,22 +193,22 @@ class BombClientHandler(Thread):
 		payload = {'msgtype':'bcgetid', 'payload':'sendclientid', 'data_id':dataid['getid']}
 		self.sender.queue.put_nowait((self.conn, payload))
 		logger.debug(f'[ {self} ] sent payload:{payload}')
-		#self.sender.send(self.conn, payload)
-		rid, resp = None, None
-		try:
-			resp = receive_data(self.conn)
-			rid = resp.get('data_id')
-			if resp or rid:				
-				clid = resp.get('client_id')
-				self.client_id = clid
-				self.sender.set_clid(clid)
-				#logger.info(f'[ {self} ] rid:{rid} resp:{resp}')
-				if resp == 'reqmap':
-					logger.debug(f'[ {self} ] rid:{rid} resp:{resp}')
-					self.send_map(self.gamemap.grid)
-		except (ConnectionResetError, BrokenPipeError, struct.error, EOFError) as e:
-			logger.error(f'[ {self} ] receive_data error:{e}')
-		#self.sendq.put_nowait(payload)
+		# #self.sender.send(self.conn, payload)
+		# rid, resp = None, None
+		# try:
+		# 	resp = receive_data(self.conn)
+		# 	rid = resp.get('data_id')
+		# 	if resp or rid:				
+		# 		clid = resp.get('client_id')
+		# 		self.client_id = clid
+		# 		self.sender.set_clid(clid)
+		# 		#logger.info(f'[ {self} ] rid:{rid} resp:{resp}')
+		# 		if resp == 'reqmap':
+		# 			logger.debug(f'[ {self} ] rid:{rid} resp:{resp}')
+		# 			self.send_map(newgrid=self.gamemap.grid, randpos=True)
+		# except (ConnectionResetError, BrokenPipeError, struct.error, EOFError) as e:
+		# 	logger.error(f'[ {self} ] receive_data error:{e}')
+		# #self.sendq.put_nowait(payload)
 
 	def run(self):
 		self.get_client_id()
@@ -219,6 +219,7 @@ class BombClientHandler(Thread):
 		#srvcomm.start()
 		self.sender.start()
 		#self.srvcomm.start()
+		self.set_pos(self.pos)
 		while True:
 			self.netplayers = self.srvcomm.netplayers
 			# logger.debug(f'[ {self} ] np={self.netplayers}')
@@ -260,6 +261,9 @@ class BombClientHandler(Thread):
 			elif rtype == dataid.get('playerpos') or rid == 3:
 				#logger.debug(f'[ {self} ] {rtype} {rid} {resp}')
 				s_clid = resp.get('client_id')
+				if not self.client_id:
+					self.client_id = s_clid
+					logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
 				s_pos = resp.get('pos')
 				c_pos = resp.get('centerpos')
 				#logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
@@ -273,7 +277,7 @@ class BombClientHandler(Thread):
 				# logger.debug(f'[ {self} ] received id:{rid} resp={resp}')
 
 			elif rtype == dataid['reqmap'] or rid == 7:
-				self.send_map(self.gamemap.grid)
+				self.send_map(newgrid=self.gamemap.grid, randpos=True)
 
 			elif rtype == dataid.get('gameevent') or rid == 9:
 				logger.debug(f'[ {self} ] gamevent received id:{rid} resp={resp}')
@@ -336,6 +340,7 @@ class BombServer(Thread):
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.netplayers = {}
 		self.gui = gui # ServerGUI()
+		self.servercomm = Servercomm(serverqueue=self.queue)
 
 	def __str__(self):
 		return f'[S] k:{self.kill} bc:{len(self.bombclients)} np:{len(self.netplayers)}'
@@ -351,6 +356,8 @@ class BombServer(Thread):
 		logger.debug(f'[ {self} ] run')
 		#self.srvcomm.start()
 		self.gui.start()
+		self.gamemap.generate_custom(squaresize=15)
+		self.servercomm.start()
 		while not self.kill:
 			events = pygame.event.get()
 			for event in events:
@@ -438,12 +445,20 @@ class BombServer(Thread):
 					conn = data.get('conn')
 					addr = data.get('addr')
 					# clid = data.get('clid')
-					srvcomm = Servercomm(serverqueue=self.queue)
-					bc = BombClientHandler(conn=conn, addr=addr, gamemap=self.gamemap, srvcomm=srvcomm)
-					srvcomm.start()
-					logger.debug(f'[ {self} ] new player:{bc} cl:{len(self.bombclients)}')
+					#srvcomm = Servercomm(serverqueue=self.queue)
+					ng, npos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=True)
+					self.gamemap.grid = ng
+					bc = BombClientHandler(conn=conn, addr=addr, gamemap=self.gamemap, srvcomm=self.servercomm, npos=npos)
 					self.bombclients.append(bc)
 					bc.start()
+					basegrid = self.gamemap.grid
+					for bc in self.bombclients:
+						if bc.client_id:
+							bcg, bnewpos = self.gamemap.placeplayer(grid=basegrid, randpos=False, pos=bc.pos)
+							bc.gamemap.grid = bcg
+							bc.send_map(newgrid=bcg)
+							self.gamemap.grid = bcg
+					logger.debug(f'[ {self} ] new player:{bc} cl:{len(self.bombclients)}')
 				elif type == 'playerpos':
 					for bc in self.bombclients:
 						clid = data.get('client_id')
@@ -495,7 +510,7 @@ class BombServer(Thread):
 					else:
 						clid = data.get('client_id')
 						logger.debug(f'[ {self} ] resetmap from {clid} {data}')
-					basegrid = self.gamemap.generate_custom(squaresize=15, players=self.netplayers)
+					basegrid = self.gamemap.generate_custom(squaresize=15)
 					#self.gamemap.grid = basegrid
 					for bc in self.bombclients:
 						bcg, bnewpos = self.gamemap.placeplayer(basegrid, bc.pos)
