@@ -103,6 +103,9 @@ class Servercomm(Thread):
 					elif payload.get('msgtype') == 'reqpos':
 						logger.debug(f'{self} reqpos payload:{payload}')
 						self.serverqueue.put(payload)
+					elif payload.get('msgtype') == 'resetmap':
+						logger.debug(f'{self} resetmaps payload:{payload}')
+						self.serverqueue.put(payload)
 				#logger.debug(f'{self} payload:{payload}')
 
 
@@ -139,18 +142,17 @@ class BombClientHandler(Thread):
 		self.sender.queue.put_nowait((self.conn, posmsg))
 
 	def posupdate(self, data):
-		# when server sends new player position
-		newgrid, nx,ny = self.gamemap.placeplayer(self.gamemap.grid)
-		newpos = (nx, ny)
-		if not self.gotpos:
-			logger.debug(f'{self} posupdate data={data} newpos={newpos} mypos={self.pos}')
-			self.pos = newpos
-			self.gamemap.grid = newgrid
-			payload = {'msgtype':dataid["posupdate"], 'client_id':self.client_id, 'pos':self.pos, 'newpos':newpos, 'newgrid':newgrid, 'data_id':dataid["posupdate"]}
-			self.sender.queue.put_nowait((self.conn, payload))
-			self.gotpos = True
-		else:
-			logger.warning(f'{self} dupeposupdate data={data} newpos={newpos} mypos={self.pos}')
+		pass
+		# # when server sends new player position
+		# if not self.gotpos:
+		# 	logger.debug(f'{self} posupdate data={data}  mypos={self.pos}')
+		# 	newgrid = self.gamemap.placeplayer(self.gamemap.grid, self.pos)
+		# 	self.gamemap.grid = newgrid
+		# 	payload = {'msgtype':dataid["posupdate"], 'client_id':self.client_id, 'pos':self.pos, 'newpos':self.pos, 'newgrid':newgrid, 'data_id':dataid["posupdate"]}
+		# 	self.sender.queue.put_nowait((self.conn, payload))
+		# 	self.gotpos = True
+		# else:
+		# 	logger.warning(f'{self} dupeposupdate data={data}  mypos={self.pos}')
 
 	def quitplayer(self, quitter):
 		# when player quits or times out
@@ -163,12 +165,12 @@ class BombClientHandler(Thread):
 	def send_map(self, newgrid=None):
 		# send mapgrid to player
 		if newgrid:
-			self.gamemap.grid = newgrid
-			newgrid, nx,ny = self.gamemap.placeplayer(newgrid)
-			newpos = (nx, ny)
+			#self.gamemap.grid = newgrid
+			ng = self.gamemap.placeplayer(newgrid, self.pos)
+			newpos = self.pos
 			logger.info(f'{self} send_map newgrid:{len(newgrid)} newpos={newpos}')
-			self.pos = newpos
-		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid'], 'newgrid':newgrid}
+			self.gamemap.grid = ng
+		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid'], 'newgrid':newgrid, 'newpos':self.pos}
 		#self.sender.send(self.conn, payload)
 		self.sender.queue.put_nowait((self.conn, payload))
 
@@ -284,6 +286,11 @@ class BombClientHandler(Thread):
 				msg = {'msgtype':'reqpos', 'client_id':self.client_id}
 				self.srvcomm.queue.put(msg)
 
+			elif rtype == dataid.get('resetmap') or rid == 18:
+				# make new mapgrid and send to all clients
+				msg = {'msgtype':'resetmap', 'client_id':self.client_id}
+				self.srvcomm.queue.put(msg)
+
 			elif rtype == dataid['auth'] or rid == 101:
 				logger.debug(f'{self} auth received id:{rid} resp={resp}')
 				clid = resp.get('client_id')
@@ -334,14 +341,18 @@ class BombServer(Thread):
 				self.gui.screen = pygame.display.set_mode((800,600), 0, 32)
 			self.gui.screen.fill(self.gui.bg_color)
 			ctextpos = [10, 10]
-			msgtxt = f'clients:{len(self.bombclients)} np:{len(self.netplayers)} q:{self.queue.qsize()} mapempty:{self.gamemap.is_empty()} get_bcount0:{self.gamemap.get_bcount(0)}'
+			try:
+				msgtxt = f'clients:{len(self.bombclients)} np:{len(self.netplayers)} q:{self.queue.qsize()} mapempty:{self.gamemap.is_empty()} get_bcount0:{self.gamemap.get_bcount(0)}'
+			except TypeError as e:
+				logger.warning(f'[server] TypeError:{e}')
+				msgtxt = ''
 			self.gui.font.render_to(self.gui.screen, ctextpos, msgtxt, (150,150,150))
 			if self.gamemap.is_empty():
 				logger.info(f'[server] map is empty')
-				newgrid = self.gamemap.generate_custom(squaresize=15)
+				newgrid = self.gamemap.generate_custom(squaresize=15, players=self.netplayers)
 				self.gamemap.grid = newgrid
 				for bc in self.bombclients:
-					bcg, nx, ny = self.gamemap.placeplayer(self.gamemap.grid)
+					bcg = self.gamemap.placeplayer(self.gamemap.grid, bc.pos)
 					bc.gamemap.grid = bcg
 					bc.send_map(newgrid=bcg)
 					self.gamemap.grid = bcg
@@ -460,7 +471,15 @@ class BombServer(Thread):
 					clid = data.get('client_id')
 					logger.debug(f'[server] reqpos from {clid} {data}')
 					for bc in self.bombclients:
-						bc.posupdate(data)
+						if bc.client_id == clid:
+							bc.posupdate(data)
+				elif type == 'resetmap':
+					# todo write text...
+					clid = data.get('client_id')
+					logger.debug(f'[server] resetmap from {clid} {data}')
+					basegrid = self.gamemap.generate_custom(squaresize=15, players=self.netplayers)
+					for bc in self.bombclients:
+						pass
 				else:
 					logger.warning(f'[server] data={data}')
 

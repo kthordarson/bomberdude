@@ -65,14 +65,6 @@ class Game(Thread):
 		self.gotgamemapgrid = False
 		if self.args.testmode:
 			g=Gamemap()
-			grid,nx,ny = g.placeplayer(g.grid)
-			self.playerone.setpos((nx,ny))
-			self.gamemapgrid = grid
-			self.gotgamemapgrid = True
-			self.playerone.gotmap = True
-			self.playerone.ready = True
-			self.gui.show_mainmenu ^= True
-			self.updategrid(self.gamemapgrid)
 		# self.authresp = {}
 
 
@@ -149,16 +141,16 @@ class Game(Thread):
 			flames = gamemsg.get('flamedata')
 			for fl in flames:
 				self.flames.add(fl)
-			logger.debug(f'[bfl] self.flames:{len(self.flames)} nf:{len(flames)}')
+			# logger.debug(f'[bfl] self.flames:{len(self.flames)} nf:{len(flames)}')
 		elif type == 'particles':
 			particles = gamemsg.get('particledata')
 			for p in particles:
 				self.particles.add(p)
-			logger.debug(f'[p] self.particles:{len(self.particles)} ')
+			# logger.debug(f'[p] self.particles:{len(self.particles)} ')
 		elif type == 'powerup':
 			pwrup = gamemsg.get('powerupdata')
 			self.powerups.add(pwrup)
-			logger.debug(f'[p] self.powerups:{len(self.powerups)} pwr={pwrup.powertype} ')
+			# logger.debug(f'[p] self.powerups:{len(self.powerups)} pwr={pwrup.powertype} ')
 		elif type == 'newblock':
 			blk = gamemsg.get('blockdata')
 			self.blocks.add(blk)
@@ -180,8 +172,8 @@ class Game(Thread):
 		self.gamemapgrid = gamemapgrid
 		self.gotgamemapgrid = True
 		newblocks = Group()
-		for k in range(0, len(gamemapgrid[0])):
-			for j in range(0, len(gamemapgrid[1])):
+		for k in range(0, len(gamemapgrid)):
+			for j in range(0, len(gamemapgrid)):
 				newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=gamemapgrid[j][k])
 				newblocks.add(newblock)
 		self.blocks.empty()
@@ -352,7 +344,7 @@ class Game(Thread):
 				if event.key == pygame.K_1:
 					self.playerone.client.send_mapreq()
 				if event.key == pygame.K_2:
-					self.playerone.client.send_pos(pos=self.playerone.pos)
+					self.playerone.client.req_mapreset()
 				if event.key == pygame.K_3:
 					pass
 					# logger.debug(f'[c] req serverinfo p1c:{self.playerone.bombclient.connected}')

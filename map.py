@@ -25,7 +25,9 @@ class Gamemap:
 		self.grid = grid
 		return self.grid
 
-	def generate_custom(self, squaresize):
+	def generate_custom(self, squaresize=None, players=None):
+		# generate a custom map, squaresize is max blocks x and y
+		# players = list of players, clear spot around each player
 		grid = [[random.randint(0, 5) for k in range(squaresize)] for j in range(squaresize)]
 		# set edges to solid blocks, 10 = solid blockwalkk
 		for x in range(squaresize):
@@ -45,10 +47,16 @@ class Gamemap:
 		for block in list(inside_circle(3, x, y)):
 			self.grid[block[0]][block[1]] = 0
 
-	def placeplayer(self, grid):
+	def placeplayer(self, grid, pos):
 		# find a random spot on the map to place the player
-		xpos = random.randint(2, len(grid[0])-2)
-		ypos = random.randint(2, len(grid[1])-2)
+		#xpos = random.randint(2, len(grid[0])-2)
+		#ypos = random.randint(2, len(grid[1])-2)
+		xpos = pos[0]
+		ypos = pos[1]
+		if xpos == 0 or ypos == 0:
+			logger.warning(f'[map] placeplayer xpos:{xpos} ypos:{ypos} grid={grid}')
+			xpos = 4
+			ypos = 4
 		# clear spot aound player
 		grid[xpos][ypos] = 0
 		grid[xpos-1][ypos] = 0
@@ -66,7 +74,7 @@ class Gamemap:
 			grid[x][-1] = 10
 		logger.debug(f'[placeplayer] xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
 		self.grid = grid
-		return grid, xp, yp
+		return grid
 
 	def place_player(self, grid, location=0):
 		# place player somewhere where there is no block
@@ -122,14 +130,17 @@ class Gamemap:
 
 	def is_empty(self):
 		cnt = 0
-		for row in self.grid:
-			for item in row:
-				if item in range(1,9):
-					cnt += 1
-		if cnt == 0:
-			return True
-		else:
-			return False
+		try:
+			for x in range(len(self.grid)):
+				for y in range(len(self.grid)):
+					if self.grid[x][y] in range(1,9):
+						cnt += 1
+			if cnt == 0:
+				return True
+			else:
+				return False
+		except TypeError as e:
+			logger.error(f'[map] is_empty {e} {self.grid}')
 
 	def get_bcount(self, cval=0):
 		cnt = 0

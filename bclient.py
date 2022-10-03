@@ -22,6 +22,12 @@ class BombClient(Thread):
 	def __str__(self):
 		return f'[bc] {self.client_id}'
 
+	def req_mapreset(self):
+		# request server map reset
+		if self.connected and not self.kill:
+			reqmsg = {'data_id': dataid['resetmap'], 'client_id': self.client_id, 'pos': self.pos}
+			send_data(conn=self.socket, payload=reqmsg)
+
 	def send_bomb(self, pos=None):
 		# send bomb to server
 		if self.connected and not self.kill:
@@ -41,7 +47,7 @@ class BombClient(Thread):
 			regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap']}
 			send_data(conn=self.socket,  payload=regmsg)
 			logger.debug(f'{self} send_mapreq conn:{self.connected} map:{self.gotmap} ')
-			self.send_reqpos()
+			# self.send_reqpos()
 
 	def send_pos(self, pos=None, center=None):
 		# send pos to server
@@ -126,6 +132,8 @@ class BombClient(Thread):
 							ng = None
 							gamemapgrid = payload.get('gamemapgrid')
 							ng = payload.get('newgrid')
+							pos = payload.get('pos')
+							self.pos = pos
 							# self.gotmap = ng
 							if ng:
 								# new grid from server
