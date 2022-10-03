@@ -282,6 +282,15 @@ class Game(Thread):
 					mapreqcnt += 1
 					time.sleep(1)
 					logger.debug(f'[ {self} ] p1 mapreqcnt:{mapreqcnt} c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
+					if mapreqcnt >= 5:
+						logger.warning(f'[ {self} ] p1 mapreqcnt:{mapreqcnt} c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
+						self.p1connected = False
+						self.playerone.connected = False
+						self.playerone.client.connected = False
+						self.playerone.client.socket.close()
+						self.playerone.ready = False
+						self.gui.show_mainmenu ^= True
+						break
 			else:
 				logger.warning(f'[ {self} ] p1 not connected c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
 				self.gui.show_mainmenu ^= True
