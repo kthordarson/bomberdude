@@ -53,20 +53,31 @@ def receive_data(conn):
 	except OSError as e:
 		logger.error(f'[recv] OSError:{e} conn:{conn}')
 		return None
+	if rawdata.count('}') >= 2:
+		newrawdata = rawdata[0:rawdata.index('}')+1]
+		#logger.warning(f'[recv] rawdata={rawdata} newrawdata={newrawdata}')
+		rawdata = newrawdata # rawdata[0:rawdata.index('}')+1]
+		#rawdata2 = rawdata[0:rawdata.indexd('}')+1]
+		#logger.warning(f'[recv] netfoo rawdata={rawdata}')
+	if rawdata.count('}') < rawdata.count('{'):
+		diff = rawdata.count('{') - rawdata.count('}')
+		#logger.warning(f'[recv] d:{diff} rawdata={rawdata}')
+		rawdata += '}'*diff
 	try:
 		data = json.loads(rawdata)
 		#rid = data.get('data_id')
 	except json.JSONDecodeError as e:
-		erridx = e.colno-1 # e[e.index('char ')+5:].strip(')')
+		erridx = e.colno-1 # e[e.index('char ')+5:].strip(')')		
+		# logger.warning(f'[recv] JSONDecodeError:{e} erridx:{erridx} conn:{conn} rawdata={rawdata}')
 		if erridx == 0:
 			return None
 		elif erridx >0:
+			logger.warning(f'[recv] JSONDecodeError:{e} erridx:{erridx} conn:{conn} rawdata={rawdata}')
 			try:
 				data = json.loads(rawdata[:erridx])
 				#rid = data.get('data_id')
 			except (AttributeError, json.JSONDecodeError) as e2:
 				logger.error(f'[recv] e:{e} e2:{e2} erridx={erridx} raw={len(rawdata)}')
-				logger.error(f'data={data}')
 				logger.error(f'rawdata={rawdata}')
 				return None
 	if data == 1:
