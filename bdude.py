@@ -199,7 +199,6 @@ class Game(Thread):
 							self.mainqueue.put(particlemsg)
 							#self.particles.add(particles)
 						if newblock:
-							# self.gamemap.set_block(gridpos[0], gridpos[1], 0)
 							blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
 							self.mainqueue.put(blockmsg)
 							# self.blocks.add(newblock)

@@ -38,24 +38,6 @@ class Gamemap:
 		self.grid = grid
 		return grid
 
-	def placeplayers(self, players):
-		grid = self.grid
-		for pl in players:
-			player = players[pl]
-			xpos = int(player['pos'][0] // BLOCK)
-			ypos = int(player['pos'][1] // BLOCK)
-			logger.info(f'[map] generate_custom player={player} pos={player["pos"]} x={xpos} y={ypos}')
-			#ypos = int(player.pos[1] // BLOCK)
-			grid[xpos][ypos] = 0
-			grid[xpos-1][ypos] = 0
-			grid[xpos+1][ypos] = 0
-			grid[xpos][ypos-1] = 0
-			grid[xpos][ypos+1] = 0
-			grid[xpos-1][ypos-1] = 0
-			grid[xpos+1][ypos+1] = 0
-		self.grid = grid
-		return grid
-
 	def clear_center(self):
 		x = int(self.gridsize[0] // 2)  # random.randint(2, self.gridsize[0] - 2)
 		y = int(self.gridsize[1] // 2)  # random.randint(2, self.gridsize[1] - 2)
@@ -101,57 +83,6 @@ class Gamemap:
 		self.grid = grid
 		return grid, (xp, yp)
 
-	def place_player(self, grid, location=0):
-		# place player somewhere where there is no block
-		# returns the (x,y) coordinate where player is to be placed
-		# random starting point from gridgamemap
-		if len(grid) == 0:
-			logger.error(f'[place_player] grid is empty')
-			return None
-		if location == 0:  # center pos
-			x = int(self.gridsize[0] // 2)  # random.randint(2, self.gridsize[0] - 2)
-			y = int(self.gridsize[1] // 2)  # random.randint(2, self.gridsize[1] - 2)
-			# x = int(x)
-			try:
-				grid[x][y] = 0
-			except IndexError as e:
-				logger.error(f'IndexError {e} x:{x} y:{y} gz:{self.gridsize} g:{type(grid)} {len(grid)}')
-				return None
-			# make a clear radius around spawn point
-			for block in list(inside_circle(3, x, y)):
-				try:
-					# if self.grid[clear_bl[0]][clear_bl[1]] > 1:
-					grid[block[0]][block[1]] = 0
-				except Exception as e:
-					logger.error(f"[e] place_player {block} {e}")
-					return None
-			return grid
-		# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
-		if location == 1:  # top left
-			x = 5
-			y = 5
-			# x = int(x)
-			grid[x][y] = 0
-			# make a clear radius around spawn point
-			for block in list(inside_circle(3, x, y)):
-				try:
-					# if self.grid[clear_bl[0]][clear_bl[1]] > 1:
-					grid[block[0]][block[1]] = 0
-				except Exception as e:
-					logger.error(f"[e] place_player {block} {e}")
-					return None
-			return grid
-
-	# return Vector2((x * BLOCKSIZE[0], y * BLOCKSIZE[1]))
-
-	def get_block(self, x, y):
-		# get block inf from grid
-		try:
-			value = self.grid[x][y]
-		except IndexError as e:
-			logger.error(f"[get_block] {e} x:{x} y:{y}")
-			return -1
-		return value
 
 	def is_empty(self):
 		cnt = 0
@@ -175,19 +106,3 @@ class Gamemap:
 					cnt += 1
 		return cnt
 
-	def get_block_real(self, x, y):
-		x = x // BLOCKSIZE[0]
-		y = y // BLOCKSIZE[1]
-		try:
-			value = self.grid[x][y]
-		except IndexError as e:
-			logger.error(f"[get_block] {e} x:{x} y:{y}")
-			return -1
-		return value
-
-	def set_block(self, x, y, value):
-		self.grid[x][y] = value
-
-	def set_grid(self, newgrid):
-		logger.debug(f'[map] setting newgrid')
-		self.grid = newgrid
