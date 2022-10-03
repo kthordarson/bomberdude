@@ -49,30 +49,42 @@ def receive_data(conn):
 		return None
 	rid = None
 	data = []
+	rawdata = None
 	try:
-		rawdata = conn.recv(4096).decode('utf-8')
+		rawdata = conn.recv(5024).decode('utf-8')
 	except OSError as e:
 		logger.error(f'[recv] OSError:{e} conn:{conn}')
 		return data
-	if rawdata.count('{') != rawdata.count('}'):
-		diff = rawdata.count('{') - rawdata.count('}')
-		logger.warning(f'[recv] d:{diff} rawdata={rawdata}')
-		rawdata += '}'*diff
-	if rawdata.count('{') + rawdata.count('}') == 4:
-		rs1 = rawdata.split('}{')[0]+'}'
-		rs2 = '{'+rawdata.split('}{')[1]
-		data.append(json.loads(rs1))
-		data.append(json.loads(rs2))
-	elif rawdata.count('{') + rawdata.count('}') == 4:
-		rs1 = rawdata.split('}{')[0]+'}'
-		rs2 = '{'+rawdata.split('}{')[1]+'}'
-		rs3 = '{'+rawdata.split('}{')[2]
-		data.append(json.loads(rs1))
-		data.append(json.loads(rs2))
-		data.append(json.loads(rs3))
-	elif rawdata.count('{') + rawdata.count('}') > 7:
-		rs1 = rawdata.split('}{')[0]+'}'
-		data.append(json.loads(rs1))
+	if rawdata.count('{') + rawdata.count('}') == 2 or 'netplayers' in rawdata:
+		try:
+			data.append(json.loads(rawdata))
+		except json.decoder.JSONDecodeError as e:
+			logger.error(f'[recv] JSONDecodeError:{e} rawdata={rawdata}')
+	elif rawdata.count('{') + rawdata.count('}') > 4:
+		# parts = int(rawdata.count('{') + rawdata.count('}') / 2)
+		#len(rawdata.split('}{'))
+		rawsplit = ['{'+k.replace('{','').replace('}','')+'}' for k in rawdata.split('}{')]
+		for rs in rawsplit:
+			#logger.info(f'raw={len(rawsplit)} rs={rs}')
+			try:
+				data.append(json.loads(rs))
+			except json.decoder.JSONDecodeError as e:
+				logger.warning(f'[recv]JSONDecodeError:{e} d:{len(data)}  rawdata={rawdata}')
+
+	# 	rs1 = rawdata.split('}{')[0]+'}'
+	# 	rs2 = '{'+rawdata.split('}{')[1]
+	# 	data.append(json.loads(rs1))
+	# 	data.append(json.loads(rs2))
+	# elif rawdata.count('{') + rawdata.count('}') == 4:
+	# 	rs1 = rawdata.split('}{')[0]+'}'
+	# 	rs2 = '{'+rawdata.split('}{')[1]+'}'
+	# 	rs3 = '{'+rawdata.split('}{')[2]
+	# 	data.append(json.loads(rs1))
+	# 	data.append(json.loads(rs2))
+	# 	data.append(json.loads(rs3))
+	# elif rawdata.count('{') + rawdata.count('}') > 7:
+	# 	rs1 = rawdata.split('}{')[0]+'}'
+	# 	data.append(json.loads(rs1))
 	return data
 	# else:
 	# 	try:

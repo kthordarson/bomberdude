@@ -55,13 +55,14 @@ class BombClient(Thread):
 			# logger.debug(f'{self} send_pos pos={pos} center={center}')
 			self.pos = pos
 			self.centerpos = center
-			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center, 'kill':self.kill}
+			
+			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center, 'kill':int(self.kill)}
 			send_data(conn=self.socket, payload=posmsg)
 
 	def send_clientid(self):
 		# send pos to server
 		if self.connected and not self.kill:		
-			cmsg = {'data_id': dataid['info'], 'client_id': self.client_id, 'pos': (self.pos[0], self.pos[1]), 'centerpos':self.centerpos, 'kill':self.kill}
+			cmsg = {'data_id': dataid['info'], 'client_id': self.client_id, 'pos': (self.pos[0], self.pos[1]), 'centerpos':self.centerpos, 'kill':int(self.kill)}
 			send_data(conn=self.socket, payload=cmsg)
 			logger.info(f'[ {self} ] sending client_id ')
 
@@ -117,7 +118,8 @@ class BombClient(Thread):
 						if payload.get('msgtype') == 'bcgetid':
 							if payload.get('payload') == 'sendclientid':
 								# todo work on this....
-								self.send_clientid()								
+								#self.send_clientid()	
+								pass							
 						elif payload.get('msgtype') == dataid['netplayers']:
 							netplayers = None
 							netplayers = payload.get('netplayers')

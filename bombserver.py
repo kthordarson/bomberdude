@@ -117,7 +117,7 @@ class BombClientHandler(Thread):
 		self.queue = Queue()
 		self.sendq = Queue() # multiprocessing.Manager().Queue()
 		self.client_id = None
-		self.kill = False
+		self.kill = 0
 		self.conn = conn
 		self.addr = addr
 		np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':0}
@@ -409,7 +409,7 @@ class BombServer(Thread):
 						bc.netplayers.pop([bc.netplayers.get(k) for k in bc.netplayers if bc.netplayers[k]['kill']][0].get('client_id'))
 					except IndexError:
 						pass
-					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':bc.kill}
+					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':int(bc.kill)}
 					self.netplayers[bc.client_id] = np
 					bc.netplayers[bc.client_id] = np
 					self.gui.font.render_to(self.gui.screen, ctextpos, f'[{bidx}/{len(self.bombclients)}] bc={bc.client_id} pos={bc.pos} np:{len(bc.netplayers)}', (130,130,130))
