@@ -35,20 +35,24 @@ class Gamemap:
 			grid[0][x] = 10
 			grid[-1][x] = 10
 			grid[x][-1] = 10
-		if players:
-			for pl in players:
-				player = players[pl]
-				logger.debug(f'[map] generate_custom player={player}')
-				xpos = int(player['pos'][0] // BLOCK)
-				ypos = int(player['pos'][1] // BLOCK)
-				#ypos = int(player.pos[1] // BLOCK)
-				grid[xpos][ypos] = 0
-				grid[xpos-1][ypos] = 0
-				grid[xpos+1][ypos] = 0
-				grid[xpos][ypos-1] = 0
-				grid[xpos][ypos+1] = 0
-				grid[xpos-1][ypos-1] = 0
-				grid[xpos+1][ypos+1] = 0
+		self.grid = grid
+		return grid
+		
+	def placeplayers(self, players):
+		grid = self.grid
+		for pl in players:
+			player = players[pl]
+			xpos = int(player['pos'][0] // BLOCK)
+			ypos = int(player['pos'][1] // BLOCK)
+			logger.info(f'[map] generate_custom player={player} pos={player["pos"]} x={xpos} y={ypos}')
+			#ypos = int(player.pos[1] // BLOCK)
+			grid[xpos][ypos] = 0
+			grid[xpos-1][ypos] = 0
+			grid[xpos+1][ypos] = 0
+			grid[xpos][ypos-1] = 0
+			grid[xpos][ypos+1] = 0
+			grid[xpos-1][ypos-1] = 0
+			grid[xpos+1][ypos+1] = 0
 		self.grid = grid
 		return grid
 
@@ -67,7 +71,7 @@ class Gamemap:
 		#ypos = random.randint(2, len(grid[1])-2)
 		xpos = int(pos[0] // BLOCK)
 		ypos = int(pos[1] // BLOCK)
-		logger.info(f'[map] placeplayer pos={pos} x={xpos} y={ypos}')
+		# logger.info(f'[map] placeplayer pos={pos} x={xpos} y={ypos}')
 		if xpos == 0 or ypos == 0:
 			logger.warning(f'[map] placeplayer xpos:{xpos} ypos:{ypos} grid={grid}')
 		# clear spot aound player
@@ -85,7 +89,7 @@ class Gamemap:
 			grid[0][x] = 10
 			grid[-1][x] = 10
 			grid[x][-1] = 10
-		logger.debug(f'[placeplayer] xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
+		logger.info(f'[placeplayer] pos={pos} xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
 		self.grid = grid
 		return grid
 

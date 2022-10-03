@@ -359,15 +359,6 @@ class BombServer(Thread):
 				logger.warning(f'[ {self} ] TypeError:{e}')
 				msgtxt = ''
 			self.gui.font.render_to(self.gui.screen, ctextpos, msgtxt, (150,150,150))
-			if self.gamemap.is_empty():
-				logger.info(f'[ {self} ] map is empty')
-				newgrid = self.gamemap.generate_custom(squaresize=15, players=self.netplayers)
-				self.gamemap.grid = newgrid
-				for bc in self.bombclients:
-					bcg = self.gamemap.placeplayer(self.gamemap.grid, bc.pos)
-					bc.gamemap.grid = bcg
-					bc.send_map(newgrid=bcg)
-					self.gamemap.grid = bcg
 			ctextpos = [15, 25]
 			npidx = 1
 			try:
@@ -485,19 +476,32 @@ class BombServer(Thread):
 					for bc in self.bombclients:
 						if bc.client_id == clid:
 							bc.posupdate(data)
-				elif type == 'resetmap':
-					# todo write text...
-					clid = data.get('client_id')
-					logger.debug(f'[ {self} ] resetmap from {clid} {data}')
+				elif type == 'resetmap' or self.gamemap.is_empty():
+					# todo fix player pos on new grid					
+					if self.gamemap.is_empty():
+						logger.debug(f'[ {self} ] self.gamemap.is_empty() = {self.gamemap.is_empty()}')
+					else:
+						clid = data.get('client_id')
+						logger.debug(f'[ {self} ] resetmap from {clid} {data}')
 					basegrid = self.gamemap.generate_custom(squaresize=15, players=self.netplayers)
-					self.gamemap.grid = basegrid
+					#self.gamemap.grid = basegrid
 					for bc in self.bombclients:
-						#bcg = self.gamemap.placeplayer(self.gamemap.grid, bc.pos)
-						#bc.gamemap.grid = bcg
-						bc.send_map(newgrid=basegrid)
-						#self.gamemap.grid = bcg
+						bcg = self.gamemap.placeplayer(basegrid, bc.pos)
+						bc.gamemap.grid = bcg
+						bc.send_map(newgrid=bcg)
+						self.gamemap.grid = bcg
 				else:
 					logger.warning(f'[ {self} ] data={data}')
+			# if self.gamemap.is_empty():
+			# 	# all blocks cleared from map, make and send new grid to all clients
+			# 	logger.info(f'[ {self} ] map is empty')
+			# 	newgrid = self.gamemap.generate_custom(squaresize=15, players=self.netplayers)
+			# 	self.gamemap.grid = newgrid
+			# 	for bc in self.bombclients:
+			# 		bcg = self.gamemap.placeplayer(self.gamemap.grid, bc.pos)
+			# 		bc.gamemap.grid = bcg
+			# 		bc.send_map(newgrid=bcg)
+			# 		self.gamemap.grid = bcg
 
 
 def main():
