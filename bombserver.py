@@ -137,7 +137,6 @@ class BombClientHandler(Thread):
 		# called when server generates new map and new player position
 		# todo fix
 		self.pos = newpos
-		# payload = {'msgtype':dataid["posupdate"], 'client_id':self.client_id, 'pos':self.pos, 'newpos':newpos, 'newgrid':newgrid, 'data_id':dataid["posupdate"]}
 		posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos}
 		self.sender.queue.put_nowait((self.conn, posmsg))
 
@@ -289,6 +288,11 @@ class BombClientHandler(Thread):
 			elif rtype == dataid.get('resetmap') or rid == 18:
 				# make new mapgrid and send to all clients
 				msg = {'msgtype':'resetmap', 'client_id':self.client_id}
+				self.srvcomm.queue.put(msg)
+
+			elif rtype == dataid.get('posupdate') or rid == 20:
+				# client sent posupdate
+				msg = {'msgtype':'posupdate', 'client_id':self.client_id, 'posupdata':resp}
 				self.srvcomm.queue.put(msg)
 
 			elif rtype == dataid['auth'] or rid == 101:
