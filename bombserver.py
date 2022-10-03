@@ -138,13 +138,13 @@ class BombClientHandler(Thread):
 		# todo fix
 		if newpos:
 			self.pos = newpos
-			posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos}
+			posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos, 'newpos':newpos}
 			self.sender.queue.put_nowait((self.conn, posmsg))
 		else:
 			logger.warning(f'[ {self} ] set_pos newpos is None')
 
 	def posupdate(self, data):
-		pass
+		logger.info(f'[ {self} ] posupdate data={data}  mypos={self.pos}')
 		# # when server sends new player position
 		# if not self.gotpos:
 		# 	logger.debug(f'[ {self} ] posupdate data={data}  mypos={self.pos}')
@@ -167,15 +167,14 @@ class BombClientHandler(Thread):
 	def send_map(self, newgrid=None, randpos=True):
 		# send mapgrid to player
 		# todo fix player pos on grid
-		if newgrid:
-			ng, newpos = self.gamemap.placeplayer(grid=newgrid, pos=self.pos, randpos=randpos)
-			#newpos = (nx,ny)
-			oldpos = self.pos
-			self.set_pos(newpos=newpos)
-			self.pos = newpos
-			logger.info(f'[ {self} ] send_map newgrid:{len(newgrid)} self.pos:{self.pos} newpos={newpos} oldpos={oldpos} randpos={randpos}')
-			self.gamemap.grid = ng
-		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid'], 'newgrid':newgrid}
+		ng, newpos = self.gamemap.placeplayer(grid=newgrid, pos=self.pos, randpos=randpos)
+		#newpos = (nx,ny)
+		oldpos = self.pos
+		self.set_pos(newpos=newpos)
+		self.pos = newpos
+		logger.info(f'[ {self} ] send_map newgrid:{len(newgrid)} self.pos:{self.pos} newpos={newpos} oldpos={oldpos} randpos={randpos}')
+		self.gamemap.grid = ng
+		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid'], 'newpos': self.pos}
 		# logger.debug(f'[ {self} ] send_map payload={len(payload)} randpos={randpos}')
 		self.sender.queue.put_nowait((self.conn, payload))
 
@@ -206,7 +205,7 @@ class BombClientHandler(Thread):
 				#logger.info(f'[ {self} ] rid:{rid} resp:{resp}')
 				if resp == 'reqmap':
 					logger.debug(f'[ {self} ] rid:{rid} resp:{resp}')
-					self.send_map()
+					self.send_map(self.gamemap.grid)
 		except (ConnectionResetError, BrokenPipeError, struct.error, EOFError) as e:
 			logger.error(f'[ {self} ] receive_data error:{e}')
 		#self.sendq.put_nowait(payload)
@@ -274,7 +273,7 @@ class BombClientHandler(Thread):
 				# logger.debug(f'[ {self} ] received id:{rid} resp={resp}')
 
 			elif rtype == dataid['reqmap'] or rid == 7:
-				self.send_map()
+				self.send_map(self.gamemap.grid)
 
 			elif rtype == dataid.get('gameevent') or rid == 9:
 				logger.debug(f'[ {self} ] gamevent received id:{rid} resp={resp}')

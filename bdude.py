@@ -115,20 +115,14 @@ class Game(Thread):
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
 			self.bombs.add(newbomb)
 			logger.debug(f'[ {self} ] bombs:{len(self.bombs)} {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{msgtype} engmsg:{len(gamemsg)} bomb:{newbomb.pos}')
-		elif msgtype == 'newnetpos':
-			logger.debug(f'[ {self} ] newnetpos g={gamemsg}')
+		elif msgtype == 'newnetpos':			
 			posdata = gamemsg.get('posdata')
-			newgrid = posdata.get('newgrid')
 			client_id = posdata.get('client_id')
 			newpos = posdata.get('newpos')
-			self.updategrid(newgrid)
 			if client_id == self.playerone.client_id:
-				if not self.playerone.gotpos:
-					self.playerone.setpos(newpos)
-					self.playerone.ready = True
-					self.playerone.gotpos = True
-			else:
-				logger.info(f'[ {self} ] newpos for {client_id} {newpos}')
+				self.playerone.setpos(newpos)
+				self.playerone.ready = True
+				self.playerone.gotpos = True
 		elif msgtype == 'flames':
 			flames = gamemsg.get('flamedata')
 			for fl in flames:
@@ -145,7 +139,7 @@ class Game(Thread):
 			self.blocks.add(blk)
 			self.gamemapgrid[blk.gridpos[0]][blk.gridpos[1]] = blk.block_type
 			self.playerone.client.send_gridupdate(gridpos=blk.gridpos, blktype=blk.block_type)
-			logger.debug(f'[ {self} ] self.blocks:{len(self.blocks)} newblk={blk} ')
+			# logger.debug(f'[ {self} ] self.blocks:{len(self.blocks)} newblk={blk} ')
 		elif msgtype == 'netgridupdate':
 			gridpos = gamemsg.get('gridpos')
 			blktype = gamemsg.get('blktype')
@@ -153,8 +147,9 @@ class Game(Thread):
 			logger.debug(f'[ {self} ] netgridupdate {gridpos} {blktype}')
 		elif msgtype == 'gamemapgrid':
 			gamemapgrid = gamemsg.get('gamemapgrid')
-			if len(gamemapgrid) > 1:
-				self.updategrid(gamemapgrid)
+			newpos = gamemsg.get('newpos')
+			self.updategrid(gamemapgrid)
+			self.playerone.setpos(newpos)
 
 	def updategrid(self, gamemapgrid):
 		if not gamemapgrid:

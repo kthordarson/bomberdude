@@ -94,6 +94,7 @@ class Player(BasicThing, Thread):
 		if pos:
 			logger.info(f'{self} setpos {self.pos} to {pos}')
 			self.pos = pos
+			self.client.pos = self.pos
 		else:
 			logger.warning(f'{self} ignoring setpos {self.pos} to {pos}')
 
