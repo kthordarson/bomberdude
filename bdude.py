@@ -116,6 +116,7 @@ class Game(Thread):
 			self.bombs.add(newbomb)
 			logger.debug(f'[ {self} ] bombs:{len(self.bombs)} {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{msgtype} engmsg:{len(gamemsg)} bomb:{newbomb.pos}')
 		elif msgtype == 'newnetpos':
+			logger.debug(f'[ {self} ] newnetpos g={gamemsg}')
 			posdata = gamemsg.get('posdata')
 			newgrid = posdata.get('newgrid')
 			client_id = posdata.get('client_id')
@@ -126,7 +127,6 @@ class Game(Thread):
 					self.playerone.setpos(newpos)
 					self.playerone.ready = True
 					self.playerone.gotpos = True
-					logger.debug(f'[ {self} ] newnetpos {client_id} newpos={newpos} newgrid={len(newgrid)}')
 			else:
 				logger.info(f'[ {self} ] newpos for {client_id} {newpos}')
 		elif msgtype == 'flames':
@@ -157,6 +157,9 @@ class Game(Thread):
 				self.updategrid(gamemapgrid)
 
 	def updategrid(self, gamemapgrid):
+		if not gamemapgrid:
+			logger.warning(f'[ {self} ] updategrid got empty gamemapgrid')
+			return
 		self.gamemapgrid = gamemapgrid
 		self.gotgamemapgrid = True
 		newblocks = Group()

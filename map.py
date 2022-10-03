@@ -77,23 +77,26 @@ class Gamemap:
 			xpos = int(pos[0] // BLOCK)
 			ypos = int(pos[1] // BLOCK)
 		# logger.info(f'[map] placeplayer pos={pos} x={xpos} y={ypos}')
+		xp = xpos * BLOCK
+		yp = ypos * BLOCK
 		if xpos == 0 or ypos == 0:
 			logger.warning(f'[map] placeplayer xpos:{xpos} ypos:{ypos} grid={grid}')
 		# clear spot aound player
-		grid[xpos][ypos] = 0
-		grid[xpos-1][ypos] = 0
-		grid[xpos+1][ypos] = 0
-		grid[xpos][ypos-1] = 0
-		grid[xpos][ypos+1] = 0
-		grid[xpos-1][ypos-1] = 0
-		grid[xpos+1][ypos+1] = 0
-		xp = xpos * BLOCK
-		yp = ypos * BLOCK
-		for x in range(len(grid[0])):
-			grid[x][0] = 10
-			grid[0][x] = 10
-			grid[-1][x] = 10
-			grid[x][-1] = 10
+		try:
+			grid[xpos][ypos] = 0
+			grid[xpos-1][ypos] = 0
+			grid[xpos+1][ypos] = 0
+			grid[xpos][ypos-1] = 0
+			grid[xpos][ypos+1] = 0
+			grid[xpos-1][ypos-1] = 0
+			grid[xpos+1][ypos+1] = 0
+			for x in range(len(grid[0])):
+				grid[x][0] = 10
+				grid[0][x] = 10
+				grid[-1][x] = 10
+				grid[x][-1] = 10
+		except IndexError as e:
+			logger.warning(f'[map] placeplayer IndexError {e} pos={pos} xp:{xp} yp:{yp} xpos:{xpos} ypos:{ypos} grid={grid}')
 		logger.info(f'[placeplayer] pos={pos} xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
 		self.grid = grid
 		return grid, (xp, yp)

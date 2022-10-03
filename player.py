@@ -26,7 +26,7 @@ class Player(BasicThing, Thread):
 		self.rect = self.image.get_rect(center=self.pos)
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
 		self.speed = 3
-		self.client = BombClient(client_id=self.client_id, serveraddress='127.0.0.1', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
+		self.client = BombClient(client_id=self.client_id, serveraddress='192.168.1.168', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
 		self.gotmap = False
 		self.gotpos = False
 
@@ -53,7 +53,11 @@ class Player(BasicThing, Thread):
 		#self.pos.x += self.vel.x
 		#self.pos.y += self.vel.y
 		oldrect = self.rect
-		oldpos = (self.pos[0], self.pos[1])
+		try:
+			oldpos = (self.pos[0], self.pos[1])
+		except TypeError as e:
+			logger.error(f'{self} {e} pos {self.pos}')
+			oldpos = (100,100)
 
 		self.pos += self.vel
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
@@ -87,6 +91,9 @@ class Player(BasicThing, Thread):
 		self.score += 1
 	
 	def setpos(self, pos):
-		logger.info(f'{self} setpos {self.pos} to {pos}')
-		self.pos = pos
+		if pos:
+			logger.info(f'{self} setpos {self.pos} to {pos}')
+			self.pos = pos
+		else:
+			logger.warning(f'{self} ignoring setpos {self.pos} to {pos}')
 

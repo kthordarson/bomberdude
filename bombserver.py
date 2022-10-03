@@ -136,9 +136,12 @@ class BombClientHandler(Thread):
 	def set_pos(self, newpos):
 		# called when server generates new map and new player position
 		# todo fix
-		self.pos = newpos
-		posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos}
-		self.sender.queue.put_nowait((self.conn, posmsg))
+		if newpos:
+			self.pos = newpos
+			posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos}
+			self.sender.queue.put_nowait((self.conn, posmsg))
+		else:
+			logger.warning(f'[ {self} ] set_pos newpos is None')
 
 	def posupdate(self, data):
 		pass
@@ -165,8 +168,8 @@ class BombClientHandler(Thread):
 		# send mapgrid to player
 		# todo fix player pos on grid
 		if newgrid:
-			ng, nx,ny = self.gamemap.placeplayer(grid=newgrid, pos=self.pos, randpos=randpos)
-			newpos = (nx,ny)
+			ng, newpos = self.gamemap.placeplayer(grid=newgrid, pos=self.pos, randpos=randpos)
+			#newpos = (nx,ny)
 			oldpos = self.pos
 			self.set_pos(newpos=newpos)
 			self.pos = newpos
@@ -234,7 +237,6 @@ class BombClientHandler(Thread):
 			self.sender.queue.put_nowait((self.conn, payload))
 			try:
 				resp = receive_data(self.conn)
-
 				# logger.debug(f'[ {self} ] rid:{rid} resp:{resp}')
 			except (ConnectionResetError, BrokenPipeError, struct.error, EOFError, OSError) as e:
 				logger.error(f'[ {self} ] receive_data error:{e}')
@@ -244,8 +246,14 @@ class BombClientHandler(Thread):
 			rtype = None
 			if resp:
 				self.lastupdate = pygame.time.get_ticks()
-				rid = resp.get('data_id')
-				rtype = dataid.get(rid, None)
+				try:
+					if isinstance(resp, int):
+						rid = resp
+					else:
+						rid = resp.get('data_id')
+					rtype = dataid.get(rid, None)
+				except AttributeError as e:
+					logger.warning(f'[ {self} ] AttributeError:{e}  self.lastupdate={self.lastupdate} resp={resp}')
 
 			if rid == dataid.get('info') or rid == 0:
 				self.srvcomm.queue.put({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos})
@@ -314,7 +322,7 @@ class BombClientHandler(Thread):
 				logger.warning(f'[ {self} ] UnpicklingError rid:{rid}')
 			else:
 				if resp:
-					logger.warning(f'[ {self} ] unknownevent rid:{rid} rtype:{rtype}  resp={len(resp)} resp={resp}')
+					logger.warning(f'[ {self} ] unknownevent rid:{rid} rtype:{rtype}  resp={resp}')
 				else:
 					pass
 					#logger.error(f'[ {self} ] unknownevent noresp rid:{rid} rtype:{rtype}  resp={type(resp)}')
@@ -491,7 +499,7 @@ class BombServer(Thread):
 					basegrid = self.gamemap.generate_custom(squaresize=15, players=self.netplayers)
 					#self.gamemap.grid = basegrid
 					for bc in self.bombclients:
-						bcg = self.gamemap.placeplayer(basegrid, bc.pos)
+						bcg, bnewpos = self.gamemap.placeplayer(basegrid, bc.pos)
 						bc.gamemap.grid = bcg
 						bc.send_map(newgrid=bcg)
 						self.gamemap.grid = bcg
@@ -519,7 +527,7 @@ def main():
 	gui = ServerGUI()
 	server = BombServer(gui)
 	server.conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-	server.conn.bind(('127.0.0.1', 9696))
+	server.conn.bind(('0.0.0.0', 9696))
 	server.conn.listen()
 	server.start()
 	while True:
