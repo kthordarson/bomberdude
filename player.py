@@ -22,23 +22,32 @@ class Player(BasicThing, Thread):
 		self.name = f'player{self.client_id}'
 		self.connected = False
 		self.kill = False
-		self.pos = pos
+		self.pos = (100,100)
 		self.rect = self.image.get_rect(center=self.pos)
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
 		self.speed = 3
-		self.client = BombClient(client_id=self.client_id, serveraddress='127.0.0.1', serverport=9696, mainqueue=self.mainqueue)
+		self.client = BombClient(client_id=self.client_id, serveraddress='127.0.0.1', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
 		self.gotmap = False
 		self.gotpos = False
 
 	def __str__(self):
-		return f'player {self.client_id} pos={self.pos} k={self.kill} ck={self.client.kill}'
+		return f'{self.client_id} ready={self.ready} pos={self.pos} k={self.kill} ck={self.client.kill} conn:{self.connected}/{self.client.connected} gotmap:{self.gotmap} gotpos:{self.gotpos}'
 
 	def start_client(self):
 		self.client.start()
+		self.ready = True
 
 	def update(self, blocks=None, screen=None):
-		if not self.ready:
-			return
+		if not self.ready and self.connected:
+			logger.warning(f'{self} not ready but connected r:{self.ready} c:{self.connected} cc:{self.client.connected}')
+			#return
+		elif not self.connected and not self.ready:
+			logger.warning(f'{self} not connected not ready r:{self.ready} c:{self.connected} cc:{self.client.connected}')
+			#return
+		elif not self.client.connected and self.ready:
+			logger.warning(f'{self} ready but client not connected r:{self.ready} c:{self.connected} cc:{self.client.connected}')
+			#return
+
 		#self.rect.center = self.pos
 		#self.pos.x += self.vel.x
 		#self.pos.y += self.vel.y
@@ -65,10 +74,9 @@ class Player(BasicThing, Thread):
 		#self.pos += self.vel
 		if self.connected:
 			try:
-				if self.ready:
-					self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
+				self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
 			except ConnectionResetError as e:
-				logger.error(f'[{self}] {e}')
+				logger.error(f'[ {self} ] {e}')
 				self.connected = False
 				self.client.kill = True
 				self.client.socket.close()
@@ -82,5 +90,6 @@ class Player(BasicThing, Thread):
 		self.score += 1
 	
 	def setpos(self, pos):
+		logger.info(f'{self} setpos {self.pos} to {pos}')
 		self.pos = pos
 

@@ -38,7 +38,6 @@ def send_data(conn=None, payload=None):
 		logger.error('No payload')
 		return
 	data = json.dumps(payload).encode('utf-8')
-	#logger.debug(f'[send] pl={len(payload)} d={len(data)} p={payload} d={data}')
 	try:
 		conn.sendall(data)
 	except BrokenPipeError as e:
