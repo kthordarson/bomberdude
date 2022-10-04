@@ -9,7 +9,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
-from constants import FPS,BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, MAXPARTICLES
+from constants import BLOCK,FPS,BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, MAXPARTICLES
 
 
 def random_velocity(direction=None):
@@ -95,10 +95,11 @@ def start_all_threads(threads):
 
 class BasicThing(Sprite):
 	rm = ResourceHandler()
-	def __init__(self, pos=None, image=None):
+	def __init__(self, pos, gridpos, image=None):
 		super().__init__()
-		# self.thingq = OldQueue() # multiprocessing.Manager().Queue()		
-		self.pos = Vector2()
+		# self.thingq = OldQueue() # multiprocessing.Manager().Queue()
+		self.gridpos = gridpos
+		self.pos = pos
 		self.vel = Vector2()
 		self.start_time = pygame.time.get_ticks()
 		self.clock = pygame.time.Clock()
@@ -121,7 +122,7 @@ class BasicThing(Sprite):
 
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type):		
-		super().__init__(pos, None)
+		super().__init__(pos,gridpos, None)
 		self.block_type = block_type
 		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
 		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
@@ -132,11 +133,10 @@ class Block(BasicThing):
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		self.explode = False
 		self.poweruptime = 10
-		self.gridpos = gridpos  # Vector2((self.pos.x // BLOCKSIZE[0], self.pos.y // BLOCKSIZE[1]))
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
-		self.rect.x = self.pos.x
-		self.rect.y = self.pos.y
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
 		self.image.set_alpha(255)
 		self.image.set_colorkey((0, 0, 0))
 
@@ -164,7 +164,7 @@ class Block(BasicThing):
 					particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
 			if self.powerup:
 				powerblock = Powerup(pos=self.rect.center, type=self.powertype)
-			newblock = Block(self.pos, self.gridpos, block_type=0)
+			newblock = Block(self.rect.topleft, self.gridpos, block_type=0)
 			flame.kill()
 			self.kill()
 		return self.pos, self.gridpos, particles, newblock, powerblock
@@ -173,8 +173,8 @@ class Block(BasicThing):
 		# called when block is hit by a flame
 		# generate particles and set initial velocity based on direction of flame impact
 		#self.particles = Group()
-		self.rect.x = self.pos.x
-		self.rect.y = self.pos.y
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
 		# flame.vel = Vector2(flame.vel[0], flame.vel[1])
 		particles = Group()
 		for k in range(1, random.randint(4,15)):
@@ -201,7 +201,6 @@ class Powerup(BasicThing):
 		self.size = POWERUPSIZE
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.pos = pos
-		BasicThing.__init__(self, self.pos, self.image)
 		self.rect = self.image.get_rect()
 		self.rect.center = pos
 		self.alpha = 255
@@ -225,8 +224,8 @@ class Bomb(BasicThing):
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.bomber_id = bomber_id
 		self.rect = self.image.get_rect(topleft=self.pos)
-		self.rect.centerx = self.pos.x
-		self.rect.centery = self.pos.y
+		self.rect.centerx = self.pos[0]
+		self.rect.centery = self.pos[1]
 		self.font = pygame.font.SysFont("calibri", 10, True)
 		self.timer = 4000
 		self.bomb_timer = 1
@@ -286,8 +285,8 @@ class Particle(BasicThing):
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
 		#self.rect = self.image.get_rect(topleft=self.pos)
-		#self.rect.x = self.pos.x
-		#self.rect.y = self.pos.y
+		#self.rect.x = self.pos[0]
+		#self.rect.y = self.pos[1]
 		self.timer = 20000
 		self.hits = 0
 		self.maxhits = random.randint(1,3)
@@ -312,8 +311,8 @@ class Particle(BasicThing):
 			self.vel -= self.accel
 			self.vel.y += abs(self.vel.y * 0.1) + random.triangular(0.01,0.03) # 0.025
 			self.pos += self.vel
-			self.rect.x = self.pos.x
-			self.rect.y = self.pos.y
+			self.rect.x = self.pos[0]
+			self.rect.y = self.pos[1]
 
 	def hit(self, other):
 		self.hits += 1
@@ -344,8 +343,8 @@ class Flame(BasicThing):
 		if pygame.time.get_ticks() - self.start_time >= self.timer:
 			self.kill()
 		self.pos += self.vel
-		self.rect.x = self.pos.x
-		self.rect.y = self.pos.y
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
 		pygame.draw.line(surface, (200, 5, 5), self.start_center, self.pos, 4)
 		pygame.draw.circle(surface, color=(200, 5, 5), center=self.rect.center, radius=7, width=1)
 		#pygame.draw.line(surface, (1, 255, 0), self.start_pos, self.rect.center, 2)

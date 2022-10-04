@@ -80,7 +80,7 @@ class Gamemap:
 			logger.warning(f'[map] placeplayer IndexError {e} pos={pos} xp:{xp} yp:{yp} xpos:{xpos} ypos:{ypos} grid={grid}')
 		logger.info(f'[placeplayer] pos={pos} randpos:{randpos} xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
 		self.grid = grid
-		return grid, (xp, yp)
+		return grid, (xp, yp), (xpos, ypos)
 
 
 	def is_empty(self):

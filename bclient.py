@@ -2,6 +2,8 @@ import socket
 from threading import Thread
 from loguru import logger
 from network import send_data, receive_data, dataid
+from constants import BLOCK
+from map import Gamemap
 class BombClient(Thread):
 	def __init__(self, client_id=None, serveraddress=None, serverport=None, mainqueue=None, pos=None):
 		Thread.__init__(self, daemon=True)
@@ -14,13 +16,14 @@ class BombClient(Thread):
 		self.connected = False
 		self.pos = pos
 		self.centerpos = pos
+		self.gridpos = (0, 0)
 		self.netplayers = {}
-		self.gamemap = None
+		self.gamemap = Gamemap()
 		self.gotmap = False
 		self.mainqueue = mainqueue
 
 	def __str__(self):
-		return f'id={self.client_id} pos={self.pos} center={self.centerpos} k:{self.kill} conn:{self.connected} gotmap:{self.gotmap}'
+		return f'id={self.client_id} pos={self.pos} gp={self.gridpos} center={self.centerpos} k:{self.kill} conn:{self.connected} gotmap:{self.gotmap}'
 
 	def req_mapreset(self):
 		# request server map reset
@@ -38,31 +41,31 @@ class BombClient(Thread):
 	def send_reqpos(self):
 		# get initial position from server
 		if self.connected and not self.kill:
-			reqmsg = {'data_id': dataid['reqpos'], 'client_id': self.client_id, 'payload': 'reqpos', 'pos':self.pos}
+			reqmsg = {'data_id': dataid['reqpos'], 'client_id': self.client_id, 'payload': 'reqpos', 'pos':self.pos, 'gridpos':self.gridpos}
 			send_data(conn=self.socket, payload=reqmsg)
 
 	def send_mapreq(self):
 		# request map from server
 		if self.connected and not self.kill:
-			regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap'], 'pos':self.pos}
+			regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap'], 'pos':self.pos, 'gridpos':self.gridpos}
 			send_data(conn=self.socket,  payload=regmsg)
 			logger.debug(f'[ {self} ] send_mapreq')
 			# self.send_reqpos()
 
-	def send_pos(self, pos=None, center=None):
+	def send_pos(self, pos=None, center=None, gridpos=None):
 		# send pos to server
 		if self.connected and not self.kill:		
 			# logger.debug(f'{self} send_pos pos={pos} center={center}')
 			self.pos = pos
 			self.centerpos = center
-			
-			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center, 'kill':int(self.kill)}
+			self.gridpos = gridpos
+			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center, 'kill':int(self.kill), 'gridpos':self.gridpos}
 			send_data(conn=self.socket, payload=posmsg)
 
 	def send_clientid(self):
 		# send pos to server
 		if self.connected and not self.kill:		
-			cmsg = {'data_id': dataid['info'], 'client_id': self.client_id, 'pos': (self.pos[0], self.pos[1]), 'centerpos':self.centerpos, 'kill':int(self.kill)}
+			cmsg = {'data_id': dataid['info'], 'client_id': self.client_id, 'pos': (self.pos[0], self.pos[1]), 'centerpos':self.centerpos, 'kill':int(self.kill), 'gridpos':self.gridpos}
 			send_data(conn=self.socket, payload=cmsg)
 			logger.info(f'[ {self} ] sending client_id ')
 
@@ -143,10 +146,12 @@ class BombClient(Thread):
 							# complete grid from server
 							gamemapgrid = payload.get('gamemapgrid')
 							newpos = payload.get('newpos')
-							logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos}')
-							mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos}
+							newgridpos = payload.get('newgridpos')
+							logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
+							mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos, 'newgridpos':newgridpos}
 							self.mainqueue.put(mapmsg)							
 							self.gamemapgrid = gamemapgrid
+							self.gamemap.grid = gamemapgrid
 							self.gotmap = True
 
 						elif payload.get('msgtype') == 'netbomb':
@@ -163,10 +168,16 @@ class BombClient(Thread):
 						elif payload.get('msgtype') == 'playerpos':
 							# received playerpos from server, forward to mainqueue
 							newpos = payload.get('pos')
+							newgridpos = payload.get('newgridpos')
 							if newpos:
 								self.pos = newpos
-								logger.debug(f'[ {self} ] newpos={newpos} payload={payload}')
-							posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos, 'newpos':newpos}
+							if newgridpos:
+								self.newgridpos = newgridpos			
+								#ngx = self.pos[0] // BLOCK
+								#ngy = self.pos[1] // BLOCK
+								#self.gridpos = (ngx, ngy)
+							logger.debug(f'[ {self} ] newpos={newpos} {newgridpos} payload={payload}')
+							posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos, 'newpos':newpos, 'newgridpos':self.gridpos}
 							self.mainqueue.put(posmsg)
 						else:
 							logger.warning(f'[ {self} ] unknownpayload msgid={msgid} p={payload}')

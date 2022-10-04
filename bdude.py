@@ -157,7 +157,7 @@ class Game(Thread):
 		newblocks = Group()
 		for k in range(0, len(gamemapgrid)):
 			for j in range(0, len(gamemapgrid)):
-				newblock = Block(pos=Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), gridpos=(j, k), block_type=gamemapgrid[j][k])
+				newblock = Block(Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), (j, k), block_type=gamemapgrid[j][k])
 				newblocks.add(newblock)
 		self.blocks.empty()
 		self.blocks.add(newblocks)
@@ -362,22 +362,26 @@ class Game(Thread):
 					if self.gui.show_mainmenu:
 						self.gui.game_menu.menu_down()
 					else:
-						self.playerone.vel.y = self.playerone.speed
-						self.playerone.vel.x = 0
+						self.playerone.move("down")
+						#self.playerone.vel.y = self.playerone.speed
+						#self.playerone.vel.x = 0
 				if event.key in {pygame.K_UP, pygame.K_w}:
 					if self.gui.show_mainmenu:
 						self.gui.game_menu.menu_up()
 					else:
-						self.playerone.vel.y = -self.playerone.speed
-						self.playerone.vel.x = 0
+						self.playerone.move("up")
+						#self.playerone.vel.y = -self.playerone.speed
+						#self.playerone.vel.x = 0
 				if event.key in {pygame.K_RIGHT, pygame.K_d}:
 					if not self.gui.show_mainmenu:
-						self.playerone.vel.x = self.playerone.speed
-						self.playerone.vel.y = 0
+						self.playerone.move("right")
+						#self.playerone.vel.x = self.playerone.speed
+						#self.playerone.vel.y = 0
 				if event.key in {pygame.K_LEFT, pygame.K_a}:
 					if not self.gui.show_mainmenu:
-						self.playerone.vel.x = -self.playerone.speed
-						self.playerone.vel.y = 0
+						self.playerone.move("left")
+						#self.playerone.vel.x = -self.playerone.speed
+						#self.playerone.vel.y = 0
 			if event.type == pygame.KEYUP:
 				if event.key == pygame.K_a:
 					pass
