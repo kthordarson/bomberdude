@@ -99,10 +99,10 @@ class Game(Thread):
 			self.update_powerups(self.playerone)
 			gamemsg = None
 			if not self.mainqueue.empty():
-				gamemsg = self.mainqueue.get_nowait()
+				gamemsg = self.mainqueue.get()
 			if gamemsg:
-				# self.mainqueue.task_done()
 				self.handle_mainq(gamemsg)
+				self.mainqueue.task_done()
 
 
 	def handle_mainq(self, gamemsg):
@@ -246,7 +246,7 @@ class Game(Thread):
 			self.players.draw(self.screen)
 		self.powerups.draw(self.screen)
 		for np in self.playerone.client.netplayers:
-			if self.playerone.client_id != np:
+			if self.playerone.client_id != np and np != '0':
 				if not self.playerone.client.netplayers[np].get('kill'):
 					# ckill = self.playerone.client.netplayers[np].get('kill')
 					# cpos = Vector2(self.playerone.client.netplayers[np].get('centerpos'))

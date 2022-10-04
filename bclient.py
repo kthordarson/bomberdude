@@ -127,7 +127,8 @@ class BombClient(Thread):
 								#logger.debug(f'[ {self} ] netplayers {len(netplayers)} {netplayers}')
 								# update netplayers
 								for np in netplayers:
-									self.netplayers[np] = netplayers[np]
+									if np != '0':
+										self.netplayers[np] = netplayers[np]
 						elif payload.get('msgtype') == 'netgridupdate':
 							# received gridupdate from server
 							gridpos = payload.get('gridpos')
@@ -135,7 +136,7 @@ class BombClient(Thread):
 							logger.debug(f'[ {self} ] netgridupdate g={gridpos} b={blktype}')
 							mapmsg = {'msgtype':'netgridupdate', 'client_id':self.client_id, 'gridpos':gridpos, 'blktype':blktype}
 							# send grid update to mainqueue
-							self.mainqueue.put_nowait(mapmsg)
+							self.mainqueue.put(mapmsg)
 							# update local grid
 							self.gamemapgrid[gridpos[0]][gridpos[1]] = blktype
 						elif payload.get('msgtype') == 'mapfromserver':
@@ -144,7 +145,7 @@ class BombClient(Thread):
 							newpos = payload.get('newpos')
 							logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos}')
 							mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos}
-							self.mainqueue.put_nowait(mapmsg)							
+							self.mainqueue.put(mapmsg)							
 							self.gamemapgrid = gamemapgrid
 							self.gotmap = True
 
@@ -152,13 +153,13 @@ class BombClient(Thread):
 							# received bomb from server, forward to mainqueue
 							# logger.debug(f'bombfromserver payload={payload}')
 							bombmsg = {'msgtype':'netbomb', 'bombdata':payload, 'data_id':dataid['netbomb']}
-							self.mainqueue.put_nowait(bombmsg)
+							self.mainqueue.put(bombmsg)
 
 						elif msgid == dataid['posupdate']:
 							# received posupdate from server, forward to mainqueue
 							logger.debug(f'[ {self} ] payload={payload}')
 							posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos}
-							self.mainqueue.put_nowait(posmsg)
+							self.mainqueue.put(posmsg)
 						elif payload.get('msgtype') == 'playerpos':
 							# received playerpos from server, forward to mainqueue
 							newpos = payload.get('pos')
@@ -166,7 +167,7 @@ class BombClient(Thread):
 								self.pos = newpos
 								logger.debug(f'[ {self} ] newpos={newpos} payload={payload}')
 							posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos, 'newpos':newpos}
-							self.mainqueue.put_nowait(posmsg)
+							self.mainqueue.put(posmsg)
 						else:
 							logger.warning(f'[ {self} ] unknownpayload msgid={msgid} p={payload}')
 			else:
