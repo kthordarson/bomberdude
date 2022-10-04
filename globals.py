@@ -148,11 +148,13 @@ class Block(BasicThing):
 		# self.solid = False
 		# self.permanent = True
 		# self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
-		particles = None
-		newblock = None
-		powerblock = None
-		if self.block_type != 0:
-			particles = Group()
+		particles = Group()
+		if self.powerup:
+			# newblock = Powerup(pos=self.rect.center, type=self.powertype)
+			newblock = Block(self.rect.topleft, self.gridpos, block_type=20)
+		else:
+			newblock = Block(self.rect.topleft, self.gridpos, block_type=0)
+		if self.block_type != 0:			
 			for k in range(1, MAXPARTICLES+random.randint(1, 10)):
 				if flame.vel.x < 0:  # flame come from left
 					particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
@@ -161,13 +163,10 @@ class Block(BasicThing):
 				elif flame.vel.y > 0:  # down
 					particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
 				elif flame.vel.y < 0:  # up
-					particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
-			if self.powerup:
-				powerblock = Powerup(pos=self.rect.center, type=self.powertype)
-			newblock = Block(self.rect.topleft, self.gridpos, block_type=0)
+					particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]			
 			flame.kill()
 			self.kill()
-		return self.pos, self.gridpos, particles, newblock, powerblock
+		return particles, newblock
 
 	def gen_particles(self, flame):
 		# called when block is hit by a flame
@@ -223,7 +222,7 @@ class Bomb(BasicThing):
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.bomber_id = bomber_id
-		self.rect = self.image.get_rect(topleft=self.pos)
+		self.rect = self.image.get_rect(center=self.pos)
 		self.rect.centerx = self.pos[0]
 		self.rect.centery = self.pos[1]
 		self.font = pygame.font.SysFont("calibri", 10, True)

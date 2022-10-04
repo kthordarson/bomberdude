@@ -159,7 +159,7 @@ class Game(Thread):
 			for j in range(0, len(gamemapgrid)):
 				newblock = Block(Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), (j, k), block_type=gamemapgrid[j][k])
 				newblocks.add(newblock)
-		self.blocks.empty()
+		# self.blocks.empty()
 		self.blocks.add(newblocks)
 		# self.playerone.pos = (100,100)
 		logger.debug(f'[ {self} ] {self.mainqueue.qsize()} {self.sendq.qsize()} gamemapgrid:{len(gamemapgrid)}')
@@ -178,9 +178,8 @@ class Game(Thread):
 		self.flames.update(surface=self.screen)
 		for flame in self.flames:
 			# check if flame collides with blocks
-			flame_coll = spritecollide(flame, self.blocks, False)
-			for block in flame_coll:
-				if pygame.Rect.colliderect(flame.rect, block.rect) :
+			for block in spritecollide(flame, self.blocks, False):
+				if pygame.Rect.colliderect(flame.rect, block.rect) and block.block_type != '0':
 					if DEBUG:
 						if block.block_type == 10:
 							pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
@@ -190,7 +189,7 @@ class Game(Thread):
 						else:
 							pygame.draw.rect(self.screen, (115,115,115), rect=block.rect, width=1)
 					if block.block_type != 10:
-						pos, gridpos, particles, newblock, powerblock = block.hit(flame)
+						particles, newblock = block.hit(flame)
 						if particles:
 							particlemsg = {'msgtype': 'particles', 'particledata': particles}
 							self.mainqueue.put(particlemsg)
@@ -199,18 +198,13 @@ class Game(Thread):
 							blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
 							self.mainqueue.put(blockmsg)
 							# self.blocks.add(newblock)
-						if powerblock:
-							powerupmsg = {'msgtype': 'powerup', 'powerupdata': powerblock}
-							self.mainqueue.put(powerupmsg)
-								#self.powerups.add(powerblock)
-						#block.kill()
 
 	def update_particles(self):
 		self.particles.update(self.blocks, self.screen)
 		for particle in self.particles:
 			blocks = spritecollide(particle, self.blocks, dokill=False)
 			for block in blocks:
-				if block.solid and pygame.Rect.colliderect(particle.rect, block.rect):
+				if block.block_type != '0' and pygame.Rect.colliderect(particle.rect, block.rect):
 					if DEBUG:
 						#pygame.draw.circle(self.screen, (111,111,111), particle.rect.center, 2)
 						pygame.draw.rect(self.screen, (85,85,85), rect=block.rect, width=1)
@@ -228,7 +222,7 @@ class Game(Thread):
 
 	def draw(self):
 		# draw on screen
-		fps = -1		
+		fps = -1
 		if pygame.display.get_init():
 			try:
 				pygame.display.update()
@@ -237,7 +231,7 @@ class Game(Thread):
 				pygame.display.set_mode(SCREENSIZE, 0, 8)
 				self.screen = pygame.display.get_surface()
 				return
-		self.gameclock.tick(30)		
+		self.gameclock.tick(30)
 		#self.blocks.draw(self.screen)
 		#if self.playerone.ready:
 		self.screen.fill(self.bg_color)
@@ -253,17 +247,21 @@ class Game(Thread):
 				if not self.playerone.client.netplayers[np].get('kill'):
 					# ckill = self.playerone.client.netplayers[np].get('kill')
 					# cpos = Vector2(self.playerone.client.netplayers[np].get('centerpos'))
-					rpos = Vector2(self.playerone.client.netplayers[np].get('pos'))
-					nprect = pygame.Rect(rpos, NETPLAYERSIZE)
-					surf = pygame.display.get_surface()
-					surf.fill(color=(211,0,0), rect=nprect, special_flags=pygame.BLEND_ADD)
-					rpos.x -= 20
-					self.font.render_to(self.screen, rpos, f'{np}', (255, 255, 255))
+					#rpos = Vector2(self.playerone.client.netplayers[np].get('pos'))
+					rpos = self.playerone.client.netplayers[np].get('gridpos')
+					pos = self.playerone.client.netplayers[np].get('pos')
+					if rpos:
+						nprect = pygame.Rect(pos[0]*BLOCK, pos[1]*BLOCK, NETPLAYERSIZE)
+						#nprect = pygame.Rect(rpos[0]*BLOCK, rpos[1]*BLOCK, NETPLAYERSIZE)
+						surf = pygame.display.get_surface(nprect)
+						surf.fill(color=(211,0,0), rect=nprect, special_flags=pygame.BLEND_ADD)
+						rpos.x -= 20
+						self.font.render_to(self.screen, rpos, f'{np}', (255, 255, 255))
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
 		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames)
 		fps = self.gameclock.get_fps()
-		if DEBUG:			
+		if DEBUG:
 			pos = Vector2(10, self.screenh - 100)
 			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} b:{self.get_block_count()} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} threads:{threading.active_count()}", (173, 173, 173))
 			pos += (0, 15)

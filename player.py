@@ -98,16 +98,18 @@ class Player(BasicThing, Thread):
 			logger.warning(f'{self} ready but client not connected r:{self.ready} c:{self.connected} cc:{self.client.connected}')
 			return
 		if self.connected:
-			try:
-				# self.client.pos = (self.pos[0], self.pos[1])
-				self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
-			except ConnectionResetError as e:
-				logger.error(f'[ {self} ] {e}')
-				self.connected = False
-				self.client.kill = True
-				self.client.socket.close()
-				self.kill = True
-				return
+			self.client.send_pos(pos=self.pos, center=self.pos, gridpos=self.gridpos)
+		# if self.connected:
+		# 	try:
+		# 		# self.client.pos = (self.pos[0], self.pos[1])
+		# 		self.client.send_pos(pos=(self.pos[0], self.pos[1]), center=self.centerpos)
+		# 	except ConnectionResetError as e:
+		# 		logger.error(f'[ {self} ] {e}')
+		# 		self.connected = False
+		# 		self.client.kill = True
+		# 		self.client.socket.close()
+		# 		self.kill = True
+		# 		return
 
 	def take_powerup(self, powerup=None):
 		pass
@@ -124,39 +126,3 @@ class Player(BasicThing, Thread):
 		else:
 			logger.warning(f'{self} ignoring setpos {self.pos} to {pos}')
 
-	def oldupdate(self, blocks):
-		hitlist = self.hit_list(blocks)
-		oldy = self.rect.y
-		oldx = self.rect.x
-		oldpos = self.pos
-		oldrect = self.rect
-		self.pos += self.vel
-		#self.pos.x += self.vel.x
-		#self.pos.y += self.vel.y
-		self.rect.x = self.pos.x
-		self.rect.y = self.pos.y
-		pygame.draw.rect(surface=self.surface, color=(23,23,223), rect=self.rect, width=1)
-		for hit in hitlist:
-			if hit.block_type != 0:
-				logger.debug(f'{self} hitlist {len(hitlist)} hit={hit}')
-				pygame.draw.rect(surface=self.surface, color=(123,123,123), rect=hit.rect, width=1)
-				pygame.draw.rect(surface=self.surface, color=(223,123,223), rect=self.rect, width=1)
-				if self.vel.x > 0:
-					# moving right
-					self.rect.right = hit.rect.left
-					self.vel[0] = 0
-				if self.vel.x < 0:
-					# moving left
-					self.rect.left = hit.rect.right
-					self.vel[0] = 0
-				if self.vel.y > 0:
-					# moving down
-					self.rect.bottom = hit.rect.top
-					self.vel[1] = 0
-				if self.vel.y < 0:
-					# moving up
-					self.rect.top = hit.rect.bottom
-					self.vel[1] = 0				
-				
-		self.pos.y = self.rect.y
-		self.pos.x = self.rect.x

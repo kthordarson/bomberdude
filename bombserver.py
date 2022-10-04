@@ -136,7 +136,7 @@ class BombClientHandler(Thread):
 		self.servercomm = servercomm # Servercomm(self.queue)
 		self.start_time = pygame.time.get_ticks()
 		self.lastupdate = self.start_time
-		self.maxtimeout = 300
+		self.maxtimeout = 9000
 		logger.info(f'[BC] BombClientHandler init addr:{self.addr} client_id:{self.client_id}')
 
 	def __str__(self):
@@ -275,7 +275,7 @@ class BombClientHandler(Thread):
 						s_clid = resp.get('client_id')
 						if not self.client_id or self.client_id == '0':
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						s_pos = resp.get('pos')
 						c_pos = resp.get('centerpos')
 						#logger.debug(f"[BC] {self} playerpos {s_clid} {s_pos} {self.pos}")
@@ -288,21 +288,21 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id')
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						# logger.debug(f'[ {self} ] received id:{rid} resp={resp}')
 
 					elif rtype == dataid['reqmap'] or rid == 7:						
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id')
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						self.send_map(newgrid=self.gamemap.grid, randpos=True)
 
 					elif rtype == dataid.get('gameevent') or rid == 9:
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id')
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						logger.debug(f'[ {self} ] gamevent received id:{rid} resp={resp}')
 
 					elif rtype == dataid['gridupdate'] or rid == 12:
@@ -310,7 +310,7 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id')
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						senderid = resp.get('client_id')
 						gridpos = resp.get('gridpos')
 						blktype = resp.get('blktype')
@@ -319,13 +319,13 @@ class BombClientHandler(Thread):
 						self.servercomm.queue.put(gridmsg)
 						#self.gamemap.grid = newgrid
 						#self.send_map()
-						logger.debug(f'[ {self} ] gridupdate senderid:{senderid} gp={gridpos} bt={blktype}')
+						# logger.debug(f'[ {self} ] gridupdate senderid:{senderid} gp={gridpos} bt={blktype}')
 
 					elif rtype == dataid.get('netbomb') or rid == 14:
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id')
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
 						self.servercomm.queue.put(updatemsg)
 
@@ -337,7 +337,7 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id')
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						msg = {'msgtype':'reqpos', 'client_id':self.client_id}
 						self.servercomm.queue.put(msg)
 
@@ -345,7 +345,7 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id')
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						# client sent posupdate
 						msg = {'msgtype':'posupdate', 'client_id':self.client_id, 'posupdata':resp}
 						self.servercomm.queue.put(msg)
@@ -355,22 +355,22 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id')
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						msg = {'msgtype':'resetmap', 'client_id':self.client_id}
 						self.servercomm.queue.put(msg)
 
 					elif rtype == dataid['auth'] or rid == 101:
-						logger.debug(f'[ {self} ] auth received id:{rid} resp={resp}')
+						logger.debug(f'[ {self} ] r:{len(resps)} auth received id:{rid} resp={resp}')
 						clid = resp.get('client_id')
 						if not self.client_id or self.client_id == '0':
-							logger.debug(f'[ {self} ] setclientid {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						self.client_id = clid
 
 					elif rtype == dataid['UnpicklingError'] or rid == 1002:
-						logger.warning(f'[ {self} ] UnpicklingError rid:{rid}')
+						logger.warning(f'[ {self} ] r:{len(resps)} UnpicklingError rid:{rid}')
 					else:
 						if resp:
-							logger.warning(f'[ {self} ] unknownevent rid:{rid} rtype:{rtype}  resp={resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} unknownevent rid:{rid} rtype:{rtype}  resp={resp}')
 						else:
 							pass
 						#logger.error(f'[ {self} ] unknownevent noresp rid:{rid} rtype:{rtype}  resp={type(resp)}')
@@ -475,7 +475,7 @@ class BombServer(Thread):
 					plcolor[2] += 60
 					payload = {'msgtype':'netplayers', 'netplayers':self.netplayers}
 					bc.servercomm.queue.put(payload)
-					if pygame.time.get_ticks()-bc.lastupdate > 3000:
+					if pygame.time.get_ticks()-bc.lastupdate > 30000:
 						bc.kill = True
 						bc.netplayers[bc.client_id]['kill'] = 1
 						self.netplayers[bc.client_id]['kill'] = 1
