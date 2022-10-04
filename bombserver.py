@@ -18,7 +18,7 @@ from queue import Queue
 class ServerGUI(Thread):
 	def __init__(self):
 		super().__init__()
-		self.screen =  pygame.display.set_mode((800,600), 0, 32)
+		self.screen =  pygame.display.set_mode((800,600), 0, 8)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (250, 180)
 		self.image = pygame.Surface(self.menusize)
@@ -414,7 +414,7 @@ class BombServer(Thread):
 			try:
 				pygame.display.flip()
 			except:
-				self.gui.screen = pygame.display.set_mode((800,600), 0, 32)
+				self.gui.screen = pygame.display.set_mode((800,600), 0, 8)
 			self.serverclock.tick(30)				
 			self.gui.screen.fill(self.gui.bg_color)
 			ctextpos = [10, 10]

@@ -34,10 +34,9 @@ class GameGUI:
 
 
 class Game(Thread):
-	def __init__(self, mainqueue=None, conn=None, sendq=None, netqueue=None, args=None):
+	def __init__(self, mainqueue=None, conn=None, sendq=None, netqueue=None):
 		Thread.__init__(self, name='game')
 		self.gameclock = pygame.time.Clock()
-		self.args = args
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.conn = conn
 		self.name = 'game'
@@ -45,7 +44,7 @@ class Game(Thread):
 		self.sendq = sendq
 		self.netqueue = netqueue
 		self.kill = False
-		self.screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
+		self.screen = pygame.display.get_surface() #  pygame.display.set_mode(SCREENSIZE, 0, vsync=0)  # pygame.display.get_surface()#  pygame.display.set_mode(SCREENSIZE, 0, 32)
 		self.gui = GameGUI(self.screen)
 		self.bg_color = pygame.Color("black")
 		self.running = False
@@ -56,7 +55,7 @@ class Game(Thread):
 		self.powerups = Group()
 		self.bombs = Group()
 		self.flames = Group()
-		self.playerone = Player(pos=(1, 1),  mainqueue=self.mainqueue, surface=self.screen)
+		self.playerone = Player(mainqueue=self.mainqueue)
 		self.p1connected = False
 		self.players.add(self.playerone)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
@@ -64,9 +63,6 @@ class Game(Thread):
 		self.netplayers = {}
 		self.gamemapgrid = []
 		self.gotgamemapgrid = False
-		if self.args.testmode:
-			g=Gamemap()
-		# self.authresp = {}
 
 	def __str__(self):
 		return f'[G] run:{self.running} p1c:{self.p1connected} p1conn:{self.playerone.connected} p1clientconn:{self.playerone.client.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.netplayers)} gmg:{self.gotgamemapgrid} gg={len(self.gamemapgrid)}'
@@ -92,8 +88,8 @@ class Game(Thread):
 				break
 			self.draw()
 			self.handle_input()
-			#self.playerone.update(self.blocks)
-			self.players.update(blocks=self.blocks, screen=self.screen)
+			self.playerone.update(self.blocks)
+			#self.players.update(blocks=self.blocks, screen=self.screen)
 			self.update_bombs()
 			self.update_flames()
 			self.update_particles()
@@ -232,22 +228,26 @@ class Game(Thread):
 
 	def draw(self):
 		# draw on screen
-		fps = -1
-		try:
-			pygame.display.flip()
-		except pygame.error as e:
-			logger.error(f'[ {self} ] err:{e}')
-			self.screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
-			return
-		self.gameclock.tick(30)
+		fps = -1		
+		if pygame.display.get_init():
+			try:
+				pygame.display.update()
+			except pygame.error as e:
+				logger.error(f'[ {self} ] err:{e} getinit:{pygame.display.get_init()}')
+				pygame.display.set_mode(SCREENSIZE, 0, 8)
+				self.screen = pygame.display.get_surface()
+				return
+		self.gameclock.tick(30)		
+		#self.blocks.draw(self.screen)
+		#if self.playerone.ready:
 		self.screen.fill(self.bg_color)
 		self.blocks.draw(self.screen)
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
 		self.flames.draw(self.screen)
-		if self.playerone.ready:
-			self.players.draw(self.screen)
 		self.powerups.draw(self.screen)
+		self.players.draw(self.screen)
+		#self.playerone.draw(self.screen)
 		for np in self.playerone.client.netplayers:
 			if self.playerone.client_id != np and np != '0':
 				if not self.playerone.client.netplayers[np].get('kill'):
@@ -363,17 +363,21 @@ class Game(Thread):
 						self.gui.game_menu.menu_down()
 					else:
 						self.playerone.vel.y = self.playerone.speed
+						self.playerone.vel.x = 0
 				if event.key in {pygame.K_UP, pygame.K_w}:
 					if self.gui.show_mainmenu:
 						self.gui.game_menu.menu_up()
 					else:
 						self.playerone.vel.y = -self.playerone.speed
+						self.playerone.vel.x = 0
 				if event.key in {pygame.K_RIGHT, pygame.K_d}:
 					if not self.gui.show_mainmenu:
 						self.playerone.vel.x = self.playerone.speed
+						self.playerone.vel.y = 0
 				if event.key in {pygame.K_LEFT, pygame.K_a}:
 					if not self.gui.show_mainmenu:
 						self.playerone.vel.x = -self.playerone.speed
+						self.playerone.vel.y = 0
 			if event.type == pygame.KEYUP:
 				if event.key == pygame.K_a:
 					pass
@@ -394,37 +398,30 @@ class Game(Thread):
 
 
 if __name__ == "__main__":
-	parser = ArgumentParser(description='bdude')
-	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
-	parser.add_argument('--testmode', default=False, action='store_true', dest='testmode')
-	args = parser.parse_args()
-	if args.testclient:
-		pass
+	pygame.init()
+	pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
 
-	else:
-		pygame.init()
-		pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
-		#screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
-		mainqueue = Queue()
-		netqueue = Queue()
-		sendq = Queue()
-		stop_event = Event()
-		#mainqueue = OldQueue()#  multiprocessing.Manager().Queue()
-		# engine = Engine(stop_event=stop_event, name='engine')
-		game = Game(mainqueue=mainqueue, sendq=sendq, netqueue=netqueue, args=args)
-		game.daemon = True
-		game.start()
-		game.running = True
-		while game.running:
-			if game.kill:
-				game.running = False
-				break
-			try:
-				t1 = time.time()
-			except KeyboardInterrupt as e:
-				logger.warning(f'[kb] {e}')
-				# game.kill_engine(killmsg=f'killed by {e}')
-				break
-		pygame.quit()
+	pygame.display.set_mode(SCREENSIZE, 0, 8)
+	mainqueue = Queue()
+	netqueue = Queue()
+	sendq = Queue()
+	stop_event = Event()
+	#mainqueue = OldQueue()#  multiprocessing.Manager().Queue()
+	# engine = Engine(stop_event=stop_event, name='engine')
+	game = Game(mainqueue=mainqueue, sendq=sendq, netqueue=netqueue)
+	game.daemon = True
+	game.start()
+	game.running = True
+	while game.running:
+		if game.kill:
+			game.running = False
+			break
+		try:
+			t1 = time.time()
+		except KeyboardInterrupt as e:
+			logger.warning(f'[kb] {e}')
+			# game.kill_engine(killmsg=f'killed by {e}')
+			break
+	pygame.quit()
 
 

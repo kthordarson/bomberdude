@@ -7,7 +7,7 @@ from constants import *
 
 class DebugDialog:
 	def __init__(self, screen, font):
-		self.screen = screen
+		self.screen = pygame.display.get_surface()
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (400, 80)
 		self.image = pygame.Surface(self.menusize)
@@ -32,7 +32,7 @@ class DebugDialog:
 
 class Menu:
 	def __init__(self, screen, font):
-		self.screen = screen
+		self.screen = pygame.display.get_surface()
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (250, 180)
 		self.image = pygame.Surface(self.menusize)
@@ -80,7 +80,8 @@ class Menu:
 
 	# pass
 
-	def draw_mainmenu(self, screen):
+	def draw_mainmenu(self, screen=None):
+		screen = pygame.display.get_surface()
 		self.draw_menubg(screen)
 		pos_y = self.pos.y
 		for item in enumerate(self.menuitems):

@@ -1,5 +1,6 @@
 import pygame
 from pygame.math import Vector2
+from pygame.sprite import Group, spritecollide, Sprite
 from globals import BasicThing, Block, Bomb
 from loguru import logger
 from globals import gen_randid
@@ -8,14 +9,17 @@ from constants import *
 from network import dataid
 from bclient import BombClient
 
-class Player(BasicThing, Thread):
-	def __init__(self, pos=None, mainqueue=None, surface=None):
+class Player(Sprite, Thread):
+	def __init__(self, mainqueue=None):
 		Thread.__init__(self, daemon=True)
-		super().__init__(pos, None)
-		self.surface = surface
-		self.image = pygame.image.load('data/playerone.png')
+		super().__init__()
+		self.vel = Vector2(0, 0)
+		#self.image = pygame.image.load('data/playerone.png')
 		self.size = PLAYERSIZE
-		self.image = pygame.transform.scale(self.image, self.size)
+		self.image = pygame.transform.scale(pygame.image.load('data/playerone.png'), self.size)
+		self.rect = self.image.get_rect()
+		self.surface = pygame.display.get_surface() # pygame.Surface(PLAYERSIZE)
+		#self.rect = self.surface.fill(color=(90,90,90))
 		# BasicThing.__init__(self, pos, self.image)
 		self.mainqueue = mainqueue
 		self.ready = False
@@ -24,7 +28,7 @@ class Player(BasicThing, Thread):
 		self.connected = False
 		self.kill = False
 		self.pos = (100,100)
-		self.rect = self.image.get_rect(center=self.pos)
+		#self.rect = self.surface.get_rect() #pygame.Rect((self.pos[0], self.pos[1], PLAYERSIZE[0], PLAYERSIZE[1])) #self.image.get_rect()
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
 		self.speed = 3
 		self.client = BombClient(client_id=self.client_id, serveraddress='192.168.1.168', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
@@ -33,12 +37,24 @@ class Player(BasicThing, Thread):
 
 	def __str__(self):
 		return f'{self.client_id} ready={self.ready} pos={self.pos} k={self.kill} ck={self.client.kill} conn:{self.connected}/{self.client.connected} gotmap:{self.gotmap} gotpos:{self.gotpos}'
+	
+
+	def hit_list(self, objlist):
+		hlist = []
+		for obj in objlist:
+			if obj.rect.colliderect(self.rect):
+				hlist.append(obj)
+		return hlist
+
+	def collide(self, items=None):
+		self.collisions = spritecollide(self, items, False)
+		return self.collisions
 
 	def start_client(self):
 		self.client.start()
 		self.ready = True
 
-	def update(self, blocks=None, screen=None):
+	def update(self, blocks=None):
 		if not self.ready and self.connected:
 			logger.warning(f'{self} not ready but connected r:{self.ready} c:{self.connected} cc:{self.client.connected}')
 			#return
@@ -65,22 +81,43 @@ class Player(BasicThing, Thread):
 				pygame.draw.rect(surface=self.surface, color=(123,123,123), rect=hit.rect, width=1)
 				pygame.draw.rect(surface=self.surface, color=(223,123,223), rect=self.rect, width=1)
 				if self.vel.x > 0 and self.vel.y==0:
+					# moving right
 					self.rect.right = hit.rect.left
 					self.vel.x = 0
-				elif self.vel.x < 0 and self.vel.y==0:
+				if self.vel.x < 0 and self.vel.y==0:
+					# moving left
 					self.rect.left = hit.rect.right
 					self.vel.x = 0
-				elif self.vel.y > 0 and self.vel.x==0:
+				if self.vel.y > 0 and self.vel.x==0:
+					# moving down
 					self.rect.bottom = hit.rect.top
 					self.vel.y = 0
-				elif self.vel.y < 0 and self.vel.x==0:
+				if self.vel.y < 0 and self.vel.x==0:
+					# moving up
 					self.rect.top = hit.rect.bottom
 					self.vel.y = 0
-				elif self.vel.x != 0 and self.vel.y != 0:
+				if self.vel.x > 0 and self.vel.y > 0:
+					# moving down right
 					self.vel.x = 0
 					self.vel.y = 0
-					#self.pos = oldpos
 					self.rect = oldrect
+				if self.vel.x > 0 and self.vel.y < 0:
+					# moving up right
+					self.vel.x = 0
+					self.vel.y = 0
+					self.rect = oldrect
+				if self.vel.x < 0 and self.vel.y < 0:
+					# moving up left
+					self.vel.x = 0
+					self.vel.y = 0
+					self.rect = oldrect
+				if self.vel.x > 0 and self.vel.y < 0:
+					# moving up right
+					self.vel.x = 0
+					self.vel.y = 0
+					self.rect = oldrect
+					#self.pos = oldpos
+					#self.rect = oldrect
 					#self.rect.x = self.pos[0]
 					#self.rect.y = self.pos[1]
 		self.pos.y = self.rect.y
