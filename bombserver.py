@@ -384,6 +384,7 @@ class BombServer(Thread):
 		self.netplayers[np['client_id']] = np
 		self.gui = gui # ServerGUI()
 		self.servercomm = Servercomm(serverqueue=self.queue)
+		self.serverclock = pygame.time.Clock()
 
 	def __str__(self):
 		return f'[S] k:{self.kill} bc:{len(self.bombclients)} np:{len(self.netplayers)}'
@@ -401,6 +402,7 @@ class BombServer(Thread):
 		self.gui.start()
 		self.gamemap.generate_custom(squaresize=15)
 		self.servercomm.start()
+		fps = -1
 		while not self.kill:
 			events = pygame.event.get()
 			for event in events:
@@ -413,10 +415,12 @@ class BombServer(Thread):
 				pygame.display.flip()
 			except:
 				self.gui.screen = pygame.display.set_mode((800,600), 0, 32)
+			self.serverclock.tick(30)				
 			self.gui.screen.fill(self.gui.bg_color)
 			ctextpos = [10, 10]
 			try:
-				msgtxt = f'clients:{len(self.bombclients)} np:{len(self.netplayers)} q:{self.queue.qsize()} mapempty:{self.gamemap.is_empty()} get_bcount0:{self.gamemap.get_bcount(0)}'
+				fps = self.serverclock.get_fps()
+				msgtxt = f'fps={fps} clients:{len(self.bombclients)} np:{len(self.netplayers)} q:{self.queue.qsize()} mapempty:{self.gamemap.is_empty()} get_bcount0:{self.gamemap.get_bcount(0)}'
 			except TypeError as e:
 				logger.warning(f'[ {self} ] TypeError:{e}')
 				msgtxt = ''
@@ -579,6 +583,7 @@ class BombServer(Thread):
 
 def main():
 	pygame.init()
+	pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
 	mainthreads = []
 	key_message = 'bomberdude'
 	logger.debug(f'[bombserver] started')
