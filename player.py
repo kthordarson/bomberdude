@@ -14,10 +14,11 @@ class Player(Sprite, Thread):
 		Thread.__init__(self, daemon=True)
 		super().__init__()
 		self.vel = Vector2(0, 0)
+		self.pos = (100,100)
 		#self.image = pygame.image.load('data/playerone.png')
 		self.size = PLAYERSIZE
 		self.image = pygame.transform.scale(pygame.image.load('data/playerone.png'), self.size)
-		self.rect = self.image.get_rect()
+		self.rect = pygame.Surface.get_rect(self.image, center=self.pos)
 		self.surface = pygame.display.get_surface() # pygame.Surface(PLAYERSIZE)
 		#self.rect = self.surface.fill(color=(90,90,90))
 		# BasicThing.__init__(self, pos, self.image)
@@ -27,7 +28,6 @@ class Player(Sprite, Thread):
 		self.name = f'player{self.client_id}'
 		self.connected = False
 		self.kill = False
-		self.pos = (100,100)
 		#self.rect = self.surface.get_rect() #pygame.Rect((self.pos[0], self.pos[1], PLAYERSIZE[0], PLAYERSIZE[1])) #self.image.get_rect()
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
 		self.speed = 3
@@ -57,14 +57,14 @@ class Player(Sprite, Thread):
 	def update(self, blocks=None):
 		if not self.ready and self.connected:
 			logger.warning(f'{self} not ready but connected r:{self.ready} c:{self.connected} cc:{self.client.connected}')
-			#return
+			return
 		elif not self.connected and not self.ready:
-			pass
+			#pass
 			#logger.warning(f'{self} not connected not ready r:{self.ready} c:{self.connected} cc:{self.client.connected}')
-			#return
+			return
 		elif not self.client.connected and self.ready:
 			logger.warning(f'{self} ready but client not connected r:{self.ready} c:{self.connected} cc:{self.client.connected}')
-			#return
+			return
 		hitlist = self.hit_list(blocks)
 		oldy = self.rect.y
 		oldx = self.rect.x
@@ -75,51 +75,29 @@ class Player(Sprite, Thread):
 		#self.pos.y += self.vel.y
 		self.rect.x = self.pos.x
 		self.rect.y = self.pos.y
+		pygame.draw.rect(surface=self.surface, color=(23,23,223), rect=self.rect, width=1)
 		for hit in hitlist:
 			if hit.block_type != 0:
 				logger.debug(f'{self} hitlist {len(hitlist)} hit={hit}')
 				pygame.draw.rect(surface=self.surface, color=(123,123,123), rect=hit.rect, width=1)
 				pygame.draw.rect(surface=self.surface, color=(223,123,223), rect=self.rect, width=1)
-				if self.vel.x > 0 and self.vel.y==0:
+				if self.vel.x > 0:
 					# moving right
 					self.rect.right = hit.rect.left
-					self.vel.x = 0
-				if self.vel.x < 0 and self.vel.y==0:
+					self.vel[0] = 0
+				if self.vel.x < 0:
 					# moving left
 					self.rect.left = hit.rect.right
-					self.vel.x = 0
-				if self.vel.y > 0 and self.vel.x==0:
+					self.vel[0] = 0
+				if self.vel.y > 0:
 					# moving down
 					self.rect.bottom = hit.rect.top
-					self.vel.y = 0
-				if self.vel.y < 0 and self.vel.x==0:
+					self.vel[1] = 0
+				if self.vel.y < 0:
 					# moving up
 					self.rect.top = hit.rect.bottom
-					self.vel.y = 0
-				if self.vel.x > 0 and self.vel.y > 0:
-					# moving down right
-					self.vel.x = 0
-					self.vel.y = 0
-					self.rect = oldrect
-				if self.vel.x > 0 and self.vel.y < 0:
-					# moving up right
-					self.vel.x = 0
-					self.vel.y = 0
-					self.rect = oldrect
-				if self.vel.x < 0 and self.vel.y < 0:
-					# moving up left
-					self.vel.x = 0
-					self.vel.y = 0
-					self.rect = oldrect
-				if self.vel.x > 0 and self.vel.y < 0:
-					# moving up right
-					self.vel.x = 0
-					self.vel.y = 0
-					self.rect = oldrect
-					#self.pos = oldpos
-					#self.rect = oldrect
-					#self.rect.x = self.pos[0]
-					#self.rect.y = self.pos[1]
+					self.vel[1] = 0				
+				
 		self.pos.y = self.rect.y
 		self.pos.x = self.rect.x
 		if self.connected:
