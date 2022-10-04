@@ -95,10 +95,10 @@ def start_all_threads(threads):
 
 class BasicThing(Sprite):
 	rm = ResourceHandler()
-	def __init__(self, pos, image=None):
+	def __init__(self, pos=None, image=None):
 		super().__init__()
 		# self.thingq = OldQueue() # multiprocessing.Manager().Queue()		
-		self.pos = Vector2(pos)
+		self.pos = Vector2()
 		self.vel = Vector2()
 		self.start_time = pygame.time.get_ticks()
 		self.clock = pygame.time.Clock()

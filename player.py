@@ -9,7 +9,7 @@ from constants import *
 from network import dataid
 from bclient import BombClient
 
-class Player(Sprite, Thread):
+class Player(BasicThing, Thread):
 	def __init__(self, mainqueue=None):
 		Thread.__init__(self, daemon=True)
 		super().__init__()
