@@ -36,6 +36,7 @@ class GameGUI:
 class Game(Thread):
 	def __init__(self, mainqueue=None, conn=None, sendq=None, netqueue=None, args=None):
 		Thread.__init__(self, name='game')
+		self.gameclock = pygame.time.Clock()
 		self.args = args
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.conn = conn
@@ -55,7 +56,7 @@ class Game(Thread):
 		self.powerups = Group()
 		self.bombs = Group()
 		self.flames = Group()
-		self.playerone = Player(pos=(1, 1),  mainqueue=self.mainqueue)
+		self.playerone = Player(pos=(1, 1),  mainqueue=self.mainqueue, surface=self.screen)
 		self.p1connected = False
 		self.players.add(self.playerone)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
@@ -69,7 +70,7 @@ class Game(Thread):
 
 	def __str__(self):
 		return f'[G] run:{self.running} p1c:{self.p1connected} p1conn:{self.playerone.connected} p1clientconn:{self.playerone.client.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.netplayers)} gmg:{self.gotgamemapgrid} gg={len(self.gamemapgrid)}'
-	
+
 	def get_block_count(self):
 		# get number of killable blocks on map
 		cnt = 0
@@ -115,7 +116,7 @@ class Game(Thread):
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
 			self.bombs.add(newbomb)
 			logger.debug(f'[ {self} ] bombs:{len(self.bombs)} {self.mainqueue.qsize()} {self.sendq.qsize()} got type:{msgtype} engmsg:{len(gamemsg)} bomb:{newbomb.pos}')
-		elif msgtype == 'newnetpos':			
+		elif msgtype == 'newnetpos':
 			posdata = gamemsg.get('posdata')
 			client_id = posdata.get('client_id')
 			newpos = posdata.get('newpos')
@@ -231,12 +232,14 @@ class Game(Thread):
 
 	def draw(self):
 		# draw on screen
+		fps = -1
 		try:
 			pygame.display.flip()
 		except pygame.error as e:
 			logger.error(f'[ {self} ] err:{e}')
 			self.screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
 			return
+		self.gameclock.tick(30)
 		self.screen.fill(self.bg_color)
 		self.blocks.draw(self.screen)
 		self.particles.draw(self.screen)
@@ -259,12 +262,14 @@ class Game(Thread):
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
 		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames)
-
-		if DEBUG:
+		fps = self.gameclock.get_fps()
+		if DEBUG:			
 			pos = Vector2(10, self.screenh - 100)
 			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} b:{self.get_block_count()} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} threads:{threading.active_count()}", (173, 173, 173))
 			pos += (0, 15)
-			self.font.render_to(self.screen, pos, f"threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()} p1c:{self.p1connected} np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
+			self.font.render_to(self.screen, pos, f"fps={fps} threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()} p1c:{self.p1connected} np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
+			pos += (0, 15)
+			self.font.render_to(self.screen, pos, f"p1pos {self.playerone.pos} {self.playerone.client.pos} vel {self.playerone.vel}", (183, 183, 183))
 
 	def handle_menu(self, selection):
 		# mainmenu
@@ -398,8 +403,8 @@ if __name__ == "__main__":
 
 	else:
 		pygame.init()
+		pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
 		#screen = pygame.display.set_mode(SCREENSIZE, 0, 32)
-		dt = pygame.time.Clock()
 		mainqueue = Queue()
 		netqueue = Queue()
 		sendq = Queue()

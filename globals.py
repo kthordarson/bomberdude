@@ -108,6 +108,13 @@ class BasicThing(Sprite):
 	def __str__(self):
 		return f'[basic] {self.pos}'
 
+	def hit_list(self, objlist):
+		hlist = []
+		for obj in objlist:
+			if obj.rect.colliderect(self.rect):
+				hlist.append(obj)
+		return hlist
+
 	def collide(self, items=None):
 		self.collisions = spritecollide(self, items, False)
 		return self.collisions

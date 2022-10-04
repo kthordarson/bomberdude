@@ -67,7 +67,7 @@ def receive_data(conn):
 		return None
 	parts = len(rawdata.split('}{'))
 	rawcheck = False
-	if parts == 1: # rawdata.count('{') + rawdata.count('}') == 2 or 'netplayers' in rawdata:
+	if parts == 1 and len(rawdata)>1: # rawdata.count('{') + rawdata.count('}') == 2 or 'netplayers' in rawdata:
 		try:
 			rawcheck = rawdata[0] == '{' and rawdata[-1] == '}'
 		except (KeyError, IndexError, TypeError) as e:
@@ -105,7 +105,7 @@ def receive_data(conn):
 			startpos = rawsplit.span()[1] - 1
 		return data
 	else:
-		logger.warning(f'[recv] d={len(data)} parts={parts} rawcheck={rawcheck} rawdata={rawdata}')
+		logger.warning(f'[recv] d={len(data)} parts={parts} rawcheck={rawcheck} rl={len(rawdata)} rawdata={rawdata}')
 	#logger.info(f'[recv] d={len(data)} parts={parts} rawcheck={rawcheck} rawdata={rawdata}')
 	return None
 	# elif rawdata.count('{') + rawdata.count('}') > 4:
