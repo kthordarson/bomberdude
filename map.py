@@ -48,7 +48,7 @@ class Gamemap:
 			self.grid[block[0]][block[1]] = 0
 
 	def placeplayer(self, grid=None, pos=None, randpos=True):
-		logger.debug(f'[map] placeplayer g:{len(grid)} {len(grid[0])} pos={pos} randpos={randpos}')
+		# logger.debug(f'[map] placeplayer g:{len(grid)} {len(grid[0])} pos={pos} randpos={randpos}')
 		if randpos:
 			# find a random spot on the map to place the player			
 			xpos = random.randint(2, len(grid[0])-2)
@@ -78,7 +78,7 @@ class Gamemap:
 				grid[x][-1] = 10
 		except IndexError as e:
 			logger.warning(f'[map] placeplayer IndexError {e} pos={pos} xp:{xp} yp:{yp} xpos:{xpos} ypos:{ypos} grid={grid}')
-		logger.info(f'[placeplayer] pos={pos} xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
+		logger.info(f'[placeplayer] pos={pos} randpos:{randpos} xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
 		self.grid = grid
 		return grid, (xp, yp)
 

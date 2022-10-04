@@ -136,7 +136,7 @@ class BombClientHandler(Thread):
 		self.start_time = pygame.time.get_ticks()
 		self.lastupdate = self.start_time
 		self.maxtimeout = 300
-		logger.info(f'[BC] {self} BombClientHandler init conn:{self.conn} addr:{self.addr} client_id:{self.client_id}')
+		logger.info(f'[BC] BombClientHandler init addr:{self.addr} client_id:{self.client_id}')
 
 	def __str__(self):
 		return f'[BCH] {self.client_id} t:{pygame.time.get_ticks()-self.start_time} l:{self.lastupdate} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.servercomm}'

@@ -56,7 +56,7 @@ class Game(Thread):
 		self.powerups = Group()
 		self.bombs = Group()
 		self.flames = Group()
-		self.playerone = Player(pos=(1, 1),  mainqueue=self.mainqueue)
+		self.playerone = Player(pos=(1, 1),  mainqueue=self.mainqueue, surface=self.screen)
 		self.p1connected = False
 		self.players.add(self.playerone)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
@@ -263,11 +263,13 @@ class Game(Thread):
 			self.gui.game_menu.draw_mainmenu(self.screen)
 		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames)
 		fps = self.gameclock.get_fps()
-		if DEBUG:
+		if DEBUG:			
 			pos = Vector2(10, self.screenh - 100)
 			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} b:{self.get_block_count()} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} threads:{threading.active_count()}", (173, 173, 173))
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"fps={fps} threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()} p1c:{self.p1connected} np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
+			pos += (0, 15)
+			self.font.render_to(self.screen, pos, f"p1pos {self.playerone.pos} {self.playerone.client.pos} vel {self.playerone.vel}", (183, 183, 183))
 
 	def handle_menu(self, selection):
 		# mainmenu

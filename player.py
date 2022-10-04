@@ -9,9 +9,10 @@ from network import dataid
 from bclient import BombClient
 
 class Player(BasicThing, Thread):
-	def __init__(self, pos=None, mainqueue=None):
+	def __init__(self, pos=None, mainqueue=None, surface=None):
 		Thread.__init__(self, daemon=True)
 		super().__init__(pos, None)
+		self.surface = surface
 		self.image = pygame.image.load('data/playerone.png')
 		self.size = PLAYERSIZE
 		self.image = pygame.transform.scale(self.image, self.size)
@@ -48,30 +49,42 @@ class Player(BasicThing, Thread):
 		elif not self.client.connected and self.ready:
 			logger.warning(f'{self} ready but client not connected r:{self.ready} c:{self.connected} cc:{self.client.connected}')
 			#return
-
-		#self.rect.center = self.pos
+		hitlist = self.hit_list(blocks)
+		oldy = self.rect.y
+		oldx = self.rect.x
+		oldpos = self.pos
+		oldrect = self.rect
+		self.pos += self.vel
 		#self.pos.x += self.vel.x
 		#self.pos.y += self.vel.y
-		oldrect = self.rect
-		try:
-			oldpos = (self.pos[0], self.pos[1])
-		except TypeError as e:
-			logger.error(f'{self} {e} pos {self.pos}')
-			oldpos = (100,100)
-
-		self.pos += self.vel
-		self.centerpos = (self.rect.center[0], self.rect.center[1])
-		self.rect.x = self.pos[0]
-		self.rect.y = self.pos[1]
-		#self.pos.y = self.rect.y
-		#self.pos.x = self.rect.x
-		block_hit_list = self.collide(blocks)
-		for block in block_hit_list:
-			if isinstance(block, Block):				
-				if pygame.Rect.colliderect(block.rect, self.rect) and block.solid:
-					self.vel = Vector2(0,0)
+		self.rect.x = self.pos.x
+		self.rect.y = self.pos.y
+		for hit in hitlist:
+			if hit.block_type != 0:
+				logger.debug(f'{self} hitlist {len(hitlist)} hit={hit}')
+				pygame.draw.rect(surface=self.surface, color=(123,123,123), rect=hit.rect, width=1)
+				pygame.draw.rect(surface=self.surface, color=(223,123,223), rect=self.rect, width=1)
+				if self.vel.x > 0 and self.vel.y==0:
+					self.rect.right = hit.rect.left
+					self.vel.x = 0
+				elif self.vel.x < 0 and self.vel.y==0:
+					self.rect.left = hit.rect.right
+					self.vel.x = 0
+				elif self.vel.y > 0 and self.vel.x==0:
+					self.rect.bottom = hit.rect.top
+					self.vel.y = 0
+				elif self.vel.y < 0 and self.vel.x==0:
+					self.rect.top = hit.rect.bottom
+					self.vel.y = 0
+				elif self.vel.x != 0 and self.vel.y != 0:
+					self.vel.x = 0
+					self.vel.y = 0
+					#self.pos = oldpos
 					self.rect = oldrect
-					self.pos = oldpos
+					#self.rect.x = self.pos[0]
+					#self.rect.y = self.pos[1]
+		self.pos.y = self.rect.y
+		self.pos.x = self.rect.x
 		if self.connected:
 			try:
 				# self.client.pos = (self.pos[0], self.pos[1])
@@ -89,12 +102,13 @@ class Player(BasicThing, Thread):
 
 	def add_score(self):
 		self.score += 1
-	
+
 	def setpos(self, pos):
 		if pos:
 			logger.info(f'{self} setpos {self.pos} to {pos}')
 			self.pos = pos
 			self.client.pos = self.pos
+			self.client.send_pos(pos=self.pos, center=self.pos)
 		else:
 			logger.warning(f'{self} ignoring setpos {self.pos} to {pos}')
 
