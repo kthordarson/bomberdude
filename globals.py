@@ -9,7 +9,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
-from constants import FPS,BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, GRIDSIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, MAXPARTICLES
+from constants import FPS,BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, MAXPARTICLES
 
 
 def random_velocity(direction=None):
@@ -207,18 +207,8 @@ class Powerup(BasicThing):
 		return f'[pwrup] pos={self.pos} type={self.powertype}'
 
 	def update(self, items=None):
-		#logger.debug(f'[pu] st:{self.timer} < {pygame.time.get_ticks() - self.start_time}')
 		if self.timer < pygame.time.get_ticks() - self.start_time:
-			logger.debug(f'[pu] st:{self.timer} < {pygame.time.get_ticks() - self.start_time}')
 			self.kill()
-
-		#self.dt = pygame.time.get_ticks() / 1000
-		# logger.debug(f'[pu] {dt - self.start_time} {self.timer}')
-		#if self.dt - self.start_time >= self.timer:
-		#	self.kill()
-
-#	def draw(self, screen):
-#		pygame.draw.circle(screen, (0,255,0), self.rect.center, 15)
 
 class Bomb(BasicThing):
 	def __init__(self, pos, bomber_id, bomb_power=20):
