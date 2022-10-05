@@ -37,7 +37,7 @@ class Player(BasicThing, Thread):
 		self.gotpos = False
 
 	def __str__(self):
-		return f'{self.client_id} ready={self.ready} pos={self.pos} gp={self.gridpos} k={self.kill} ck={self.client.kill} conn:{self.connected}/{self.client.connected} gotmap:{self.gotmap} gotpos:{self.gotpos}'
+		return f'player {self.client_id} ready={self.ready} pos={self.pos} gp={self.gridpos} k={self.kill} conn:{self.connected} gotmap:{self.gotmap} gotpos:{self.gotpos}'
 	
 	def move(self, direction):
 		if self.ready:
@@ -46,7 +46,7 @@ class Player(BasicThing, Thread):
 			self.gridpos = (gpx, gpy)
 			x = int(self.gridpos[0])
 			y = int(self.gridpos[1])
-			logger.debug(f'{self} move {direction} {self.gridpos}')
+			# logger.debug(f'{self} move {direction} {self.gridpos}')
 			if direction == 'up':
 				if self.client.gamemap.grid[x][y-1] == 0:
 					self.gridpos = (x, y-1)
@@ -71,6 +71,9 @@ class Player(BasicThing, Thread):
 			self.pos[1] = self.gridpos[1] * BLOCK
 			self.rect.x = self.pos[0]
 			self.rect.y = self.pos[1]
+			self.client.pos = self.pos
+			self.client.gridpos = self.gridpos
+			self.setpos(pos=self.pos, gridpos=self.gridpos)
 
 	def hit_list(self, objlist):
 		hlist = []
@@ -87,15 +90,20 @@ class Player(BasicThing, Thread):
 		self.client.start()
 
 	def update(self, blocks=None):
+		self.rect.topleft = (self.pos[0]+5, self.pos[1]+5)
+		self.gridpos = (int(self.pos[0] // BLOCK), int(self.pos[1] // BLOCK))
+		
+		if self.client.gotpos and self.client.gotmap:			
+			self.gotmap = self.client.gotmap
+			if not self.gotpos: # self.gridpos[0] == 0 or self.gridpos[1] == 0:
+				logger.info(f'[ {self} ] resetgridpos  client:{self.client} pos = {self.client.pos} {self.client.gridpos}')
+				
+				self.pos = self.client.pos
+				self.gridpos = self.client.gridpos
+				self.gotpos = True
+				self.ready = True
 		if self.connected:
-			if self.client.gotpos and self.client.gotmap:				
-				if not self.gotpos: # self.gridpos[0] == 0 or self.gridpos[1] == 0:
-					logger.info(f'[ {self} ] resetgridpos  client:{self.client} pos = {self.client.pos} {self.client.gridpos}')
-					self.pos = self.client.pos
-					self.gridpos = self.client.gridpos
-					self.gotpos = True
-					self.ready = True
-				self.client.send_pos(pos=self.pos, center=self.pos, gridpos=self.gridpos)
+			self.client.send_pos(pos=self.pos, center=self.pos, gridpos=self.gridpos)
 
 	def take_powerup(self, powerup=None):
 		pass
@@ -116,5 +124,5 @@ class Player(BasicThing, Thread):
 		self.client.gotpos = True
 		self.ready = True
 		self.client.send_pos(pos=self.pos, center=self.pos, gridpos=self.gridpos)
-		logger.info(f'{self} setposdone {self.pos}gp={self.gridpos} client {self.client.pos} {self.client.gridpos}')
+		#logger.info(f'{self} setposdone {self.pos}gp={self.gridpos} client {self.client.pos} {self.client.gridpos}')
 

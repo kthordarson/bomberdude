@@ -107,7 +107,7 @@ class BasicThing(Sprite):
 		self.accel = Vector2(0, 0)
 
 	def __str__(self):
-		return f'[basic] {self.pos}'
+		return f'[basic] pos={self.pos} gridpos={self.gridpos}'
 
 	def hit_list(self, objlist):
 		hlist = []
