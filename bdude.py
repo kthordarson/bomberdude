@@ -108,6 +108,8 @@ class Game(Thread):
 			logger.debug(f'[ {self} ] gamemsg={gamemsg}')
 		if msgtype == 'bombdrop' or msgtype == 'netbomb':
 			bomber_id = gamemsg.get('bombdata').get('client_id')
+			if bomber_id == self.playerone.client_id:
+				self.playerone.client.bombs_left -= 1
 			bombpos = gamemsg.get('bombdata').get('bombpos')
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
 			self.bombs.add(newbomb)

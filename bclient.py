@@ -38,7 +38,6 @@ class BombClient(Thread):
 		# send bomb to server
 		if self.connected and not self.kill:
 			if self.bombs_left > 0:
-				self.bombs_left -= 1
 				payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos, 'bombs_left':self.bombs_left}
 				send_data(conn=self.socket, payload=payload)
 			# logger.debug(f'[ {self} ] send_bomb pos={payload.get("bombpos")}')
