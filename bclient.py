@@ -20,6 +20,7 @@ class BombClient(Thread):
 		self.netplayers = {}
 		self.gamemap = Gamemap()
 		self.gotmap = False
+		self.gotpos = False
 		self.mainqueue = mainqueue
 
 	def __str__(self):
@@ -53,7 +54,7 @@ class BombClient(Thread):
 			# self.send_reqpos()
 
 	def send_pos(self, pos=None, center=None, gridpos=None):
-		# send pos to server
+		# send pos to server		
 		if self.connected and not self.kill:		
 			# logger.debug(f'{self} send_pos pos={pos} center={center}')
 			self.pos = pos
@@ -147,12 +148,16 @@ class BombClient(Thread):
 							gamemapgrid = payload.get('gamemapgrid')
 							newpos = payload.get('newpos')
 							newgridpos = payload.get('newgridpos')
-							logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
 							mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos, 'newgridpos':newgridpos}
 							self.mainqueue.put(mapmsg)							
 							self.gamemapgrid = gamemapgrid
 							self.gamemap.grid = gamemapgrid
 							self.gotmap = True
+							self.gotpos = True
+							self.pos = newpos
+							self.gridpos = newgridpos
+							self.send_pos(pos=self.pos, center=self.centerpos, gridpos=self.gridpos)
+							logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
 
 						elif payload.get('msgtype') == 'netbomb':
 							# received bomb from server, forward to mainqueue
@@ -162,21 +167,24 @@ class BombClient(Thread):
 
 						elif msgid == dataid['posupdate']:
 							# received posupdate from server, forward to mainqueue
-							logger.debug(f'[ {self} ] payload={payload}')
+							logger.warning(f'[ {self} ] posupdate payload={payload}')
 							posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos}
 							self.mainqueue.put(posmsg)
 						elif payload.get('msgtype') == 'playerpos':
 							# received playerpos from server, forward to mainqueue
 							newpos = payload.get('pos')
 							newgridpos = payload.get('newgridpos')
-							if newpos:
-								self.pos = newpos
-							if newgridpos:
-								self.newgridpos = newgridpos			
-								#ngx = self.pos[0] // BLOCK
-								#ngy = self.pos[1] // BLOCK
-								#self.gridpos = (ngx, ngy)
-							logger.debug(f'[ {self} ] newpos={newpos} {newgridpos} payload={payload}')
+							self.pos = newpos
+							self.gotpos = True
+							logger.info(f'[ {self} ] playerpos newpos={newpos} ngp={newgridpos} ogp={self.gridpos} payload={payload}')
+							self.gridpos = newgridpos
+							# elif newgridpos is None:								
+							# 	ngx = int(newpos[0] // BLOCK)
+							# 	ngy = int(newpos[1] // BLOCK)
+							# 	self.gridpos = (ngx, ngy)
+							# 	newgridpos = self.gridpos
+							# 	logger.warning(f'[ {self} ] playerpos newpos={newpos} ngp={newgridpos} payload={payload}')
+							#logger.debug(f'[ {self} ] playerpos newpos={newpos} ngp={newgridpos} payload={payload}')
 							posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos, 'newpos':newpos, 'newgridpos':self.gridpos}
 							self.mainqueue.put(posmsg)
 						else:

@@ -1,5 +1,6 @@
 #!/bin/python3.9
 # bomberdude
+import socket
 import time
 import random
 from argparse import ArgumentParser
@@ -56,7 +57,6 @@ class Game(Thread):
 		self.bombs = Group()
 		self.flames = Group()
 		self.playerone = Player(mainqueue=self.mainqueue)
-		self.p1connected = False
 		self.players.add(self.playerone)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.authkey = 'foobar'
@@ -65,7 +65,7 @@ class Game(Thread):
 		self.gotgamemapgrid = False
 
 	def __str__(self):
-		return f'[G] run:{self.running} p1c:{self.p1connected} p1conn:{self.playerone.connected} p1clientconn:{self.playerone.client.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.netplayers)} gmg:{self.gotgamemapgrid} gg={len(self.gamemapgrid)}'
+		return f'[G] run:{self.running} p1 p1conn:{self.playerone.connected} p1clientconn:{self.playerone.client.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.netplayers)} gmg:{self.gotgamemapgrid} gg={len(self.gamemapgrid)}'
 
 	def get_block_count(self):
 		# get number of killable blocks on map
@@ -116,10 +116,10 @@ class Game(Thread):
 			posdata = gamemsg.get('posdata')
 			client_id = posdata.get('client_id')
 			newpos = posdata.get('newpos')
+			newgridpos = posdata.get('newgridpos')
 			if client_id == self.playerone.client_id:
-				self.playerone.setpos(newpos)
-				self.playerone.ready = True
-				self.playerone.gotpos = True
+				logger.info(f'[ {self} ] newnetpos posdata={posdata} np={newpos} ngp={newgridpos}')
+				self.playerone.setpos(newpos, newgridpos)
 		elif msgtype == 'flames':
 			flames = gamemsg.get('flamedata')
 			for fl in flames:
@@ -145,8 +145,10 @@ class Game(Thread):
 		elif msgtype == 'gamemapgrid':
 			gamemapgrid = gamemsg.get('gamemapgrid')
 			newpos = gamemsg.get('newpos')
+			newgridpos = gamemsg.get('newgridpos')
 			self.updategrid(gamemapgrid)
-			self.playerone.setpos(newpos)
+			self.playerone.setpos(newpos, newgridpos)
+			logger.debug(f'[ {self} ] gamemapgrid np={newpos} ngp={newgridpos}')
 
 	def updategrid(self, gamemapgrid):
 		if not gamemapgrid:
@@ -240,7 +242,8 @@ class Game(Thread):
 		self.bombs.draw(self.screen)
 		self.flames.draw(self.screen)
 		self.powerups.draw(self.screen)
-		self.players.draw(self.screen)
+		if self.playerone.client.gotpos and self.playerone.ready:
+			self.players.draw(self.screen)
 		#self.playerone.draw(self.screen)
 		for np in self.playerone.client.netplayers:
 			if self.playerone.client_id != np and np != '0':
@@ -265,7 +268,7 @@ class Game(Thread):
 			pos = Vector2(10, self.screenh - 100)
 			self.font.render_to(self.screen, pos, f"blk:{len(self.blocks)} b:{self.get_block_count()} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} threads:{threading.active_count()}", (173, 173, 173))
 			pos += (0, 15)
-			self.font.render_to(self.screen, pos, f"fps={fps} threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()} p1c:{self.p1connected} np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
+			self.font.render_to(self.screen, pos, f"fps={fps} threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()} p1 np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"p1pos {self.playerone.pos} {self.playerone.client.pos} vel {self.playerone.vel}", (183, 183, 183))
 
@@ -273,29 +276,29 @@ class Game(Thread):
 		# mainmenu
 		if selection == "Start":
 			# self.playerone.start()
-			self.gui.show_mainmenu ^= True
-			self.p1connected = self.playerone.client.connect_to_server()
-			if self.p1connected:
+			#self.gui.show_mainmenu ^= True
+			if self.playerone.client.connect_to_server():
 				self.playerone.connected = True
-				logger.debug(f'[ {self} ] p1 connecting c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
+				logger.debug(f'[ {self} ] p1 connecting ')
 				self.playerone.start_client()
 				mapreqcnt = 0
-				while not self.playerone.client.gotmap:
+				while not self.playerone.client.gotmap and not self.playerone.client.gotpos:
+					logger.debug(f'[ {self} ] playeone={self.playerone} waiting for map mapreqcnt:{mapreqcnt} ')
 					self.playerone.client.send_mapreq()
 					mapreqcnt += 1
-					time.sleep(1)
-					logger.debug(f'[ {self} ] p1 mapreqcnt:{mapreqcnt} c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
+					time.sleep(1)					
 					if mapreqcnt >= 5:
-						logger.warning(f'[ {self} ] p1 mapreqcnt:{mapreqcnt} c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
-						self.p1connected = False
+						logger.warning(f'[ {self} ] mapreqcnt:{mapreqcnt}  pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
 						self.playerone.connected = False
 						self.playerone.client.connected = False
 						self.playerone.client.socket.close()
+						self.playerone.client.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 						self.playerone.ready = False
-						self.gui.show_mainmenu ^= True
+						self.gui.show_mainmenu = True
 						break
+				self.gui.show_mainmenu ^= True
 			else:
-				logger.warning(f'[ {self} ] p1 not connected c:{self.p1connected} pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
+				logger.warning(f'[ {self} ] p1 not connected  pc:{self.playerone.connected} pcc:{self.playerone.client.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
 				self.gui.show_mainmenu ^= True
 
 		if selection == "Connect to server":

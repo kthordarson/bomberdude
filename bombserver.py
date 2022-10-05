@@ -145,16 +145,18 @@ class BombClientHandler(Thread):
 	def set_pos(self, newpos=None, newgridpos=None):
 		# called when server generates new map and new player position
 		# todo fix
-		if newpos:
-			self.pos = newpos
-			self.gridpos = newgridpos
-			posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos, 'newpos':newpos, 'newgridpos':newgridpos}
-			self.sender.queue.put((self.conn, posmsg))
-		else:
-			logger.warning(f'[ {self} ] set_pos newpos is None')
+		self.pos = newpos
+		#if not newgridpos:
+		#	ngx = int(newpos[0]//BLOCK)
+		#	ngy = int(newpos[1]//BLOCK)
+		#	newgridpos = (ngx,ngy)
+		self.gridpos = newgridpos
+		posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos, 'newpos':newpos, 'newgridpos':newgridpos}
+		self.sender.queue.put((self.conn, posmsg))
+		logger.info(f'[ {self} ] set_pos newpos={newpos} ngp={newgridpos}')
 
 	def posupdate(self, data):
-		logger.info(f'[ {self} ] posupdate data={data}  mypos={self.pos}')
+		logger.error(f'[ {self} ] posupdate data={data}  mypos={self.pos}')
 		# # when server sends new player position
 		# if not self.gotpos:
 		# 	logger.debug(f'[ {self} ] posupdate data={data}  mypos={self.pos}')
@@ -507,6 +509,9 @@ class BombServer(Thread):
 					for bc in self.bombclients:
 						if bc.client_id != '0':
 							bcg, bnewpos, bcgridpos = self.gamemap.placeplayer(grid=basegrid, randpos=False, pos=bc.pos)
+							bc.pos = bnewpos
+							bc.gridpos = bcgridpos
+							bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
 							bc.gamemap.grid = bcg
 							bc.send_map(newgrid=bcg)
 							self.gamemap.grid = bcg
@@ -568,6 +573,9 @@ class BombServer(Thread):
 					#self.gamemap.grid = basegrid
 					for bc in self.bombclients:
 						bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)
+						bc.pos = bnewpos
+						bc.gridpos = newgridpos
+						bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
 						bc.gamemap.grid = bcg
 						bc.send_map(newgrid=bcg)
 						self.gamemap.grid = bcg
