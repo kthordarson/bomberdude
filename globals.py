@@ -330,6 +330,9 @@ class Flame(BasicThing):
 		self.rect.centerx = self.pos[0]
 		self.rect.centery = self.pos[1]
 		self.start_pos = self.pos
+		self.start_rect = self.rect
+		self.start_midtop = self.rect.midtop
+		self.start_midbottom = self.rect.midbottom
 		self.start_center = Vector2((rect.centerx, rect.centery))
 		self.vel = Vector2(vel)
 		self.timer = 4000
@@ -344,7 +347,10 @@ class Flame(BasicThing):
 		self.pos += self.vel
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
-		pygame.draw.line(surface, (200, 5, 5), self.start_center, self.pos, 4)
+		pygame.draw.line(surface, (200, 5, 5), self.start_center, self.pos, 1)
+		pygame.draw.line(surface, (255, 255, 255), self.start_midtop, self.pos, 2)
+		pygame.draw.line(surface, (255, 255, 255), self.start_midbottom, self.pos, 2)
+		pygame.draw.line(surface, (255, 5, 5), self.start_rect.midbottom, self.pos, 3)
 		pygame.draw.circle(surface, color=(200, 5, 5), center=self.rect.center, radius=7, width=1)
 		#pygame.draw.line(surface, (1, 255, 0), self.start_pos, self.rect.center, 2)
 		#pygame.draw.line(surface, (255, 0, 1), self.start_center, self.rect.center, 2)

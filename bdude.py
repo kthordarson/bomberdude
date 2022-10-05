@@ -143,8 +143,6 @@ class Game(Thread):
 		elif msgtype == 'netgridupdate':
 			gridpos = gamemsg.get('gridpos')
 			blktype = gamemsg.get('blktype')
-			if not blktype:
-				logger.warning(f'[ {self} ] missing blktype netgridupdate {gridpos} {blktype}')
 			self.gamemapgrid[gridpos[0]][gridpos[1]] = blktype
 			logger.debug(f'[ {self} ] netgridupdate {gridpos} {blktype}')
 		elif msgtype == 'gamemapgrid':
@@ -220,7 +218,7 @@ class Game(Thread):
 		for particle in self.particles:
 			blocks = spritecollide(particle, self.blocks, dokill=False)
 			for block in blocks:
-				if block.block_type != '0' and pygame.Rect.colliderect(particle.rect, block.rect):
+				if block.block_type != 0 and pygame.Rect.colliderect(particle.rect, block.rect):
 					if DEBUG:
 						#pygame.draw.circle(self.screen, (111,111,111), particle.rect.center, 2)
 						pygame.draw.rect(self.screen, (85,85,85), rect=block.rect, width=1)
