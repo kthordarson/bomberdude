@@ -52,22 +52,26 @@ class Player(BasicThing, Thread):
 				if self.client.gamemap.grid[x][y-1] == 0:
 					self.gridpos = (x, y-1)
 				else:
-					logger.warning(f'cant move {direction} to [{x}, {y-1}] g:{self.client.gamemap.grid[x][y-1]}')
+					pass
+					#logger.warning(f'cant move {direction} to [{x}, {y-1}] g:{self.client.gamemap.grid[x][y-1]}')
 			elif direction == 'down':
 				if self.client.gamemap.grid[x][y+1] == 0:
 					self.gridpos = (x, y+1)
 				else:
-					logger.warning(f'cant move {direction} to [{x}, {y+1}] g:{self.client.gamemap.grid[x][y+1]}')
+					pass
+					#logger.warning(f'cant move {direction} to [{x}, {y+1}] g:{self.client.gamemap.grid[x][y+1]}')
 			elif direction == 'left':
 				if self.client.gamemap.grid[x-1][y] == 0:
 					self.gridpos = (x-1, y)
 				else:
-					logger.warning(f'cant move {direction}to [{x-1}, {y}] g:{self.client.gamemap.grid[x-1][y]}')
+					pass
+					#logger.warning(f'cant move {direction}to [{x-1}, {y}] g:{self.client.gamemap.grid[x-1][y]}')
 			elif direction == 'right':
 				if self.client.gamemap.grid[x+1][y] == 0:
 					self.gridpos = (x+1, y)
 				else:
-					logger.warning(f'cant move {direction}to [{x+1}, {y}] g:{self.client.gamemap.grid[x+1][y]}')
+					pass
+					# logger.warning(f'cant move {direction}to [{x+1}, {y}] g:{self.client.gamemap.grid[x+1][y]}')
 			self.pos[0] = self.gridpos[0] * BLOCK
 			self.pos[1] = self.gridpos[1] * BLOCK
 			self.rect.x = self.pos[0]

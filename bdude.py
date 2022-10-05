@@ -196,14 +196,15 @@ class Game(Thread):
 			for block in spritecollide(flame, self.blocks, False):
 				if pygame.Rect.colliderect(flame.rect, block.rect) and block.block_type != 0:
 					if DEBUG:
-						if block.block_type == 10:
+						if block.block_type >= 10:
 							pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
-							flame.kill()
 						elif block.block_type == 0:
 							pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
 						else:
 							pygame.draw.rect(self.screen, (115,115,115), rect=block.rect, width=1)
-					if block.block_type != 10:
+					if 1 < block.block_type < 10:
+						if flame.client_id == self.playerone.client_id:
+							self.playerone.add_score()
 						particles, newblock = block.hit(flame)
 						particlemsg = {'msgtype': 'particles', 'particledata': particles}
 						self.mainqueue.put(particlemsg)
@@ -211,18 +212,24 @@ class Game(Thread):
 						blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
 						self.mainqueue.put(blockmsg)
 						block.kill()
+						flame.kill()
+					if block.block_type >= 10:
+						flame.kill()
+					if block.block_type == 0:
+						pass
 							# self.blocks.add(newblock)
 
 	def update_particles(self):
 		self.particles.update(self.blocks, self.screen)
-		for particle in self.particles:
-			blocks = spritecollide(particle, self.blocks, dokill=False)
-			for block in blocks:
-				if block.block_type != 0 and pygame.Rect.colliderect(particle.rect, block.rect):
-					if DEBUG:
-						#pygame.draw.circle(self.screen, (111,111,111), particle.rect.center, 2)
-						pygame.draw.rect(self.screen, (85,85,85), rect=block.rect, width=1)
-					particle.hit(block)
+		# for particle in self.particles:
+		# 	blocks = spritecollide(particle, self.blocks, dokill=False)
+		# 	for block in blocks:
+		# 		pass
+				# if block.block_type != 0 and pygame.Rect.colliderect(particle.rect, block.rect):
+				# 	if DEBUG:
+				# 		#pygame.draw.circle(self.screen, (111,111,111), particle.rect.center, 2)
+				# 		pygame.draw.rect(self.screen, (85,85,85), rect=block.rect, width=1)
+				# 	particle.hit(block)
 
 	def update_powerups(self, playerone):
 		self.powerups.update()
@@ -277,7 +284,7 @@ class Game(Thread):
 
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
-		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames)
+		self.gui.game_menu.draw_panel(screen=self.screen, blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames)
 		fps = self.gameclock.get_fps()
 		if DEBUG:
 			pos = Vector2(10, self.screenh - 100)
@@ -364,7 +371,7 @@ class Game(Thread):
 				if event.key == pygame.K_2:
 					self.playerone.client.req_mapreset()
 				if event.key == pygame.K_3:
-					pass
+					self.playerone.client.send_bomb(pos=self.playerone.rect.center)
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
@@ -416,6 +423,9 @@ class Game(Thread):
 					self.playerone.vel.x = 0
 				if event.key in {pygame.K_LEFT, pygame.K_a}:
 					self.playerone.vel.x = 0
+			if event.type == pygame.MOUSEBUTTONDOWN:
+				mx, my = pygame.mouse.get_pos()
+				logger.info(f'mouse click at {mx}, {my}')
 			if event.type == pygame.QUIT:
 				logger.warning(f'[ {self} ] quit {event.type}')
 				self.running = False

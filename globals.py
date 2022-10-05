@@ -261,10 +261,10 @@ class Bomb(BasicThing):
 
 	def exploder(self):
 		flames = Group()
-		flames.add(Flame(pos=self.pos, vel=Vector2(1,0), flame_length=self.flame_len, rect=self.rect))
-		flames.add(Flame(pos=self.pos, vel=Vector2(-1,0), flame_length=self.flame_len, rect=self.rect))
-		flames.add(Flame(pos=self.pos, vel=Vector2(0,-1), flame_length=self.flame_len, rect=self.rect))
-		flames.add(Flame(pos=self.pos, vel=Vector2(0,1), flame_length=self.flame_len, rect=self.rect))
+		flames.add(Flame(pos=self.pos, vel=Vector2(1,0), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(-1,0), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(0,-1), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(0,1), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
 		# self.bomber_id.bombs_left += 1
 		return flames
 
@@ -320,9 +320,10 @@ class Particle(BasicThing):
 
 
 class Flame(BasicThing):
-	def __init__(self, pos, vel, flame_length, rect):
+	def __init__(self, pos, vel, flame_length, rect, client_id):
 		self.pos = pos
 		super().__init__(pos, None)
+		self.client_id = client_id
 		self.image = pygame.Surface((5,5), pygame.SRCALPHA)
 		#self.image.fill((255,0,0))
 		self.rect = self.image.get_rect()
@@ -339,7 +340,7 @@ class Flame(BasicThing):
 		self.flame_length = flame_length
 
 	def __str__(self) -> str:
-		return f'[flame] pos={self.pos} vel={self.vel}'
+		return f'[flame] clid={self.client_id} pos={self.pos} vel={self.vel}'
 
 	def update(self, surface=None):
 		if pygame.time.get_ticks() - self.start_time >= self.timer:
