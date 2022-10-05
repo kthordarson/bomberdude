@@ -202,9 +202,9 @@ BLOCKTYPES = {
 		"permanent": False,
 		"size": POWERUPSIZE,
 		"bitmap": "data/heart.png",
-		"bgbitmap": "data/black.png",
+		"bgbitmap": "data/blackfloor.png",
 		"powerup": True,
-		"powertype" : 0,
+		"powertype" : 20,
 	},
 }
 

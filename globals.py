@@ -151,7 +151,7 @@ class Block(BasicThing):
 		particles = Group()
 		if self.powerup:
 			# newblock = Powerup(pos=self.rect.center, type=self.powertype)
-			newblock = Block(self.rect.topleft, self.gridpos, block_type=20)
+			newblock = Powerup(self.rect.topleft, self.gridpos, block_type=20)
 		else:
 			newblock = Block(self.rect.topleft, self.gridpos, block_type=0)
 		if self.block_type != 0:			
@@ -188,10 +188,11 @@ class Block(BasicThing):
 		return particles
 
 class Powerup(BasicThing):
-	def __init__(self, pos, type):
-		super().__init__(pos, None)
-		self.powertype = type # random.choice([1,2,3])
-		if self.powertype == 1:
+	def __init__(self, pos, gridpos, block_type=None):
+		super().__init__(pos, gridpos, None)
+		self.powertype = block_type # random.choice([1,2,3])
+		self.block_type = block_type # random.choice([1,2,3])
+		if self.powertype == 20:
 			self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
 		if self.powertype == 2:
 			self.image, self.rect = self.rm.get_image(filename='data/newbomb.png', force=False)

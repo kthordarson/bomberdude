@@ -24,6 +24,7 @@ class BombClient(Thread):
 		self.mainqueue = mainqueue
 		self.bombs_left = 3
 		self.cl_score = 0
+		self.cl_hearts = 3
 
 	def __str__(self):
 		return f'bombclient id={self.client_id} pos={self.pos} gp={self.gridpos} k:{self.kill} conn:{self.connected} gotmap:{self.gotmap} gotpos:{self.gotpos} bombs:{self.bombs_left}'
