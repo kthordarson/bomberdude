@@ -134,8 +134,9 @@ class Game(Thread):
 		elif msgtype == 'newblock':
 			blk = gamemsg.get('blockdata')
 			self.blocks.add(blk)
-			if not blk.block_type:
-				logger.warning(f'self.blocks:{len(self.blocks)} newblk={blk} missing blktype')
+			# if not blk.block_type:
+			# 	logger.error(f'self.blocks:{len(self.blocks)} newblk={blk} missing blktype')
+			# 	blk.block_type = 0
 			self.gamemapgrid[blk.gridpos[0]][blk.gridpos[1]] = blk.block_type
 			self.playerone.client.send_gridupdate(gridpos=blk.gridpos, blktype=blk.block_type, grid_data=self.gamemapgrid)
 			logger.debug(f'self.blocks:{len(self.blocks)} newblk={blk} ')
@@ -153,7 +154,7 @@ class Game(Thread):
 			self.updategrid(gamemapgrid)
 			if not self.playerone.gotpos:
 				self.playerone.setpos(newpos, newgridpos)
-			logger.debug(f'[ {self} ] gamemapgrid np={newpos} ngp={newgridpos}')
+			logger.debug(f'gamemapgrid np={newpos} ngp={newgridpos}')
 
 	def updategrid(self, gamemapgrid):
 		if not gamemapgrid:
@@ -176,13 +177,15 @@ class Game(Thread):
 					logger.error(f'[ {self} ] err:{e} k={k} j={j} grid={gamemapgrid} selfgrid={self.gamemapgrid} blktype={blktype}')
 					newblock = Block(Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), (j, k), block_type=0)
 				self.blocks.add(newblock)				
-		logger.debug(f'[ {self} ] {self.mainqueue.qsize()} {self.sendq.qsize()} gamemapgrid:{len(gamemapgrid)}')
+		logger.debug(f'mainq={self.mainqueue.qsize()} sendq={self.sendq.qsize()} gamemapgrid:{len(gamemapgrid)}')
 
 	def update_bombs(self):
 		self.bombs.update()
 		for bomb in self.bombs:
 			dt = pygame.time.get_ticks()
 			if dt - bomb.start_time >= bomb.timer:
+				if bomb.bomber_id == self.playerone.client_id:
+					self.playerone.client.bombs_left += 1
 				flames = bomb.exploder()
 				flamemsg = {'msgtype': 'flames', 'flamedata': flames}
 				self.mainqueue.put(flamemsg)
@@ -258,18 +261,20 @@ class Game(Thread):
 		#self.playerone.draw(self.screen)
 		for npid in self.playerone.client.netplayers:
 			npitem = self.playerone.client.netplayers[npid]
-			np = f'{npitem["gridpos"]}'
-			if npid == '0':
+			np = f'{npitem["gridpos"]} {npitem["client_id"]}'
+			pos = self.playerone.client.netplayers[npid].get('pos')
+			if npid == '0' or npid == 0:
 				pass
 			elif self.playerone.client_id != npid:
-				pos = self.playerone.client.netplayers[npid].get('pos')
+				#pos -= (0,5)
+				#pos[1] -=10
 				self.font.render_to(self.screen, pos, f'{np}', (255, 255, 255))
-				pygame.draw.circle(self.screen, color=(123,123,123), center=pos, radius=10)
+				#pos += (5,10)
+				#pygame.draw.circle(self.screen, color=(123,123,123), center=pos, radius=10)
 				#pos = self.playerone.client.netplayers[npid].get('pos')
 				#self.font.render_to(self.screen, pos, f'{np}', (255, 55, 55))
 			elif npid == self.playerone.client_id:
-				pos = self.playerone.client.netplayers[npid].get('pos')
-				pos += (0,9)
+				#pos += (5,20)
 				self.font.render_to(self.screen, pos , f'{np}', (123, 123, 255))
 
 		if self.gui.show_mainmenu:
@@ -282,7 +287,9 @@ class Game(Thread):
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"fps={fps} threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()} p1 np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
 			pos += (0, 15)
-			self.font.render_to(self.screen, pos, f"p1 {self.playerone} client {self.playerone.client}", (183, 183, 183))
+			self.font.render_to(self.screen, pos, f"p1 {self.playerone}", (183, 183, 183))
+			pos += (0, 15)
+			self.font.render_to(self.screen, pos, f"client {self.playerone.client}", (183, 183, 183))
 
 	def handle_menu(self, selection):
 		# mainmenu
@@ -343,7 +350,10 @@ class Game(Thread):
 					elif not self.gui.show_mainmenu:
 						#bombmsg = {'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos}
 						#self.mainqueue.put_nowait(bombmsg)
-						self.playerone.client.send_bomb(pos=self.playerone.rect.center)
+						if self.playerone.client.bombs_left > 0:
+							self.playerone.client.send_bomb(pos=self.playerone.rect.center)
+						else:
+							logger.warning(f'[ {self} ] {self.playerone.client} no bombs left')
 				if event.key == pygame.K_ESCAPE:
 					self.gui.show_mainmenu ^= True
 				if event.key == pygame.K_q:

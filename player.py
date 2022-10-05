@@ -32,7 +32,8 @@ class Player(BasicThing, Thread):
 		#self.rect = self.surface.get_rect() #pygame.Rect((self.pos[0], self.pos[1], PLAYERSIZE[0], PLAYERSIZE[1])) #self.image.get_rect()
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
 		self.speed = 3
-		self.client = BombClient(client_id=self.client_id, serveraddress='192.168.1.168', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
+		self.score = 0
+		self.client = BombClient(client_id=self.client_id, serveraddress='localhost', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
 		self.gotmap = False
 		self.gotpos = False
 
@@ -51,22 +52,22 @@ class Player(BasicThing, Thread):
 				if self.client.gamemap.grid[x][y-1] == 0:
 					self.gridpos = (x, y-1)
 				else:
-					logger.warning(f'{self} cant move g:{self.client.gamemap.grid[x][y-1]}')
+					logger.warning(f'cant move {direction} to [{x}, {y-1}] g:{self.client.gamemap.grid[x][y-1]}')
 			elif direction == 'down':
 				if self.client.gamemap.grid[x][y+1] == 0:
 					self.gridpos = (x, y+1)
 				else:
-					logger.warning(f'{self} cant move g:{self.client.gamemap.grid[x][y+1]}')
+					logger.warning(f'cant move {direction} to [{x}, {y+1}] g:{self.client.gamemap.grid[x][y+1]}')
 			elif direction == 'left':
 				if self.client.gamemap.grid[x-1][y] == 0:
 					self.gridpos = (x-1, y)
 				else:
-					logger.warning(f'{self} cant move g:{self.client.gamemap.grid[x-1][y]}')
+					logger.warning(f'cant move {direction}to [{x-1}, {y}] g:{self.client.gamemap.grid[x-1][y]}')
 			elif direction == 'right':
 				if self.client.gamemap.grid[x+1][y] == 0:
 					self.gridpos = (x+1, y)
 				else:
-					logger.warning(f'{self} cant move g:{self.client.gamemap.grid[x+1][y]}')
+					logger.warning(f'cant move {direction}to [{x+1}, {y}] g:{self.client.gamemap.grid[x+1][y]}')
 			self.pos[0] = self.gridpos[0] * BLOCK
 			self.pos[1] = self.gridpos[1] * BLOCK
 			self.rect.x = self.pos[0]
@@ -110,12 +111,13 @@ class Player(BasicThing, Thread):
 
 	def add_score(self):
 		self.score += 1
+		self.client.cl_score = self.score
 
 	def setpos(self, pos, gridpos):
 		#ngx = int(pos[0]*BLOCK)
 		#ngy = int(pos[1]*BLOCK)
 		#newgridpos = (ngx,ngy)
-		logger.info(f'{self} setpos {self.pos} to {pos} gp={gridpos} ogp={self.gridpos} ngp={gridpos} client {self.client.pos} {self.client.gridpos}')
+		# logger.info(f'{self} setpos {self.pos} to {pos} gp={gridpos} ogp={self.gridpos} ngp={gridpos} client {self.client.pos} {self.client.gridpos}')
 		self.pos = pos
 		self.gridpos = gridpos
 		self.client.pos = self.pos
