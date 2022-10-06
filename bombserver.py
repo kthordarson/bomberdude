@@ -483,7 +483,7 @@ class BombServer(Thread):
 		logger.debug(f'[ {self} ] run')
 		#self.servercomm.start()
 		self.gui.start()
-		self.gamemap.generate_custom(squaresize=SQUARESIZE)
+		self.gamemap.generate_custom(gridsize=SQUARESIZE)
 		self.servercomm.start()
 		fps = -1
 		while not self.kill:
@@ -610,7 +610,7 @@ class BombServer(Thread):
 					else:
 						clid = data.get('client_id')
 						logger.info(f'[ {self} ] resetmap from {clid} {data}')
-					basegrid = self.gamemap.generate_custom(squaresize=SQUARESIZE)
+					basegrid = self.gamemap.generate_custom(gridsize=SQUARESIZE)
 					#self.gamemap.grid = basegrid
 					for bc in self.bombclients:
 						bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)

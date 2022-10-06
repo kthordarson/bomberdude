@@ -38,11 +38,11 @@ class Game(Thread):
 	def __init__(self, mainqueue=None, conn=None, sendq=None, netqueue=None):
 		Thread.__init__(self, name='game')
 		
-		self.gamemapgrid = DEFAULTGRID
-		screenx = len(self.gamemapgrid) * BLOCK + 300
-		screeny = len(self.gamemapgrid) * BLOCK + 300
-		self.screensize = (screenx, screeny)
-		pygame.display.set_mode(self.screensize, 0, 8)
+		self.gamemapgrid = []
+		#screenx = len(self.gamemapgrid) * SQUARESIZE + 300
+		#screeny = len(self.gamemapgrid) * SQUARESIZE + 300
+		#self.screensize = (screenx, screeny)
+		pygame.display.set_mode((800,600), 0, 8)
 		self.gameclock = pygame.time.Clock()
 		self.fps = self.gameclock.get_fps()
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
@@ -170,8 +170,12 @@ class Game(Thread):
 			logger.info(f'ngu newblock={newblock} {self.playerone.client.gamemap.grid[x][y]} {self.gamemapgrid[x][y]}')
 			if newblock.block_type == 20:
 				self.powerups.add(newblock)
+				if DEBUG:
+					pygame.draw.rect(self.screen, (255, 0, 0), newblock.rect)
 			elif 1 <= newblock.block_type <= 11:
 				self.blocks.add(newblock)
+				if DEBUG:
+					pygame.draw.rect(self.screen, (2, 255, 0), newblock.rect)
 			else:
 				self.lostblocks.add(newblock)
 				logger.warning(f'ngu {newblock} gridpos={gridpos} p1cltgrid={self.playerone.client.gamemap.grid[x][y]} selfgrid={self.gamemapgrid[x][y]}')
@@ -332,19 +336,24 @@ class Game(Thread):
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"client {self.playerone.client}", (183, 183, 183))
 		if self.extradebug:
-			for lb in self.lostblocks:
-				pygame.draw.circle(self.screen, color=(255,0,0), center=lb.rect.center, radius=13)
-				self.font.render_to(self.screen, lb.pos, f"{b.block_type}", (255, 183, 183))
 			for b in self.blocks:
 				gx, gy = b.gridpos
 				selfgitem = self.gamemapgrid[gx][gy]
 				plg1item = self.playerone.client.gamemap.grid[gx][gy]
 				textpos = [b.rect.topleft[0]+3, b.rect.topleft[1]]
 				if b.block_type != selfgitem or b.block_type != plg1item:
+					if b.block_type != selfgitem:
+						fcol1 = (255,0,0)
+					elif b.block_type == selfgitem:
+						fcol1 = (255,255,255)
+					if b.block_type != plg1item:
+						fcol2 = (255,0,0)
+					elif b.block_type == plg1item:
+						fcol2 = (255,255,255)
 					pygame.draw.rect(self.screen, color=(255,0,0), rect=b.rect, width=1)
-					self.font.render_to(self.screen, (textpos[0], textpos[1]+5), f"{selfgitem}", (255, 0, 0))
-					self.font.render_to(self.screen, (textpos[0]+5, textpos[1]+25), f"{plg1item}", (255, 111, 83))
-					self.font.render_to(self.screen, (textpos[0]+12, textpos[1]+2), f"{b.block_type}", (55, 111, 183))
+					self.font.render_to(self.screen, (textpos[0], textpos[1]+5), f"{selfgitem}", fcol1)
+					self.font.render_to(self.screen, (textpos[0]+5, textpos[1]+25), f"{plg1item}", fcol2)
+					self.font.render_to(self .screen, (textpos[0]+12, textpos[1]+12), f"{b.block_type}", (255, 1, 25))
 					#self.font.render_to(self.screen, b.pos, f"{b.block_type}", (183, 183, 183))
 				elif b.block_type == 20:
 					#

@@ -27,10 +27,10 @@ class Gamemap:
 		self.grid = grid
 		return self.grid
 
-	def generate_custom(self, squaresize=15):
+	def generate_custom(self, gridsize=15):
 		# generate a custom map, squaresize is max blocks x and y
 		# players = list of players, clear spot around each player
-		self.grid = [[random.choice([1,2,3,4,5,11]) for k in range(squaresize)] for j in range(squaresize)]
+		self.grid = [[random.choice([1,2,3,4,5,11]) for k in range(gridsize)] for j in range(gridsize)]
 		# set edges to solid blocks, 10 = solid blockwalkk
 		#grid = DEFAULTGRID
 		self.gridsize = len(self.grid)
