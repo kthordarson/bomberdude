@@ -55,25 +55,25 @@ class Player(BasicThing, Thread):
 			y = int(self.gridpos[1])
 			# logger.debug(f'{self} move {direction} {self.gridpos}')
 			if direction == 'up':
-				if self.client.gamemap.grid[x][y-1] == 0 or self.client.gamemap.grid[x][y-1] >= 20:
+				if self.client.gamemap.grid[x][y-1] in [11,20]:
 					self.movetogrid(x, y-1)
 				else:
 					pass
 					#logger.warning(f'cant move {direction} to [{x}, {y-1}] g:{self.client.gamemap.grid[x][y-1]}')
 			elif direction == 'down':
-				if self.client.gamemap.grid[x][y+1] == 0 or self.client.gamemap.grid[x][y+1] >= 20:
+				if self.client.gamemap.grid[x][y+1] in [11,20]:
 					self.movetogrid(x, y+1)
 				else:
 					pass
 					#logger.warning(f'cant move {direction} to [{x}, {y+1}] g:{self.client.gamemap.grid[x][y+1]}')
 			elif direction == 'left':
-				if self.client.gamemap.grid[x-1][y] == 0 or self.client.gamemap.grid[x-1][y] >= 20:
+				if self.client.gamemap.grid[x-1][y] in [11,20]:
 					self.movetogrid(x-1, y)
 				else:
 					pass
 					#logger.warning(f'cant move {direction}to [{x-1}, {y}] g:{self.client.gamemap.grid[x-1][y]}')
 			elif direction == 'right':
-				if self.client.gamemap.grid[x+1][y] == 0 or self.client.gamemap.grid[x+1][y] >= 20:
+				if self.client.gamemap.grid[x+1][y] in [11,20]:
 					self.movetogrid(x+1, y)
 				else:
 					pass

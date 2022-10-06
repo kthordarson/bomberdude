@@ -124,8 +124,6 @@ class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type):		
 		super().__init__(pos,gridpos, None)
 		self.block_type = block_type
-		self.solid = BLOCKTYPES.get(self.block_type)["solid"]
-		self.permanent = BLOCKTYPES.get(self.block_type)["permanent"]
 		self.size = BLOCKTYPES.get(self.block_type)["size"]
 		self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
@@ -145,7 +143,6 @@ class Block(BasicThing):
 
 	def hit(self, flame):
 		# self.bitmap = BLOCKTYPES.get(11)["bitmap"]
-		# self.solid = False
 		# self.permanent = True
 		# self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		particles = Group()
@@ -153,19 +150,16 @@ class Block(BasicThing):
 			# newblock = Powerup(pos=self.rect.center, type=self.powertype)
 			newblock = Powerup(self.rect.topleft, self.gridpos, block_type=20)
 		else:
-			newblock = Block(self.rect.topleft, self.gridpos, block_type=0)
-		if self.block_type != 0:			
-			for k in range(1, MAXPARTICLES+random.randint(1, 10)):
-				if flame.vel.x < 0:  # flame come from left
-					particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
-				elif flame.vel.x > 0:  # right
-					particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left")))  # for k in range(1,2)]
-				elif flame.vel.y > 0:  # down
-					particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
-				elif flame.vel.y < 0:  # up
-					particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]			
-			flame.kill()
-			self.kill()
+			newblock = Block(self.rect.topleft, self.gridpos, block_type=11)
+		for k in range(1, MAXPARTICLES+random.randint(1, 10)):
+			if flame.vel.x < 0:  # flame come from left
+				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
+			elif flame.vel.x > 0:  # right
+				particles.add(Particle(pos=flame.rect.midleft, vel=random_velocity(direction="left")))  # for k in range(1,2)]
+			elif flame.vel.y > 0:  # down
+				particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
+			elif flame.vel.y < 0:  # up
+				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]			
 		return particles, newblock
 
 	def gen_particles(self, flame):

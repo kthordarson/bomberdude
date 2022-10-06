@@ -124,36 +124,21 @@ POWERUPS = {
 }
 
 BLOCKTYPES = {
-	0: {
-		"solid": False,
-		"permanent": False,
-		"size": BLOCKSIZE,
-		"bitmap": "data/blackfloor.png",
-		"bgbitmap": "data/black.png",
-		"powerup": False,
-		"powertype" : 0,
-	},
-	1: {
-		"solid": True,
-		"permanent": False,
+	1: {			
 		"size": BLOCKSIZE,
 		"bitmap": "data/blocksprite5a.png",
 		"bgbitmap": "data/black.png",
 		"powerup": True,
 		"powertype" : 1,
 	},
-	2: {
-		"solid": True,
-		"permanent": False,
+	2: {		
 		"size": BLOCKSIZE,
 		"bitmap": "data/blocksprite3b.png",
 		"bgbitmap": "data/black.png",
 		"powerup": True,
 		"powertype" : 2,
 	},
-	3: {
-		"solid": True,
-		"permanent": False,
+	3: {		
 		"size": BLOCKSIZE,
 		"bitmap": "data/blocksprite6.png",
 		"bgbitmap": "data/black.png",
@@ -161,45 +146,35 @@ BLOCKTYPES = {
 		"powertype" : 3,
 
 	},
-	4: {
-		"solid": True,
-		"permanent": False,
+	4: {		
 		"size": BLOCKSIZE,
 		"bitmap": "data/blocksprite3.png",
 		"bgbitmap": "data/black.png",
 		"powerup": False,
 		"powertype" : 0,
 	},
-	5: {
-		"solid": True,
-		"permanent": False,
+	5: {		
 		"size": BLOCKSIZE,
 		"bitmap": "data/blocksprite1b.png",
 		"bgbitmap": "data/black.png",
 		"powerup": False,
 		"powertype" : 0,
 	},
-	10: {
-		"solid": True,
-		"permanent": True,
+	10: {		
 		"size": BLOCKSIZE,
 		"bitmap": "data/blocksprite1.png",
 		"bgbitmap": "data/black.png",
 		"powerup": False,
 		"powertype" : 0,
 	},
-	11: {
-		"solid": False,
-		"permanent": False,
+	11: {		
 		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite1c.png",
-		"bgbitmap": "data/blackfloor.png",
+		"bitmap": "data/blackfloor.png",
+		"bgbitmap": "data/black.png",
 		"powerup": False,
 		"powertype" : 0,
 	},
-	20: {
-		"solid": False,
-		"permanent": False,
+	20: {		
 		"size": POWERUPSIZE,
 		"bitmap": "data/heart.png",
 		"bgbitmap": "data/blackfloor.png",

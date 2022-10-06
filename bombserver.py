@@ -319,7 +319,7 @@ class BombClientHandler(Thread):
 							logger.debug(f'[ {self} ] r:{len(resps)} gridupdate {rtype} {rid} {resp}')
 						senderid = resp.get('client_id')
 						blkgridpos = resp.get('blkgridpos')
-						blktype = resp.get('blktype', 10)
+						blktype = resp.get('blktype', 11)
 						# if not blktype:
 						# 	logger.error(f'gridupdate missing blktype rt={rtype} rid={rid}  r:{len(resps)} resp={resp}')
 						# 	blktype = 0

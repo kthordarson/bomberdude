@@ -15,7 +15,7 @@ class Gamemap:
 		self.gridsize = (len(self.grid[0]), len(self.grid[0]))
 
 	def generate(self):
-		grid = [[random.randint(0, 5) for k in range(self.gridsize[1])] for j in range(self.gridsize[0])]
+		grid = [[random.choice([1,2,3,4,5,11]) for k in range(self.gridsize[1])] for j in range(self.gridsize[0])]
 		# set edges to solid blocks, 10 = solid blockwalkk
 		for x in range(self.gridsize[0]):
 			grid[x][0] = 10
@@ -28,7 +28,7 @@ class Gamemap:
 	def generate_custom(self, squaresize=None):
 		# generate a custom map, squaresize is max blocks x and y
 		# players = list of players, clear spot around each player
-		grid = [[random.randint(0, 5) for k in range(squaresize)] for j in range(squaresize)]
+		grid = [[random.choice([1,2,3,4,5,11]) for k in range(squaresize)] for j in range(squaresize)]
 		# set edges to solid blocks, 10 = solid blockwalkk
 		for x in range(squaresize):
 			grid[x][0] = 10
@@ -64,13 +64,13 @@ class Gamemap:
 			logger.warning(f'[map] placeplayer xpos:{xpos} ypos:{ypos} grid={grid}')
 		# clear spot aound player
 		try:
-			grid[xpos][ypos] = 0
-			grid[xpos-1][ypos] = 0
-			grid[xpos+1][ypos] = 0
-			grid[xpos][ypos-1] = 0
-			grid[xpos][ypos+1] = 0
-			grid[xpos-1][ypos-1] = 0
-			grid[xpos+1][ypos+1] = 0
+			grid[xpos][ypos] = 11
+			grid[xpos-1][ypos] = 11
+			grid[xpos+1][ypos] = 11
+			grid[xpos][ypos-1] = 11
+			grid[xpos][ypos+1] = 11
+			grid[xpos-1][ypos-1] = 11
+			grid[xpos+1][ypos+1] = 11
 			for x in range(len(grid[0])):
 				grid[x][0] = 10
 				grid[0][x] = 10

@@ -147,7 +147,7 @@ class BombClient(Thread):
 							blktype = payload.get('blktype')
 							if not blktype:
 								logger.warning(f'[ {self} ] missing blktype gp={gridpos} b={blktype} payload={payload}')
-								blktype = 0
+								blktype = 11
 							else:
 								logger.debug(f'[ {self} ] netgridupdate g={gridpos} b={blktype}')
 							mapmsg = {'msgtype':'netgridupdate', 'client_id':self.client_id, 'gridpos':gridpos, 'blktype':blktype}

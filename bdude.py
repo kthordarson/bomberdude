@@ -167,8 +167,8 @@ class Game(Thread):
 		for k in range(0, len(gamemapgrid)):
 			for j in range(0, len(gamemapgrid)):
 				if not gamemapgrid[j][k]:
-					blktype = 0
-					#logger.warning(f'[ {self} ] k={k} j={j} grid={gamemapgrid} selfgrid={self.gamemapgrid} blktype={blktype}')
+					blktype = 11
+					logger.warning(f'[ {self} ] k={k} j={j} grid={gamemapgrid} selfgrid={self.gamemapgrid} blktype={blktype}')
 				else:
 					blktype = gamemapgrid[j][k]
 				try:					
@@ -196,15 +196,19 @@ class Game(Thread):
 		for flame in self.flames:
 			# check if flame collides with blocks
 			for block in spritecollide(flame, self.blocks, False):
-				if pygame.Rect.colliderect(flame.rect, block.rect) and block.block_type != 0:
+				if pygame.Rect.colliderect(flame.rect, block.rect):
 					if DEBUG:
-						if block.block_type >= 10:
-							pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
-						elif block.block_type == 0:
+						if block.block_type == 10:
+							pygame.draw.rect(self.screen, (215,25,25), rect=block.rect, width=1)
+						elif block.block_type == 20:
+							pygame.draw.rect(self.screen, (255,255,255), rect=block.rect, width=1)
+						elif block.block_type == 11:
 							pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
 						else:
 							pygame.draw.rect(self.screen, (115,115,115), rect=block.rect, width=1)
 					if 1 < block.block_type < 10:
+						block.kill()
+						flame.kill()
 						if flame.client_id == self.playerone.client_id:
 							self.playerone.add_score()
 						particles, newblock = block.hit(flame)
@@ -213,13 +217,13 @@ class Game(Thread):
 						#self.particles.add(particles)
 						blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
 						self.mainqueue.put(blockmsg)
+					elif block.block_type in [20,21]:
+						flame.kill()
 						block.kill()
+					elif block.block_type == 10:
 						flame.kill()
-					if block.block_type >= 10:
-						flame.kill()
-					if block.block_type == 0:
+					elif block.block_type == 11:
 						pass
-							# self.blocks.add(newblock)
 
 	def update_particles(self):
 		self.particles.update(self.blocks, self.screen)
@@ -297,6 +301,8 @@ class Game(Thread):
 			self.font.render_to(self.screen, pos, f"p1 {self.playerone}", (183, 183, 183))
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"client {self.playerone.client}", (183, 183, 183))
+			for b in self.blocks:
+				self.font.render_to(self.screen, b.pos, f"{b.block_type}", (183, 183, 183))
 
 	def handle_menu(self, selection):
 		# mainmenu
