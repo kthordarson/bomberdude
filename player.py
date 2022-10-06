@@ -44,9 +44,7 @@ class Player(BasicThing, Thread):
 	def movetogrid(self,x,y):
 		self.gridpos = x, y
 		if self.client.gamemap.grid[x][y] == 20:
-			self.take_powerup(powertype=20)
-			self.client.gamemap.grid[x][y] = 11
-			self.client.send_gridupdate(gridpos=(x,y), blktype=11, grid_data=self.client.gamemap.grid)
+			self.take_powerup(powertype=20, gridpos=self.gridpos)
 
 	def move(self, direction):
 		if self.ready:
@@ -118,11 +116,17 @@ class Player(BasicThing, Thread):
 		if self.connected:
 			self.client.send_pos(pos=self.pos, center=self.pos, gridpos=self.gridpos)
 
-	def take_powerup(self, powertype=None):
+	def take_powerup(self, powertype=None, gridpos=None):
+		x = gridpos[0]
+		y = gridpos[1]				
 		if powertype == 20:
 			self.client.cl_hearts += 1
 			self.client.cl_score += 10
-
+			oldbrick = self.client.gamemap.grid[x][y]
+			self.client.gamemap.grid[x][y] = 11
+			logger.info(f'player {self.client_id} got heart at gridpos={gridpos} griditem={self.client.gamemap.grid[x][y]} ob={oldbrick} hearts={self.client.cl_hearts}')
+			self.client.send_gridupdate(gridpos=(x,y), blktype=11, grid_data=self.client.gamemap.grid)
+			
 	def add_score(self):
 		self.client.cl_score += 1
 
@@ -291,7 +295,7 @@ class BombClient(Thread):
 							# send grid update to mainqueue
 							self.mainqueue.put(mapmsg)
 							# update local grid
-							self.gamemapgrid[gridpos[0]][gridpos[1]] = blktype
+							self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
 						elif payload.get('msgtype') == 'mapfromserver':
 							# complete grid from server
 							gamemapgrid = payload.get('gamemapgrid')
@@ -300,7 +304,6 @@ class BombClient(Thread):
 							mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos, 'newgridpos':newgridpos}
 							self.mainqueue.put(mapmsg)
 							logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
-							self.gamemapgrid = gamemapgrid
 							self.gamemap.grid = gamemapgrid
 							self.gotmap = True
 							if not self.gotpos:

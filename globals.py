@@ -145,11 +145,12 @@ class Block(BasicThing):
 		# self.permanent = True
 		# self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		particles = Group()
+		newblocks = Group()
 		if self.powerup:
 			# newblock = Powerup(pos=self.rect.center, type=self.powertype)
-			newblock = Powerup(self.rect.topleft, self.gridpos, block_type=20)
+			newblocks.add(Powerup(self.rect.center, self.gridpos, block_type=20))
 		else:
-			newblock = Block(self.rect.topleft, self.gridpos, block_type=11)
+			newblocks.add(Block(self.rect.topleft, self.gridpos, block_type=11))
 		for k in range(1, MAXPARTICLES+random.randint(1, 10)):
 			if flame.vel.x < 0:  # flame come from left
 				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
@@ -159,7 +160,7 @@ class Block(BasicThing):
 				particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
 			elif flame.vel.y < 0:  # up
 				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]			
-		return particles, newblock
+		return particles, newblocks
 
 	def gen_particles(self, flame):
 		# called when block is hit by a flame
@@ -198,15 +199,21 @@ class Powerup(BasicThing):
 		self.rect.center = pos
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
-		self.timer = 10000
+		self.timer = 2000
 		#self.clock = pygame.time.Clock()
 		self.start_time = pygame.time.get_ticks()
 
 	def __str__(self):
-		return f'[pwrup] pos={self.pos} type={self.powertype}'
+		return f'[pwrup] pos={self.pos} gridpos={self.gridpos} type={self.powertype}'
 
-	def update(self, items=None):
+	def xupdate(self, items=None):
 		if self.timer < pygame.time.get_ticks() - self.start_time:
+			self.kill()
+
+	def xxupdate(self, surface=None):
+		# logger.info(f'{self} t={pygame.time.get_ticks() - self.start_time} timer={self.timer}')
+		if pygame.time.get_ticks() - self.start_time >= self.timer:
+			logger.info(f'{self} powerup timeout')
 			self.kill()
 
 class Bomb(BasicThing):
@@ -220,7 +227,7 @@ class Bomb(BasicThing):
 		self.rect.centerx = self.pos[0]
 		self.rect.centery = self.pos[1]
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.timer = 4000
+		self.timer = 2000
 		self.bomb_timer = 1
 		self.bomb_fuse = 1
 		self.bomb_end = 2
@@ -280,7 +287,7 @@ class Particle(BasicThing):
 		#self.rect = self.image.get_rect(topleft=self.pos)
 		#self.rect.x = self.pos[0]
 		#self.rect.y = self.pos[1]
-		self.timer = 20000
+		self.timer = 10000
 		self.hits = 0
 		self.maxhits = random.randint(1,3)
 		self.mass = 11

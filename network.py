@@ -48,7 +48,7 @@ def send_data(conn=None, payload=None):
 		data = json.dumps(payload, skipkeys=True).encode('utf-8')
 		try:
 			conn.sendall(data)
-		except BrokenPipeError as e:
+		except (OSError, BrokenPipeError) as e:
 			logger.error(f'[send] BrokenPipeError:{e} conn:{conn} payload:{payload}')
 			conn.close()
 	else:
