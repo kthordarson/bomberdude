@@ -127,7 +127,6 @@ class Block(BasicThing):
 		self.size = BLOCKTYPES.get(self.block_type)["size"]
 		self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
-		self.powertype = BLOCKTYPES.get(self.block_type)["powertype"]		
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		self.explode = False
 		self.poweruptime = 10

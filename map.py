@@ -99,9 +99,5 @@ class Gamemap:
 
 	def get_bcount(self, cval=0):
 		cnt = 0
-		for row in self.grid:
-			for item in row:
-				if item == cval:
-					cnt += 1
 		return cnt
 
