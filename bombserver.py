@@ -8,7 +8,7 @@ from loguru import logger
 from threading import Thread
 
 # from things import Block
-from constants import FPS, DEFAULTFONT, BLOCK
+from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE
 from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data, dataid
@@ -483,7 +483,7 @@ class BombServer(Thread):
 		logger.debug(f'[ {self} ] run')
 		#self.servercomm.start()
 		self.gui.start()
-		self.gamemap.generate_custom(squaresize=15)
+		self.gamemap.generate_custom(squaresize=SQUARESIZE)
 		self.servercomm.start()
 		fps = -1
 		while not self.kill:
@@ -571,9 +571,9 @@ class BombServer(Thread):
 							self.netplayers[clid]['kill'] = 1
 				elif smsgtype == 'netplayers':
 					# unused
-					logger.debug(f'[ {self} ] netplayersmsg data={data}')
+					logger.debug(f'netplayersmsg data={data}')
 				elif smsgtype == 'netbomb':
-					logger.debug(f'[ {self} ] netbomb from {data.get("client_id")} pos={data.get("bombpos")}')
+					# logger.debug(f'[ {self} ] netbomb from {data.get("client_id")} pos={data.get("bombpos")}')
 					for bc in self.bombclients:
 						# inform all clients about bomb
 						bc.bombevent(data)
@@ -606,11 +606,11 @@ class BombServer(Thread):
 				elif smsgtype == 'resetmap' or self.gamemap.is_empty():
 					# todo fix player pos on new grid
 					if self.gamemap.is_empty():
-						logger.debug(f'[ {self} ] self.gamemap.is_empty() = {self.gamemap.is_empty()}')
+						logger.info(f'self.gamemap.is_empty() = {self.gamemap.is_empty()}')
 					else:
 						clid = data.get('client_id')
-						logger.debug(f'[ {self} ] resetmap from {clid} {data}')
-					basegrid = self.gamemap.generate_custom(squaresize=15)
+						logger.info(f'[ {self} ] resetmap from {clid} {data}')
+					basegrid = self.gamemap.generate_custom(squaresize=SQUARESIZE)
 					#self.gamemap.grid = basegrid
 					for bc in self.bombclients:
 						bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)

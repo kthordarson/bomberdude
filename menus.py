@@ -32,8 +32,8 @@ class DebugDialog:
 
 class Menu:
 	def __init__(self, screen, font):
-		self.screen = pygame.display.get_surface()
-		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		self.screen = screen # pygame.display.get_surface()
+		self.screenw, self.screenh = self.screen.get_size()
 		self.menusize = (250, 180)
 		self.image = pygame.Surface(self.menusize)
 		self.pos = Vector2(self.screenw // 2 - self.menusize[0] // 2, self.screenh // 2 - self.menusize[1] // 2)
@@ -94,7 +94,7 @@ class Menu:
 
 	def draw_panel(self, blocks=None, particles=None, playerone=None, flames=None, screen=None):
 		screen = pygame.display.get_surface()
-		pos = Vector2(700, 10)
+		pos = Vector2(self.screenw-100, 10)
 		self.panelfont.render_to(screen, dest=pos, text=f'{self.screenw} x {self.screenh}', fgcolor=(111,222,111))
 		pos += (0,25)
 		self.panelfont.render_to(screen, dest=pos, text=f'score {playerone.client.cl_score}', fgcolor=(111,222,111))

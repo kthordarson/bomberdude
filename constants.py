@@ -6,11 +6,82 @@ COLOR_INACTIVE = Color('lightskyblue3')
 COLOR_ACTIVE = Color('dodgerblue2')
 
 DEBUGFONTCOLOR = (123, 123, 123)
-# global constants
-# GRIDSIZE[0] = 15
-# GRIDSIZE[1] = 15
-# noinspection PyPep8
-DEFAULTGRID=[
+SQUARESIZE=10
+BLOCK = 40
+BLOCKSIZE = (BLOCK, BLOCK)
+PLAYERSIZE = [int(x // 1.3) for x in BLOCKSIZE]
+NETPLAYERSIZE = [int(x // 1.4) for x in PLAYERSIZE]
+DUMMYSIZE = [int(x // 2) for x in BLOCKSIZE]
+POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
+BOMBSIZE = [int(x // 2.5) for x in BLOCKSIZE]
+PARTICLESIZE = [int(x // 4) for x in BLOCKSIZE]
+FLAMESIZE = [10, 10]
+MAXPARTICLES = 5
+#screenx = len(DEFAULTGRID) * BLOCK + 300
+#screeny = len(DEFAULTGRID) * BLOCK + 100
+#SCREENSIZE = (screenx, screeny)
+
+FPS = 30
+POWERUPS = {
+	"bombpower": 11,
+	"speedup": 12,
+	"addbomb": 13,
+	"healthup": 14,
+}
+
+BLOCKTYPES = {
+	1: {			
+		"size": BLOCKSIZE,
+		"bitmap": "data/blocksprite5a.png",
+		"bgbitmap": "data/black.png",
+		"powerup": True,
+	},
+	2: {		
+		"size": BLOCKSIZE,
+		"bitmap": "data/blocksprite3b.png",
+		"bgbitmap": "data/black.png",
+		"powerup": True,
+	},
+	3: {		
+		"size": BLOCKSIZE,
+		"bitmap": "data/blocksprite6.png",
+		"bgbitmap": "data/black.png",
+		"powerup": True,
+	},
+	4: {		
+		"size": BLOCKSIZE,
+		"bitmap": "data/blocksprite3.png",
+		"bgbitmap": "data/black.png",
+		"powerup": False,
+	},
+	5: {		
+		"size": BLOCKSIZE,
+		"bitmap": "data/blocksprite1b.png",
+		"bgbitmap": "data/black.png",
+		"powerup": False,
+	},
+	10: {		
+		"size": BLOCKSIZE,
+		"bitmap": "data/blocksprite1.png",
+		"bgbitmap": "data/black.png",
+		"powerup": False,
+	},
+	11: {		
+		"size": BLOCKSIZE,
+		"bitmap": "data/blackfloor.png",
+		"bgbitmap": "data/black.png",
+		"powerup": False,
+	},
+	20: {		
+		"size": POWERUPSIZE,
+		"bitmap": "data/heart.png",
+		"bgbitmap": "data/blackfloor.png",
+		"powerup": False,
+	},
+}
+
+
+DEFAULTGRID0=[
 	[10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10],
 	[10, 2, 5, 5, 2, 4, 3, 5, 4, 5, 2, 2, 5, 5, 11, 11, 2, 3, 3, 10],
 	[10, 5, 1, 3, 4, 1, 11, 1, 5, 2, 2, 11, 5, 2, 3, 2, 11, 2, 2, 10],
@@ -76,7 +147,7 @@ DEFAULTGRID2=[
 	[10, 2, 1, 5, 11, 3, 1, 2, 11, 2, 3, 4, 5, 5, 5, 4, 1, 5, 3, 10],
 	[10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10,10]]
 
-DEFAULTGRID15=[
+DEFAULTGRID=[
 	[10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10],
 	[111, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10],
 	[111, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10],
@@ -92,85 +163,3 @@ DEFAULTGRID15=[
 	[111, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10],
 	[111, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10],
 	[10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]]
-
-# GRIDSIZE = (len(DEFAULTGRID15[0]), len(DEFAULTGRID15[1]))
-BLOCK = 45
-BLOCKSIZE = (BLOCK, BLOCK)
-PLAYERSIZE = [int(x // 1.3) for x in BLOCKSIZE]
-NETPLAYERSIZE = [int(x // 1.4) for x in PLAYERSIZE]
-DUMMYSIZE = [int(x // 2) for x in BLOCKSIZE]
-POWERUPSIZE = [int(x // 2) for x in BLOCKSIZE]
-BOMBSIZE = [int(x // 2.5) for x in BLOCKSIZE]
-PARTICLESIZE = [int(x // 4) for x in BLOCKSIZE]
-FLAMESIZE = [10, 10]
-# FLAMESIZE = [int(x // 6) for x in BLOCKSIZE]
-MAXPARTICLES = 5
-# POWERUPSIZE = (12, 12)
-# BOMBSIZE = (16, 16)
-# FLAMESIZE = (8,8)
-# FLAMELENGTH = 20
-# PARTICLESIZE = (3,3)
-# SCREENSIZE = (BLOCKSIZE[0] * (GRIDSIZE[0] + 1), BLOCKSIZE[1] * GRIDSIZE[1] + 100)
-# SCREENSIZE = (700, 700)
-screenx = len(DEFAULTGRID15) * BLOCK + 300
-screeny = len(DEFAULTGRID15) * BLOCK + 100
-SCREENSIZE = (screenx, screeny)
-FPS = 30
-POWERUPS = {
-	"bombpower": 11,
-	"speedup": 12,
-	"addbomb": 13,
-	"healthup": 14,
-}
-
-BLOCKTYPES = {
-	1: {			
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite5a.png",
-		"bgbitmap": "data/black.png",
-		"powerup": True,
-	},
-	2: {		
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite3b.png",
-		"bgbitmap": "data/black.png",
-		"powerup": True,
-	},
-	3: {		
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite6.png",
-		"bgbitmap": "data/black.png",
-		"powerup": True,
-	},
-	4: {		
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite3.png",
-		"bgbitmap": "data/black.png",
-		"powerup": False,
-	},
-	5: {		
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite1b.png",
-		"bgbitmap": "data/black.png",
-		"powerup": False,
-	},
-	10: {		
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite1.png",
-		"bgbitmap": "data/black.png",
-		"powerup": False,
-	},
-	11: {		
-		"size": BLOCKSIZE,
-		"bitmap": "data/blackfloor.png",
-		"bgbitmap": "data/black.png",
-		"powerup": False,
-	},
-	20: {		
-		"size": POWERUPSIZE,
-		"bitmap": "data/heart.png",
-		"bgbitmap": "data/blackfloor.png",
-		"powerup": False,
-	},
-}
-

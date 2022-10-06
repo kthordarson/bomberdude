@@ -1,6 +1,6 @@
 import random
 from loguru import logger
-from constants import BLOCK, BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, DEFAULTGRID2, DEFAULTGRID15
+from constants import BLOCK, BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID
 
 def inside_circle(radius, pos_x, pos_y):
 	x = int(radius)  # radius is the radius
@@ -10,9 +10,11 @@ def inside_circle(radius, pos_x, pos_y):
 			yield x + pos_x, y + pos_y
 
 class Gamemap:
-	def __init__(self, genmap=True):
-		self.grid = DEFAULTGRID15
-		self.gridsize = (len(self.grid[0]), len(self.grid[0]))
+	def __init__(self, genmap=False):
+		self.grid = []
+		if genmap:
+			self.grid = self.generate_custom()
+		self.gridsize = (len(self.grid), len(self.grid))
 
 	def generate(self):
 		grid = [[random.choice([1,2,3,4,5,11]) for k in range(self.gridsize[1])] for j in range(self.gridsize[0])]
@@ -25,18 +27,20 @@ class Gamemap:
 		self.grid = grid
 		return self.grid
 
-	def generate_custom(self, squaresize=None):
+	def generate_custom(self, squaresize=15):
 		# generate a custom map, squaresize is max blocks x and y
 		# players = list of players, clear spot around each player
-		grid = [[random.choice([1,2,3,4,5,11]) for k in range(squaresize)] for j in range(squaresize)]
+		self.grid = [[random.choice([1,2,3,4,5,11]) for k in range(squaresize)] for j in range(squaresize)]
 		# set edges to solid blocks, 10 = solid blockwalkk
-		for x in range(squaresize):
-			grid[x][0] = 10
-			grid[0][x] = 10
-			grid[-1][x] = 10
-			grid[x][-1] = 10
-		self.grid = grid
-		return grid
+		#grid = DEFAULTGRID
+		self.gridsize = len(self.grid)
+		for x in range(self.gridsize):
+			self.grid[x][0] = 10
+			self.grid[0][x] = 10
+			self.grid[-1][x] = 10
+			self.grid[x][-1] = 10
+		# self.grid = grid
+		return self.grid
 
 	def clear_center(self):
 		x = int(self.gridsize[0] // 2)  # random.randint(2, self.gridsize[0] - 2)
@@ -65,21 +69,21 @@ class Gamemap:
 		if gpx == 0 or gpy == 0:
 			logger.warning(f'[map] placeplayer xpos:{gpx} ypos:{gpy} grid={grid}')
 		# clear spot aound player
-		grid[gpx][gpy] = 11
-		grid[gpx-1][gpy] = 11
-		grid[gpx+1][gpy] = 11
-		grid[gpx][gpy-1] = 11
-		grid[gpx][gpy+1] = 11
-		grid[gpx-1][gpy-1] = 11
-		grid[gpx+1][gpy+1] = 11
-		for x in range(len(grid[0])):
-			grid[x][0] = 10
-			grid[0][x] = 10
-			grid[-1][x] = 10
-			grid[x][-1] = 10
+		self.grid[gpx][gpy] = 11
+		self.grid[gpx-1][gpy] = 11
+		self.grid[gpx+1][gpy] = 11
+		self.grid[gpx][gpy-1] = 11
+		self.grid[gpx][gpy+1] = 11
+		self.grid[gpx-1][gpy-1] = 11
+		self.grid[gpx+1][gpy+1] = 11
+		for x in range(len(self.grid[0])):
+			self.grid[x][0] = 10
+			self.grid[0][x] = 10
+			self.grid[-1][x] = 10
+			self.grid[x][-1] = 10
 		logger.info(f'[placeplayer] pos={pos} randpos:{randpos} xpos:{gpx} ypos:{gpy} xp:{ny} yp:{ny}')
-		self.grid = grid
-		return grid, (nx, ny), (gpx, gpy)
+		#self.grid = grid
+		return self.grid, (nx, ny), (gpx, gpy)
 
 
 	def is_empty(self):
