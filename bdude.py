@@ -141,12 +141,22 @@ class Game(Thread):
 			# 	blk.block_type = 0
 			self.gamemapgrid[blk.gridpos[0]][blk.gridpos[1]] = blk.block_type
 			self.playerone.client.send_gridupdate(gridpos=blk.gridpos, blktype=blk.block_type, grid_data=self.gamemapgrid)
-			logger.debug(f'self.blocks:{len(self.blocks)} newblk={blk} ')
+			logger.debug(f'self.blocks:{len(self.blocks)} newblk={blk} blk.gridpos={blk.gridpos} blk.block_type={blk.block_type}')
+
 		elif msgtype == 'netgridupdate':
-			gridpos = gamemsg.get('gridpos')
-			blktype = gamemsg.get('blktype')
-			self.gamemapgrid[gridpos[0]][gridpos[1]] = blktype
-			logger.debug(f'[ {self} ] netgridupdate {gridpos} {blktype}')
+			gridpos = gamemsg.get('blkgridpos')
+			blktype = gamemsg.get('blktype')			
+			try:
+				self.gamemapgrid[gridpos[0]][gridpos[1]] = blktype
+			except TypeError as e:
+				logger.error(f'netgridupdate err:{e} gamemsg={gamemsg}')
+			newblock = Block(pos=(gridpos[0]*BLOCK, gridpos[1]*BLOCK), gridpos=gridpos, block_type=blktype)
+			logger.debug(f'netgridupdate {gridpos} {blktype} gamemsg={gamemsg} newblock={newblock}')
+			self.blocks.add(newblock)
+			for block in self.blocks:
+				if block.gridpos == gridpos:
+					logger.info(f'netgridupdate kill oldblock={block} gp={gridpos} t={blktype} newblock={newblock}')
+					block.kill()
 		elif msgtype == 'gamemapgrid':
 			gamemapgrid = gamemsg.get('gamemapgrid')
 			newpos = gamemsg.get('newpos')
@@ -206,7 +216,7 @@ class Game(Thread):
 							pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
 						else:
 							pygame.draw.rect(self.screen, (115,115,115), rect=block.rect, width=1)
-					if 1 < block.block_type < 10:
+					if 1 <= block.block_type < 10:
 						block.kill()
 						flame.kill()
 						if flame.client_id == self.playerone.client_id:
@@ -239,12 +249,6 @@ class Game(Thread):
 
 	def update_powerups(self, playerone):
 		self.powerups.update()
-		if len(self.powerups) > 0:
-			powerblock_coll = spritecollide(playerone, self.powerups, False)
-			for pc in powerblock_coll:
-				logger.debug(f'[ {self} ] type:{pc.powertype} colls:{len(powerblock_coll)} sp:{len(self.powerups)}')
-				playerone.take_powerup(pc.powertype)
-				pc.kill()
 
 
 	def draw(self):
@@ -363,10 +367,10 @@ class Game(Thread):
 					elif not self.gui.show_mainmenu:
 						#bombmsg = {'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos}
 						#self.mainqueue.put_nowait(bombmsg)
-						if self.playerone.client.bombs_left > 0:
+						if self.playerone.client.bombs_left >= 0:
 							self.playerone.client.send_bomb(pos=self.playerone.rect.center)
 						else:
-							logger.warning(f'[ {self} ] {self.playerone.client} no bombs left')
+							logger.warning(f'no bombs left {self.playerone.client.bombs_left}')
 				if event.key == pygame.K_ESCAPE:
 					self.gui.show_mainmenu ^= True
 				if event.key == pygame.K_q:

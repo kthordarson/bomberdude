@@ -51,36 +51,35 @@ class Gamemap:
 		# logger.debug(f'[map] placeplayer g:{len(grid)} {len(grid[0])} pos={pos} randpos={randpos}')
 		if randpos:
 			# find a random spot on the map to place the player			
-			xpos = random.randint(2, len(grid[0])-2)
-			ypos = random.randint(2, len(grid[0])-2)
+			gpx = random.randint(2, len(grid[0])-2)
+			gpy = random.randint(2, len(grid[0])-2)
+			nx = int(gpx * BLOCK)
+			ny = int(gpy * BLOCK)
 		else:
-			# clear spot around player
-			xpos = int(pos[0] // BLOCK)
-			ypos = int(pos[1] // BLOCK)
+			# gridpos from pos			
+			gpx = int(pos[0] // BLOCK)
+			gpy = int(pos[1] // BLOCK)
+			nx = pos[0]
+			ny = pos[1]
 		# logger.info(f'[map] placeplayer pos={pos} x={xpos} y={ypos}')
-		xp = xpos * BLOCK
-		yp = ypos * BLOCK
-		if xpos == 0 or ypos == 0:
-			logger.warning(f'[map] placeplayer xpos:{xpos} ypos:{ypos} grid={grid}')
+		if gpx == 0 or gpy == 0:
+			logger.warning(f'[map] placeplayer xpos:{gpx} ypos:{gpy} grid={grid}')
 		# clear spot aound player
-		try:
-			grid[xpos][ypos] = 11
-			grid[xpos-1][ypos] = 11
-			grid[xpos+1][ypos] = 11
-			grid[xpos][ypos-1] = 11
-			grid[xpos][ypos+1] = 11
-			grid[xpos-1][ypos-1] = 11
-			grid[xpos+1][ypos+1] = 11
-			for x in range(len(grid[0])):
-				grid[x][0] = 10
-				grid[0][x] = 10
-				grid[-1][x] = 10
-				grid[x][-1] = 10
-		except IndexError as e:
-			logger.warning(f'[map] placeplayer IndexError {e} pos={pos} xp:{xp} yp:{yp} xpos:{xpos} ypos:{ypos} grid={grid}')
-		logger.info(f'[placeplayer] pos={pos} randpos:{randpos} xpos:{xpos} ypos:{ypos} xp:{xp} yp:{yp}')
+		grid[gpx][gpy] = 11
+		grid[gpx-1][gpy] = 11
+		grid[gpx+1][gpy] = 11
+		grid[gpx][gpy-1] = 11
+		grid[gpx][gpy+1] = 11
+		grid[gpx-1][gpy-1] = 11
+		grid[gpx+1][gpy+1] = 11
+		for x in range(len(grid[0])):
+			grid[x][0] = 10
+			grid[0][x] = 10
+			grid[-1][x] = 10
+			grid[x][-1] = 10
+		logger.info(f'[placeplayer] pos={pos} randpos:{randpos} xpos:{gpx} ypos:{gpy} xp:{ny} yp:{ny}')
 		self.grid = grid
-		return grid, (xp, yp), (xpos, ypos)
+		return grid, (nx, ny), (gpx, gpy)
 
 
 	def is_empty(self):
