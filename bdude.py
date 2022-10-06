@@ -135,7 +135,8 @@ class Game(Thread):
 			blk = gamemsg.get('blockdata')
 			self.blocks.add(blk)
 			if not blk.block_type:
-				logger.warning(f'self.blocks:{len(self.blocks)} newblk={blk} missing blktype')
+				logger.warning(f'self.blocks:{len(self.blocks)} newblk={blk} missing blktype gamemsg={gamemsg}')
+				blk.block_type = 0
 			self.gamemapgrid[blk.gridpos[0]][blk.gridpos[1]] = blk.block_type
 			self.playerone.client.send_gridupdate(gridpos=blk.gridpos, blktype=blk.block_type, grid_data=self.gamemapgrid)
 			logger.debug(f'self.blocks:{len(self.blocks)} newblk={blk} ')
