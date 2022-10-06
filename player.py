@@ -32,13 +32,20 @@ class Player(BasicThing, Thread):
 		#self.rect = self.surface.get_rect() #pygame.Rect((self.pos[0], self.pos[1], PLAYERSIZE[0], PLAYERSIZE[1])) #self.image.get_rect()
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
 		self.speed = 3
-		self.client = BombClient(client_id=self.client_id, serveraddress='192.168.1.168', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
+		self.client = BombClient(client_id=self.client_id, serveraddress='localhost', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
 		self.gotmap = False
 		self.gotpos = False
 
 	def __str__(self):
 		return f'player {self.client_id} ready={self.ready} pos={self.pos} gp={self.gridpos} k={self.kill} conn:{self.connected} gotmap:{self.gotmap} gotpos:{self.gotpos}'
-	
+
+	def movetogrid(self,x,y):
+		self.gridpos = x, y
+		if self.client.gamemap.grid[x][y] == 20:
+			self.take_powerup(powertype=20)
+			self.client.gamemap.grid[x][y] = 0
+			self.client.send_gridupdate(gridpos=(x,y), blktype=0, grid_data=self.client.gamemap.grid)
+
 	def move(self, direction):
 		if self.ready:
 			gpx = int(self.pos[0] // BLOCK)
@@ -48,25 +55,29 @@ class Player(BasicThing, Thread):
 			y = int(self.gridpos[1])
 			# logger.debug(f'{self} move {direction} {self.gridpos}')
 			if direction == 'up':
-				if self.client.gamemap.grid[x][y-1] == 0:
-					self.gridpos = (x, y-1)
+				if self.client.gamemap.grid[x][y-1] == 0 or self.client.gamemap.grid[x][y-1] >= 20:
+					self.movetogrid(x, y-1)
 				else:
-					logger.warning(f'{self} cant move g:{self.client.gamemap.grid[x][y-1]}')
+					pass
+					#logger.warning(f'cant move {direction} to [{x}, {y-1}] g:{self.client.gamemap.grid[x][y-1]}')
 			elif direction == 'down':
-				if self.client.gamemap.grid[x][y+1] == 0:
-					self.gridpos = (x, y+1)
+				if self.client.gamemap.grid[x][y+1] == 0 or self.client.gamemap.grid[x][y+1] >= 20:
+					self.movetogrid(x, y+1)
 				else:
-					logger.warning(f'{self} cant move g:{self.client.gamemap.grid[x][y+1]}')
+					pass
+					#logger.warning(f'cant move {direction} to [{x}, {y+1}] g:{self.client.gamemap.grid[x][y+1]}')
 			elif direction == 'left':
-				if self.client.gamemap.grid[x-1][y] == 0:
-					self.gridpos = (x-1, y)
+				if self.client.gamemap.grid[x-1][y] == 0 or self.client.gamemap.grid[x-1][y] >= 20:
+					self.movetogrid(x-1, y)
 				else:
-					logger.warning(f'{self} cant move g:{self.client.gamemap.grid[x-1][y]}')
+					pass
+					#logger.warning(f'cant move {direction}to [{x-1}, {y}] g:{self.client.gamemap.grid[x-1][y]}')
 			elif direction == 'right':
-				if self.client.gamemap.grid[x+1][y] == 0:
-					self.gridpos = (x+1, y)
+				if self.client.gamemap.grid[x+1][y] == 0 or self.client.gamemap.grid[x+1][y] >= 20:
+					self.movetogrid(x+1, y)
 				else:
-					logger.warning(f'{self} cant move g:{self.client.gamemap.grid[x+1][y]}')
+					pass
+					# logger.warning(f'cant move {direction}to [{x+1}, {y}] g:{self.client.gamemap.grid[x+1][y]}')
 			self.pos[0] = self.gridpos[0] * BLOCK
 			self.pos[1] = self.gridpos[1] * BLOCK
 			self.rect.x = self.pos[0]
@@ -105,17 +116,19 @@ class Player(BasicThing, Thread):
 		if self.connected:
 			self.client.send_pos(pos=self.pos, center=self.pos, gridpos=self.gridpos)
 
-	def take_powerup(self, powerup=None):
-		pass
+	def take_powerup(self, powertype=None):
+		if powertype == 20:
+			self.client.cl_hearts += 1
+			self.client.cl_score += 10
 
 	def add_score(self):
-		self.score += 1
+		self.client.cl_score += 1
 
 	def setpos(self, pos, gridpos):
 		#ngx = int(pos[0]*BLOCK)
 		#ngy = int(pos[1]*BLOCK)
 		#newgridpos = (ngx,ngy)
-		logger.info(f'{self} setpos {self.pos} to {pos} gp={gridpos} ogp={self.gridpos} ngp={gridpos} client {self.client.pos} {self.client.gridpos}')
+		# logger.info(f'{self} setpos {self.pos} to {pos} gp={gridpos} ogp={self.gridpos} ngp={gridpos} client {self.client.pos} {self.client.gridpos}')
 		self.pos = pos
 		self.gridpos = gridpos
 		self.client.pos = self.pos

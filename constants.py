@@ -112,7 +112,7 @@ MAXPARTICLES = 5
 # PARTICLESIZE = (3,3)
 # SCREENSIZE = (BLOCKSIZE[0] * (GRIDSIZE[0] + 1), BLOCKSIZE[1] * GRIDSIZE[1] + 100)
 # SCREENSIZE = (700, 700)
-screenx = len(DEFAULTGRID15) * BLOCK
+screenx = len(DEFAULTGRID15) * BLOCK + 300
 screeny = len(DEFAULTGRID15) * BLOCK + 100
 SCREENSIZE = (screenx, screeny)
 FPS = 30
@@ -204,7 +204,7 @@ BLOCKTYPES = {
 		"bitmap": "data/heart.png",
 		"bgbitmap": "data/blackfloor.png",
 		"powerup": True,
-		"powertype" : 0,
+		"powertype" : 20,
 	},
 }
 

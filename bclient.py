@@ -22,9 +22,12 @@ class BombClient(Thread):
 		self.gotmap = False
 		self.gotpos = False
 		self.mainqueue = mainqueue
+		self.bombs_left = 3
+		self.cl_score = 0
+		self.cl_hearts = 3
 
 	def __str__(self):
-		return f'bombclient id={self.client_id} pos={self.pos} gp={self.gridpos} k:{self.kill} conn:{self.connected} gotmap:{self.gotmap} gotpos:{self.gotpos}'
+		return f'bombclient id={self.client_id} pos={self.pos} gp={self.gridpos} k:{self.kill} conn:{self.connected} gotmap:{self.gotmap} gotpos:{self.gotpos} bombs:{self.bombs_left}'
 
 	def req_mapreset(self):
 		# request server map reset
@@ -35,8 +38,9 @@ class BombClient(Thread):
 	def send_bomb(self, pos=None):
 		# send bomb to server
 		if self.connected and not self.kill:
-			payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos}
-			send_data(conn=self.socket, payload=payload)
+			if self.bombs_left > 0:
+				payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos, 'bombs_left':self.bombs_left}
+				send_data(conn=self.socket, payload=payload)
 			# logger.debug(f'[ {self} ] send_bomb pos={payload.get("bombpos")}')
 
 	def send_reqpos(self):
@@ -62,6 +66,7 @@ class BombClient(Thread):
 			self.gridpos = gridpos
 			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center, 'kill':int(self.kill), 'gridpos':self.gridpos}
 			send_data(conn=self.socket, payload=posmsg)
+			# logger.debug(f'send_pos {pos} {gridpos}')
 
 	def send_clientid(self):
 		# send pos to server
@@ -74,9 +79,9 @@ class BombClient(Thread):
 		# inform server about grid update
 		# called after bomb explodes and kills block
 		# gridpos=blk.gridpos, blktype=blk.block_type)
-		if not blktype:
-			logger.warning(f'[ {self} ] missing blktype gp={gridpos} b={blktype} grid_data={grid_data}')
-			blktype = 0
+		# if not blktype:
+		# 	logger.error(f'[ {self} ] missing blktype gp={gridpos} b={blktype} grid_data={grid_data}')
+		# 	blktype = 0
 		if self.connected and not self.kill:
 			self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
 			gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'blkgridpos': gridpos, 'blktype': blktype, 'pos': self.pos, 'griddata':grid_data}

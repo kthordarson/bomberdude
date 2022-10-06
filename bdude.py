@@ -108,6 +108,8 @@ class Game(Thread):
 			logger.debug(f'[ {self} ] gamemsg={gamemsg}')
 		if msgtype == 'bombdrop' or msgtype == 'netbomb':
 			bomber_id = gamemsg.get('bombdata').get('client_id')
+			if bomber_id == self.playerone.client_id:
+				self.playerone.client.bombs_left -= 1
 			bombpos = gamemsg.get('bombdata').get('bombpos')
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
 			self.bombs.add(newbomb)
@@ -134,17 +136,15 @@ class Game(Thread):
 		elif msgtype == 'newblock':
 			blk = gamemsg.get('blockdata')
 			self.blocks.add(blk)
-			if not blk.block_type:
-				logger.warning(f'self.blocks:{len(self.blocks)} newblk={blk} missing blktype gamemsg={gamemsg}')
-				blk.block_type = 0
+			# if not blk.block_type:
+			# 	logger.error(f'self.blocks:{len(self.blocks)} newblk={blk} missing blktype')
+			# 	blk.block_type = 0
 			self.gamemapgrid[blk.gridpos[0]][blk.gridpos[1]] = blk.block_type
 			self.playerone.client.send_gridupdate(gridpos=blk.gridpos, blktype=blk.block_type, grid_data=self.gamemapgrid)
 			logger.debug(f'self.blocks:{len(self.blocks)} newblk={blk} ')
 		elif msgtype == 'netgridupdate':
 			gridpos = gamemsg.get('gridpos')
 			blktype = gamemsg.get('blktype')
-			if not blktype:
-				logger.warning(f'[ {self} ] missing blktype netgridupdate {gridpos} {blktype}')
 			self.gamemapgrid[gridpos[0]][gridpos[1]] = blktype
 			logger.debug(f'[ {self} ] netgridupdate {gridpos} {blktype}')
 		elif msgtype == 'gamemapgrid':
@@ -154,7 +154,7 @@ class Game(Thread):
 			self.updategrid(gamemapgrid)
 			if not self.playerone.gotpos:
 				self.playerone.setpos(newpos, newgridpos)
-			logger.debug(f'[ {self} ] gamemapgrid np={newpos} ngp={newgridpos}')
+			logger.debug(f'gamemapgrid np={newpos} ngp={newgridpos}')
 
 	def updategrid(self, gamemapgrid):
 		if not gamemapgrid:
@@ -177,13 +177,15 @@ class Game(Thread):
 					logger.error(f'[ {self} ] err:{e} k={k} j={j} grid={gamemapgrid} selfgrid={self.gamemapgrid} blktype={blktype}')
 					newblock = Block(Vector2(j * BLOCKSIZE[0], k * BLOCKSIZE[1]), (j, k), block_type=0)
 				self.blocks.add(newblock)				
-		logger.debug(f'[ {self} ] {self.mainqueue.qsize()} {self.sendq.qsize()} gamemapgrid:{len(gamemapgrid)}')
+		logger.debug(f'mainq={self.mainqueue.qsize()} sendq={self.sendq.qsize()} gamemapgrid:{len(gamemapgrid)}')
 
 	def update_bombs(self):
 		self.bombs.update()
 		for bomb in self.bombs:
 			dt = pygame.time.get_ticks()
 			if dt - bomb.start_time >= bomb.timer:
+				if bomb.bomber_id == self.playerone.client_id:
+					self.playerone.client.bombs_left += 1
 				flames = bomb.exploder()
 				flamemsg = {'msgtype': 'flames', 'flamedata': flames}
 				self.mainqueue.put(flamemsg)
@@ -196,14 +198,15 @@ class Game(Thread):
 			for block in spritecollide(flame, self.blocks, False):
 				if pygame.Rect.colliderect(flame.rect, block.rect) and block.block_type != 0:
 					if DEBUG:
-						if block.block_type == 10:
+						if block.block_type >= 10:
 							pygame.draw.rect(self.screen, (215,215,215), rect=block.rect, width=1)
-							flame.kill()
 						elif block.block_type == 0:
 							pygame.draw.rect(self.screen, (95,95,95), rect=block.rect, width=1)
 						else:
 							pygame.draw.rect(self.screen, (115,115,115), rect=block.rect, width=1)
-					if block.block_type != 10:
+					if 1 < block.block_type < 10:
+						if flame.client_id == self.playerone.client_id:
+							self.playerone.add_score()
 						particles, newblock = block.hit(flame)
 						particlemsg = {'msgtype': 'particles', 'particledata': particles}
 						self.mainqueue.put(particlemsg)
@@ -211,18 +214,24 @@ class Game(Thread):
 						blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
 						self.mainqueue.put(blockmsg)
 						block.kill()
+						flame.kill()
+					if block.block_type >= 10:
+						flame.kill()
+					if block.block_type == 0:
+						pass
 							# self.blocks.add(newblock)
 
 	def update_particles(self):
 		self.particles.update(self.blocks, self.screen)
-		for particle in self.particles:
-			blocks = spritecollide(particle, self.blocks, dokill=False)
-			for block in blocks:
-				if block.block_type != '0' and pygame.Rect.colliderect(particle.rect, block.rect):
-					if DEBUG:
-						#pygame.draw.circle(self.screen, (111,111,111), particle.rect.center, 2)
-						pygame.draw.rect(self.screen, (85,85,85), rect=block.rect, width=1)
-					particle.hit(block)
+		# for particle in self.particles:
+		# 	blocks = spritecollide(particle, self.blocks, dokill=False)
+		# 	for block in blocks:
+		# 		pass
+				# if block.block_type != 0 and pygame.Rect.colliderect(particle.rect, block.rect):
+				# 	if DEBUG:
+				# 		#pygame.draw.circle(self.screen, (111,111,111), particle.rect.center, 2)
+				# 		pygame.draw.rect(self.screen, (85,85,85), rect=block.rect, width=1)
+				# 	particle.hit(block)
 
 	def update_powerups(self, playerone):
 		self.powerups.update()
@@ -259,23 +268,25 @@ class Game(Thread):
 		#self.playerone.draw(self.screen)
 		for npid in self.playerone.client.netplayers:
 			npitem = self.playerone.client.netplayers[npid]
-			np = f'{npitem["gridpos"]}'
-			if npid == '0':
+			np = f'{npitem["gridpos"]} {npitem["client_id"]}'
+			pos = self.playerone.client.netplayers[npid].get('pos')
+			if npid == '0' or npid == 0:
 				pass
 			elif self.playerone.client_id != npid:
-				pos = self.playerone.client.netplayers[npid].get('pos')
+				#pos -= (0,5)
+				#pos[1] -=10
 				self.font.render_to(self.screen, pos, f'{np}', (255, 255, 255))
-				pygame.draw.circle(self.screen, color=(123,123,123), center=pos, radius=10)
+				#pos += (5,10)
+				#pygame.draw.circle(self.screen, color=(123,123,123), center=pos, radius=10)
 				#pos = self.playerone.client.netplayers[npid].get('pos')
 				#self.font.render_to(self.screen, pos, f'{np}', (255, 55, 55))
 			elif npid == self.playerone.client_id:
-				pos = self.playerone.client.netplayers[npid].get('pos')
-				pos += (0,9)
+				#pos += (5,20)
 				self.font.render_to(self.screen, pos , f'{np}', (123, 123, 255))
 
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
-		self.gui.game_menu.draw_panel(blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames)
+		self.gui.game_menu.draw_panel(screen=self.screen, blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames)
 		fps = self.gameclock.get_fps()
 		if DEBUG:
 			pos = Vector2(10, self.screenh - 100)
@@ -283,7 +294,9 @@ class Game(Thread):
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"fps={fps} threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()} p1 np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
 			pos += (0, 15)
-			self.font.render_to(self.screen, pos, f"p1 {self.playerone} client {self.playerone.client}", (183, 183, 183))
+			self.font.render_to(self.screen, pos, f"p1 {self.playerone}", (183, 183, 183))
+			pos += (0, 15)
+			self.font.render_to(self.screen, pos, f"client {self.playerone.client}", (183, 183, 183))
 
 	def handle_menu(self, selection):
 		# mainmenu
@@ -344,7 +357,10 @@ class Game(Thread):
 					elif not self.gui.show_mainmenu:
 						#bombmsg = {'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos}
 						#self.mainqueue.put_nowait(bombmsg)
-						self.playerone.client.send_bomb(pos=self.playerone.rect.center)
+						if self.playerone.client.bombs_left > 0:
+							self.playerone.client.send_bomb(pos=self.playerone.rect.center)
+						else:
+							logger.warning(f'[ {self} ] {self.playerone.client} no bombs left')
 				if event.key == pygame.K_ESCAPE:
 					self.gui.show_mainmenu ^= True
 				if event.key == pygame.K_q:
@@ -357,7 +373,7 @@ class Game(Thread):
 				if event.key == pygame.K_2:
 					self.playerone.client.req_mapreset()
 				if event.key == pygame.K_3:
-					pass
+					self.playerone.client.send_bomb(pos=self.playerone.rect.center)
 				if event.key == pygame.K_c:
 					pass
 				if event.key == pygame.K_f:
@@ -409,6 +425,9 @@ class Game(Thread):
 					self.playerone.vel.x = 0
 				if event.key in {pygame.K_LEFT, pygame.K_a}:
 					self.playerone.vel.x = 0
+			if event.type == pygame.MOUSEBUTTONDOWN:
+				mx, my = pygame.mouse.get_pos()
+				logger.info(f'mouse click at {mx}, {my}')
 			if event.type == pygame.QUIT:
 				logger.warning(f'[ {self} ] quit {event.type}')
 				self.running = False

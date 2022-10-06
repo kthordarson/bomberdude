@@ -151,7 +151,7 @@ class Block(BasicThing):
 		particles = Group()
 		if self.powerup:
 			# newblock = Powerup(pos=self.rect.center, type=self.powertype)
-			newblock = Block(self.rect.topleft, self.gridpos, block_type=20)
+			newblock = Powerup(self.rect.topleft, self.gridpos, block_type=20)
 		else:
 			newblock = Block(self.rect.topleft, self.gridpos, block_type=0)
 		if self.block_type != 0:			
@@ -188,10 +188,11 @@ class Block(BasicThing):
 		return particles
 
 class Powerup(BasicThing):
-	def __init__(self, pos, type):
-		super().__init__(pos, None)
-		self.powertype = type # random.choice([1,2,3])
-		if self.powertype == 1:
+	def __init__(self, pos, gridpos, block_type=None):
+		super().__init__(pos, gridpos, None)
+		self.powertype = block_type # random.choice([1,2,3])
+		self.block_type = block_type # random.choice([1,2,3])
+		if self.powertype == 20:
 			self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
 		if self.powertype == 2:
 			self.image, self.rect = self.rm.get_image(filename='data/newbomb.png', force=False)
@@ -261,10 +262,10 @@ class Bomb(BasicThing):
 
 	def exploder(self):
 		flames = Group()
-		flames.add(Flame(pos=self.pos, vel=Vector2(1,0), flame_length=self.flame_len, rect=self.rect))
-		flames.add(Flame(pos=self.pos, vel=Vector2(-1,0), flame_length=self.flame_len, rect=self.rect))
-		flames.add(Flame(pos=self.pos, vel=Vector2(0,-1), flame_length=self.flame_len, rect=self.rect))
-		flames.add(Flame(pos=self.pos, vel=Vector2(0,1), flame_length=self.flame_len, rect=self.rect))
+		flames.add(Flame(pos=self.pos, vel=Vector2(1,0), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(-1,0), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(0,-1), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(0,1), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
 		# self.bomber_id.bombs_left += 1
 		return flames
 
@@ -320,9 +321,10 @@ class Particle(BasicThing):
 
 
 class Flame(BasicThing):
-	def __init__(self, pos, vel, flame_length, rect):
+	def __init__(self, pos, vel, flame_length, rect, client_id):
 		self.pos = pos
 		super().__init__(pos, None)
+		self.client_id = client_id
 		self.image = pygame.Surface((5,5), pygame.SRCALPHA)
 		#self.image.fill((255,0,0))
 		self.rect = self.image.get_rect()
@@ -330,13 +332,16 @@ class Flame(BasicThing):
 		self.rect.centerx = self.pos[0]
 		self.rect.centery = self.pos[1]
 		self.start_pos = self.pos
+		self.start_rect = self.rect
+		self.start_midtop = self.rect.midtop
+		self.start_midbottom = self.rect.midbottom
 		self.start_center = Vector2((rect.centerx, rect.centery))
 		self.vel = Vector2(vel)
 		self.timer = 4000
 		self.flame_length = flame_length
 
 	def __str__(self) -> str:
-		return f'[flame] pos={self.pos} vel={self.vel}'
+		return f'[flame] clid={self.client_id} pos={self.pos} vel={self.vel}'
 
 	def update(self, surface=None):
 		if pygame.time.get_ticks() - self.start_time >= self.timer:
@@ -344,7 +349,10 @@ class Flame(BasicThing):
 		self.pos += self.vel
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
-		pygame.draw.line(surface, (200, 5, 5), self.start_center, self.pos, 4)
+		pygame.draw.line(surface, (200, 5, 5), self.start_center, self.pos, 1)
+		pygame.draw.line(surface, (255, 255, 255), self.start_midtop, self.pos, 2)
+		pygame.draw.line(surface, (255, 255, 255), self.start_midbottom, self.pos, 2)
+		pygame.draw.line(surface, (255, 5, 5), self.start_rect.midbottom, self.pos, 3)
 		pygame.draw.circle(surface, color=(200, 5, 5), center=self.rect.center, radius=7, width=1)
 		#pygame.draw.line(surface, (1, 255, 0), self.start_pos, self.rect.center, 2)
 		#pygame.draw.line(surface, (255, 0, 1), self.start_center, self.rect.center, 2)
