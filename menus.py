@@ -7,7 +7,7 @@ from constants import *
 
 class DebugDialog:
 	def __init__(self, screen, font):
-		self.screen = screen
+		self.screen = pygame.display.get_surface()
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (400, 80)
 		self.image = pygame.Surface(self.menusize)
@@ -32,7 +32,7 @@ class DebugDialog:
 
 class Menu:
 	def __init__(self, screen, font):
-		self.screen = screen
+		self.screen = pygame.display.get_surface()
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (250, 180)
 		self.image = pygame.Surface(self.menusize)
@@ -42,7 +42,7 @@ class Menu:
 		self.inactive_color = (155, 155, 155)
 		self.menufont = font
 		self.debugfont = font
-		self.panelfont = font
+		self.panelfont = pygame.freetype.Font(DEFAULTFONT, 16)
 		self.font = font
 		self.font_color = (255, 255, 255)
 		self.panelfont_color = (255, 255, 255)
@@ -80,7 +80,8 @@ class Menu:
 
 	# pass
 
-	def draw_mainmenu(self, screen):
+	def draw_mainmenu(self, screen=None):
+		screen = pygame.display.get_surface()
 		self.draw_menubg(screen)
 		pos_y = self.pos.y
 		for item in enumerate(self.menuitems):
@@ -91,8 +92,17 @@ class Menu:
 			self.menufont.render_to(screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
 			pos_y += 25
 
-	def draw_panel(self, blocks, particles, playerone, flames):
-		pass
+	def draw_panel(self, blocks=None, particles=None, playerone=None, flames=None, screen=None):
+		screen = pygame.display.get_surface()
+		pos = Vector2(700, 10)
+		self.panelfont.render_to(screen, dest=pos, text=f'{self.screenw} x {self.screenh}', fgcolor=(111,222,111))
+		pos += (0,25)
+		self.panelfont.render_to(screen, dest=pos, text=f'score {playerone.client.cl_score}', fgcolor=(111,222,111))
+		pos += (0,25)
+		self.panelfont.render_to(screen, dest=pos, text=f'hearts {playerone.client.cl_hearts}', fgcolor=(111,222,111))
+		pos += (0,25)
+		self.panelfont.render_to(screen, dest=pos, text=f'bombs {playerone.client.bombs_left}', fgcolor=(111,222,111))
+
 
 	def get_selection(self):
 		return self.menuitems[self.selected_item]
