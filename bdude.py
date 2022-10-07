@@ -1,6 +1,6 @@
 #!/bin/python3.9
 # bomberdude
-# 05102022 todo fix powerup pickup, new block after explosion
+# 07102022 todo fix mapsync, limit one bomb per grid on map
 import socket
 import time
 import random
@@ -37,8 +37,6 @@ class GameGUI:
 class Game(Thread):
 	def __init__(self, mainqueue=None, conn=None, sendq=None, netqueue=None):
 		Thread.__init__(self, name='game')
-
-		#self.gamemapgrid = []
 		pygame.display.set_mode((800,600), 0, 8)
 		self.gameclock = pygame.time.Clock()
 		self.fps = self.gameclock.get_fps()
@@ -128,13 +126,6 @@ class Game(Thread):
 			if needrefresh:
 				#self.playerone.client.send_refreshgrid()
 				self.updategrid(self.playerone.client.gamemap.grid)
-
-				#if self.gamemapgrid[x][y] != b.block_type:
-				#	logger.warning(f'bcheck: self mismatch {b} m: {b.block_type} != {self.playerone.client.gamemap.grid[x][y]}')
-				#	needrefresh = True
-			#if needrefresh:
-			#	self.updategrid(self.playerone.client.gamemap.grid)
-
 
 
 	def handle_mainq(self, gamemsg):
@@ -372,7 +363,8 @@ class Game(Thread):
 			else:
 				npitem = self.playerone.client.netplayers[npid]
 				np = f'{npitem["gridpos"]}'
-				pos = self.playerone.client.netplayers[npid].get('pos', None)
+				x,y = self.playerone.client.netplayers[npid].get('pos', None)
+				pos = [x,y]
 				gpos = self.playerone.client.netplayers[npid].get('gridpos', None)
 				if gpos[0] > 100 or gpos[1] > 100:
 					pass
@@ -381,17 +373,15 @@ class Game(Thread):
 					#pos -= (0,5)
 					#pos[1] -=10
 					self.font.render_to(self.screen, pos, f'{np}', (255, 255, 255))
-					#pos += (5,10)
-					cpos = gpos
-					cpos[0] = gpos[0] * BLOCK
-					cpos[1] = gpos[1] * BLOCK
-					pygame.draw.circle(self.screen, color=(255,0,0), center=gpos, radius=10)
+					pos[0] += 20
+					pos[1] += 20
 					pygame.draw.circle(self.screen, color=(1,0,255), center=pos, radius=10)
 					#pos = self.playerone.client.netplayers[npid].get('pos')
 					#self.font.render_to(self.screen, pos, f'{np}', (255, 55, 55))
 				if npid == self.playerone.client_id:
 					#pos += (5,20)
-					self.font.render_to(self.screen, pos , f'{np}', (123, 123, 255))
+					pass
+					#self.font.render_to(self.screen, pos , f'{np}', (123, 123, 255))
 
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)

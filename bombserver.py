@@ -526,6 +526,8 @@ class BombServer(Thread):
 						self.conn.close()
 						break
 			self.serverclock.tick(30)
+
+			# refresh gui data
 			self.gui.bombclients = self.bombclients
 			for np in self.netplayers:
 				self.gui.netplayers[np] = self.netplayers[np]
@@ -533,11 +535,15 @@ class BombServer(Thread):
 					for npbc in bc.netplayers:
 						self.gui.netplayers[npbc] = bc.netplayers[npbc]
 			self.gui.renderinfo()
+			kp = False
 			try:
+				# remove killed players
 				self.netplayers.pop([self.netplayers.get(k) for k in self.netplayers if self.netplayers[k]['kill']][0].get('client_id'))
+				kp = True
 			except IndexError:
 				pass
 			for bc in self.bombclients:
+				bc.netplayers = self.netplayers
 				if bc.gridpos[0] > 100 or bc.gridpos[1] > 100:
 					logger.error(f'gridpos out of range for bc={bc}')
 				for bcnp in bc.netplayers:
@@ -554,9 +560,9 @@ class BombServer(Thread):
 				payload = {'msgtype':'netplayers', 'netplayers':self.netplayers}
 				bc.servercomm.queue.put(payload)
 				if pygame.time.get_ticks()-bc.lastupdate > 10000:
-					bc.kill = True
-					bc.netplayers[bc.client_id]['kill'] = 1
+					bc.kill = True					
 					try:
+						bc.netplayers[bc.client_id]['kill'] = 1
 						self.netplayers[bc.client_id]['kill'] = 1
 					except KeyError as e:
 						logger.error(f'err e:{e} bc:{bc}')
@@ -582,31 +588,30 @@ class BombServer(Thread):
 					basegrid, npos, ngpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=True)
 					self.gamemap.grid = basegrid
 					newbc = BombClientHandler(conn=conn, addr=addr, gamemap=self.gamemap, servercomm=self.servercomm, npos=npos, ngpos=ngpos)
-					newbc.gamemap.grid = basegrid
+					newbc.gamemap.grid = self.gamemap.grid
+					newbc.start()
 					self.bombclients.append(newbc)
 					for bc in self.bombclients:
 						if bc.gridpos[0] > 100 or bc.gridpos[1] > 100:
 							logger.error(f'{bc} gridpos out of range')
-							break
-						if bc.client_id != '0':
-							bcg, bnewpos, bcgridpos = self.gamemap.placeplayer(grid=basegrid, randpos=False, pos=bc.pos)
+						elif bc.client_id != '0':
+							self.gamemap.grid, bnewpos, bcgridpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=False, pos=bc.pos)
 							if bcgridpos[0] > 100 or bcgridpos[1] > 100:
 								logger.error(f'bcgridpos:{bcgridpos}')
 								break
-							bc.pos = bnewpos
-							bc.gridpos = bcgridpos
-							bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
-							bc.gamemap.grid = bcg
-							bc.send_map(newgrid=bcg, randpos=False, refresh=True)
-							self.gamemap.grid = bcg
+							#bc.pos = bnewpos
+							#bc.gridpos = bcgridpos
+							#bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
+							#bc.gamemap.grid = bcg
+							bc.send_map(newgrid=self.gamemap.grid, randpos=False, refresh=True)
+							#self.gamemap.grid = bcg#
 							for np in self.netplayers:
 								if bc.netplayers[np]["gridpos"][0] > 100 or bc.netplayers[np]['gridpos'][1] > 100:
 									logger.warning(f'gridpos out of range bc={bc} np={np}')
 								bc.netplayers[np] = self.netplayers[np]
 							for np in bc.netplayers:
 								self.netplayers[np] = bc.netplayers[np]
-					newbc.start()
-					logger.debug(f'[ {self} ] new player:{bc} cl:{len(self.bombclients)}')
+					logger.debug(f'[ {self} ] new player:{newbc} cl:{len(self.bombclients)}')
 				elif smsgtype == 'playerpos':
 					for bc in self.bombclients:
 						clid = data.get('client_id', None)
