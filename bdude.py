@@ -154,7 +154,7 @@ class Game(Thread):
 			client_id = posdata.get('client_id')
 			newpos = posdata.get('newpos')
 			newgridpos = posdata.get('newgridpos')
-			if newgridpos[0] > 1000 or newgridpos[1] > 1000 or self.playerone.gridpos[0]>1000 or self.playerone.client.gridpos[1]>1000:
+			if newgridpos[0] > 100 or newgridpos[1] > 100 or self.playerone.gridpos[0]>1000 or self.playerone.client.gridpos[1]>1000:
 				logger.error(f'{self} gridpos out of range {newgridpos} pgridpos={self.playerone.gridpos} cgridpos={self.playerone.client.gridpos}')
 
 			if client_id == self.playerone.client_id:
@@ -208,7 +208,7 @@ class Game(Thread):
 				self.playerone.client.gamemap.grid[x][y] = nb.block_type
 				self.blocks.add(nb)
 			#logger.debug(f'{msgtype} {nb}')
-			
+
 
 		elif msgtype == 'netgridupdate':
 			gridpos = gamemsg.get('blkgridpos')
@@ -243,7 +243,7 @@ class Game(Thread):
 			gamemapgrid = gamemsg.get('gamemapgrid')
 			newpos = gamemsg.get('newpos')
 			newgridpos = gamemsg.get('newgridpos')
-			if newgridpos[0] > 1000 or newgridpos[1] > 1000:
+			if newgridpos[0] > 100 or newgridpos[1] > 100:
 				logger.error(f'{self} gridpos out of range {newgridpos} pgridpos={self.playerone.gridpos} cgridpos={self.playerone.client.gridpos}')
 
 			self.updategrid(gamemapgrid)
@@ -372,11 +372,12 @@ class Game(Thread):
 			else:
 				npitem = self.playerone.client.netplayers[npid]
 				np = f'{npitem["gridpos"]}'
-				pos = self.playerone.client.netplayers[npid].get('pos')
-				gpos = self.playerone.client.netplayers[npid].get('gridpos')
-				if gpos[0] > 1000 or gpos[1] > 1000:
-					logger.error(f'{self} gridpos out of range np={npitem} g={gpos} p={pos}')				
-				elif self.playerone.client_id != npid:
+				pos = self.playerone.client.netplayers[npid].get('pos', None)
+				gpos = self.playerone.client.netplayers[npid].get('gridpos', None)
+				if gpos[0] > 100 or gpos[1] > 100:
+					pass
+					#logger.error(f'{self} gridpos out of range np={np} g={gpos} p={pos} netplayer={npitem} ')
+				if self.playerone.client_id != npid:
 					#pos -= (0,5)
 					#pos[1] -=10
 					self.font.render_to(self.screen, pos, f'{np}', (255, 255, 255))
@@ -385,9 +386,10 @@ class Game(Thread):
 					cpos[0] = gpos[0] * BLOCK
 					cpos[1] = gpos[1] * BLOCK
 					pygame.draw.circle(self.screen, color=(255,0,0), center=gpos, radius=10)
+					pygame.draw.circle(self.screen, color=(1,0,255), center=pos, radius=10)
 					#pos = self.playerone.client.netplayers[npid].get('pos')
 					#self.font.render_to(self.screen, pos, f'{np}', (255, 55, 55))
-				elif npid == self.playerone.client_id:
+				if npid == self.playerone.client_id:
 					#pos += (5,20)
 					self.font.render_to(self.screen, pos , f'{np}', (123, 123, 255))
 
