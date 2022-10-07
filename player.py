@@ -13,7 +13,7 @@ from network import send_data, receive_data
 
 class Player(BasicThing, Thread):
 	def __init__(self, mainqueue=None):
-		Thread.__init__(self, daemon=True)
+		Thread.__init__(self, daemon=False)
 		super().__init__((0,0), (0,0))
 		self.vel = Vector2(0, 0)
 		self.pos = (0,0)
@@ -174,7 +174,7 @@ class Player(BasicThing, Thread):
 
 class BombClient(Thread):
 	def __init__(self, client_id=None, serveraddress=None, serverport=None, mainqueue=None, pos=None):
-		Thread.__init__(self, daemon=True)
+		Thread.__init__(self, daemon=False)
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.client_id = client_id
 		self.serveraddress = serveraddress

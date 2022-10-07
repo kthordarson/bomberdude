@@ -1,6 +1,6 @@
 #!/bin/python3.9
 # bomberdude
-# 07102022 todo fix mapsync, limit one bomb per grid on map
+# 07102022 todo fix mapsync, limit one bomb per grid on map, win/mac not worky, remove killed netplayers when server sends killnpevent
 import socket
 import time
 import random
@@ -432,7 +432,7 @@ class Game(Thread):
 	def handle_menu(self, selection):
 		# mainmenu
 		if selection == "Start":
-			# self.playerone.start()
+			# self.playerone.run()
 			#self.gui.show_mainmenu ^= True
 			if self.playerone.client.connect_to_server():
 				self.playerone.connected = True
@@ -473,7 +473,7 @@ class Game(Thread):
 
 		if selection == "Start server":
 			pass
-			#self.gameserver.start()
+			#self.gameserver.run()
 			#self.is_server = True
 
 	def handle_input(self):

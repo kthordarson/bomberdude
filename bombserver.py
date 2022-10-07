@@ -320,12 +320,12 @@ class BombClientHandler(Thread):
 	def run(self):
 		self.get_client_id()
 		logger.debug(f'[ {self} ]  run ')
-		#st = Thread(target=self.sender, daemon=True)
-		#st.start()
-		#srvcomm = Thread(target=self.server_comms, daemon=True)
-		#srvcomm.start()
+		#st = Thread(target=self.sender, daemon=False)
+		#st.run()
+		#srvcomm = Thread(target=self.server_comms, daemon=False)
+		#srvcomm.run()
 		self.sender.start()
-		#self.servercomm.start()
+		#self.servercomm.run()
 		#self.set_pos(self.pos)
 		while True:
 			self.netplayers = self.servercomm.netplayers
@@ -487,7 +487,7 @@ class BombClientHandler(Thread):
 
 class BombServer(Thread):
 	def __init__(self, gui):
-		Thread.__init__(self, daemon=True)
+		Thread.__init__(self, daemon=False)
 		self.bombclients  = []
 		self.gamemap = Gamemap()
 		self.kill = False
@@ -512,7 +512,7 @@ class BombServer(Thread):
 
 	def run(self):
 		logger.debug(f'[ {self} ] run')
-		#self.servercomm.start()
+		#self.servercomm.run()
 		self.gui.start()
 		self.gamemap.generate_custom(gridsize=SQUARESIZE)
 		self.servercomm.start()
