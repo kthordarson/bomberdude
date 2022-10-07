@@ -17,7 +17,6 @@ from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread
 import threading
-from queue import Queue
 from map import Gamemap
 
 

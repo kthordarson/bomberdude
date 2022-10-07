@@ -97,7 +97,6 @@ class BasicThing(Sprite):
 	rm = ResourceHandler()
 	def __init__(self, pos, gridpos, image=None):
 		super().__init__()
-		# self.thingq = OldQueue() # multiprocessing.Manager().Queue()
 		self.gridpos = gridpos
 		self.pos = pos
 		self.vel = Vector2()

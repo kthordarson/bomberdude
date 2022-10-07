@@ -1,5 +1,7 @@
 from types import NoneType
 from pygame.math import Vector2
+from pygame.event import Event
+from pygame import USEREVENT
 import random
 import pygame
 import struct
@@ -7,14 +9,12 @@ import socket
 import sys,os
 from loguru import logger
 from threading import Thread
-
+from queue import Queue
 # from things import Block
 from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE
 from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data, dataid
-
-from queue import Queue
 
 class ServerGUI(Thread):
 	def __init__(self):
@@ -134,10 +134,9 @@ class Sender(Thread):
 				# self.queue.task_done()
 
 class Servercomm(Thread):
-	def __init__(self, serverqueue=None):
+	def __init__(self):
 		Thread.__init__(self)
 		self.kill = False
-		self.serverqueue = serverqueue
 		self.queue = Queue()
 		#np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':0}
 		self.netplayers = {}
@@ -165,22 +164,22 @@ class Servercomm(Thread):
 							self.netplayers[np] = netplayers[np]
 					elif payload.get('msgtype') == 'netbomb':
 						#logger.debug(f'[ {self} ] bomb payload:{payload}')
-						self.serverqueue.put(payload)
+						pygame.event.post(USEREVENT, payload=payload)
 					elif payload.get('msgtype') == 'netgrid':
 						#logger.debug(f'[ {self} ] bomb payload:{payload}')
-						self.serverqueue.put(payload)
+						pygame.event.post(USEREVENT, payload=payload)
 					elif payload.get('msgtype') == 'clientquit':
 						logger.debug(f'[ {self} ] quit payload:{payload}')
-						self.serverqueue.put(payload)
+						pygame.event.post(USEREVENT, payload=payload)
 					elif payload.get('msgtype') == 'reqpos':
 						logger.debug(f'[ {self} ] reqpos payload:{payload}')
-						self.serverqueue.put(payload)
+						pygame.event.post(USEREVENT, payload=payload)
 					elif payload.get('msgtype') == 'resetmap':
 						logger.debug(f'[ {self} ] resetmaps payload:{payload}')
-						self.serverqueue.put(payload)
+						pygame.event.post(USEREVENT, payload=payload)
 					elif payload.get('msgtype') == 'netgridupdate':
 						# logger.debug(f'[ {self} ] netgridupdate payload:{len(payload)}')
-						self.serverqueue.put(payload)
+						pygame.event.post(USEREVENT, payload=payload)
 					self.queue.task_done()
 
 				#logger.debug(f'[ {self} ] payload:{payload}')
@@ -497,18 +496,11 @@ class BombServer(Thread):
 		self.netplayers = {}
 		self.netplayers[np['client_id']] = np
 		self.gui = gui # ServerGUI()
-		self.servercomm = Servercomm(serverqueue=self.queue)
+		self.servercomm = Servercomm()
 		self.serverclock = pygame.time.Clock()
 
 	def __str__(self):
 		return f'[S] k:{self.kill} bc:{len(self.bombclients)} np:{len(self.netplayers)}'
-
-	def serverevents(self):
-		events = pygame.event.get()
-		for event in events:
-			if event.type == pygame.KEYDOWN:
-				if event.key == pygame.K_q:
-					self.kill = True
 
 	def run(self):
 		logger.debug(f'[ {self} ] run')
@@ -518,14 +510,14 @@ class BombServer(Thread):
 		self.servercomm.start()
 		fps = -1
 		while not self.kill:
-			events = pygame.event.get()
-			for event in events:
-				if event.type == pygame.KEYDOWN:
-					if event.key == pygame.K_q:
-						self.kill = True
-						self.conn.close()
-						break
-			self.serverclock.tick(30)
+			# events = [] # pygame.event.get()
+			# for event in events:
+			# 	if event.type == pygame.KEYDOWN:
+			# 		if event.key == pygame.K_q:
+			# 			self.kill = True
+			# 			self.conn.close()
+			# 			break
+			# self.serverclock.tick(30)
 
 			# refresh gui data
 			self.gui.bombclients = self.bombclients
@@ -544,18 +536,9 @@ class BombServer(Thread):
 				pass
 			for bc in self.bombclients:
 				bc.netplayers = self.netplayers
-				if bc.gridpos[0] > 100 or bc.gridpos[1] > 100:
-					logger.error(f'gridpos out of range for bc={bc}')
 				for bcnp in bc.netplayers:
-					if bc.netplayers[bcnp]['gridpos'][0] > 100 or bc.netplayers[bcnp]['gridpos'][0] > 100:
-						logger.error(f'gridpos out of range for bc={bc} bcnp={bcnp}')
 					self.netplayers[bcnp] = bc.netplayers[bcnp]
 				for np in self.netplayers:
-					try:
-						if bc.netplayers[np]['gridpos'][0] > 100 or bc.netplayers[np]['gridpos'][0] > 100:
-							logger.error(f'gridpos out of range for bc={bc} np={np}')
-					except KeyError as e: 
-						logger.error(f'{self} KeyError:{e} bc={bc} np={np}')
 					bc.netplayers[np] = self.netplayers[np]
 				payload = {'msgtype':'netplayers', 'netplayers':self.netplayers}
 				bc.servercomm.queue.put(payload)
@@ -575,131 +558,138 @@ class BombServer(Thread):
 				logger.debug(f'[ {self} ] killed')
 				self.conn.close()
 				os._exit(0)
-			if not self.queue.empty():
-				data = self.queue.get()
-				# logger.debug(f'[ {self} ] getq data:{data}')
-				smsgtype = data.get('msgtype')
-				if smsgtype == 'newclient':
-					# logger.debug(f'[ {self} ] q: {data}')
-					conn = data.get('conn')
-					addr = data.get('addr')
-					# clid = data.get('clid')
-					#srvcomm = Servercomm(serverqueue=self.queue)
-					basegrid, npos, ngpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=True)
-					self.gamemap.grid = basegrid
-					newbc = BombClientHandler(conn=conn, addr=addr, gamemap=self.gamemap, servercomm=self.servercomm, npos=npos, ngpos=ngpos)
-					newbc.gamemap.grid = self.gamemap.grid
-					newbc.start()
-					self.bombclients.append(newbc)
-					for bc in self.bombclients:
-						if bc.gridpos[0] > 100 or bc.gridpos[1] > 100:
-							logger.error(f'{bc} gridpos out of range')
-						elif bc.client_id != '0':
-							self.gamemap.grid, bnewpos, bcgridpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=False, pos=bc.pos)
-							if bcgridpos[0] > 100 or bcgridpos[1] > 100:
-								logger.error(f'bcgridpos:{bcgridpos}')
-								break
-							#bc.pos = bnewpos
-							#bc.gridpos = bcgridpos
-							#bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
-							#bc.gamemap.grid = bcg
-							bc.send_map(newgrid=self.gamemap.grid, randpos=False, refresh=True)
-							#self.gamemap.grid = bcg#
-							for np in self.netplayers:
-								if bc.netplayers[np]["gridpos"][0] > 100 or bc.netplayers[np]['gridpos'][1] > 100:
-									logger.warning(f'gridpos out of range bc={bc} np={np}')
-								bc.netplayers[np] = self.netplayers[np]
-							for np in bc.netplayers:
-								self.netplayers[np] = bc.netplayers[np]
-					logger.debug(f'[ {self} ] new player:{newbc} cl:{len(self.bombclients)}')
-				elif smsgtype == 'playerpos':
-					for bc in self.bombclients:
-						clid = data.get('client_id', None)
-						#if clid != '0':
-						pos = data.get('pos', None)
-						gridpos = data.get('gridpos', None)
-						if gridpos[0] > 100 or gridpos[1] > 100 or bc.gridpos[0] > 100 or bc.gridpos[1] > 100:
-							logger.error(f'{self} gridpos out of range {gridpos}')
-						centerpos = data.get('centerpos')
-						ckill = data.get('kill')
-						#if clid != bc.client_id:
-						np = {'pos':pos, 'centerpos':centerpos, 'kill':ckill, 'gridpos':gridpos}
-						bc.netplayers[clid] = np
-						self.netplayers[clid] = np
-						#elif clid == bc.client_id:
-						#	logger.warning(f'[ {self} ] clid={clid} bc={bc} skipping')
-						if ckill:
-							# client kill flag set, kill bombclient and remove from list
-							bc.kill = True
-							logger.warning(f'[ {self} ] {bc} kill')
-							bc.netplayers[clid]['kill'] = 1
-							self.netplayers[clid]['kill'] = 1
-				elif smsgtype == 'netplayers':
-					# unused
-					logger.debug(f'netplayersmsg data={data}')
-				elif smsgtype == 'netbomb':
-					# logger.debug(f'[ {self} ] netbomb from {data.get("client_id")} pos={data.get("bombpos")}')
-					for bc in self.bombclients:
-						# inform all clients about bomb
-						bc.bombevent(data)
-				elif smsgtype == 'netgrid':
-					self.gamemap.grid = data.get('gamemapgrid')
-					# logger.debug(f'[ {self} ] netgrid {len(data)}')
-					for bc in self.bombclients:
-						bc.gridupdate(data)
-				elif smsgtype == 'clientquit':
-					# inform all clients about client quit
-					logger.debug(f'[ {self} ] quit {data}')
-					quitter = data.get('client_id')
-					for bc in self.bombclients:
-						bc.quitplayer(quitter)
-				elif smsgtype == 'reqpos':
-					clid = data.get('client_id')
-					logger.debug(f'[ {self} ] reqpos from {clid} {data}')
-					for bc in self.bombclients:
-						if bc.client_id == clid:
-							bc.posupdate(data)
-				elif smsgtype == 'netgridupdate':
-					blkpos = data.get('blkgridpos')
-					blktype = data.get('blktype')
-					bclid = data.get('client_id')
-					self.gamemap.grid[blkpos[0]][blkpos[1]] = blktype
-					# logger.info(f'netgridupdate data={len(data)} blkpos={blkpos} blktype={blktype} grid={self.gamemap.grid[blkpos[0]][blkpos[1]]}')
-					for bc in self.bombclients:
-						bc.gamemap.grid = self.gamemap.grid
-						bc.send_gridupdate(blkpos=blkpos, blktype=blktype, bclid=bclid)
-
-				elif smsgtype == 'resetmap' or self.gamemap.is_empty():
-					# todo fix player pos on new grid
-					if self.gamemap.is_empty():
-						logger.info(f'self.gamemap.is_empty() = {self.gamemap.is_empty()}')
-					else:
+			for event in pygame.event.get():
+				if event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_q:
+						self.kill = True
+						self.conn.close()
+						break
+				elif event.type == pygame.USEREVENT:
+					data = event.payload
+					#data = self.queue.get()
+					# logger.debug(f'[ {self} ] getq data:{data}')
+					smsgtype = data.get('msgtype')
+					if smsgtype == 'newclient':
+						# logger.debug(f'[ {self} ] q: {data}')
+						conn = data.get('conn')
+						addr = data.get('addr')
+						# clid = data.get('clid')
+						#srvcomm = Servercomm(serverqueue=self.queue)
+						basegrid, npos, ngpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=True)
+						self.gamemap.grid = basegrid
+						newbc = BombClientHandler(conn=conn, addr=addr, gamemap=self.gamemap, servercomm=self.servercomm, npos=npos, ngpos=ngpos)
+						newbc.gamemap.grid = self.gamemap.grid
+						newbc.start()
+						self.bombclients.append(newbc)
+						for bc in self.bombclients:
+							if bc.gridpos[0] > 100 or bc.gridpos[1] > 100:
+								logger.error(f'{bc} gridpos out of range')
+							elif bc.client_id != '0':
+								self.gamemap.grid, bnewpos, bcgridpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=False, pos=bc.pos)
+								if bcgridpos[0] > 100 or bcgridpos[1] > 100:
+									logger.error(f'bcgridpos:{bcgridpos}')
+									break
+								#bc.pos = bnewpos
+								#bc.gridpos = bcgridpos
+								#bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
+								#bc.gamemap.grid = bcg
+								bc.send_map(newgrid=self.gamemap.grid, randpos=False, refresh=True)
+								#self.gamemap.grid = bcg#
+								for np in self.netplayers:
+									if bc.netplayers[np]["gridpos"][0] > 100 or bc.netplayers[np]['gridpos'][1] > 100:
+										logger.warning(f'gridpos out of range bc={bc} np={np}')
+									bc.netplayers[np] = self.netplayers[np]
+								for np in bc.netplayers:
+									self.netplayers[np] = bc.netplayers[np]
+						logger.debug(f'[ {self} ] new player:{newbc} cl:{len(self.bombclients)}')
+					elif smsgtype == 'playerpos':
+						for bc in self.bombclients:
+							clid = data.get('client_id', None)
+							#if clid != '0':
+							pos = data.get('pos', None)
+							gridpos = data.get('gridpos', None)
+							if gridpos[0] > 100 or gridpos[1] > 100 or bc.gridpos[0] > 100 or bc.gridpos[1] > 100:
+								logger.error(f'{self} gridpos out of range {gridpos}')
+							centerpos = data.get('centerpos')
+							ckill = data.get('kill')
+							#if clid != bc.client_id:
+							np = {'pos':pos, 'centerpos':centerpos, 'kill':ckill, 'gridpos':gridpos}
+							bc.netplayers[clid] = np
+							self.netplayers[clid] = np
+							#elif clid == bc.client_id:
+							#	logger.warning(f'[ {self} ] clid={clid} bc={bc} skipping')
+							if ckill:
+								# client kill flag set, kill bombclient and remove from list
+								bc.kill = True
+								logger.warning(f'[ {self} ] {bc} kill')
+								bc.netplayers[clid]['kill'] = 1
+								self.netplayers[clid]['kill'] = 1
+					elif smsgtype == 'netplayers':
+						# unused
+						logger.debug(f'netplayersmsg data={data}')
+					elif smsgtype == 'netbomb':
+						# logger.debug(f'[ {self} ] netbomb from {data.get("client_id")} pos={data.get("bombpos")}')
+						for bc in self.bombclients:
+							# inform all clients about bomb
+							bc.bombevent(data)
+					elif smsgtype == 'netgrid':
+						self.gamemap.grid = data.get('gamemapgrid')
+						# logger.debug(f'[ {self} ] netgrid {len(data)}')
+						for bc in self.bombclients:
+							bc.gridupdate(data)
+					elif smsgtype == 'clientquit':
+						# inform all clients about client quit
+						logger.debug(f'[ {self} ] quit {data}')
+						quitter = data.get('client_id')
+						for bc in self.bombclients:
+							bc.quitplayer(quitter)
+					elif smsgtype == 'reqpos':
 						clid = data.get('client_id')
-						logger.info(f'[ {self} ] resetmap from {clid} {data}')
-					basegrid = self.gamemap.generate_custom(gridsize=SQUARESIZE)
-					#self.gamemap.grid = basegrid
-					for bc in self.bombclients:
-						bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)
-						bc.pos = bnewpos
-						bc.gridpos = newgridpos
-						bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
-						bc.gamemap.grid = bcg
-						bc.send_map(newgrid=bcg, randpos=True, refresh=False)
-						self.gamemap.grid = bcg
+						logger.debug(f'[ {self} ] reqpos from {clid} {data}')
+						for bc in self.bombclients:
+							if bc.client_id == clid:
+								bc.posupdate(data)
+					elif smsgtype == 'netgridupdate':
+						blkpos = data.get('blkgridpos')
+						blktype = data.get('blktype')
+						bclid = data.get('client_id')
+						self.gamemap.grid[blkpos[0]][blkpos[1]] = blktype
+						# logger.info(f'netgridupdate data={len(data)} blkpos={blkpos} blktype={blktype} grid={self.gamemap.grid[blkpos[0]][blkpos[1]]}')
+						for bc in self.bombclients:
+							bc.gamemap.grid = self.gamemap.grid
+							bc.send_gridupdate(blkpos=blkpos, blktype=blktype, bclid=bclid)
 
-				else:
-					logger.warning(f'[ {self} ] data={data}')
-				self.queue.task_done()
-			# if self.gamemap.is_empty():
-			# 	# all blocks cleared from map, make and send new grid to all clients
-			# 	logger.info(f'[ {self} ] map is empty')
-			# 	newgrid = self.gamemap.generate_custom(squaresize=15, players=self.netplayers)
-			# 	self.gamemap.grid = newgrid
-			# 	for bc in self.bombclients:
-			# 		bcg = self.gamemap.placeplayer(self.gamemap.grid, bc.pos)
-			# 		bc.gamemap.grid = bcg
-			# 		bc.send_map(newgrid=bcg)
-			# 		self.gamemap.grid = bcg
+					elif smsgtype == 'resetmap' or self.gamemap.is_empty():
+						# todo fix player pos on new grid
+						if self.gamemap.is_empty():
+							logger.info(f'self.gamemap.is_empty() = {self.gamemap.is_empty()}')
+						else:
+							clid = data.get('client_id')
+							logger.info(f'[ {self} ] resetmap from {clid} {data}')
+						basegrid = self.gamemap.generate_custom(gridsize=SQUARESIZE)
+						#self.gamemap.grid = basegrid
+						for bc in self.bombclients:
+							bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)
+							bc.pos = bnewpos
+							bc.gridpos = newgridpos
+							bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
+							bc.gamemap.grid = bcg
+							bc.send_map(newgrid=bcg, randpos=True, refresh=False)
+							self.gamemap.grid = bcg
+
+					else:
+						logger.warning(f'[ {self} ] data={data}')
+					# self.queue.task_done()
+				# if self.gamemap.is_empty():
+				# 	# all blocks cleared from map, make and send new grid to all clients
+				# 	logger.info(f'[ {self} ] map is empty')
+				# 	newgrid = self.gamemap.generate_custom(squaresize=15, players=self.netplayers)
+				# 	self.gamemap.grid = newgrid
+				# 	for bc in self.bombclients:
+				# 		bcg = self.gamemap.placeplayer(self.gamemap.grid, bc.pos)
+				# 		bc.gamemap.grid = bcg
+				# 		bc.send_map(newgrid=bcg)
+				# 		self.gamemap.grid = bcg
 
 
 def main():
@@ -709,7 +699,6 @@ def main():
 	key_message = 'bomberdude'
 	logger.debug(f'[bombserver] started')
 	clients = 0
-	# serverq = Queue()
 	gui = ServerGUI()
 	server = BombServer(gui)
 	server.conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -724,10 +713,15 @@ def main():
 				server.conn.close()
 				break
 			conn, addr = server.conn.accept()
-			server.queue.put({'msgtype':'newclient', 'conn':conn, 'addr':addr})
+			ncmsg = Event(USEREVENT, payload=({'msgtype':'newclient', 'conn':conn, 'addr':addr}))
+			logger.info(f'ncmsg={ncmsg}')
+			try:
+				pygame.event.post(USEREVENT, ncmsg)
+			except TypeError as e:
+				logger.error(f'[bombserver] {server} TypeError {e} ncmsg={ncmsg}')
 		except KeyboardInterrupt as e:
 			server.conn.close()
-			logger.warning(f'KeyboardInterrupt:{e} serverq:{server.queue} server:{server}')
+			logger.warning(f'KeyboardInterrupt:{e} server:{server}')
 			for bc in server.bombclients:
 				logger.warning(f'kill bc:{bc}')
 				bc.kill = True
