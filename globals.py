@@ -121,8 +121,10 @@ class BasicThing(Sprite):
 		return self.collisions
 
 class Block(BasicThing):
-	def __init__(self, pos, gridpos, block_type):		
+	def __init__(self, pos, gridpos, block_type, client_id):
 		super().__init__(pos,gridpos, None)
+		self.blkid = gen_randid()
+		self.client_id = client_id
 		self.block_type = block_type
 		self.size = BLOCKTYPES.get(self.block_type)["size"]
 		self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
@@ -130,6 +132,7 @@ class Block(BasicThing):
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		self.explode = False
 		self.poweruptime = 10
+		self.timer = 0
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos[0]
@@ -140,17 +143,29 @@ class Block(BasicThing):
 	def __str__(self):
 		return f'[block] pos={self.pos} gp={self.gridpos} type={self.block_type}'
 
+	# def update(self):
+	# 	if not self.block_type == 20:
+	# 		return
+	# 	else:
+	# 		if pygame.time.get_ticks() - self.start_time >= self.timer:
+	# 			logger.info(f'{self} powerup timeout')
+	# 			self.kill()
+
 	def hit(self, flame):
 		# self.bitmap = BLOCKTYPES.get(11)["bitmap"]
 		# self.permanent = True
 		# self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		particles = Group()
-		newblocks = Group()
+		#newblocks = Group()
 		if self.powerup:
-			# newblock = Powerup(pos=self.rect.center, type=self.powertype)
-			newblocks.add(Powerup(self.rect.center, self.gridpos, block_type=20))
+			newblktype = 20
+			blkpos = self.rect.topleft
 		else:
-			newblocks.add(Block(self.rect.topleft, self.gridpos, block_type=11))
+			newblktype = 11
+			blkpos = self.rect.topleft
+		newblock = Block(blkpos, self.gridpos, block_type=newblktype, client_id=flame.client_id)
+		if newblock.block_type == 20:
+			newblock.timer = 4000
 		for k in range(1, MAXPARTICLES+random.randint(1, 10)):
 			if flame.vel.x < 0:  # flame come from left
 				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
@@ -159,8 +174,8 @@ class Block(BasicThing):
 			elif flame.vel.y > 0:  # down
 				particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
 			elif flame.vel.y < 0:  # up
-				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]			
-		return particles, newblocks
+				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
+		return particles, newblock
 
 	def gen_particles(self, flame):
 		# called when block is hit by a flame
@@ -199,7 +214,7 @@ class Powerup(BasicThing):
 		self.rect.center = pos
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
-		self.timer = 2000
+		self.timer = 6000
 		#self.clock = pygame.time.Clock()
 		self.start_time = pygame.time.get_ticks()
 

@@ -39,7 +39,7 @@ class Player(BasicThing, Thread):
 		self.gotpos = False
 
 	def __str__(self):
-		return f'player {self.client_id} ready={self.ready} pos={self.pos} gp={self.gridpos} k={self.kill} conn:{self.connected} gotmap:{self.gotmap} gotpos:{self.gotpos}'
+		return f'player {self.client_id} pos={self.pos} {self.gridpos}'
 
 	def movetogrid(self,x,y):
 		self.gridpos = x, y
@@ -166,15 +166,18 @@ class BombClient(Thread):
 		self.bombs_left = 3
 		self.cl_score = 0
 		self.cl_hearts = 3
+		self.sendcnt = 0
+		self.recvcnt = 0
 
 	def __str__(self):
-		return f'bombclient id={self.client_id} pos={self.pos} gp={self.gridpos} k:{self.kill} conn:{self.connected} gotmap:{self.gotmap} gotpos:{self.gotpos} bombs:{self.bombs_left}'
+		return f'bc id={self.client_id} pos={self.pos} gp={self.gridpos} bombs:{self.bombs_left} sendrecv={self.sendcnt}/{self.recvcnt}'
 
 	def req_mapreset(self):
 		# request server map reset
 		if self.connected and not self.kill:
 			reqmsg = {'data_id': dataid['resetmap'], 'client_id': self.client_id, 'pos': self.pos}
 			send_data(conn=self.socket, payload=reqmsg)
+			self.sendcnt += 1
 
 	def send_bomb(self, pos=None):
 		# send bomb to server
@@ -182,6 +185,7 @@ class BombClient(Thread):
 			if self.bombs_left > 0:
 				payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos, 'bombs_left':self.bombs_left}
 				send_data(conn=self.socket, payload=payload)
+				self.sendcnt += 1
 			# logger.debug(f'[ {self} ] send_bomb pos={payload.get("bombpos")}')
 
 	def send_reqpos(self):
@@ -189,6 +193,7 @@ class BombClient(Thread):
 		if self.connected and not self.kill:
 			reqmsg = {'data_id': dataid['reqpos'], 'client_id': self.client_id, 'payload': 'reqpos', 'pos':self.pos, 'gridpos':self.gridpos}
 			send_data(conn=self.socket, payload=reqmsg)
+			self.sendcnt += 1
 
 	def send_mapreq(self):
 		# request map from server
@@ -196,6 +201,7 @@ class BombClient(Thread):
 			regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap'], 'pos':self.pos, 'gridpos':self.gridpos}
 			send_data(conn=self.socket,  payload=regmsg)
 			logger.debug(f'[ {self} ] send_mapreq')
+			self.sendcnt += 1
 			# self.send_reqpos()
 
 	def send_pos(self, pos=None, center=None, gridpos=None):
@@ -207,6 +213,7 @@ class BombClient(Thread):
 			self.gridpos = gridpos
 			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center, 'kill':int(self.kill), 'gridpos':self.gridpos}
 			send_data(conn=self.socket, payload=posmsg)
+			self.sendcnt += 1
 			# logger.debug(f'send_pos {pos} {gridpos}')
 
 	def send_clientid(self):
@@ -215,6 +222,7 @@ class BombClient(Thread):
 			cmsg = {'data_id': dataid['info'], 'client_id': self.client_id, 'pos': (self.pos[0], self.pos[1]), 'centerpos':self.centerpos, 'kill':int(self.kill), 'gridpos':self.gridpos}
 			send_data(conn=self.socket, payload=cmsg)
 			logger.info(f'[ {self} ] sending client_id ')
+			self.sendcnt += 1
 
 	def send_gridupdate(self, gridpos=None, blktype=None, grid_data=None):
 		# inform server about grid update
@@ -227,6 +235,7 @@ class BombClient(Thread):
 			self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
 			gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'blkgridpos': gridpos, 'blktype': blktype, 'pos': self.pos, 'griddata':grid_data}
 			send_data(conn=self.socket, payload=gridmsg)
+			self.sendcnt += 1
 			# logger.debug(f'[ {self} ] send_gridupdate {len(gridmsg)}')
 
 	def disconnect(self):
@@ -266,6 +275,7 @@ class BombClient(Thread):
 				# logger.debug(f'[ {self} ]  payload:{payload}')
 				if payloads:
 					for payload in payloads:
+						self.recvcnt += 1
 						msgid = payload.get('data_id')
 						#logger.debug(f'[ {self} ] msgid:{msgid} payload:{payload}')
 						# logger.debug(f'[ {self} ] payload:{payload}')
@@ -286,12 +296,13 @@ class BombClient(Thread):
 							# received gridupdate from server
 							gridpos = payload.get('blkgridpos')
 							blktype = payload.get('blktype')
+							bclid = payload.get('bclid')
 							if not blktype:
-								logger.warning(f'missing blktype gp={gridpos} b={blktype} payload={payload}')
+								logger.warning(f'missing blktype gp={gridpos} b={blktype} payload={payload} bclid={bclid}')
 								blktype = 11
 							else:
-								logger.debug(f'netgridupdate g={gridpos} b={blktype}')
-							mapmsg = {'msgtype':'netgridupdate', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype}
+								logger.debug(f'netgridupdate g={gridpos} b={blktype} bclid={bclid}')
+							mapmsg = {'msgtype':'netgridupdate', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid}
 							# send grid update to mainqueue
 							self.mainqueue.put(mapmsg)
 							# update local grid

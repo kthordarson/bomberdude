@@ -242,9 +242,9 @@ class BombClientHandler(Thread):
 			self.sender.kill = True
 			self.conn.close()
 
-	def send_gridupdate(self, blkpos, blktype):
-		payload = {'msgtype': 'netgridupdate', 'client_id':self.client_id, 'blkgridpos':blkpos, 'blktype':blktype}
-		logger.info(f'{self.client_id} sending gridupdate blkpos={blkpos} blktype={blktype}')
+	def send_gridupdate(self, blkpos, blktype, bclid):
+		payload = {'msgtype': 'netgridupdate', 'client_id':self.client_id, 'blkgridpos':blkpos, 'blktype':blktype, 'bclid':bclid}
+		logger.info(f'{self.client_id} bclid={bclid} sending gridupdate blkpos={blkpos} blktype={blktype}')
 		self.sender.queue.put((self.conn, payload))
 
 	def send_map(self, newgrid=None, randpos=False):
@@ -597,11 +597,12 @@ class BombServer(Thread):
 				elif smsgtype == 'netgridupdate':
 					blkpos = data.get('blkgridpos')
 					blktype = data.get('blktype')
+					bclid = data.get('client_id')
 					self.gamemap.grid[blkpos[0]][blkpos[1]] = blktype
 					# logger.info(f'netgridupdate data={len(data)} blkpos={blkpos} blktype={blktype} grid={self.gamemap.grid[blkpos[0]][blkpos[1]]}')
 					for bc in self.bombclients:
 						bc.gamemap.grid = self.gamemap.grid
-						bc.send_gridupdate(blkpos=blkpos, blktype=blktype)
+						bc.send_gridupdate(blkpos=blkpos, blktype=blktype, bclid=bclid)
 
 				elif smsgtype == 'resetmap' or self.gamemap.is_empty():
 					# todo fix player pos on new grid
