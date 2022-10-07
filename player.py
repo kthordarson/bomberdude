@@ -107,8 +107,7 @@ class Player(BasicThing, Thread):
 		if self.client.gotpos and self.client.gotmap:			
 			self.gotmap = self.client.gotmap
 			if not self.gotpos: # self.gridpos[0] == 0 or self.gridpos[1] == 0:
-				logger.info(f'[ {self} ] resetgridpos  client:{self.client} pos = {self.client.pos} {self.client.gridpos}')
-				
+				logger.info(f'resetgridpos  client:{self.client} pos = {self.client.pos} {self.client.gridpos}')				
 				self.pos = self.client.pos
 				self.gridpos = self.client.gridpos
 				self.gotpos = True
@@ -131,19 +130,22 @@ class Player(BasicThing, Thread):
 		self.client.cl_score += 1
 
 	def setpos(self, pos, gridpos):
-		#ngx = int(pos[0]*BLOCK)
-		#ngy = int(pos[1]*BLOCK)
-		#newgridpos = (ngx,ngy)
-		# logger.info(f'{self} setpos {self.pos} to {pos} gp={gridpos} ogp={self.gridpos} ngp={gridpos} client {self.client.pos} {self.client.gridpos}')
-		self.pos = pos
-		self.gridpos = gridpos
-		self.client.pos = self.pos
-		self.client.gridpos = self.gridpos
-		self.gotpos = True
-		self.client.gotpos = True
-		self.ready = True
-		self.client.send_pos(pos=self.pos, center=self.pos, gridpos=self.gridpos)
-		#logger.info(f'{self} setposdone {self.pos}gp={self.gridpos} client {self.client.pos} {self.client.gridpos}')
+		if gridpos[0] > 1000 or gridpos[1] > 1000:
+			logger.error(f'{self} setpos {pos} {gridpos}')
+		else:
+			#ngx = int(pos[0]*BLOCK)
+			#ngy = int(pos[1]*BLOCK)
+			#newgridpos = (ngx,ngy)
+			# logger.info(f'{self} setpos {self.pos} to {pos} gp={gridpos} ogp={self.gridpos} ngp={gridpos} client {self.client.pos} {self.client.gridpos}')
+			self.pos = pos
+			self.gridpos = gridpos
+			self.client.pos = self.pos
+			self.client.gridpos = self.gridpos
+			self.gotpos = True
+			self.client.gotpos = True
+			self.ready = True
+			self.client.send_pos(pos=self.pos, center=self.pos, gridpos=self.gridpos)
+			#logger.info(f'{self} setposdone {self.pos}gp={self.gridpos} client {self.client.pos} {self.client.gridpos}')
 
 class BombClient(Thread):
 	def __init__(self, client_id=None, serveraddress=None, serverport=None, mainqueue=None, pos=None):
@@ -191,6 +193,9 @@ class BombClient(Thread):
 	def send_reqpos(self):
 		# get initial position from server
 		if self.connected and not self.kill:
+			if self.gridpos[0] > 1000 or self.gridpos[1] > 1000:
+				logger.error(f'{self} gridpos out of range {self.gridpos}')
+				return
 			reqmsg = {'data_id': dataid['reqpos'], 'client_id': self.client_id, 'payload': 'reqpos', 'pos':self.pos, 'gridpos':self.gridpos}
 			send_data(conn=self.socket, payload=reqmsg)
 			self.sendcnt += 1
@@ -198,9 +203,24 @@ class BombClient(Thread):
 	def send_mapreq(self):
 		# request map from server
 		if self.connected and not self.kill:
+			if self.gridpos[0] > 1000 or self.gridpos[1] > 1000:
+				logger.error(f'{self} gridpos out of range {self.gridpos}')
+				return
 			regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap'], 'pos':self.pos, 'gridpos':self.gridpos}
 			send_data(conn=self.socket,  payload=regmsg)
 			logger.debug(f'[ {self} ] send_mapreq')
+			self.sendcnt += 1
+			# self.send_reqpos()
+
+	def send_refreshgrid(self):
+		# request map from server
+		if self.connected and not self.kill:
+			if self.gridpos[0] > 1000 or self.gridpos[1] > 1000:
+				logger.error(f'{self} gridpos out of range {self.gridpos}')
+				return
+			regmsg = {'client_id':self.client_id, 'payload':'refreshsgrid', 'data_id':dataid['refreshsgrid'], 'pos':self.pos, 'gridpos':self.gridpos}
+			send_data(conn=self.socket,  payload=regmsg)
+			logger.debug(f'[ {self} ] refreshsgrid')
 			self.sendcnt += 1
 			# self.send_reqpos()
 
@@ -211,6 +231,9 @@ class BombClient(Thread):
 			self.pos = pos
 			self.centerpos = center
 			self.gridpos = gridpos
+			if self.gridpos[0] > 1000 or self.gridpos[1] > 1000:
+				logger.error(f'{self} gridpos out of range {self.gridpos}')
+				return
 			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': (pos[0], pos[1]), 'centerpos':center, 'kill':int(self.kill), 'gridpos':self.gridpos}
 			send_data(conn=self.socket, payload=posmsg)
 			self.sendcnt += 1
@@ -219,6 +242,9 @@ class BombClient(Thread):
 	def send_clientid(self):
 		# send pos to server
 		if self.connected and not self.kill:		
+			if self.gridpos[0] > 1000 or self.gridpos[1] > 1000:
+				logger.error(f'{self} gridpos out of range {self.gridpos}')
+				return
 			cmsg = {'data_id': dataid['info'], 'client_id': self.client_id, 'pos': (self.pos[0], self.pos[1]), 'centerpos':self.centerpos, 'kill':int(self.kill), 'gridpos':self.gridpos}
 			send_data(conn=self.socket, payload=cmsg)
 			logger.info(f'[ {self} ] sending client_id ')
@@ -297,31 +323,37 @@ class BombClient(Thread):
 							gridpos = payload.get('blkgridpos')
 							blktype = payload.get('blktype')
 							bclid = payload.get('bclid')
-							if not blktype:
-								logger.warning(f'missing blktype gp={gridpos} b={blktype} payload={payload} bclid={bclid}')
-								blktype = 11
-							else:
-								logger.debug(f'netgridupdate g={gridpos} b={blktype} bclid={bclid}')
-							mapmsg = {'msgtype':'netgridupdate', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid}
-							# send grid update to mainqueue
-							self.mainqueue.put(mapmsg)
 							# update local grid
 							self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
+							if not blktype:
+								logger.error(f'missing blktype gp={gridpos} b={blktype} payload={payload} bclid={bclid}')
+								blktype = 11
+							elif bclid == self.client_id:
+								pass
+								#logger.warning(f'netgridupdate from self={self.client_id} gp={gridpos} b={blktype} bclid={bclid} payload={payload}')
+							else:
+								logger.debug(f'netgridupdate g={gridpos} b={blktype} bclid={bclid} client_id={self.client_id}')
+								mapmsg = {'msgtype':'netgridupdate', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid}
+								# send grid update to mainqueue
+								self.mainqueue.put(mapmsg)
 						elif payload.get('msgtype') == 'mapfromserver':
 							# complete grid from server
 							gamemapgrid = payload.get('gamemapgrid')
 							newpos = payload.get('newpos')
 							newgridpos = payload.get('newgridpos')
-							mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos, 'newgridpos':newgridpos}
-							self.mainqueue.put(mapmsg)
-							logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
-							self.gamemap.grid = gamemapgrid
-							self.gotmap = True
-							if not self.gotpos:
-								self.gotpos = True
-								self.pos = newpos
-								self.gridpos = newgridpos
-								self.send_pos(pos=self.pos, center=self.centerpos, gridpos=self.gridpos)
+							if newgridpos[0] > 1000 or newgridpos[1] > 1000 or self.gridpos[0] > 1000 or self.gridpos[1] > 1000:
+								logger.error(f'newgridpos={newgridpos} payload={payload}')
+							else:
+								mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos, 'newgridpos':newgridpos}
+								self.mainqueue.put(mapmsg)
+								logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
+								self.gamemap.grid = gamemapgrid
+								self.gotmap = True
+								if not self.gotpos:
+									self.gotpos = True
+									self.pos = newpos
+									self.gridpos = newgridpos								
+									self.send_pos(pos=self.pos, center=self.centerpos, gridpos=self.gridpos)
 							
 
 						elif payload.get('msgtype') == 'netbomb':
@@ -340,19 +372,22 @@ class BombClient(Thread):
 							if not self.gotpos:
 								newpos = payload.get('pos')
 								newgridpos = payload.get('newgridpos')
-								self.pos = newpos
-								self.gotpos = True
-								logger.info(f'[ {self} ] playerpos newpos={newpos} ngp={newgridpos} ogp={self.gridpos} payload={payload}')
-								self.gridpos = newgridpos
-								# elif newgridpos is None:								
-								# 	ngx = int(newpos[0] // BLOCK)
-								# 	ngy = int(newpos[1] // BLOCK)
-								# 	self.gridpos = (ngx, ngy)
-								# 	newgridpos = self.gridpos
-								# 	logger.warning(f'[ {self} ] playerpos newpos={newpos} ngp={newgridpos} payload={payload}')
-								#logger.debug(f'[ {self} ] playerpos newpos={newpos} ngp={newgridpos} payload={payload}')
-								posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos, 'newpos':newpos, 'newgridpos':self.gridpos}
-								self.mainqueue.put(posmsg)
+								if newgridpos[0] > 1000 or newgridpos[1] > 1000 or self.gridpos[0] > 1000 or self.gridpos[1] > 1000:
+									logger.error(f'newgridpos={newgridpos} payload={payload}')
+								else:
+									self.pos = newpos
+									self.gotpos = True
+									logger.info(f'playerpos newpos={newpos} ngp={newgridpos} ogp={self.gridpos} payload={payload}')
+									self.gridpos = newgridpos
+									# elif newgridpos is None:								
+									# 	ngx = int(newpos[0] // BLOCK)
+									# 	ngy = int(newpos[1] // BLOCK)
+									# 	self.gridpos = (ngx, ngy)
+									# 	newgridpos = self.gridpos
+									# 	logger.warning(f'[ {self} ] playerpos newpos={newpos} ngp={newgridpos} payload={payload}')
+									#logger.debug(f'[ {self} ] playerpos newpos={newpos} ngp={newgridpos} payload={payload}')
+									posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos, 'newpos':newpos, 'newgridpos':self.gridpos}
+									self.mainqueue.put(posmsg)
 						else:
 							logger.warning(f'[ {self} ] unknownpayload msgid={msgid} p={payload}')
 			else:

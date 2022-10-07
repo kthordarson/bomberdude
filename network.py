@@ -24,6 +24,7 @@ dataid = {
 	'netpos'	: 18,
 	'posupdate': 19,
 	'resetmap': 20,
+	'refreshsgrid': 21,
 	'auth':101,
 	'error':1000,
 	'errorfromserver':1001,

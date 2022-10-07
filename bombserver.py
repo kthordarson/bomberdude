@@ -67,7 +67,10 @@ class ServerGUI(Thread):
 			for bc in self.bombclients:
 				bctimer = pygame.time.get_ticks()-bc.lastupdate
 				self.gamemapgrid = bc.gamemap.grid
-				bcgridpos = (int(bc.pos[0]//BLOCK), int(bc.pos[1]//BLOCK))
+				bcgridpos = (bc.gridpos[0], bc.gridpos[1])
+				if bcgridpos[0] > 1000 or bcgridpos[1] > 1000:
+					logger.error(f'{bc} gridpos out of range bcgridpos:{bcgridpos}')
+					break
 				np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':int(bc.kill), 'gridpos':bcgridpos}
 				self.netplayers[bc.client_id] = np
 				bc.netplayers[bc.client_id] = np
@@ -211,15 +214,20 @@ class BombClientHandler(Thread):
 
 	def set_pos(self, pos=None, gridpos=None):
 		# called when server generates new map and new player position
-		self.pos = pos
+		
 		#if not newgridpos:
 		#	ngx = int(newpos[0]//BLOCK)
 		#	ngy = int(newpos[1]//BLOCK)
 		#	newgridpos = (ngx,ngy)
-		self.gridpos = gridpos
-		posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos, 'newpos':pos, 'newgridpos':gridpos}
-		self.sender.queue.put((self.conn, posmsg))
-		logger.info(f'[ {self} ] set_pos newpos={pos} ngp={gridpos}')
+		
+		if self.gridpos[0] > 1000 or self.gridpos[1] > 1000:
+			logger.error(f'{self} gridpos out of range {self.gridpos} g={gridpos} p={pos}')
+		else:
+			self.pos = pos
+			self.gridpos = gridpos
+			posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos, 'newpos':pos, 'newgridpos':gridpos}
+			self.sender.queue.put((self.conn, posmsg))
+			logger.info(f'[ {self} ] set_pos newpos={pos} ngp={gridpos}')
 
 	def posupdate(self, data):
 		logger.error(f'[ {self} ] posupdate data={data}  mypos={self.pos}')
@@ -244,14 +252,21 @@ class BombClientHandler(Thread):
 
 	def send_gridupdate(self, blkpos, blktype, bclid):
 		payload = {'msgtype': 'netgridupdate', 'client_id':self.client_id, 'blkgridpos':blkpos, 'blktype':blktype, 'bclid':bclid}
-		logger.info(f'{self.client_id} bclid={bclid} sending gridupdate blkpos={blkpos} blktype={blktype}')
+		if bclid != self.client_id:
+			logger.info(f'{self.client_id} bclid={bclid} sending gridupdate blkpos={blkpos} blktype={blktype}')
+		elif bclid == self.client_id:
+			pass
+			#logger.warning(f'{self.client_id} bclid={bclid} sending gridupdate to self blkpos={blkpos} blktype={blktype}')
 		self.sender.queue.put((self.conn, payload))
+		
 
 	def send_map(self, newgrid=None, randpos=False):
 		# send mapgrid to player
 		# todo fix player pos on grid
 		ng, newpos, newgridpos = self.gamemap.placeplayer(grid=newgrid, pos=self.pos, randpos=randpos)
 		#newpos = (nx,ny)
+		if newgridpos[0] > 1000 or newgridpos[1] > 1000 or self.gridpos[0]>1000 or self.gridpos[1]>1000:
+			logger.error(f'{self} gridpos out of range {newgridpos} self.gridpos={self.gridpos}')
 		oldpos = self.pos
 		oldgridpos = self.gridpos
 		if randpos:
@@ -371,6 +386,14 @@ class BombClientHandler(Thread):
 							self.client_id = s_clid
 							logger.debug(f'r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						self.send_map(newgrid=self.gamemap.grid, randpos=True)
+
+					elif rtype == dataid['refreshsgrid'] or rid == 21:
+						if not self.client_id or self.client_id == '0':
+							s_clid = resp.get('client_id')
+							self.client_id = s_clid
+							logger.debug(f'r:{len(resps)} setclientid {rtype} {rid} {resp}')
+						self.send_map(newgrid=self.gamemap.grid, randpos=False)
+
 
 					elif rtype == dataid.get('gameevent') or rid == 9:
 						if not self.client_id or self.client_id == '0':
@@ -555,6 +578,8 @@ class BombServer(Thread):
 						#if clid != '0':
 						pos = data.get('pos')
 						gridpos = data.get('gridpos')
+						if gridpos[0] > 1000 or gridpos[1] > 1000:
+							logger.error(f'{self} gridpos out of range {gridpos}')
 						centerpos = data.get('centerpos')
 						ckill = data.get('kill')
 						#if clid != bc.client_id:

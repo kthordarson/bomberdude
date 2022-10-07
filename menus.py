@@ -92,9 +92,9 @@ class Menu:
 			self.menufont.render_to(screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
 			pos_y += 25
 
-	def draw_panel(self, blocks=None, particles=None, playerone=None, flames=None, screen=None):
+	def draw_panel(self, blocks=None, particles=None, playerone=None, flames=None, screen=None, grid=None):
 		screen = pygame.display.get_surface()
-		pos = Vector2(self.screenw-100, 10)
+		pos = Vector2(len(grid)*BLOCK+10, 10)
 		self.panelfont.render_to(screen, dest=pos, text=f'{self.screenw} x {self.screenh}', fgcolor=(111,222,111))
 		pos += (0,25)
 		self.panelfont.render_to(screen, dest=pos, text=f'score {playerone.client.cl_score}', fgcolor=(111,222,111))
