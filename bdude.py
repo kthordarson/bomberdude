@@ -7,13 +7,15 @@ import random
 from argparse import ArgumentParser
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
+from pygame.event import Event
+from pygame import USEREVENT
 import pygame
 from loguru import logger
 from globals import Block, Powerup, Bomb
 from constants import DEFAULTGRID,SQUARESIZE, BLOCK, DEBUG, DEBUGFONTCOLOR, BLOCKSIZE, PLAYERSIZE, DEFAULTFONT, NETPLAYERSIZE
 from menus import Menu, DebugDialog
 from player import Player
-from threading import Thread, Event
+from threading import Thread
 import threading
 from queue import Queue
 from map import Gamemap
@@ -35,17 +37,13 @@ class GameGUI:
 
 
 class Game(Thread):
-	def __init__(self, mainqueue=None, conn=None, sendq=None, netqueue=None):
+	def __init__(self):
 		Thread.__init__(self, name='game')
 		pygame.display.set_mode((800,600), 0, 8)
 		self.gameclock = pygame.time.Clock()
 		self.fps = self.gameclock.get_fps()
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
-		self.conn = conn
 		self.name = 'game'
-		self.mainqueue = Queue()
-		self.sendq = sendq
-		self.netqueue = netqueue
 		self.kill = False
 		self.screen = pygame.display.get_surface() #  pygame.display.set_mode(SCREENSIZE, 0, vsync=0)  # pygame.display.get_surface()#  pygame.display.set_mode(SCREENSIZE, 0, 32)
 		self.bg_color = pygame.Color("black")
@@ -57,7 +55,7 @@ class Game(Thread):
 		self.bombs = Group()
 		self.flames = Group()
 		self.lostblocks = Group()
-		self.playerone = Player(mainqueue=self.mainqueue)
+		self.playerone = Player()
 		self.players.add(self.playerone)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.authkey = 'foobar'
@@ -89,7 +87,7 @@ class Game(Thread):
 		return {'bcnt': bcnt, 'pcnt': pcnt, 'wcnt': wcnt, 'ocnt': ocnt}
 
 	def run(self):
-		logger.debug(f'[ {self} ] started mq:{self.mainqueue.qsize()} sq:{self.sendq.qsize()} nq:{self.netqueue.qsize()}')
+		logger.debug(f'[ {self} ] started ')
 		while True:
 			if self.kill:
 				logger.warning(f'[ {self} ] game kill')
@@ -100,7 +98,17 @@ class Game(Thread):
 				break
 			self.draw()
 			self.draw_debug()
-			self.handle_input()
+			events = pygame.event.get()
+			for event in events:
+				if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP or event.type == pygame.TEXTINPUT:
+					self.handle_input(event)
+				elif event.type == pygame.USEREVENT:
+					#print(event)
+					#print(event.payload)
+					self.handle_mainq(gamemsg=event.payload)
+				else:
+					pass
+					#logger.info(f'evs={len(events)} event={event}')
 			#self.blocks.update()
 			self.playerone.update(self.blocks)
 			#self.players.update(blocks=self.blocks, screen=self.screen)
@@ -109,12 +117,6 @@ class Game(Thread):
 			self.update_particles()
 			self.update_powerups(self.playerone)
 			self.update_blocks()
-			gamemsg = None
-			if not self.mainqueue.empty():
-				gamemsg = self.mainqueue.get()
-			if gamemsg:
-				self.handle_mainq(gamemsg)
-				self.mainqueue.task_done()
 
 			# check map grids...
 			needrefresh = False
@@ -139,7 +141,7 @@ class Game(Thread):
 			bombpos = gamemsg.get('bombdata').get('bombpos')
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
 			self.bombs.add(newbomb)
-			logger.debug(f'bomb:{newbomb.pos} bl={self.playerone.client.bombs_left} b:{len(self.bombs)} mq={self.mainqueue.qsize()} sq={self.sendq.qsize()} mt:{msgtype} ')
+			logger.debug(f'bomb:{newbomb.pos} bl={self.playerone.client.bombs_left} b:{len(self.bombs)}  mt:{msgtype} ')
 		elif msgtype == 'newnetpos':
 			posdata = gamemsg.get('posdata')
 			client_id = posdata.get('client_id')
@@ -270,8 +272,8 @@ class Game(Thread):
 					ny = b.gridpos[1] * BLOCK
 					nb = Block((nx,ny), b.gridpos, block_type=11, client_id=b.client_id)
 					b.kill()
-					blockmsg = {'msgtype': 'poweruptimeout', 'blockdata': nb}
-					self.mainqueue.put(blockmsg)
+					blockmsg = Event(USEREVENT, payload={'msgtype': 'poweruptimeout', 'blockdata': nb})
+					pygame.event.post(blockmsg)
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -281,8 +283,8 @@ class Game(Thread):
 				if bomb.bomber_id == self.playerone.client_id:
 					self.playerone.client.bombs_left += 1
 				flames = bomb.exploder()
-				flamemsg = {'msgtype': 'flames', 'flamedata': flames}
-				self.mainqueue.put(flamemsg)
+				flamemsg = Event(USEREVENT, payload={'msgtype': 'flames', 'flamedata': flames})
+				pygame.event.post(flamemsg)
 				bomb.kill()
 
 	def update_flames(self):
@@ -304,18 +306,19 @@ class Game(Thread):
 							self.playerone.add_score()
 						# block hits return particles and a new block
 						particles, newblock = block.hit(flame)
-						particlemsg = {'msgtype': 'particles', 'particledata': particles}
-						self.mainqueue.put(particlemsg)
+						particlemsg = Event(USEREVENT, payload={'msgtype': 'particles', 'particledata': particles})
+						pygame.event.post(particlemsg)
+
 						if newblock.block_type == 20:
-							blockmsg = {'msgtype': 'newpowerup', 'blockdata': newblock}
-							self.mainqueue.put(blockmsg)
+							blockmsg = Event(USEREVENT, payload={'msgtype': 'newpowerup', 'blockdata': newblock})
 						else:
-							blockmsg = {'msgtype': 'newblock', 'blockdata': newblock}
-							self.mainqueue.put(blockmsg)
+							blockmsg = Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': newblock})
+						pygame.event.post(blockmsg)
 						flame.kill()
 						block.kill()
 						x,y = newblock.gridpos
 						self.playerone.client.gamemap.grid[x][y] = newblock.block_type
+
 					elif block.block_type == 20:
 						# flame kills self and powerup
 						x = block.gridpos[0]
@@ -393,7 +396,7 @@ class Game(Thread):
 			pos = Vector2(10, self.screenh - 100)
 			self.font.render_to(self.screen, pos, f"blklen:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} bcounts:{self.get_block_count()} ", (173, 173, 173))
 			pos += (0, 15)
-			self.font.render_to(self.screen, pos, f"fps={self.fps} threads:{threading.active_count()} mainq:{self.mainqueue.qsize()} sendq:{self.sendq.qsize()} netq:{self.netqueue.qsize()} p1 np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
+			self.font.render_to(self.screen, pos, f"fps={self.fps} threads:{threading.active_count()}  p1 np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} cpos {self.playerone.client.pos} {self.playerone.client.gridpos}", (183, 183, 183))
 			pos += (0, 15)
@@ -476,9 +479,9 @@ class Game(Thread):
 			#self.gameserver.run()
 			#self.is_server = True
 
-	def handle_input(self):
-		events = pygame.event.get()
-		for event in events:
+	def handle_input(self, event):
+		#events = pygame.event.get()
+		#for event in events:
 			if event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
 					if self.gui.show_mainmenu:  # or self.paused:
@@ -486,7 +489,6 @@ class Game(Thread):
 						self.handle_menu(selection)
 					elif not self.gui.show_mainmenu:
 						#bombmsg = {'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos}
-						#self.mainqueue.put_nowait(bombmsg)
 						if self.playerone.client.bombs_left >= 0:
 							self.playerone.client.send_bomb(pos=self.playerone.rect.center)
 						else:
@@ -499,6 +501,8 @@ class Game(Thread):
 					self.kill = True
 					self.running = False
 				if event.key == pygame.K_1:
+					#Event1=pygame.event.Event(pygame.USEREVENT, payload={'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos})
+					#pygame.event.post(Event1)
 					self.playerone.client.send_mapreq()
 				if event.key == pygame.K_2:
 					self.playerone.client.req_mapreset()
@@ -596,13 +600,7 @@ if __name__ == "__main__":
 	pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
 
 	#pygame.display.set_mode((800,600), 0, 8)
-	mainqueue = Queue()
-	netqueue = Queue()
-	sendq = Queue()
-	stop_event = Event()
-	#mainqueue = OldQueue()#  multiprocessing.Manager().Queue()
-	# engine = Engine(stop_event=stop_event, name='engine')
-	game = Game(mainqueue=mainqueue, sendq=sendq, netqueue=netqueue)
+	game = Game()
 	game.daemon = True
 	game.start()
 	game.running = True

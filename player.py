@@ -1,4 +1,6 @@
 import pygame
+from pygame import USEREVENT
+from pygame.event import Event
 from pygame.math import Vector2
 from pygame.sprite import Group, spritecollide, Sprite
 from globals import BasicThing, Block, Bomb
@@ -12,7 +14,7 @@ from map import Gamemap
 from network import send_data, receive_data
 
 class Player(BasicThing, Thread):
-	def __init__(self, mainqueue=None):
+	def __init__(self):
 		Thread.__init__(self, daemon=False)
 		super().__init__((0,0), (0,0))
 		self.vel = Vector2(0, 0)
@@ -25,7 +27,6 @@ class Player(BasicThing, Thread):
 		self.surface = pygame.display.get_surface() # pygame.Surface(PLAYERSIZE)
 		#self.rect = self.surface.fill(color=(90,90,90))
 		# BasicThing.__init__(self, pos, self.image)
-		self.mainqueue = mainqueue
 		self.ready = False
 		self.client_id = gen_randid()
 		self.name = f'player{self.client_id}'
@@ -34,7 +35,7 @@ class Player(BasicThing, Thread):
 		#self.rect = self.surface.get_rect() #pygame.Rect((self.pos[0], self.pos[1], PLAYERSIZE[0], PLAYERSIZE[1])) #self.image.get_rect()
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
 		self.speed = 3
-		self.client = BombClient(client_id=self.client_id, serveraddress='localhost', serverport=9696, mainqueue=self.mainqueue, pos=self.pos)
+		self.client = BombClient(client_id=self.client_id, serveraddress='localhost', serverport=9696,  pos=self.pos)
 		self.gotmap = False
 		self.gotpos = False
 
@@ -173,7 +174,7 @@ class Player(BasicThing, Thread):
 			#logger.info(f'{self} setposdone {self.pos}gp={self.gridpos} client {self.client.pos} {self.client.gridpos}')
 
 class BombClient(Thread):
-	def __init__(self, client_id=None, serveraddress=None, serverport=None, mainqueue=None, pos=None):
+	def __init__(self, client_id=None, serveraddress=None, serverport=None, pos=None):
 		Thread.__init__(self, daemon=False)
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.client_id = client_id
@@ -189,7 +190,6 @@ class BombClient(Thread):
 		self.gamemap = Gamemap()
 		self.gotmap = False
 		self.gotpos = False
-		self.mainqueue = mainqueue
 		self.bombs_left = 3
 		self.cl_score = 0
 		self.cl_hearts = 3
@@ -365,9 +365,9 @@ class BombClient(Thread):
 								#logger.warning(f'netgridupdate from self={self.client_id} gp={gridpos} b={blktype} bclid={bclid} payload={payload}')
 							else:
 								logger.debug(f'netgridupdate g={gridpos} b={blktype} bclid={bclid} client_id={self.client_id}')
-								mapmsg = {'msgtype':'netgridupdate', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid}
+								mapmsg = Event(USEREVENT, payload={'msgtype':'netgridupdate', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid})
+								pygame.event.post(mapmsg)
 								# send grid update to mainqueue
-								self.mainqueue.put(mapmsg)
 						elif payload.get('msgtype') == 'mapfromserver':
 							# complete grid from server
 							gamemapgrid = payload.get('gamemapgrid', None)
@@ -376,8 +376,8 @@ class BombClient(Thread):
 							if newgridpos[0] > 100 or newgridpos[1] > 100 or self.gridpos[0] > 100 or self.gridpos[1] > 100:
 								logger.error(f'newgridpos={newgridpos} payload={payload}')
 							else:
-								mapmsg = {'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos, 'newgridpos':newgridpos}
-								self.mainqueue.put(mapmsg)
+								mapmsg = Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos, 'newgridpos':newgridpos})
+								pygame.event.post(mapmsg)
 								logger.debug(f'[ {self} ] mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
 								self.gamemap.grid = gamemapgrid
 								self.gotmap = True
@@ -391,14 +391,15 @@ class BombClient(Thread):
 						elif payload.get('msgtype') == 'netbomb':
 							# received bomb from server, forward to mainqueue
 							# logger.debug(f'bombfromserver payload={payload}')
-							bombmsg = {'msgtype':'netbomb', 'bombdata':payload, 'data_id':dataid['netbomb']}
-							self.mainqueue.put(bombmsg)
+							bombmsg = Event(USEREVENT, payload={'msgtype':'netbomb', 'bombdata':payload, 'data_id':dataid['netbomb']})
+							pygame.event.post(bombmsg)
 
 						elif msgid == dataid['posupdate']:
 							# received posupdate from server, forward to mainqueue
 							logger.warning(f'[ {self} ] posupdate payload={payload}')
-							posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos}
-							self.mainqueue.put(posmsg)
+							posmsg = Event(USEREVENT, payload={'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos})
+							pygame.event.post(posmsg)
+
 						elif payload.get('msgtype') == 'playerpos':
 							# received playerpos from server, forward to mainqueue
 							if not self.gotpos:
@@ -418,8 +419,8 @@ class BombClient(Thread):
 									# 	newgridpos = self.gridpos
 									# 	logger.warning(f'[ {self} ] playerpos newpos={newpos} ngp={newgridpos} payload={payload}')
 									#logger.debug(f'[ {self} ] playerpos newpos={newpos} ngp={newgridpos} payload={payload}')
-									posmsg = {'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos, 'newpos':newpos, 'newgridpos':self.gridpos}
-									self.mainqueue.put(posmsg)
+									posmsg = Event(USEREVENT, payload={'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos, 'newpos':newpos, 'newgridpos':self.gridpos})
+									pygame.event.post(posmsg)
 						else:
 							logger.warning(f'[ {self} ] unknownpayload msgid={msgid} p={payload}')
 			else:
