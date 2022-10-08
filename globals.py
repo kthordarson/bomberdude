@@ -147,17 +147,18 @@ class Block(BasicThing):
 		# self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		particles = Group()
 		#newblocks = Group()
+		newblock = None
 		if self.powerup:
 			newblktype = 20
 			blkpos = self.rect.topleft
-		else:
-			newblktype = 11
-			blkpos = self.rect.topleft
-		newblock = Block(blkpos, self.gridpos, block_type=newblktype, client_id=flame.client_id)
-		if newblock.block_type == 20:
+			newblock = Block(blkpos, self.gridpos, block_type=newblktype, client_id=flame.client_id)
 			newblock.timer = 4000
 			newblock.rect.center = self.rect.center
 			newblock.image.set_alpha(128)
+		# else:
+		# 	newblktype = 11
+		# 	blkpos = self.rect.topleft
+		
 		for k in range(1, MAXPARTICLES+random.randint(1, 10)):
 			if flame.vel.x < 0:  # flame come from left
 				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right

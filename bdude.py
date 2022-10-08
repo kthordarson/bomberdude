@@ -39,7 +39,7 @@ class Game(Thread):
 		Thread.__init__(self, name='game')
 		pygame.display.set_mode((800,600), 0, 8)
 		# todo make this work
-		# self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png'), (800,600))
+		self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png'), (800,600))
 		self.gameclock = pygame.time.Clock()
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.name = 'game'
@@ -303,12 +303,11 @@ class Game(Thread):
 						particles, newblock = block.hit(flame)
 						particlemsg = Event(USEREVENT, payload={'msgtype': 'particles', 'particledata': particles})
 						pygame.event.post(particlemsg)
-
-						if newblock.block_type == 20:
+						if newblock:					
 							blockmsg = Event(USEREVENT, payload={'msgtype': 'newpowerup', 'blockdata': newblock})
-						else:
-							blockmsg = Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': newblock})
-						pygame.event.post(blockmsg)
+						#else:
+						#	blockmsg = Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': newblock})
+							pygame.event.post(blockmsg)
 						flame.kill()
 						block.kill()
 						x,y = newblock.gridpos
@@ -345,7 +344,8 @@ class Game(Thread):
 		self.gameclock.tick(30)
 		#self.blocks.draw(self.screen)
 		#if self.playerone.ready:
-		self.screen.fill(self.bg_color)
+		self.screen.fill(self.bg_color)		
+		self.screen.blit(self.bgimage, (0,0))
 		self.blocks.draw(self.screen)
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
