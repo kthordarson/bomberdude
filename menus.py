@@ -97,11 +97,11 @@ class Menu:
 		pos = Vector2(len(grid)*BLOCK+10, 10)
 		self.panelfont.render_to(screen, dest=pos, text=f'{self.screenw} x {self.screenh}', fgcolor=(111,222,111))
 		pos += (0,25)
-		self.panelfont.render_to(screen, dest=pos, text=f'score {playerone.client.cl_score}', fgcolor=(111,222,111))
+		self.panelfont.render_to(screen, dest=pos, text=f'score {playerone.cl_score}', fgcolor=(111,222,111))
 		pos += (0,25)
-		self.panelfont.render_to(screen, dest=pos, text=f'hearts {playerone.client.cl_hearts}', fgcolor=(111,222,111))
+		self.panelfont.render_to(screen, dest=pos, text=f'hearts {playerone.cl_hearts}', fgcolor=(111,222,111))
 		pos += (0,25)
-		self.panelfont.render_to(screen, dest=pos, text=f'bombs {playerone.client.bombs_left}', fgcolor=(111,222,111))
+		self.panelfont.render_to(screen, dest=pos, text=f'bombs {playerone.bombs_left}', fgcolor=(111,222,111))
 
 
 	def get_selection(self):
