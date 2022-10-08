@@ -9,7 +9,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
-from constants import BLOCKTYPES, POWERUPSIZE, FLAMESIZE, BOMBSIZE, MAXPARTICLES
+from constants import BLOCKTYPES, POWERUPSIZE, FLAMESIZE, BOMBSIZE, MAXPARTICLES,BLOCK
 
 
 def random_velocity(direction=None):
@@ -225,9 +225,13 @@ class Powerup(BasicThing):
 			self.kill()
 
 class Bomb(BasicThing):
-	def __init__(self, pos, bomber_id, bomb_power=20):
+	def __init__(self, pos, bomber_id, bomb_power=20, gridpos=None):
 		self.pos = pos
 		super().__init__(pos, None)
+		if not gridpos:
+			self.gridpos = (pos[0]//BLOCK, pos[1]//BLOCK)
+		else:
+			self.gridpos = gridpos
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.bomber_id = bomber_id
@@ -250,7 +254,7 @@ class Bomb(BasicThing):
 		self.flames = Group()
 
 	def __str__(self):
-		return f'[bomb] pos={self.pos} bomber={self.bomber_id} timer={self.timer}'
+		return f'[bomb] gridpos={self.gridpos} pos={self.pos} bomber={self.bomber_id} timer={self.timer}'
 
 #	def draw(self, screen):
 #		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)

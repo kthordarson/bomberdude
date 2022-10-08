@@ -138,9 +138,10 @@ class Game(Thread):
 			if bomber_id == self.playerone.client_id:
 				self.playerone.client.bombs_left -= 1
 			bombpos = gamemsg.get('bombdata').get('bombpos')
-			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id)
+			bgridpos = gamemsg.get('bombdata').get('bombgridpos')
+			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bgridpos)
 			self.bombs.add(newbomb)
-			logger.debug(f'bomb:{newbomb.pos} bl={self.playerone.client.bombs_left} b:{len(self.bombs)}  mt:{msgtype} ')
+			logger.debug(f'bombpos = {bgridpos} {newbomb.pos} bl={self.playerone.client.bombs_left} b:{len(self.bombs)}  mt:{msgtype} ')
 		elif msgtype == 'newnetpos':
 			posdata = gamemsg.get('posdata')
 			client_id = posdata.get('client_id')
@@ -308,10 +309,10 @@ class Game(Thread):
 						#else:
 						#	blockmsg = Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': newblock})
 							pygame.event.post(blockmsg)
+							x,y = newblock.gridpos
+							self.playerone.client.gamemap.grid[x][y] = newblock.block_type
 						flame.kill()
 						block.kill()
-						x,y = newblock.gridpos
-						self.playerone.client.gamemap.grid[x][y] = newblock.block_type
 
 					elif block.block_type == 20:
 						# flame kills self and powerup
@@ -392,6 +393,8 @@ class Game(Thread):
 			self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} cpos {self.playerone.client.pos} {self.playerone.client.gridpos}", (183, 183, 183))
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"client {self.playerone.client}", (183, 183, 183))
+			pos = self.playerone.pos
+			self.font.render_to(self.screen, pos, f'{self.playerone.gridpos}', (255,255,255))
 		if self.extradebug:
 			for b in self.blocks:
 				gx, gy = b.gridpos
@@ -481,8 +484,15 @@ class Game(Thread):
 					elif not self.gui.show_mainmenu:
 						#bombmsg = {'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos}
 						if self.playerone.client.bombs_left >= 0:
+							candrop = True
 							bombgridpos = (self.playerone.gridpos[1], self.playerone.gridpos[1])
-							self.playerone.client.send_bomb(pos=self.playerone.rect.center)
+							for bomb in self.bombs:
+								logger.info(f'bomb={bomb} bombgridpos={bombgridpos}')
+								if bomb.gridpos == bombgridpos:
+									logger.warning(f'bomb={bomb} already exists at {bombgridpos}')
+									candrop = False
+							if candrop:
+								self.playerone.client.send_bomb(pos=self.playerone.rect.center)
 						else:
 							logger.warning(f'no bombs left {self.playerone.client.bombs_left}')
 				if event.key == pygame.K_ESCAPE:

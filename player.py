@@ -107,7 +107,10 @@ class Player(BasicThing, Thread):
 		self.client.start()
 
 	def update(self, blocks=None):
-		self.rect.topleft = (self.pos[0]+5, self.pos[1]+5)
+		self.gridpos = (self.pos[0] // BLOCK, self.pos[1] // BLOCK)
+		self.client.gridpos = self.gridpos
+		self.client.pos = self.pos
+		#self.rect.topleft = (self.pos[0], self.pos[1])
 		# self.gridpos = (int(self.pos[0] // BLOCK), int(self.pos[1] // BLOCK))
 		for netplayer in self.client.netplayers:
 			np = self.client.netplayers[netplayer]
@@ -191,7 +194,8 @@ class BombClient(Thread):
 		# send bomb to server
 		if self.connected and not self.kill:			
 			if self.bombs_left > 0:
-				payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos, 'bombs_left':self.bombs_left}
+				bgridpos = (pos[0] // BLOCK, pos[1] // BLOCK)
+				payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos,'bombgridpos':bgridpos, 'bombs_left':self.bombs_left}
 				send_data(conn=self.socket, payload=payload)
 				self.sendcnt += 1
 			# logger.debug(f'[ {self} ] send_bomb pos={payload.get("bombpos")}')
