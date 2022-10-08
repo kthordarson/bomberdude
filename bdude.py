@@ -18,7 +18,37 @@ from player import Player
 from threading import Thread
 import threading
 
-
+class Dummyplayer():
+	def __init__(self):
+		self.vel = Vector2(0, 0)
+		self.pos = (0,0)
+		self.gridpos = [0,0]
+		#self.image = pygame.image.load('data/playerone.png')
+		self.size = (0,0)
+		self.image = pygame.transform.scale(pygame.image.load('data/playerone.png'), self.size)
+		self.rect = pygame.Surface.get_rect(self.image, center=self.pos)
+		self.ready = False
+		self.client_id = None
+		self.name = f'player{self.client_id}'
+		self.connected = False
+		self.kill = False
+		self.centerpos = (self.rect.center[0], self.rect.center[1])
+		self.speed = 3
+		self.gotmap = False
+		self.gotpos = False
+		self.serveraddress = '192.168.1.160'
+		self.serverport = 9696
+		self.server = (self.serveraddress, self.serverport)
+		self.netplayers = {}
+		self.gamemap = []
+		self.bombs_left = 3
+		self.bombpower = 10
+		self.cl_score = 0
+		self.cl_hearts = 3
+		self.sendcnt = 0
+		self.recvcnt = 0
+		self.mapreqcnt = 0
+			
 class GameGUI:
 	def __init__(self, screen):
 		self.screen = screen
@@ -51,8 +81,8 @@ class Game(Thread):
 		self.bombs = Group()
 		self.flames = Group()
 		self.lostblocks = Group()
-		self.playerone = Player()
-		self.players.add(self.playerone)
+		self.playerone = Dummyplayer()
+		# self.players.add(self.playerone)
 		self.authkey = 'foobar'
 		self.gotgamemapgrid = False
 		self.extradebug = False
@@ -82,7 +112,7 @@ class Game(Thread):
 
 	def run(self):
 		pygame.init()
-		pygame.display.set_mode((1000,900), 0, 8)
+		pygame.display.set_mode((800,800), 0, 8)
 		self.screen = pygame.display.get_surface() #  pygame.display.set_mode(SCREENSIZE, 0, vsync=0)  # pygame.display.get_surface()#  pygame.display.set_mode(SCREENSIZE, 0, 32)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
@@ -112,7 +142,8 @@ class Game(Thread):
 					pass
 					#logger.info(f'evs={len(events)} event={event}')
 			#self.blocks.update()
-			self.playerone.update(self.blocks)
+			if self.playerone.ready:
+				self.playerone.update(self.blocks)
 			#self.players.update(blocks=self.blocks, screen=self.screen)
 			self.update_bombs()
 			self.update_flames()
@@ -204,7 +235,6 @@ class Game(Thread):
 			self.blocks.add(nb)
 			#logger.debug(f'{msgtype} {nb}')
 
-
 		elif msgtype == 'netgridupdate':
 			gridpos = gamemsg.get('blkgridpos')
 			x = gridpos[0]
@@ -240,8 +270,8 @@ class Game(Thread):
 			newgridpos = gamemsg.get('newgridpos')
 
 			self.updategrid(gamemapgrid)
-			if not self.playerone.gotpos:
-				self.playerone.setpos(newpos, newgridpos)
+			#self.playerone.pos = newpos
+			#self.playerone.gridpos = newgridpos
 			logger.debug(f'gamemapgrid np={newpos} ngp={newgridpos}')
 
 	def updategrid(self, gamemapgrid):
@@ -264,7 +294,13 @@ class Game(Thread):
 
 	def update_blocks(self):
 		for b in self.blocks:
+
 			if b.block_type == 20:
+				if pygame.Rect.colliderect(self.playerone.rect, b.rect):
+					self.playerone.cl_hearts += 1
+					x,y = b.gridpos
+					self.playerone.gamemap.grid[x][y] = 11
+					b.kill()
 				# if block is powerup, check timer
 				dt = pygame.time.get_ticks()
 				if dt - b.start_time >= b.timer:
@@ -290,6 +326,13 @@ class Game(Thread):
 	def update_flames(self):
 		self.flames.update(surface=self.screen)
 		for flame in self.flames:
+			for player in spritecollide(flame, self.players, False):
+				if pygame.Rect.colliderect(flame.rect, player.rect):
+					player.flame_hit(flame)
+					flame.kill()
+					if player.cl_hearts <= 0:
+						logger.info(f'{player} killed by {flame}')
+						player.kill = True
 			# check if flame collides with blocks
 			for block in spritecollide(flame, self.blocks, False):
 				if pygame.Rect.colliderect(flame.rect, block.rect):
@@ -343,7 +386,7 @@ class Game(Thread):
 				pygame.display.update()
 			except pygame.error as e:
 				logger.error(f'[ {self} ] err:{e} getinit:{pygame.display.get_init()}')
-				pygame.display.set_mode((1000,900), 0, 8)
+				pygame.display.set_mode((800,800), 0, 8)
 				#pygame.display.set_mode(self.screensize, 0, 8)
 				#self.screen = pygame.display.get_surface()
 				return
@@ -386,7 +429,8 @@ class Game(Thread):
 
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
-		self.gui.game_menu.draw_panel(screen=self.screen, blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames, grid=self.playerone.gamemap.grid)
+		if self.playerone.ready:
+			self.gui.game_menu.draw_panel(screen=self.screen, blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames, grid=self.playerone.gamemap.grid)
 
 	def draw_debug(self):
 		if DEBUG:
@@ -435,6 +479,8 @@ class Game(Thread):
 		# mainmenu
 		if selection == "Start":
 			#self.gui.show_mainmenu ^= True
+			self.playerone = Player()
+			self.players.add(self.playerone)
 			if self.playerone.connect_to_server():
 				self.playerone.connected = True
 				mapreqcnt = 0
@@ -443,8 +489,13 @@ class Game(Thread):
 				mapreqcnt += 1
 				logger.debug(f'playeone={self.playerone} waiting for map mapreqcnt:{mapreqcnt} cgotmap={self.playerone.gotmap} cgotpos={self.playerone.gotpos}')
 				time.sleep(1)
-				self.gui.show_mainmenu ^= True
-				self.playerone.start()
+				try:
+					self.playerone.start()
+					self.gui.show_mainmenu ^= True
+				except RuntimeError as e:					
+					logger.error(f'error starting playerone thread {e}')
+					self.playerone.socket.close()
+					
 			else:
 				logger.warning(f'p1 not connected  pc:{self.playerone.connected} pcc:{self.playerone.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
 				self.gui.show_mainmenu ^= True

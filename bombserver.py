@@ -158,23 +158,23 @@ class Servercomm(Thread):
 						for np in netplayers:
 							self.netplayers[np] = netplayers[np]
 					elif payload.get('msgtype') == 'netbomb':
-						#logger.debug(f'[ {self} ] bomb payload:{payload}')
+						#logger.debug(f'bomb payload:{payload}')
 						nb = Event(USEREVENT, payload=payload)
 						pygame.event.post(nb)
 					elif payload.get('msgtype') == 'netgrid':
-						#logger.debug(f'[ {self} ] bomb payload:{payload}')
+						#logger.debug(f'bomb payload:{payload}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
 					elif payload.get('msgtype') == 'clientquit':
-						logger.debug(f'[ {self} ] quit payload:{payload}')
+						logger.debug(f'quit payload:{payload}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
 					elif payload.get('msgtype') == 'reqpos':
-						logger.debug(f'[ {self} ] reqpos payload:{payload}')
+						logger.debug(f'reqpos payload:{payload}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
 					elif payload.get('msgtype') == 'resetmap':
-						logger.debug(f'[ {self} ] resetmaps payload:{payload}')
+						logger.debug(f'resetmaps payload:{payload}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
 					elif payload.get('msgtype') == 'netgridupdate':
-						# logger.debug(f'[ {self} ] netgridupdate payload:{len(payload)}')
+						# logger.debug(f'netgridupdate payload:{len(payload)}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
 					self.queue.task_done()
 
@@ -235,28 +235,25 @@ class BombClientHandler(Thread):
 		self.sender.queue.put((self.conn, payload))
 		
 
-	def send_map(self, newgrid=None, randpos=False, refresh=False):
+	def send_map(self):
 		# send mapgrid to player
 		# todo fix player pos on grid
-		if not newgrid:
-			logger.warning(f'{self} no newgrid...')
-			newgrid = DEFAULTGRID
-		if not refresh:
-			ng, newpos, newgridpos = self.gamemap.placeplayer(grid=newgrid, pos=self.pos, randpos=randpos)
-		else:
-			ng = self.gamemap.grid
-			newpos = self.pos
-			newgridpos = self.gridpos
-		#newpos = (nx,ny)
-		oldpos = self.pos
-		oldgridpos = self.gridpos
-		if randpos:
-			self.set_pos(pos=newpos, gridpos=newgridpos)
-			self.pos = newpos
-			self.gridpos = newgridpos
-		logger.info(f'send_map newgrid:{len(newgrid)} self.pos:{self.pos} newpos={newpos} oldpos={oldpos} ng={self.gridpos} og={oldgridpos} randpos={randpos}')
-		self.gamemap.grid = ng
-		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid'], 'newpos': self.pos, 'newgridpos':self.gridpos, 'oldgridpos':oldgridpos}
+		# if refresh:
+		# 	ng, newpos, newgridpos = self.gamemap.generate_custom(gridsize=15)
+		# 	self.gamemap.grid = ng
+		# else:
+		# 	ng = self.gamemap.grid
+		# 	newpos = self.pos
+		# 	newgridpos = self.gridpos
+		# #newpos = (nx,ny)
+		# oldpos = self.pos
+		# oldgridpos = self.gridpos
+		# if randpos:
+		# 	self.set_pos(pos=newpos, gridpos=newgridpos)
+		# 	self.pos = newpos
+		# 	self.gridpos = newgridpos
+		logger.info(f'send_map self.pos:{self.pos}ng={self.gridpos} ')
+		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid'], 'newpos': self.pos, 'newgridpos':self.gridpos}
 		# logger.debug(f'[ {self} ] send_map payload={len(payload)} randpos={randpos}')
 		self.sender.queue.put((self.conn, payload))
 
@@ -328,13 +325,13 @@ class BombClientHandler(Thread):
 						s_clid = resp.get('client_id', None)
 						if not self.client_id or self.client_id == '0':
 							self.client_id = s_clid
-							logger.debug(f'r:{len(resps)} setclientid {rtype} {rid} {resp}')
+							logger.warning(f'r:{len(resps)} setclientid {rtype} {rid} {resp}')
 						s_pos = resp.get('pos', None)
 						c_pos = resp.get('centerpos', None)
 						g_pos = resp.get('gridpos', None)
 						s_gotmap = resp.get('gotmap', None)
 						s_gotpos = resp.get('gotpos', None)
-						logger.debug(f'resp={resp}')
+						#logger.debug(f'resp={resp}')
 						self.pos = s_pos
 						self.centerpos = c_pos
 						self.gridpos = g_pos
@@ -347,21 +344,21 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.debug(f'r:{len(resps)} update {rtype} {rid} {resp}')
+							logger.warning(f'r:{len(resps)} update {rtype} {rid} {resp}')
 						# logger.debug(f'[ {self} ] received id:{rid} resp={resp}')
 
 					elif rtype == dataid['reqmap'] or rid == 7:
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.debug(f'r:{len(resps)} reqmap {rtype} {rid} {resp}')
-						self.send_map(newgrid=self.gamemap.grid, randpos=True, refresh=False)
+							logger.warning(f'r:{len(resps)} reqmap {rtype} {rid} {resp}')
+						self.send_map()
 
 					elif rtype == dataid.get('gameevent') or rid == 9:
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.debug(f'r:{len(resps)} gameevent {rtype} {rid} {resp}')
+							logger.warning(f'r:{len(resps)} gameevent {rtype} {rid} {resp}')
 						else:
 							logger.debug(f'gamevent received id:{rid} resp={resp}')
 
@@ -370,7 +367,7 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] r:{len(resps)} gridupdate {rtype} {rid} {resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} gridupdate {rtype} {rid} {resp}')
 						senderid = resp.get('client_id', None)
 						blkgridpos = resp.get('blkgridpos', None)
 						blktype = resp.get('blktype', None)
@@ -391,7 +388,7 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] r:{len(resps)} netbomb {rtype} {rid} {resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} netbomb {rtype} {rid} {resp}')
 						ev = Event(USEREVENT, payload={'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'data_id':dataid['netbomb'],'bombpower':resp.get('bombpower')})
 						pygame.event.post(ev)
 						#updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
@@ -407,7 +404,7 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] r:{len(resps)} reqpos {rtype} {rid} {resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} reqpos {rtype} {rid} {resp}')
 						ev = Event(USEREVENT, payload={'msgtype':'reqpos', 'client_id':self.client_id})
 						pygame.event.post(ev)
 						#msg = {'msgtype':'reqpos', 'client_id':self.client_id}
@@ -417,7 +414,7 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] r:{len(resps)} posupdate {rtype} {rid} {resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} posupdate {rtype} {rid} {resp}')
 						# client sent posupdate
 						ev = Event(USEREVENT, payload={'msgtype':'posupdate', 'client_id':self.client_id, 'posupdata':resp})
 						pygame.event.post(ev)
@@ -428,17 +425,14 @@ class BombClientHandler(Thread):
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.debug(f'[ {self} ] r:{len(resps)} resetmap {rtype} {rid} {resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} resetmap {rtype} {rid} {resp}')
 						ev = Event(USEREVENT, payload={'msgtype':'resetmap', 'client_id':self.client_id})
 						pygame.event.post(ev)
 						#self.servercomm.queue.put(msg)
 
 					elif rtype == dataid['refreshsgrid'] or rid == 21:
-						if not self.client_id or self.client_id == '0':
-							s_clid = resp.get('client_id', None)
-							self.client_id = s_clid
-							logger.debug(f'r:{len(resps)} refreshsgrid {rtype} {rid} {resp}')
-						self.send_map(newgrid=self.gamemap.grid, randpos=False, refresh=True)
+						logger.debug(f'r:{len(resps)} refreshsgrid {rtype} {rid} {resp}')
+						# self.send_map()
 
 					elif rtype == dataid['auth'] or rid == 101:
 						logger.debug(f'[ {self} ] r:{len(resps)} auth received id:{rid} resp={resp}')
@@ -490,8 +484,8 @@ class BombServer(Thread):
 				self.bombclients.append(newbc)
 				for bc in self.bombclients:
 					if bc.client_id != '0':
-						self.gamemap.grid, bnewpos, bcgridpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=False, pos=bc.pos)
-						bc.send_map(newgrid=self.gamemap.grid, randpos=False, refresh=True)
+						#self.gamemap.grid, bnewpos, bcgridpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=False, pos=bc.pos)
+						#bc.send_map(randpos=False, refresh=False)
 						for np in self.netplayers:
 							if np == '0':
 								break
@@ -567,7 +561,7 @@ class BombServer(Thread):
 				else:
 					clid = data.get('client_id')
 					logger.info(f'[ {self} ] resetmap from {clid} {data}')
-				basegrid = self.gamemap.grid
+				basegrid = self.gamemap.generate_custom(gridsize=15)
 				#self.gamemap.grid = basegrid
 				for bc in self.bombclients:
 					bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)
@@ -575,7 +569,7 @@ class BombServer(Thread):
 					bc.gridpos = newgridpos
 					bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
 					bc.gamemap.grid = bcg
-					bc.send_map(newgrid=bcg, randpos=True, refresh=False)
+					bc.send_map()
 					self.gamemap.grid = bcg
 
 			else:

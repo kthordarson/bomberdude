@@ -53,7 +53,10 @@ class Player(BasicThing, Thread):
 		self.mapreqcnt = 0
 
 	def __str__(self):
-		return f'player {self.client_id} pos={self.pos} {self.gridpos}'
+		return f'player {self.client_id} pos={self.pos} {self.gridpos} heats={self.cl_hearts}'
+
+	def flame_hit(self, flame):
+		self.cl_hearts -= 1
 
 	def req_mapreset(self):
 		# request server map reset
@@ -95,7 +98,7 @@ class Player(BasicThing, Thread):
 						gamemapgrid = payload.get('gamemapgrid', None)
 						newpos = payload.get('newpos', None)
 						newgridpos = payload.get('newgridpos', None)
-						pygame.post(Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':newpos, 'newgridpos':newgridpos}))
+						pygame.event.post(Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':newpos, 'newgridpos':newgridpos}))
 						#pygame.event.post(mapmsg)
 						logger.debug(f'{self.mapreqcnt} mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
 						self.gamemap.grid = gamemapgrid
@@ -103,7 +106,6 @@ class Player(BasicThing, Thread):
 						self.gotpos = True
 						self.pos = newpos
 						self.gridpos = newgridpos
-						self.send_pos()
 						self.sendcnt += 1
 					else:
 						pygame.event.clear()
@@ -259,7 +261,7 @@ class Player(BasicThing, Thread):
 		self.pos = pos
 		self.gridpos = gridpos
 		self.gotpos = True
-		logger.info(f'{self} setposdone {self.pos}gp={self.gridpos} client {self.pos} {self.gridpos}')
+		# logger.info(f'{self} setposdone {self.pos}gp={self.gridpos} client {self.pos} {self.gridpos}')
 		self.send_pos()
 
 	def get_payloadq(self, payloads):
@@ -312,7 +314,6 @@ class Player(BasicThing, Thread):
 				eventq.append(Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.gamemap.grid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'newgridpos':self.gridpos}))
 				#pygame.event.post(mapmsg)
 				logger.debug(f'[ {self} ] mapfromserver g={len(self.gamemap.grid)} newpos={self.pos} {self.gridpos}')
-				self.send_pos()
 
 			elif payload.get('msgtype') == 'netbomb':
 				# received bomb from server, forward to mainqueue
@@ -353,6 +354,7 @@ class Player(BasicThing, Thread):
 				self.connected = False
 				break
 			if self.connected:
+				self.send_pos()
 				msgid, payload = None, None
 				payloads = []
 				payloads = receive_data(conn=self.socket)
