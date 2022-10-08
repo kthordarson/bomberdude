@@ -321,7 +321,7 @@ class BombClientHandler(Thread):
 						logger.warning(f'[ {self} ] AttributeError:{e}  self.lastupdate={self.lastupdate} resp={resp}')
 					if rid == dataid.get('info') or rid == 0:
 						ev = Event(USEREVENT, payload={'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos})
-						pygame.event.pos(ev)
+						pygame.event.post(ev)
 						# self.servercomm.queue.put({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos})
 					elif rtype == dataid.get('playerpos') or rid == 3:
 						#logger.debug(f'[ {self} ] {rtype} {rid} {resp}')
@@ -458,7 +458,7 @@ class BombServer(Thread):
 		Thread.__init__(self, daemon=False)
 		self.bombclients  = []
 		self.gamemap = Gamemap()
-		self.gamemap.grid = self.gamemap.generate_custom(gridsize=10)
+		self.gamemap.grid = self.gamemap.generate_custom(gridsize=15)
 		self.kill = False
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -564,7 +564,7 @@ class BombServer(Thread):
 				else:
 					clid = data.get('client_id')
 					logger.info(f'[ {self} ] resetmap from {clid} {data}')
-				basegrid = self.gamemap.grid # self.gamemap.generate_custom(gridsize=SQUARESIZE)
+				basegrid = self.gamemap.grid
 				#self.gamemap.grid = basegrid
 				for bc in self.bombclients:
 					bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)
@@ -597,7 +597,6 @@ class BombServer(Thread):
 		logger.debug(f'[ {self} ] run')
 		#self.servercomm.run()
 		self.gui.start()
-		#self.gamemap.generate_custom(gridsize=SQUARESIZE)
 		self.servercomm.start()
 		fps = -1
 		while not self.kill:

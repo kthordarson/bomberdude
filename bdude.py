@@ -37,9 +37,8 @@ class GameGUI:
 class Game(Thread):
 	def __init__(self):
 		Thread.__init__(self, name='game')
-		pygame.display.set_mode((800,600), 0, 8)
 		# todo make this work
-		self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png'), (800,600))
+		self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png'), (1000,900))
 		self.gameclock = pygame.time.Clock()
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.name = 'game'
@@ -185,8 +184,8 @@ class Game(Thread):
 			nb = gamemsg.get('blockdata')
 			x,y = nb.gridpos
 			self.playerone.gamemap.grid[x][y] = 11
-			self.blocks.add(nb)
-			logger.debug(f'{msgtype} {nb}')
+			#self.blocks.add(nb)
+			logger.debug(f'{msgtype} nb={nb} self.playerone.gamemap.grid[x][y]={self.playerone.gamemap.grid[x][y]} x={x} y={y}')
 			#self.blocks.add(nb)
 
 		elif msgtype == 'newpowerup':
@@ -197,8 +196,8 @@ class Game(Thread):
 				logger.warning(f'{msgtype} mismatch {nb} btype={nb.block_type} != client={self.playerone.gamemap.grid[x][y]}')
 			elif self.playerone.gamemap.grid[x][y] == nb.block_type:
 				logger.info(f'{msgtype} {nb} btype={nb.block_type} == client={self.playerone.gamemap.grid[x][y]}')
-				self.playerone.gamemap.grid[x][y] = nb.block_type
-				self.blocks.add(nb)
+			self.playerone.gamemap.grid[x][y] = nb.block_type
+			self.blocks.add(nb)
 			#logger.debug(f'{msgtype} {nb}')
 
 
@@ -310,8 +309,8 @@ class Game(Thread):
 						#else:
 						#	blockmsg = Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': newblock})
 							pygame.event.post(blockmsg)
-							x,y = newblock.gridpos
-							self.playerone.gamemap.grid[x][y] = newblock.block_type
+						x,y = block.gridpos
+						self.playerone.gamemap.grid[x][y] = 11
 						flame.kill()
 						block.kill()
 
@@ -340,8 +339,9 @@ class Game(Thread):
 				pygame.display.update()
 			except pygame.error as e:
 				logger.error(f'[ {self} ] err:{e} getinit:{pygame.display.get_init()}')
-				pygame.display.set_mode(self.screensize, 0, 8)
-				self.screen = pygame.display.get_surface()
+				pygame.display.set_mode((1000,900), 0, 8)
+				#pygame.display.set_mode(self.screensize, 0, 8)
+				#self.screen = pygame.display.get_surface()
 				return
 		self.gameclock.tick(30)
 		#self.blocks.draw(self.screen)
@@ -441,7 +441,6 @@ class Game(Thread):
 				time.sleep(1)
 				self.gui.show_mainmenu ^= True
 				self.playerone.start()
-
 			else:
 				logger.warning(f'p1 not connected  pc:{self.playerone.connected} pcc:{self.playerone.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
 				self.gui.show_mainmenu ^= True
@@ -594,6 +593,7 @@ class Game(Thread):
 
 if __name__ == "__main__":
 	pygame.init()
+	pygame.display.set_mode((1000,900), 0, 8)
 	pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
 
 	#pygame.display.set_mode((800,600), 0, 8)

@@ -62,7 +62,7 @@ class Player(BasicThing, Thread):
 
 	def send_bomb(self, pos=None):
 		# send bomb to server
-		if self.connected and not self.kill:			
+		if self.connected and not self.kill:
 			if self.bombs_left > 0:
 				bombgridpos = (pos[0] // BLOCK, pos[1] // BLOCK)
 				payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos,'bombgridpos':bombgridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}
@@ -157,7 +157,7 @@ class Player(BasicThing, Thread):
 			self.take_powerup(powertype=20, gridpos=self.gridpos)
 
 	def move(self, direction):
-		if self.ready:
+		if self.ready and self.gotmap:
 			gpx = int(self.pos[0] // BLOCK)
 			gpy = int(self.pos[1] // BLOCK)
 			self.gridpos = [gpx, gpy]
@@ -170,7 +170,7 @@ class Player(BasicThing, Thread):
 					newgridpos = [x, y-1]
 				else:
 					pass
-					#logger.warning(f'cant move {direction} to [{x}, {y-1}] g:{self.gamemap.grid[x][y-1]}')
+					#logger.warning(f'cant move {direction} to {newgridpos} g:{self.gamemap.grid[x][y-1]}')
 			elif direction == 'down':
 				if self.gamemap.grid[x][y+1] in [11,20]:
 					newgridpos = [x, y+1]
@@ -263,8 +263,8 @@ class Player(BasicThing, Thread):
 				self.connected = False
 				break
 			if self.connected:
-				#if not self.gotmap:
-				#	self.send_mapreq()
+				if not self.gotmap:
+					self.send_mapreq()
 				msgid, payload = None, None
 				payloads = []
 				payloads = receive_data(conn=self.socket)
@@ -278,8 +278,8 @@ class Player(BasicThing, Thread):
 						if payload.get('msgtype') == 'bcgetid':
 							if payload.get('payload') == 'sendclientid':
 								# todo work on this....
-								#self.send_clientid()
-								pass
+								self.send_clientid()
+								#pass
 						elif payload.get('msgtype') == dataid['netplayers']:
 							netplayers = None
 							netplayers = payload.get('netplayers')
@@ -358,32 +358,3 @@ class Player(BasicThing, Thread):
 			else:
 				logger.warning(f'[ {self} ] not connected')
 
-class BombClientXXX(Thread):
-	def __init__(self, client_id=None, serveraddress=None, serverport=None, pos=None):
-		Thread.__init__(self, daemon=True)
-		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.client_id = client_id
-		self.serveraddress = serveraddress
-		self.serverport = serverport
-		self.server = (self.serveraddress, self.serverport)
-		self.kill = False
-		self.connected = False
-		self.pos = pos
-		self.centerpos = pos
-		self.gridpos = [0, 0]
-		self.netplayers = {}
-		self.gamemap = Gamemap()
-		self.gotmap = False
-		self.gotpos = False
-		self.bombs_left = 3
-		self.cl_score = 0
-		self.cl_hearts = 3
-		self.sendcnt = 0
-		self.recvcnt = 0
-
-	def __str__(self):
-		return f'bc id={self.client_id} pos={self.pos} gp={self.gridpos} bombs:{self.bombs_left} sendrecv={self.sendcnt}/{self.recvcnt}'
-
-
-	def run(self):
-		logger.debug(f'[ {self} ] run! ')
