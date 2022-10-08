@@ -662,10 +662,14 @@ def main():
 				break
 			conn, addr = server.conn.accept()
 			ncmsg=Event(USEREVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
-			pygame.event.post(USEREVENT, ncmsg)
+			logger.info(f'ncmsg={ncmsg}')
+			try:
+				pygame.event.post(ncmsg)
+			except TypeError as e:
+				logger.error(f'[bombserver] {server} err:{e}')
 			#server.queue.put(ncmsg)
 			#ncmsg = Event(USEREVENT, payload=payload)
-			logger.info(f'ncmsg={ncmsg}')
+			
 			# try:
 			# 	pygame.event.post(USEREVENT, ncmsg)
 			# except TypeError as e:
