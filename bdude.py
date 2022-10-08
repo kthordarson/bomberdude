@@ -1,6 +1,7 @@
 #!/bin/python3.9
 # bomberdude
-# 07102022 todo fix mapsync, limit one bomb per grid on map, win/mac not worky, remove killed netplayers when server sends killnpevent
+# 07102022 todo fix mapsync, limit one bomb per grid on map, win/mac not worky, 
+#  		   remove killed netplayers when server sends killnpevent
 import socket
 import time
 from argparse import ArgumentParser
@@ -40,7 +41,6 @@ class Game(Thread):
 		# todo make this work
 		# self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png'), (800,600))
 		self.gameclock = pygame.time.Clock()
-		self.fps = self.gameclock.get_fps()
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.name = 'game'
 		self.kill = False
@@ -146,8 +146,6 @@ class Game(Thread):
 			client_id = posdata.get('client_id')
 			newpos = posdata.get('newpos')
 			newgridpos = posdata.get('newgridpos')
-			if newgridpos[0] > 100 or newgridpos[1] > 100 or self.playerone.gridpos[0]>1000 or self.playerone.client.gridpos[1]>1000:
-				logger.error(f'{self} gridpos out of range {newgridpos} pgridpos={self.playerone.gridpos} cgridpos={self.playerone.client.gridpos}')
 
 			if client_id == self.playerone.client_id:
 				logger.info(f'newnetpos np={newpos} ngp={newgridpos} posdata={posdata} ')
@@ -235,8 +233,6 @@ class Game(Thread):
 			gamemapgrid = gamemsg.get('gamemapgrid')
 			newpos = gamemsg.get('newpos')
 			newgridpos = gamemsg.get('newgridpos')
-			if newgridpos[0] > 100 or newgridpos[1] > 100:
-				logger.error(f'{self} gridpos out of range {newgridpos} pgridpos={self.playerone.gridpos} cgridpos={self.playerone.client.gridpos}')
 
 			self.updategrid(gamemapgrid)
 			if not self.playerone.gotpos:
@@ -368,9 +364,6 @@ class Game(Thread):
 				x,y = self.playerone.client.netplayers[npid].get('pos', None)
 				pos = [x,y]
 				gpos = self.playerone.client.netplayers[npid].get('gridpos', None)
-				if gpos[0] > 100 or gpos[1] > 100:
-					pass
-					#logger.error(f'{self} gridpos out of range np={np} g={gpos} p={pos} netplayer={npitem} ')
 				if self.playerone.client_id != npid:
 					#pos -= (0,5)
 					#pos[1] -=10
@@ -388,14 +381,13 @@ class Game(Thread):
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
 		self.gui.game_menu.draw_panel(screen=self.screen, blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames, grid=self.playerone.client.gamemap.grid)
-		self.fps = self.gameclock.get_fps()
 
 	def draw_debug(self):
 		if DEBUG:
 			pos = Vector2(10, self.screenh - 100)
 			self.font.render_to(self.screen, pos, f"blklen:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} bcounts:{self.get_block_count()} ", (173, 173, 173))
 			pos += (0, 15)
-			self.font.render_to(self.screen, pos, f"fps={self.fps} threads:{threading.active_count()}  p1 np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
+			self.font.render_to(self.screen, pos, f"fps={self.gameclock.get_fps():.2f} threads:{threading.active_count()}  p1 np:{len(self.playerone.client.netplayers)}", (183, 183, 183))
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} cpos {self.playerone.client.pos} {self.playerone.client.gridpos}", (183, 183, 183))
 			pos += (0, 15)
@@ -489,6 +481,7 @@ class Game(Thread):
 					elif not self.gui.show_mainmenu:
 						#bombmsg = {'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos}
 						if self.playerone.client.bombs_left >= 0:
+							bombgridpos = (self.playerone.gridpos[1], self.playerone.gridpos[1])
 							self.playerone.client.send_bomb(pos=self.playerone.rect.center)
 						else:
 							logger.warning(f'no bombs left {self.playerone.client.bombs_left}')

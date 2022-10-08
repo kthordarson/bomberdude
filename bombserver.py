@@ -29,10 +29,11 @@ class ServerGUI(Thread):
 		self.bg_color = pygame.Color("black")
 		self.bombclients = []
 		self.netplayers = {}
-		self.serverclock = pygame.time.Clock()
+		self.guiclock = pygame.time.Clock()
 		self.gamemapgrid = []
 
 	def renderinfo(self):
+			self.guiclock.tick(30)
 			try:
 				pygame.display.flip()
 			except:
@@ -40,8 +41,8 @@ class ServerGUI(Thread):
 			self.screen.fill(self.bg_color)
 			ctextpos = [10, 10]
 			try:
-				fps = self.serverclock.get_fps()
-				msgtxt = f'fps={fps} clients:{len(self.bombclients)} np:{len(self.netplayers)} '
+				
+				msgtxt = f'fps={self.guiclock.get_fps():2f} clients:{len(self.bombclients)} np:{len(self.netplayers)} '
 			except TypeError as e:
 				logger.warning(f'[ {self} ] TypeError:{e}')
 				msgtxt = ''
@@ -68,9 +69,6 @@ class ServerGUI(Thread):
 					bctimer = pygame.time.get_ticks()-bc.lastupdate
 					self.gamemapgrid = bc.gamemap.grid
 					bcgridpos = (bc.gridpos[0], bc.gridpos[1])
-					if bcgridpos[0] > 100 or bcgridpos[1] > 100:
-						logger.error(f'{bc} gridpos out of range bcgridpos:{bcgridpos}')
-						break
 					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':int(bc.kill), 'gridpos':bcgridpos}
 					self.netplayers[bc.client_id] = np
 					bc.netplayers[bc.client_id] = np
@@ -137,9 +135,7 @@ class Servercomm(Thread):
 		Thread.__init__(self, daemon=True)
 		self.kill = False
 		self.queue = Queue()
-		#np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':0}
 		self.netplayers = {}
-		#self.netplayers[np['client_id']] = np
 		self.srvcount = 0
 		logger.info(f'[BC] {self} server_comm init')
 
@@ -212,15 +208,11 @@ class BombClientHandler(Thread):
 
 	def set_pos(self, pos=None, gridpos=None):
 		# called when server generates new map and new player position
-		
-		if self.gridpos[0] > 100 or self.gridpos[1] > 100 or gridpos[0] > 100 or gridpos[1] > 100:
-			logger.error(f'{self} gridpos out of range {self.gridpos} g={gridpos} p={pos}')
-		else:
-			self.pos = pos
-			self.gridpos = gridpos
-			posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos, 'newpos':pos, 'newgridpos':gridpos}
-			self.sender.queue.put((self.conn, posmsg))
-			logger.info(f'[ {self} ] set_pos newpos={pos} ngp={gridpos}')
+		self.pos = pos
+		self.gridpos = gridpos
+		posmsg = {'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos, 'newpos':pos, 'newgridpos':gridpos}
+		self.sender.queue.put((self.conn, posmsg))
+		logger.info(f'[ {self} ] set_pos newpos={pos} ngp={gridpos}')
 
 	def posupdate(self, data):
 		logger.error(f'[ {self} ] posupdate data={data}  mypos={self.pos}')
@@ -256,8 +248,6 @@ class BombClientHandler(Thread):
 			newpos = self.pos
 			newgridpos = self.gridpos
 		#newpos = (nx,ny)
-		if newgridpos[0] > 100 or newgridpos[1] > 100 or self.gridpos[0]>1000 or self.gridpos[1]>1000:
-			logger.error(f'{self} gridpos out of range {newgridpos} self.gridpos={self.gridpos}')
 		oldpos = self.pos
 		oldgridpos = self.gridpos
 		if randpos:
@@ -342,8 +332,6 @@ class BombClientHandler(Thread):
 						s_pos = resp.get('pos', None)
 						c_pos = resp.get('centerpos', None)
 						g_pos = resp.get('gridpos', None)
-						if g_pos[0] > 100 or g_pos[1] > 100:
-							logger.error(f"[BC] {self} g_pos={g_pos} out of range {s_clid} {s_pos} {self.pos}")
 						self.pos = s_pos
 						self.centerpos = c_pos
 						self.gridpos = g_pos
@@ -498,22 +486,12 @@ class BombServer(Thread):
 				newbc.start()
 				self.bombclients.append(newbc)
 				for bc in self.bombclients:
-					if bc.gridpos[0] > 100 or bc.gridpos[1] > 100:
-						logger.error(f'{bc} gridpos out of range')
-					elif bc.client_id != '0':
+					if bc.client_id != '0':
 						self.gamemap.grid, bnewpos, bcgridpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=False, pos=bc.pos)
-						if bcgridpos[0] > 100 or bcgridpos[1] > 100:
-							logger.error(f'bcgridpos:{bcgridpos}')
-							break
 						bc.send_map(newgrid=self.gamemap.grid, randpos=False, refresh=True)
 						for np in self.netplayers:
 							if np == '0':
 								break
-							try:
-								if bc.netplayers[np]["gridpos"][0] > 100 or bc.netplayers[np]['gridpos'][1] > 100:
-									logger.warning(f'gridpos out of range bc={bc} np={np}')
-							except KeyError as e:
-								logger.warning(f'KeyError {e} bc={bc} np={np} bc.netplayers = {bc.netplayers}')
 							bc.netplayers[np] = self.netplayers[np]
 						for np in bc.netplayers:
 							self.netplayers[np] = bc.netplayers[np]
@@ -524,8 +502,6 @@ class BombServer(Thread):
 					#if clid != '0':
 					pos = data.get('pos', None)
 					gridpos = data.get('gridpos', None)
-					if gridpos[0] > 100 or gridpos[1] > 100 or bc.gridpos[0] > 100 or bc.gridpos[1] > 100:
-						logger.error(f'{self} gridpos out of range {gridpos}')
 					centerpos = data.get('centerpos')
 					ckill = data.get('kill')
 					#if clid != bc.client_id:
@@ -538,8 +514,8 @@ class BombServer(Thread):
 						# client kill flag set, kill bombclient and remove from list
 						bc.kill = True
 						logger.warning(f'[ {self} ] {bc} kill')
-						bc.netplayers[clid]['kill'] = 1
-						self.netplayers[clid]['kill'] = 1
+						bc.netplayers[clid]['kill'] = True
+						self.netplayers[clid]['kill'] = True
 			elif smsgtype == 'netplayers':
 				# unused
 				netplrs = data.get('netplayers')
@@ -606,7 +582,7 @@ class BombServer(Thread):
 		# refresh gui data
 		self.gui.bombclients = self.bombclients
 		for np in self.netplayers:
-			if np != '0':
+			if np != '0' or not self.netplayers[np]['kill']:
 				self.gui.netplayers[np] = self.netplayers[np]
 				for bc in self.bombclients:
 					if bc.client_id != '0':
@@ -682,8 +658,8 @@ class BombServer(Thread):
 					if pygame.time.get_ticks()-bc.lastupdate > 10000:
 						bc.kill = True					
 						try:
-							bc.netplayers[bc.client_id]['kill'] = 1
-							self.netplayers[bc.client_id]['kill'] = 1
+							bc.netplayers[bc.client_id]['kill'] = True
+							self.netplayers[bc.client_id]['kill'] = True
 						except KeyError as e:
 							logger.error(f'err e:{e} bc:{bc}')
 						logger.warning(f'[ {self} ] {bc} timeout')
