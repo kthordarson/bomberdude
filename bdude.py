@@ -3,7 +3,6 @@
 # 07102022 todo fix mapsync, limit one bomb per grid on map, win/mac not worky, remove killed netplayers when server sends killnpevent
 import socket
 import time
-import random
 from argparse import ArgumentParser
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
@@ -11,13 +10,12 @@ from pygame.event import Event
 from pygame import USEREVENT
 import pygame
 from loguru import logger
-from globals import Block, Powerup, Bomb
-from constants import DEFAULTGRID,SQUARESIZE, BLOCK, DEBUG, DEBUGFONTCOLOR, BLOCKSIZE, PLAYERSIZE, DEFAULTFONT, NETPLAYERSIZE
+from globals import Block, Bomb
+from constants import BLOCK, DEBUG, DEFAULTFONT, NETPLAYERSIZE
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread
 import threading
-from map import Gamemap
 
 
 class GameGUI:

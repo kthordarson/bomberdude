@@ -9,7 +9,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
-from constants import BLOCK,FPS,BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, MAXPARTICLES
+from constants import BLOCKTYPES, POWERUPSIZE, FLAMESIZE, BOMBSIZE, MAXPARTICLES
 
 
 def random_velocity(direction=None):

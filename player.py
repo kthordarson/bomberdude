@@ -2,8 +2,8 @@ import pygame
 from pygame import USEREVENT
 from pygame.event import Event
 from pygame.math import Vector2
-from pygame.sprite import Group, spritecollide, Sprite
-from globals import BasicThing, Block, Bomb
+from pygame.sprite import spritecollide
+from globals import BasicThing
 from loguru import logger
 from globals import gen_randid
 from threading import Thread
@@ -15,7 +15,7 @@ from network import send_data, receive_data
 
 class Player(BasicThing, Thread):
 	def __init__(self):
-		Thread.__init__(self, daemon=False)
+		Thread.__init__(self, daemon=True)
 		super().__init__((0,0), (0,0))
 		self.vel = Vector2(0, 0)
 		self.pos = (0,0)
@@ -175,7 +175,7 @@ class Player(BasicThing, Thread):
 
 class BombClient(Thread):
 	def __init__(self, client_id=None, serveraddress=None, serverport=None, pos=None):
-		Thread.__init__(self, daemon=False)
+		Thread.__init__(self, daemon=True)
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.client_id = client_id
 		self.serveraddress = serveraddress

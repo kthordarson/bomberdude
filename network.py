@@ -1,5 +1,4 @@
 import re
-from threading import Thread
 import json
 from loguru import logger
 dataid = {
