@@ -35,27 +35,21 @@ def rot_center(image, rect, angle):
 	rot_rect = rot_image.get_rect(center=rect.center)
 	return rot_image, rot_rect
 
-
 def get_entity_angle(e_1, e_2):
 	dif_x = e_2.x - e_1.x
 	dif_y = e_2.y - e_1.y
 	return math.atan2(dif_y, dif_x)
-
 
 def get_angle(pos_1, pos_2):
 	dif_x = pos_2[0] - pos_1[0]
 	dif_y = pos_2[1] - pos_1[1]
 	return math.atan2(dif_y, dif_x)
 
-
-
-
 def load_image(name, colorkey=None):
 	fullname = os.path.join("data", name)
 	image = pygame.image.load(fullname)
 	# image = image.convert()
 	return image, image.get_rect()
-
 
 class ResourceHandler:
 	def __init__(self):
@@ -71,12 +65,10 @@ class ResourceHandler:
 		else:
 			return self.__images[filename]
 
-
 def gen_randid():
 	hashid = hashlib.sha1()
 	hashid.update(str(time.time()).encode("utf-8"))
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
-
 
 def stop_all_threads(threads):
 	logger.debug(f'stopping {threads}')
@@ -85,7 +77,6 @@ def stop_all_threads(threads):
 		t.kill = True
 		t.join(0)
 	sys.exit()
-
 
 def start_all_threads(threads):
 	logger.debug(f'starting {threads}')
@@ -165,6 +156,8 @@ class Block(BasicThing):
 		newblock = Block(blkpos, self.gridpos, block_type=newblktype, client_id=flame.client_id)
 		if newblock.block_type == 20:
 			newblock.timer = 4000
+			newblock.rect.center = self.rect.center
+			newblock.image.set_alpha(128)
 		for k in range(1, MAXPARTICLES+random.randint(1, 10)):
 			if flame.vel.x < 0:  # flame come from left
 				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right

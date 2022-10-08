@@ -37,6 +37,8 @@ class Game(Thread):
 	def __init__(self):
 		Thread.__init__(self, name='game')
 		pygame.display.set_mode((800,600), 0, 8)
+		# todo make this work
+		# self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png'), (800,600))
 		self.gameclock = pygame.time.Clock()
 		self.fps = self.gameclock.get_fps()
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)

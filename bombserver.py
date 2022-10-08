@@ -470,7 +470,7 @@ class BombServer(Thread):
 		Thread.__init__(self, daemon=False)
 		self.bombclients  = []
 		self.gamemap = Gamemap()
-		self.gamemap.grid = self.gamemap.generate_custom(gridsize=15)
+		self.gamemap.grid = self.gamemap.generate_custom(gridsize=10)
 		self.kill = False
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -638,7 +638,7 @@ class BombServer(Thread):
 						self.kill = True
 						logger.info(f'{self} quitting')
 						for bc in self.bombclients:
-							logger.info('{self} killing {bc} ')
+							logger.info(f'{self} killing {bc} ')
 							bc.sender.kill = True
 							bc.kill = True
 							logger.info(f'{self} killing {bc} sender {bc.sender}')
