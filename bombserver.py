@@ -10,7 +10,7 @@ from loguru import logger
 from threading import Thread
 from queue import Queue
 # from things import Block
-from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE
+from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE,DEFAULTGRID
 from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data, dataid
@@ -246,6 +246,9 @@ class BombClientHandler(Thread):
 	def send_map(self, newgrid=None, randpos=False, refresh=False):
 		# send mapgrid to player
 		# todo fix player pos on grid
+		if not newgrid:
+			logger.warning(f'{self} no newgrid...')
+			newgrid = DEFAULTGRID
 		if not refresh:
 			ng, newpos, newgridpos = self.gamemap.placeplayer(grid=newgrid, pos=self.pos, randpos=randpos)
 		else:
@@ -467,6 +470,7 @@ class BombServer(Thread):
 		Thread.__init__(self, daemon=False)
 		self.bombclients  = []
 		self.gamemap = Gamemap()
+		self.gamemap.grid = self.gamemap.generate_custom(gridsize=15)
 		self.kill = False
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -541,8 +545,10 @@ class BombServer(Thread):
 				netplrs = data.get('netplayers')
 				for np in netplrs:
 					if np != '0':
-						logger.debug(f'netplayersmsg data={len(data)} netplrs={len(netplrs)} np={np} netp={netplrs[np]}')
 						self.netplayers[np] = netplrs[np]
+					else:
+						logger.warning(f'netplayersmsg data={len(data)} netplrs={len(netplrs)} np={np} netp={netplrs[np]}')
+
 			elif smsgtype == 'netbomb':
 				# logger.debug(f'[ {self} ] netbomb from {data.get("client_id")} pos={data.get("bombpos")}')
 				for bc in self.bombclients:
@@ -582,7 +588,7 @@ class BombServer(Thread):
 				else:
 					clid = data.get('client_id')
 					logger.info(f'[ {self} ] resetmap from {clid} {data}')
-				basegrid = self.gamemap.generate_custom(gridsize=SQUARESIZE)
+				basegrid = self.gamemap.grid # self.gamemap.generate_custom(gridsize=SQUARESIZE)
 				#self.gamemap.grid = basegrid
 				for bc in self.bombclients:
 					bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)
@@ -615,7 +621,7 @@ class BombServer(Thread):
 		logger.debug(f'[ {self} ] run')
 		#self.servercomm.run()
 		self.gui.start()
-		self.gamemap.generate_custom(gridsize=SQUARESIZE)
+		#self.gamemap.generate_custom(gridsize=SQUARESIZE)
 		self.servercomm.start()
 		fps = -1
 		while not self.kill:
@@ -647,7 +653,7 @@ class BombServer(Thread):
 				elif event.type == pygame.USEREVENT:
 					#logger.info(f'[{len(serverevents)}] event={event}')
 					serverevents.append(event.payload)
-				elif event.type in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP, 32777, 772, 32768, 1027, 32775, 32774, 32770, 32785, 4352,32776, 32788,32783,32784,32788]:
+				elif event.type in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP, 32786, 32777, 772, 32768, 1027, 32775, 32774, 32770, 32785, 4352,32776, 32788,32783,32784,32788]:
 					pass
 				else:
 					logger.warning(f'[{len(serverevents)}] event={event}')
