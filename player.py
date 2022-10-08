@@ -44,6 +44,7 @@ class Player(BasicThing, Thread):
 		self.netplayers = {}
 		self.gamemap = Gamemap()
 		self.bombs_left = 3
+		self.bombpower = 10
 		self.cl_score = 0
 		self.cl_hearts = 3
 		self.sendcnt = 0
@@ -64,7 +65,7 @@ class Player(BasicThing, Thread):
 		if self.connected and not self.kill:			
 			if self.bombs_left > 0:
 				bombgridpos = (pos[0] // BLOCK, pos[1] // BLOCK)
-				payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos,'bombgridpos':bombgridpos, 'bombs_left':self.bombs_left}
+				payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos,'bombgridpos':bombgridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}
 				send_data(conn=self.socket, payload=payload)
 				self.sendcnt += 1
 				logger.debug(f'send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos")}')

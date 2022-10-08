@@ -225,7 +225,7 @@ class Powerup(BasicThing):
 			self.kill()
 
 class Bomb(BasicThing):
-	def __init__(self, pos, bomber_id, bomb_power=20, gridpos=None):
+	def __init__(self, pos, bomber_id, bombpower=20, gridpos=None):
 		self.pos = pos
 		super().__init__(pos, None)
 		if not gridpos:
@@ -247,8 +247,8 @@ class Bomb(BasicThing):
 		self.explode = False
 		self.exp_radius = 1
 		self.done = False
-		self.flame_power = bomb_power
-		self.flame_len = bomb_power
+		self.flame_power = bombpower
+		self.flame_len = bombpower
 		self.flame_width = 10
 		self.flamesout = False
 		self.flames = Group()

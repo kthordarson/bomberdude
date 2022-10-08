@@ -139,7 +139,8 @@ class Game(Thread):
 				self.playerone.bombs_left -= 1
 			bombpos = gamemsg.get('bombdata').get('bombpos')
 			bombgridpos = gamemsg.get('bombdata').get('bombgridpos')
-			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos)
+			bombpower = gamemsg.get('bombdata').get('bombpower')
+			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos, bombpower=bombpower)
 			self.bombs.add(newbomb)
 			logger.debug(f'bombpos = gridpos:{bombgridpos} pos:{bombpos} {newbomb.pos} bl={self.playerone.bombs_left} b:{len(self.bombs)}  mt:{msgtype} ')
 		elif msgtype == 'newnetpos':
@@ -527,7 +528,8 @@ class Game(Thread):
 						for b in self.powerups:
 							print(f'\power {len(self.powerups)}: {b}')
 				if event.key == pygame.K_n:
-					pass
+					self.playerone.bombs_left = 30
+					self.playerone.bombpower = 100
 				if event.key == pygame.K_g:
 					pass
 				if event.key == pygame.K_r:

@@ -389,7 +389,7 @@ class BombClientHandler(Thread):
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
 							logger.debug(f'[ {self} ] r:{len(resps)} netbomb {rtype} {rid} {resp}')
-						ev = Event(USEREVENT, payload={'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'data_id':dataid['netbomb']})
+						ev = Event(USEREVENT, payload={'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'data_id':dataid['netbomb'],'bombpower':resp.get('bombpower')})
 						pygame.event.post(ev)
 						#updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
 						#self.servercomm.queue.put(updatemsg)
