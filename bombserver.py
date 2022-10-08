@@ -332,6 +332,9 @@ class BombClientHandler(Thread):
 						s_pos = resp.get('pos', None)
 						c_pos = resp.get('centerpos', None)
 						g_pos = resp.get('gridpos', None)
+						s_gotmap = resp.get('gotmap', None)
+						s_gotpos = resp.get('gotpos', None)
+						logger.debug(f'resp={resp}')
 						self.pos = s_pos
 						self.centerpos = c_pos
 						self.gridpos = g_pos
@@ -458,7 +461,7 @@ class BombServer(Thread):
 		Thread.__init__(self, daemon=False)
 		self.bombclients  = []
 		self.gamemap = Gamemap()
-		self.gamemap.grid = self.gamemap.generate_custom(gridsize=15)
+		self.gamemap.grid = self.gamemap.generate_custom(gridsize=10)
 		self.kill = False
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
