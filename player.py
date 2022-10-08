@@ -1,3 +1,4 @@
+import time
 import pygame
 from pygame import USEREVENT
 from pygame.event import Event
@@ -38,7 +39,7 @@ class Player(BasicThing, Thread):
 		self.gotmap = False
 		self.gotpos = False
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.serveraddress = 'localhost'
+		self.serveraddress = '192.168.1.160'
 		self.serverport = 9696
 		self.server = (self.serveraddress, self.serverport)
 		self.netplayers = {}
@@ -49,6 +50,7 @@ class Player(BasicThing, Thread):
 		self.cl_hearts = 3
 		self.sendcnt = 0
 		self.recvcnt = 0
+		self.mapreqcnt = 0
 
 	def __str__(self):
 		return f'player {self.client_id} pos={self.pos} {self.gridpos}'
@@ -82,9 +84,31 @@ class Player(BasicThing, Thread):
 		if self.connected and not self.kill:
 			regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap'], 'pos':self.pos, 'gridpos':self.gridpos}
 			send_data(conn=self.socket,  payload=regmsg)
-			logger.debug(f'[ {self} ] send_mapreq')
-			self.sendcnt += 1
-			# self.send_reqpos()
+			self.mapreqcnt += 1
+			payloads = None
+			payloads = receive_data(conn=self.socket)
+			if payloads:
+				logger.debug(f'[ {self} ] send_mapreq payloads={len(payloads)}')
+				for payload in payloads:
+					if payload.get('msgtype') == 'mapfromserver':
+						# complete grid from server
+						gamemapgrid = payload.get('gamemapgrid', None)
+						newpos = payload.get('newpos', None)
+						newgridpos = payload.get('newgridpos', None)
+						mapmsg = Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos, 'newpos':newpos, 'newgridpos':newgridpos})
+						pygame.event.post(mapmsg)
+						logger.debug(f'{self.mapreqcnt} mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
+						self.gamemap.grid = gamemapgrid
+						self.gotmap = True
+						self.gotpos = True
+						self.pos = newpos
+						self.gridpos = newgridpos
+						self.send_pos(pos=self.pos, center=self.centerpos, gridpos=self.gridpos)
+						self.sendcnt += 1
+					else:
+						logger.debug(f'{self.mapreqcnt} waiting for map...{payload.get("msgtype")}')
+						#time.sleep(0.1)
+						self.send_mapreq()
 
 	def send_refreshgrid(self):
 		# request map from server

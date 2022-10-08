@@ -16,10 +16,10 @@ class Gamemap:
 			self.grid = self.generate_custom()
 		self.gridsize = (len(self.grid), len(self.grid))
 
-	def generate(self):
-		grid = [[random.choice([1,2,3,4,5,11]) for k in range(self.gridsize[1])] for j in range(self.gridsize[0])]
+	def generate(self, gridsize=15):
+		grid = [[random.choice([1,2,3,4,5,11]) for k in range(gridsize)] for j in range(gridsize)]
 		# set edges to solid blocks, 10 = solid blockwalkk
-		for x in range(self.gridsize[0]):
+		for x in range(gridsize):
 			grid[x][0] = 10
 			grid[0][x] = 10
 			grid[-1][x] = 10
@@ -44,17 +44,6 @@ class Gamemap:
 
 		# self.grid = grid
 		# [f'gridpos=({k},{j}) blk={grid[k][j]}' for k in range(gridsize) for j in range(gridsize)]
-
-		return grid
-
-	def clear_center(self):
-		x = int(self.gridsize[0] // 2)  # random.randint(2, self.gridsize[0] - 2)
-		y = int(self.gridsize[1] // 2)  # random.randint(2, self.gridsize[1] - 2)
-		# x = int(x)
-		self.grid[x][y] = 0
-		# make a clear radius around spawn point
-		for block in list(inside_circle(3, x, y)):
-			self.grid[block[0]][block[1]] = 0
 
 	def placeplayer(self, grid=None, pos=None, randpos=True):
 		#grid = DEFAULTGRID

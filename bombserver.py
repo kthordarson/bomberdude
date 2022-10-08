@@ -10,7 +10,7 @@ from loguru import logger
 from threading import Thread
 from queue import Queue
 # from things import Block
-from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE,DEFAULTGRID
+from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE,DEFAULTGRID, DEFAULTGRID4
 from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data, dataid
