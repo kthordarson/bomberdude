@@ -60,68 +60,63 @@ class Player(BasicThing, Thread):
 
 	def req_mapreset(self):
 		# request server map reset
-		if self.connected and not self.kill:
-			reqmsg = {'data_id': dataid['resetmap'], 'client_id': self.client_id, 'pos': self.pos, 'gridpos': self.gridpos}
-			send_data(conn=self.socket, payload=reqmsg)
-			self.sendcnt += 1
+		reqmsg = {'data_id': dataid['resetmap'], 'client_id': self.client_id, 'pos': self.pos, 'gridpos': self.gridpos}
+		send_data(conn=self.socket, payload=reqmsg)
+		self.sendcnt += 1
 
 	def send_bomb(self, pos=None):
 		# send bomb to server
-		if self.connected and not self.kill:
-			if self.bombs_left > 0:
-				bombgridpos = (pos[0] // BLOCK, pos[1] // BLOCK)
-				payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos,'bombgridpos':bombgridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}
-				send_data(conn=self.socket, payload=payload)
-				self.sendcnt += 1
-				logger.debug(f'send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos")}')
+		if self.bombs_left > 0:
+			bombgridpos = (pos[0] // BLOCK, pos[1] // BLOCK)
+			payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos,'bombgridpos':bombgridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}
+			send_data(conn=self.socket, payload=payload)
+			self.sendcnt += 1
+			logger.debug(f'send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos")}')
 
 	def send_reqpos(self):
 		# get initial position from server
-		if self.connected and not self.kill:
-			reqmsg = {'data_id': dataid['reqpos'], 'client_id': self.client_id, 'payload': 'reqpos', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
-			send_data(conn=self.socket, payload=reqmsg)
-			self.sendcnt += 1
+		reqmsg = {'data_id': dataid['reqpos'], 'client_id': self.client_id, 'payload': 'reqpos', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
+		send_data(conn=self.socket, payload=reqmsg)
+		self.sendcnt += 1
 
 	def send_mapreq(self):
 		# request map from server
-		if self.connected and not self.kill:
-			regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap'], 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
-			send_data(conn=self.socket,  payload=regmsg)
-			self.mapreqcnt += 1
-			payloads = None
-			payloads = receive_data(conn=self.socket)
-			if payloads:
-				# logger.debug(f'[ {self} ] send_mapreq payloads={len(payloads)}')
-				for payload in payloads:
-					if payload.get('msgtype') == 'mapfromserver':
-						# complete grid from server
-						gamemapgrid = payload.get('gamemapgrid', None)
-						newpos = payload.get('newpos', None)
-						newgridpos = payload.get('newgridpos', None)
-						pygame.event.post(Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':newpos, 'newgridpos':newgridpos}))
-						#pygame.event.post(mapmsg)
-						logger.debug(f'{self.mapreqcnt} mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
-						self.gamemap.grid = gamemapgrid
-						self.gotmap = True
-						self.gotpos = True
-						self.pos = newpos
-						self.gridpos = newgridpos
-						self.sendcnt += 1
-					else:
-						pygame.event.clear()
-						logger.debug(f'{self.mapreqcnt} not map response payload={payload}')
-						#time.sleep(0.1)
-						#send_data(conn=self.socket,  payload=regmsg)
-						# self.send_mapreq()
+		regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap'], 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
+		send_data(conn=self.socket,  payload=regmsg)
+		self.mapreqcnt += 1
+		payloads = None
+		payloads = receive_data(conn=self.socket)
+		if payloads:
+			# logger.debug(f'[ {self} ] send_mapreq payloads={len(payloads)}')
+			for payload in payloads:
+				if payload.get('msgtype') == 'mapfromserver':
+					# complete grid from server
+					gamemapgrid = payload.get('gamemapgrid', None)
+					newpos = payload.get('newpos', None)
+					newgridpos = payload.get('newgridpos', None)
+					pygame.event.post(Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':gamemapgrid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':newpos, 'newgridpos':newgridpos}))
+					#pygame.event.post(mapmsg)
+					logger.debug(f'{self.mapreqcnt} mapfromserver g={len(gamemapgrid)} newpos={newpos} {newgridpos}')
+					self.gamemap.grid = gamemapgrid
+					self.gotmap = True
+					self.gotpos = True
+					self.pos = newpos
+					self.gridpos = newgridpos
+					self.sendcnt += 1
+				else:
+					pygame.event.clear()
+					logger.debug(f'{self.mapreqcnt} not map response payload={payload}')
+					#time.sleep(0.1)
+					#send_data(conn=self.socket,  payload=regmsg)
+					# self.send_mapreq()
 
 	def send_refreshgrid(self):
 		# request map from server
-		if self.connected and not self.kill:
-			regmsg = {'client_id':self.client_id, 'payload':'refreshsgrid', 'data_id':dataid['refreshsgrid'], 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
-			send_data(conn=self.socket,  payload=regmsg)
-			logger.debug(f'[ {self} ] refreshsgrid')
-			self.sendcnt += 1
-			# self.send_reqpos()
+		regmsg = {'client_id':self.client_id, 'payload':'refreshsgrid', 'data_id':dataid['refreshsgrid'], 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
+		send_data(conn=self.socket,  payload=regmsg)
+		logger.debug(f'[ {self} ] refreshsgrid')
+		self.sendcnt += 1
+		# self.send_reqpos()
 
 	def send_pos(self, pos=None, center=None, gridpos=None):
 		# send pos to server
@@ -134,25 +129,19 @@ class Player(BasicThing, Thread):
 
 	def send_clientid(self):
 		# send pos to server
-		if self.connected:
-			cmsg = {'data_id': dataid['info'], 'client_id': self.client_id, 'pos': self.pos, 'centerpos':self.centerpos, 'kill':self.kill, 'gridpos':self.gridpos, 'gotmap':self.gotmap,'gotpos':self.gotpos}
-			send_data(conn=self.socket, payload=cmsg)
-			logger.info(f'[ {self} ] sending client_id ')
-			self.sendcnt += 1
+		cmsg = {'data_id': dataid['info'], 'client_id': self.client_id, 'pos': self.pos, 'centerpos':self.centerpos, 'kill':self.kill, 'gridpos':self.gridpos, 'gotmap':self.gotmap,'gotpos':self.gotpos}
+		send_data(conn=self.socket, payload=cmsg)
+		logger.info(f'[ {self} ] sending client_id ')
+		self.sendcnt += 1
 
 	def send_gridupdate(self, gridpos=None, blktype=None, grid_data=None):
 		# inform server about grid update
 		# called after bomb explodes and kills block
-		# gridpos=blk.gridpos, blktype=blk.block_type)
-		# if not blktype:
-		# 	logger.error(f'[ {self} ] missing blktype gp={gridpos} b={blktype} grid_data={grid_data}')
-		# 	blktype = 0
-		if self.connected:
-			self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
-			gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'blkgridpos': gridpos, 'blktype': blktype, 'pos': self.pos, 'griddata':grid_data, 'gridpos':self.gridpos}
-			send_data(conn=self.socket, payload=gridmsg)
-			self.sendcnt += 1
-			# logger.debug(f'[ {self} ] send_gridupdate {len(gridmsg)}')
+		self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
+		gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'blkgridpos': gridpos, 'blktype': blktype, 'pos': self.pos, 'griddata':grid_data, 'gridpos':self.gridpos}
+		send_data(conn=self.socket, payload=gridmsg)
+		self.sendcnt += 1
+		# logger.debug(f'[ {self} ] send_gridupdate {len(gridmsg)}')
 
 	def disconnect(self):
 		# send quitmsg to server
@@ -179,8 +168,8 @@ class Player(BasicThing, Thread):
 			x,y = movegrid
 			self.gridpos[0] = x
 			self.gridpos[1] = y
-			if self.gamemap.grid[x][y] == 20:
-				self.take_powerup(powertype=20, gridpos=self.gridpos)
+			if self.gamemap.grid[x][y] >= 20:
+				self.take_powerup(powertype=self.gamemap.grid[x][y], gridpos=self.gridpos)
 
 	def move(self, direction):
 		if self.ready and self.gotmap and self.gotpos:
@@ -192,25 +181,25 @@ class Player(BasicThing, Thread):
 			newgridpos = [x, y]
 			# logger.debug(f'{self} move {direction} {self.gridpos}')
 			if direction == 'up':
-				if self.gamemap.grid[x][y-1] in [11,20]:
+				if self.gamemap.grid[x][y-1] > 10:
 					newgridpos = [x, y-1]
 				else:
 					pass
 					#logger.warning(f'cant move {direction} to {newgridpos} g:{self.gamemap.grid[x][y-1]}')
 			elif direction == 'down':
-				if self.gamemap.grid[x][y+1] in [11,20]:
+				if self.gamemap.grid[x][y+1] > 10:
 					newgridpos = [x, y+1]
 				else:
 					pass
 					#logger.warning(f'cant move {direction} to [{x}, {y+1}] g:{self.gamemap.grid[x][y+1]}')
 			elif direction == 'left':
-				if self.gamemap.grid[x-1][y] in [11,20]:
+				if self.gamemap.grid[x-1][y] > 10:
 					newgridpos = [x-1, y]
 				else:
 					pass
 					#logger.warning(f'cant move {direction}to [{x-1}, {y}] g:{self.gamemap.grid[x-1][y]}')
 			elif direction == 'right':
-				if self.gamemap.grid[x+1][y] in [11,20]:
+				if self.gamemap.grid[x+1][y] > 10:
 					newgridpos = [x+1, y]
 				else:
 					pass
@@ -244,15 +233,16 @@ class Player(BasicThing, Thread):
 	# 		self.send_pos()
 
 	def take_powerup(self, powertype=None, gridpos=None):
-		x = gridpos[0]
-		y = gridpos[1]
+		x,y = gridpos
 		if powertype == 20:
 			self.cl_hearts += 1
 			self.cl_score += 10
-			oldbrick = self.gamemap.grid[x][y]
 			self.gamemap.grid[x][y] = 11
-			logger.info(f'player {self.client_id} got heart at gridpos={gridpos} griditem={self.gamemap.grid[x][y]} ob={oldbrick} hearts={self.cl_hearts}')
-			self.send_gridupdate(gridpos=(x,y), blktype=11, grid_data=self.gamemap.grid)
+		elif powertype == 21:
+			self.bombs_left += 1
+			self.gamemap.grid[x][y] = 11
+		logger.info(f'player {self.client_id} got extrabomb at gridpos={gridpos} griditem={self.gamemap.grid[x][y]} hearts={self.cl_hearts} bombsleft={self.bombs_left}')
+		self.send_gridupdate(gridpos=(x,y), blktype=11, grid_data=self.gamemap.grid)
 
 	def add_score(self):
 		self.cl_score += 1

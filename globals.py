@@ -121,8 +121,10 @@ class Block(BasicThing):
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		self.explode = False
-		self.poweruptime = 10
-		self.timer = 0
+		self.poweruptime = 1000
+		self.timer = 5000
+		if self.powerup:
+			self.timer = 10000
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos[0]
@@ -149,10 +151,10 @@ class Block(BasicThing):
 		#newblocks = Group()
 		newblock = None
 		if self.powerup:
-			newblktype = 20
+			newblktype = random.choice([20,21])
 			blkpos = self.rect.topleft
 			newblock = Block(blkpos, self.gridpos, block_type=newblktype, client_id=flame.client_id)
-			newblock.timer = 4000
+			newblock.timer = 50000
 			newblock.rect.center = self.rect.center
 			newblock.image.set_alpha(128)
 		# else:
@@ -178,7 +180,7 @@ class Block(BasicThing):
 		self.rect.y = self.pos[1]
 		# flame.vel = Vector2(flame.vel[0], flame.vel[1])
 		particles = Group()
-		for k in range(1, random.randint(4,15)):
+		for k in range(1, random.randint(4,11)):
 			if flame.vel.x < 0: # flame come from left
 				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right"))) # make particle go right
 			elif flame.vel.x > 0: # right
@@ -299,34 +301,36 @@ class Particle(BasicThing):
 		#self.rect = self.image.get_rect(topleft=self.pos)
 		#self.rect.x = self.pos[0]
 		#self.rect.y = self.pos[1]
-		self.timer = 10000
+		self.timer = 1000
 		self.hits = 0
 		self.maxhits = random.randint(1,3)
 		self.mass = 11
 		self.vel = vel
 
 	def __str__(self) -> str:
-		return f'[particle] pos={self.pos} vel={self.vel}'
+		return f'[particle] pos={self.blocks} vel={self.vel}'
 
-	def update(self, items=None, surface=None):
+	def update(self, blocks=None, surface=None):
+		#pygame.draw.circle(surface, (255, 0, 0), self.rect.center, 2)
 		if pygame.time.get_ticks() - self.start_time >= self.timer:
 			self.kill()
-			return
 		if self.rect.top <= 0 or self.rect.left <= 0:
 			self.kill()
-			return
 		if self.hits >= self.maxhits:
 			self.kill()
-			return
-		else:
-			self.image.set_alpha(self.alpha)
-			self.vel -= self.accel
-			self.vel.y += abs(self.vel.y * 0.1) + random.triangular(0.01,0.03) # 0.025
-			self.pos += self.vel
-			self.rect.x = self.pos[0]
-			self.rect.y = self.pos[1]
+		self.image.set_alpha(self.alpha)
+		self.vel -= self.accel
+		self.vel.y += abs(self.vel.y * 0.1) + random.triangular(0.01,0.03) # 0.025
+		self.pos += self.vel
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
+		for b in spritecollide(self, blocks, False):
+			if pygame.Rect.colliderect(self.rect, b.rect) and b.block_type != 11:
+				pygame.draw.circle(surface, (255, 0, 0), b.rect.center, 2)
+				self.hit()
+					
 
-	def hit(self, other):
+	def hit(self):
 		self.hits += 1
 		self.vel = -self.vel
 		self.alpha = int(self.alpha * 0.6)

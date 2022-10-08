@@ -78,6 +78,12 @@ BLOCKTYPES = {
 		"bgbitmap": "data/blackfloor.png",
 		"powerup": False,
 	},
+	21: {		
+		"size": POWERUPSIZE,
+		"bitmap": "data/newbomb.png",
+		"bgbitmap": "data/blackfloor.png",
+		"powerup": False,
+	},
 }
 
 
