@@ -18,7 +18,7 @@ from network import receive_data, send_data, dataid
 
 class ServerGUI(Thread):
 	def __init__(self):
-		super().__init__()
+		super().__init__(daemon=True)
 		self.screen =  pygame.display.set_mode((800,600), 0, 8)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (250, 180)
@@ -99,7 +99,7 @@ class ServerGUI(Thread):
 
 class Sender(Thread):
 	def __init__(self, client_id):
-		Thread.__init__(self)
+		Thread.__init__(self, daemon=True)
 		self.kill = False
 		self.queue = Queue()
 		self.sendcount = 0
@@ -115,7 +115,7 @@ class Sender(Thread):
 
 	def run(self):
 		logger.info(f'[ {self} ] run')
-		while True:
+		while not self.kill:
 			if self.kill:
 				logger.warning(f'[ {self} ] killed')
 				break
@@ -135,7 +135,7 @@ class Sender(Thread):
 
 class Servercomm(Thread):
 	def __init__(self):
-		Thread.__init__(self)
+		Thread.__init__(self, daemon=True)
 		self.kill = False
 		self.queue = Queue()
 		#np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':0}
@@ -149,7 +149,7 @@ class Servercomm(Thread):
 
 	def run(self):
 		logger.info(f'[ {self} ] server_comm run')
-		while True:
+		while not self.kill:
 			if self.kill:
 				logger.warning(f'[ {self} ] server_comm killed')
 				break
@@ -188,11 +188,11 @@ class Servercomm(Thread):
 
 class BombClientHandler(Thread):
 	def __init__(self, conn=None,  addr=None, gamemap=None, servercomm=None, npos=None, ngpos=None):
-		Thread.__init__(self)
+		Thread.__init__(self, daemon=True)
 		self.queue = Queue()
 		self.sendq = Queue() # multiprocessing.Manager().Queue()
 		self.client_id = '0'
-		self.kill = 0
+		self.kill = False
 		self.conn = conn
 		self.addr = addr
 		np = {'client_id':'0', 'pos':(0,0), 'centerpos':(0,0),'kill':0, 'gridpos':[0,0]}
@@ -290,16 +290,19 @@ class BombClientHandler(Thread):
 		self.get_client_id()
 		logger.debug(f'[ {self} ]  run ')
 		self.sender.start()
-		while True:
+		while not self.kill:
 			self.netplayers = self.servercomm.netplayers
 			# logger.debug(f'[ {self} ] np={self.netplayers}')
 			if self.client_id is None or self.client_id == '0':
 				self.get_client_id()
 			if self.kill or self.sender.kill:
-				logger.debug(f'{self} killed')
+				logger.debug(f'{self} killed sender={self.sender}')
 				self.sender.kill = True
+				self.sender.join(timeout=1)
+				logger.debug(f'{self} killed sender={self.sender} killed')
 				self.kill = True
 				self.conn.close()
+				logger.debug(f'{self} killed sender={self.sender} {self.conn} closed')
 				break
 			#if len(self.netplayers) >= 1:
 			npayload = {'msgtype':dataid['netplayers'], 'client_id':self.client_id, 'netplayers':self.netplayers, 'data_id':dataid['netplayers']}
@@ -602,15 +605,34 @@ class BombServer(Thread):
 			if not self.queue.empty():
 				serverevents.append(self.queue.get())
 				self.queue.task_done()
-			for event in pygame.event.get():
+			events = pygame.event.get()
+			for event in events:
 				if event.type == pygame.KEYDOWN:
+					logger.info(f'[{len(serverevents)} {len(events)}] event={event}')
 					if event.key == pygame.K_q:
+						[logger.info(f'[{len(serverevents)} {len(events)}] pgevent={ev}') for ev in events]
 						self.kill = True
+						logger.info(f'{self} quitting')
+						for bc in self.bombclients:
+							logger.info('{self} killing {bc} ')
+							bc.sender.kill = True
+							bc.kill = True
+							logger.info(f'{self} killing {bc} sender {bc.sender}')
 						self.conn.close()
-						break
+						logger.info(f'{self.conn} close')
+						self.gui.join(timeout=1)
+						logger.info(f'{self.gui} kill')
+						self.servercomm.join(timeout=1)
+						logger.info(f'{self.servercomm} kill')
+						os._exit(0)
+						
 				elif event.type == pygame.USEREVENT:
-					print(event)
+					logger.info(f'[{len(serverevents)}] event={event}')
 					serverevents.append(event.payload)
+				elif event.type in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP, 32777, 772, 32768, 1027, 32775, 32774, 32770, 32785, 4352,32776, 32788,32783,32784,32788]:
+					pass
+				else:
+					logger.warning(f'[{len(serverevents)}] event={event}')
 			self.eventhandler(serverevents)
 			self.serverclock.tick(30)
 			self.gui_refresh()
@@ -653,27 +675,17 @@ def main():
 	server.conn.bind(('0.0.0.0', 9696))
 	server.conn.listen()
 	server.start()
-	while True:
+	while not server.kill:
 		logger.debug(f'[bombserver] {server} waiting for connection clients:{clients}')
 		try:
 			if server.kill:
 				logger.warning(f'[bombserver] {server} server killed')
 				server.conn.close()
-				break
+				return
 			conn, addr = server.conn.accept()
 			ncmsg=Event(USEREVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
-			logger.info(f'ncmsg={ncmsg}')
-			try:
-				pygame.event.post(ncmsg)
-			except TypeError as e:
-				logger.error(f'[bombserver] {server} err:{e}')
-			#server.queue.put(ncmsg)
-			#ncmsg = Event(USEREVENT, payload=payload)
-			
-			# try:
-			# 	pygame.event.post(USEREVENT, ncmsg)
-			# except TypeError as e:
-			# 	logger.error(f'[bombserver] {server} TypeError {e} ncmsg={ncmsg}')
+			logger.info(f'ncmsg={ncmsg}')			
+			pygame.event.post(ncmsg)
 		except KeyboardInterrupt as e:
 			server.conn.close()
 			logger.warning(f'KeyboardInterrupt:{e} server:{server}')
@@ -684,7 +696,7 @@ def main():
 			server.kill = True
 			server.join()
 			logger.warning(f'kill server:{server}')
-			return
+			break
 
 
 
