@@ -9,7 +9,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
-from constants import BLOCK,FPS,BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID, MAXPARTICLES
+from constants import BLOCKTYPES, POWERUPSIZE, FLAMESIZE, BOMBSIZE, MAXPARTICLES,BLOCK
 
 
 def random_velocity(direction=None):
@@ -35,27 +35,21 @@ def rot_center(image, rect, angle):
 	rot_rect = rot_image.get_rect(center=rect.center)
 	return rot_image, rot_rect
 
-
 def get_entity_angle(e_1, e_2):
 	dif_x = e_2.x - e_1.x
 	dif_y = e_2.y - e_1.y
 	return math.atan2(dif_y, dif_x)
-
 
 def get_angle(pos_1, pos_2):
 	dif_x = pos_2[0] - pos_1[0]
 	dif_y = pos_2[1] - pos_1[1]
 	return math.atan2(dif_y, dif_x)
 
-
-
-
 def load_image(name, colorkey=None):
 	fullname = os.path.join("data", name)
 	image = pygame.image.load(fullname)
 	# image = image.convert()
 	return image, image.get_rect()
-
 
 class ResourceHandler:
 	def __init__(self):
@@ -71,12 +65,10 @@ class ResourceHandler:
 		else:
 			return self.__images[filename]
 
-
 def gen_randid():
 	hashid = hashlib.sha1()
 	hashid.update(str(time.time()).encode("utf-8"))
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
-
 
 def stop_all_threads(threads):
 	logger.debug(f'stopping {threads}')
@@ -85,7 +77,6 @@ def stop_all_threads(threads):
 		t.kill = True
 		t.join(0)
 	sys.exit()
-
 
 def start_all_threads(threads):
 	logger.debug(f'starting {threads}')
@@ -97,7 +88,6 @@ class BasicThing(Sprite):
 	rm = ResourceHandler()
 	def __init__(self, pos, gridpos, image=None):
 		super().__init__()
-		# self.thingq = OldQueue() # multiprocessing.Manager().Queue()
 		self.gridpos = gridpos
 		self.pos = pos
 		self.vel = Vector2()
@@ -121,8 +111,10 @@ class BasicThing(Sprite):
 		return self.collisions
 
 class Block(BasicThing):
-	def __init__(self, pos, gridpos, block_type):		
+	def __init__(self, pos, gridpos, block_type, client_id):
 		super().__init__(pos,gridpos, None)
+		self.blkid = gen_randid()
+		self.client_id = client_id
 		self.block_type = block_type
 		self.size = BLOCKTYPES.get(self.block_type)["size"]
 		self.bitmap = BLOCKTYPES.get(self.block_type)["bitmap"]
@@ -130,6 +122,7 @@ class Block(BasicThing):
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		self.explode = False
 		self.poweruptime = 10
+		self.timer = 0
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos[0]
@@ -140,17 +133,32 @@ class Block(BasicThing):
 	def __str__(self):
 		return f'[block] pos={self.pos} gp={self.gridpos} type={self.block_type}'
 
+	# def update(self):
+	# 	if not self.block_type == 20:
+	# 		return
+	# 	else:
+	# 		if pygame.time.get_ticks() - self.start_time >= self.timer:
+	# 			logger.info(f'{self} powerup timeout')
+	# 			self.kill()
+
 	def hit(self, flame):
 		# self.bitmap = BLOCKTYPES.get(11)["bitmap"]
 		# self.permanent = True
 		# self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		particles = Group()
-		newblocks = Group()
+		#newblocks = Group()
+		newblock = None
 		if self.powerup:
-			# newblock = Powerup(pos=self.rect.center, type=self.powertype)
-			newblocks.add(Powerup(self.rect.center, self.gridpos, block_type=20))
-		else:
-			newblocks.add(Block(self.rect.topleft, self.gridpos, block_type=11))
+			newblktype = 20
+			blkpos = self.rect.topleft
+			newblock = Block(blkpos, self.gridpos, block_type=newblktype, client_id=flame.client_id)
+			newblock.timer = 4000
+			newblock.rect.center = self.rect.center
+			newblock.image.set_alpha(128)
+		# else:
+		# 	newblktype = 11
+		# 	blkpos = self.rect.topleft
+		
 		for k in range(1, MAXPARTICLES+random.randint(1, 10)):
 			if flame.vel.x < 0:  # flame come from left
 				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
@@ -159,8 +167,8 @@ class Block(BasicThing):
 			elif flame.vel.y > 0:  # down
 				particles.add(Particle(pos=flame.rect.midtop, vel=random_velocity(direction="up")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
 			elif flame.vel.y < 0:  # up
-				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]			
-		return particles, newblocks
+				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down")))  # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
+		return particles, newblock
 
 	def gen_particles(self, flame):
 		# called when block is hit by a flame
@@ -199,7 +207,7 @@ class Powerup(BasicThing):
 		self.rect.center = pos
 		self.alpha = 255
 		self.image.set_alpha(self.alpha)
-		self.timer = 2000
+		self.timer = 6000
 		#self.clock = pygame.time.Clock()
 		self.start_time = pygame.time.get_ticks()
 
@@ -217,9 +225,13 @@ class Powerup(BasicThing):
 			self.kill()
 
 class Bomb(BasicThing):
-	def __init__(self, pos, bomber_id, bomb_power=20):
+	def __init__(self, pos, bomber_id, bombpower=20, gridpos=None):
 		self.pos = pos
 		super().__init__(pos, None)
+		if not gridpos:
+			self.gridpos = (pos[0]//BLOCK, pos[1]//BLOCK)
+		else:
+			self.gridpos = gridpos
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.bomber_id = bomber_id
@@ -235,14 +247,14 @@ class Bomb(BasicThing):
 		self.explode = False
 		self.exp_radius = 1
 		self.done = False
-		self.flame_power = bomb_power
-		self.flame_len = bomb_power
+		self.flame_power = bombpower
+		self.flame_len = bombpower
 		self.flame_width = 10
 		self.flamesout = False
 		self.flames = Group()
 
 	def __str__(self):
-		return f'[bomb] pos={self.pos} bomber={self.bomber_id} timer={self.timer}'
+		return f'[bomb] gridpos={self.gridpos} pos={self.pos} bomber={self.bomber_id} timer={self.timer}'
 
 #	def draw(self, screen):
 #		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
