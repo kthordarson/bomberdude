@@ -40,10 +40,8 @@ class Game(Thread):
 		# todo make this work
 		self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png'), (1000,900))
 		self.gameclock = pygame.time.Clock()
-		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.name = 'game'
 		self.kill = False
-		self.screen = pygame.display.get_surface() #  pygame.display.set_mode(SCREENSIZE, 0, vsync=0)  # pygame.display.get_surface()#  pygame.display.set_mode(SCREENSIZE, 0, 32)
 		self.bg_color = pygame.Color("black")
 		self.running = False
 		self.blocks = Group()
@@ -55,12 +53,10 @@ class Game(Thread):
 		self.lostblocks = Group()
 		self.playerone = Player()
 		self.players.add(self.playerone)
-		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.authkey = 'foobar'
 		self.gotgamemapgrid = False
 		self.extradebug = False
 		self.screensize = (800, 600)
-		self.gui = GameGUI(self.screen)
 
 	def __str__(self):
 		return f'[G] run:{self.running} p1 p1conn:{self.playerone.connected} p1clientconn:{self.playerone.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.playerone.netplayers)} gmg:{self.gotgamemapgrid} '
@@ -85,6 +81,14 @@ class Game(Thread):
 		return {'bcnt': bcnt, 'pcnt': pcnt, 'wcnt': wcnt, 'ocnt': ocnt}
 
 	def run(self):
+		pygame.init()
+		pygame.display.set_mode((1000,900), 0, 8)
+		self.screen = pygame.display.get_surface() #  pygame.display.set_mode(SCREENSIZE, 0, vsync=0)  # pygame.display.get_surface()#  pygame.display.set_mode(SCREENSIZE, 0, 32)
+		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		self.gui = GameGUI(self.screen)
+		pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP, pygame.USEREVENT])
+
 		logger.debug(f'[ {self} ] started ')
 		while True:
 			if self.kill:
@@ -592,14 +596,11 @@ class Game(Thread):
 
 
 if __name__ == "__main__":
-	pygame.init()
-	pygame.display.set_mode((1000,900), 0, 8)
-	pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
 
 	#pygame.display.set_mode((800,600), 0, 8)
 	game = Game()
 	game.daemon = True
-	game.start()
+	game.run()
 	game.running = True
 	while game.running:
 		if game.kill:
