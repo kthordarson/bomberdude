@@ -191,7 +191,7 @@ class Bomb(BasicThing):
 		self.rect.centerx = self.pos[0]
 		self.rect.centery = self.pos[1]
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.timer = 2000
+		self.timer = 2525
 		self.bomb_timer = 1
 		self.bomb_fuse = 1
 		self.bomb_end = 2

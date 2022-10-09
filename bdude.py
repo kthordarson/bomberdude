@@ -247,7 +247,15 @@ class Game(Thread):
 			blktype = gamemsg.get('blktype')
 			bclid = gamemsg.get('bclid')
 			clientid = gamemsg.get('client_id')
-			newblock = Block(pos=(gridpos[0]*BLOCK, gridpos[1]*BLOCK), gridpos=gridpos, block_type=blktype, client_id=bclid, timer=1)
+			if blktype == 11:
+				newtimer = 1
+			elif blktype == 20 or blktype == 21:
+				newtimer = 3000
+			elif blktype == 30:
+				newtimer = 5000
+			else:
+				newtimer = 42
+			newblock = Block(pos=(gridpos[0]*BLOCK, gridpos[1]*BLOCK), gridpos=gridpos, block_type=blktype, client_id=bclid, timer=newtimer)
 			if self.playerone.client_id == bclid or self.playerone.client_id == clientid:
 				pass
 				# logger.warning(f'netgridupdate from self {self.playerone.client_id} gamemsg={gamemsg}')
@@ -291,8 +299,16 @@ class Game(Thread):
 		for k in range(0, len(gamemapgrid)):
 			for j in range(0, len(gamemapgrid)):
 				blktype = gamemapgrid[j][k]
+				if blktype == 11:
+					newtimer = 1
+				elif blktype == 20 or blktype == 21:
+					newtimer = 2000
+				elif blktype == 30:
+					newtimer = 6000
+				else:
+					newtimer = 44
 				try:
-					newblock = Block(Vector2(j * BLOCK, k * BLOCK), (j, k), block_type=blktype, client_id=self.playerone.client_id, timer=1)
+					newblock = Block(Vector2(j * BLOCK, k * BLOCK), (j, k), block_type=blktype, client_id=self.playerone.client_id, timer=newtimer)
 					self.blocks.add(newblock)
 				except TypeError as e:
 					logger.error(f'updategrid: {e} gmg={gamemapgrid[j][k]} blktype={blktype} j={j} k={k} idx={idx}')
