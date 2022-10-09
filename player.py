@@ -109,25 +109,24 @@ class Player(BasicThing, Thread):
 		else:
 			logger.warning(f'{msgtype} already gotpos={self.gotpos} pos={self.pos} {self.gridpos}')
 
-	def send_mapreset(self):
+	def send_mapreset(self, gridsize):
 		# request server map reset
 		msgtype = 'resetmap'
-		reqmsg = {'msgtype': msgtype, 'client_id': self.client_id, 'pos': self.pos, 'gridpos': self.gridpos}
+		reqmsg = {'msgtype': msgtype, 'client_id': self.client_id, 'pos': self.pos, 'gridpos': self.gridpos, 'gridsize': gridsize}
 		logger.debug(f'sending {msgtype} payload={reqmsg}')
 		send_data(conn=self.socket, payload=reqmsg)
 		self.sendcnt += 1
 
-	def send_maprequest(self):
+	def send_maprequest(self, gridsize):
 		# request map from server
-		reqmsg = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
+		reqmsg = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'gridsize':gridsize}
 		if not self.gotmap:
-			send_data(conn=self.socket,  payload=reqmsg)
-			self.mapreqcnt += 1
+			logger.warning(f'mapreqcnt={self.mapreqcnt} gotmap ={self.gotmap} already payload={reqmsg}')
+		send_data(conn=self.socket,  payload=reqmsg)
+		self.mapreqcnt += 1
 			# logger.debug(f'{self} sending maprequest:{self.mapreqcnt} payload={reqmsg}')
 			# if self.mapreqcnt >= 3:
 			# 	time.sleep(int(self.mapreqcnt//10))
-		else:
-			logger.warning(f'mapreqcnt={self.mapreqcnt} gotmap ={self.gotmap} already payload={reqmsg}')
 
 		# payloads = None
 		# payloads = receive_data(conn=self.socket)
@@ -386,7 +385,7 @@ class Player(BasicThing, Thread):
 	def run(self):
 		self.connect_to_server()
 		self.send_request_clid()
-		self.send_maprequest()
+		self.send_maprequest(gridsize=20)
 		payloads = []
 		#rcvr = Thread(target=get_netpayloads, args=(self.socket,), daemon=True)
 		#rcvr.start()

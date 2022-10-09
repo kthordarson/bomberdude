@@ -429,7 +429,7 @@ class BombServer(Thread):
 				else:
 					clid = data.get('client_id')
 					logger.info(f'[ {self} ] resetmap from {clid} {data}')
-				basegrid = self.gamemap.generate_custom(gridsize=15)
+				basegrid = self.gamemap.generate_custom(gridsize=10)
 				#self.gamemap.grid = basegrid
 				for bc in self.bombclients:
 					bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)
@@ -443,8 +443,9 @@ class BombServer(Thread):
 			elif smsgtype == 'maprequest':
 				# todo fix player pos on new grid
 				clid = data.get('client_id')
+				gz = data.get('gridsize')
 				logger.info(f'[ {self} ] resetmap from {clid} {data}')
-				basegrid = self.gamemap.grid
+				basegrid = self.gamemap.generate_custom(gridsize=gz)
 				#self.gamemap.grid = basegrid
 				for bc in self.bombclients:
 					bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)

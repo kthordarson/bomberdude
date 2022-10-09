@@ -34,7 +34,7 @@ BLOCKTYPES = {
 		"size": BLOCKSIZE,
 		"bitmap": "data/blocksprite5a.png",
 		"bgbitmap": "data/black.png",
-		"powerup": True,
+		"powerup": False,
 	},
 	2: {		
 		"size": BLOCKSIZE,
