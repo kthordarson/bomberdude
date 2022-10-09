@@ -3,7 +3,7 @@ import pygame.freetype
 from pygame.math import Vector2
 from loguru import logger
 from constants import *
-
+from threading import Thread
 
 class DebugDialog:
 	def __init__(self, screen, font):
@@ -122,3 +122,80 @@ class Menu:
 			self.selected_item += 1
 		else:
 			self.selected_item = 0
+
+class ServerGUI(Thread):
+	def __init__(self):
+		super().__init__(daemon=True)
+		self.screen =  pygame.display.set_mode((800,600), 0, 8)
+		self.screenw, self.screenh = pygame.display.get_surface().get_size()
+		self.menusize = (250, 180)
+		self.image = pygame.Surface(self.menusize)
+		self.pos = Vector2(self.screenw // 2 - self.menusize[0] // 2, self.screenh // 2 - self.menusize[1] // 2)
+		self.rect = self.image.get_rect(topleft=self.pos)
+		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
+		self.font_color = (255, 255, 255)
+		self.bg_color = pygame.Color("black")
+		self.bombclients = []
+		self.netplayers = {}
+		self.guiclock = pygame.time.Clock()
+		self.gamemapgrid = []
+
+	def renderinfo(self):
+			self.guiclock.tick(FPS)
+			try:
+				pygame.display.flip()
+			except:
+				self.screen = pygame.display.set_mode((800,600), 0, 8)
+			self.screen.fill(self.bg_color)
+			ctextpos = [10, 10]
+			try:
+
+				msgtxt = f'fps={self.guiclock.get_fps():2f} clients:{len(self.bombclients)} np:{len(self.netplayers)} '
+			except TypeError as e:
+				logger.warning(f'[ {self} ] TypeError:{e}')
+				msgtxt = ''
+			self.font.render_to(self.screen, ctextpos, msgtxt, (150,150,150))
+			ctextpos = [15, 25]
+			npidx = 1
+			#netplrs = [self.netplayers[k] for k in self.netplayers if not self.netplayers[k]['kill']]
+			#self.netplayers = netplrs
+			for np in self.netplayers:
+				snp = self.netplayers[np]
+				msgtxt = f"[{npidx}/{len(self.netplayers)}] servernp:{snp.get('client_id')} pos={snp.get('pos')} {snp.get('gridpos')} kill:{snp.get('kill')}"
+				self.font.render_to(self.screen, (ctextpos[0]+13, ctextpos[1] ), msgtxt, (130,30,130))
+				ctextpos[1] += 20
+				npidx += 1
+#				if sid == '0':
+#					self.font.render_to(self.screen, (ctextpos[0]+13, ctextpos[1] ), msgtxt, (190,80,230))
+#					ctextpos[1] += 20
+			bidx = 1
+			plcolor = [255,0,0]
+			for bc in self.bombclients:
+				if bc.client_id:
+					bctimer = pygame.time.get_ticks()-bc.lastupdate
+					self.gamemapgrid = bc.gamemap.grid
+					bcgridpos = (bc.gridpos[0], bc.gridpos[1])
+					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':round(bc.kill), 'gridpos':bcgridpos}
+					self.netplayers[bc.client_id] = np
+					bc.servercomm.netplayers[bc.client_id] = np
+					textmsg = f'[{bidx}/{len(self.bombclients)}] bc={bc.client_id} pos={bc.pos} np:{len(bc.servercomm.netplayers)} t:{bctimer}'
+					self.font.render_to(self.screen, ctextpos, textmsg, (130,130,130))
+					ctextpos[1] += 20
+					bidx += 1
+					#self.font.render_to(self.screen, (ctextpos[0]+10, ctextpos[1]), f'np={np}', (140,140,140))
+					#ctextpos[1] += 20
+					npidx = 1
+					for npitem in bc.servercomm.netplayers:
+						bcnp = bc.servercomm.netplayers[npitem]
+						msgstring = f'[{npidx}/{len(bc.servercomm.netplayers)}] bcnp={bcnp["client_id"]} pos={bcnp["pos"]} {bcnp["gridpos"]} kill={bcnp["kill"]} t:{bctimer}'
+						if npitem != '0':
+							self.font.render_to(self.screen, (ctextpos[0]+15, ctextpos[1]), msgstring, (145,245,145))
+							npidx += 1
+							ctextpos[1] += 20
+						if npitem == '0':
+							self.font.render_to(self.screen, (ctextpos[0]+15, ctextpos[1]), msgstring, (145,145,145))
+							npidx += 1
+							ctextpos[1] += 20
+					pygame.draw.circle(self.screen, plcolor, center=bc.pos, radius=5)
+					plcolor[1] += 60
+					plcolor[2] += 60

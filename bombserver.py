@@ -15,82 +15,6 @@ from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data
 
-class ServerGUI(Thread):
-	def __init__(self):
-		super().__init__(daemon=True)
-		self.screen =  pygame.display.set_mode((800,600), 0, 8)
-		self.screenw, self.screenh = pygame.display.get_surface().get_size()
-		self.menusize = (250, 180)
-		self.image = pygame.Surface(self.menusize)
-		self.pos = Vector2(self.screenw // 2 - self.menusize[0] // 2, self.screenh // 2 - self.menusize[1] // 2)
-		self.rect = self.image.get_rect(topleft=self.pos)
-		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
-		self.font_color = (255, 255, 255)
-		self.bg_color = pygame.Color("black")
-		self.bombclients = []
-		self.netplayers = {}
-		self.guiclock = pygame.time.Clock()
-		self.gamemapgrid = []
-
-	def renderinfo(self):
-			self.guiclock.tick(FPS)
-			try:
-				pygame.display.flip()
-			except:
-				self.screen = pygame.display.set_mode((800,600), 0, 8)
-			self.screen.fill(self.bg_color)
-			ctextpos = [10, 10]
-			try:
-
-				msgtxt = f'fps={self.guiclock.get_fps():2f} clients:{len(self.bombclients)} np:{len(self.netplayers)} '
-			except TypeError as e:
-				logger.warning(f'[ {self} ] TypeError:{e}')
-				msgtxt = ''
-			self.font.render_to(self.screen, ctextpos, msgtxt, (150,150,150))
-			ctextpos = [15, 25]
-			npidx = 1
-			#netplrs = [self.netplayers[k] for k in self.netplayers if not self.netplayers[k]['kill']]
-			#self.netplayers = netplrs
-			for np in self.netplayers:
-				snp = self.netplayers[np]
-				msgtxt = f"[{npidx}/{len(self.netplayers)}] servernp:{snp.get('client_id')} pos={snp.get('pos')} {snp.get('gridpos')} kill:{snp.get('kill')}"
-				self.font.render_to(self.screen, (ctextpos[0]+13, ctextpos[1] ), msgtxt, (130,30,130))
-				ctextpos[1] += 20
-				npidx += 1
-#				if sid == '0':
-#					self.font.render_to(self.screen, (ctextpos[0]+13, ctextpos[1] ), msgtxt, (190,80,230))
-#					ctextpos[1] += 20
-			bidx = 1
-			plcolor = [255,0,0]
-			for bc in self.bombclients:
-				if bc.client_id:
-					bctimer = pygame.time.get_ticks()-bc.lastupdate
-					self.gamemapgrid = bc.gamemap.grid
-					bcgridpos = (bc.gridpos[0], bc.gridpos[1])
-					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':round(bc.kill), 'gridpos':bcgridpos}
-					self.netplayers[bc.client_id] = np
-					bc.servercomm.netplayers[bc.client_id] = np
-					textmsg = f'[{bidx}/{len(self.bombclients)}] bc={bc.client_id} pos={bc.pos} np:{len(bc.servercomm.netplayers)} t:{bctimer}'
-					self.font.render_to(self.screen, ctextpos, textmsg, (130,130,130))
-					ctextpos[1] += 20
-					bidx += 1
-					#self.font.render_to(self.screen, (ctextpos[0]+10, ctextpos[1]), f'np={np}', (140,140,140))
-					#ctextpos[1] += 20
-					npidx = 1
-					for npitem in bc.servercomm.netplayers:
-						bcnp = bc.servercomm.netplayers[npitem]
-						msgstring = f'[{npidx}/{len(bc.servercomm.netplayers)}] bcnp={bcnp["client_id"]} pos={bcnp["pos"]} {bcnp["gridpos"]} kill={bcnp["kill"]} t:{bctimer}'
-						if npitem != '0':
-							self.font.render_to(self.screen, (ctextpos[0]+15, ctextpos[1]), msgstring, (145,245,145))
-							npidx += 1
-							ctextpos[1] += 20
-						if npitem == '0':
-							self.font.render_to(self.screen, (ctextpos[0]+15, ctextpos[1]), msgstring, (145,145,145))
-							npidx += 1
-							ctextpos[1] += 20
-					pygame.draw.circle(self.screen, plcolor, center=bc.pos, radius=5)
-					plcolor[1] += 60
-					plcolor[2] += 60
 
 class Sender(Thread):
 	def __init__(self, client_id):
@@ -395,7 +319,7 @@ class BombClientHandler(Thread):
 							pass
 
 class BombServer(Thread):
-	def __init__(self, gui):
+	def __init__(self, gui=None):
 		Thread.__init__(self, daemon=False)
 		self.bombclients  = []
 		self.gamemap = Gamemap()
@@ -404,7 +328,7 @@ class BombServer(Thread):
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.netplayers = {}
-		self.gui = gui # ServerGUI()
+		#self.gui = gui # ServerGUI()
 		self.servercomm = Servercomm()
 		self.serverclock = pygame.time.Clock()
 
@@ -555,7 +479,7 @@ class BombServer(Thread):
 
 	def run(self):
 		logger.debug(f'[ {self} ] run')
-		self.gui.start()
+		# self.gui.start()
 		self.servercomm.start()
 		while not self.kill:
 			serverevents = []
@@ -580,8 +504,8 @@ class BombServer(Thread):
 							logger.info(f'{self} killing {bc} sender {bc.sender}')
 						self.conn.close()
 						logger.info(f'{self.conn} close')
-						self.gui.join(timeout=1)
-						logger.info(f'{self.gui} kill')
+						#self.gui.join(timeout=1)
+						#logger.info(f'{self.gui} kill')
 						self.servercomm.join(timeout=1)
 						logger.info(f'{self.servercomm} kill')
 						os._exit(0)
@@ -596,7 +520,7 @@ class BombServer(Thread):
 			#self.netplayers.pop([self.netplayers.get(k) for k in self.netplayers if self.netplayers[k]['kill']][0].get('client_id'))
 			self.eventhandler(serverevents)
 			self.serverclock.tick(FPS)
-			self.gui_refresh()
+			#self.gui_refresh()
 			# kp = False
 			# try:
 			# 	self.netplayers.pop([self.netplayers.get(k) for k in self.netplayers if self.netplayers[k]['kill']][0].get('client_id'))
@@ -650,8 +574,8 @@ def main():
 	key_message = 'bomberdude'
 	logger.debug(f'[bombserver] started')
 	clients = 0
-	gui = ServerGUI()
-	server = BombServer(gui)
+	#gui = ServerGUI()
+	server = BombServer()
 	server.conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	server.conn.bind(('0.0.0.0', 9696))
 	server.conn.listen()
