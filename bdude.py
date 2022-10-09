@@ -134,8 +134,6 @@ class Game(Thread):
 				if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP or event.type == pygame.TEXTINPUT:
 					self.handle_input(event)
 				elif event.type == pygame.USEREVENT:
-					#print(event)
-					#print(event.payload)
 					self.handle_mainq(gamemsg=event.payload)
 				else:
 					pass
@@ -213,7 +211,13 @@ class Game(Thread):
 			nb = gamemsg.get('blockdata')
 			x,y = nb.gridpos
 			self.playerone.gamemap.grid[x][y] = 11
-			#self.blocks.add(nb)
+			self.blocks.add(nb)
+
+		elif msgtype == 'poweruppickup':
+			nb = gamemsg.get('blockdata')
+			x,y = nb.gridpos
+			self.playerone.gamemap.grid[x][y] = 11
+			self.blocks.add(nb)
 			#logger.debug(f'{msgtype} nb={nb} self.playerone.gamemap.grid[x][y]={self.playerone.gamemap.grid[x][y]} x={x} y={y}')
 			#self.blocks.add(nb)
 
@@ -308,13 +312,13 @@ class Game(Thread):
 					if b.block_type == 21:
 						self.playerone.bombs_left += 1
 					if b.block_type == 22:
-						self.playerone.flame_len += 10
+						self.playerone.flame_len += 5
 					x,y = b.gridpos
 					self.playerone.gamemap.grid[x][y] = 11
-					nb = Block((x,y), b.gridpos, block_type=11, client_id=b.client_id, timer=1)
-					b.kill()
+					nb = Block(b.pos, b.gridpos, block_type=11, client_id=b.client_id, timer=1)
 					blockmsg = Event(USEREVENT, payload={'msgtype': 'poweruppickup', 'blockdata': nb})
 					pygame.event.post(blockmsg)
+					b.kill()
 				# if block is powerup, check timer
 				dt = pygame.time.get_ticks()
 				if dt - b.start_time >= b.timer:
@@ -323,8 +327,8 @@ class Game(Thread):
 					self.playerone.gamemap.grid[nx][ny] = 11
 					nb = Block(b.pos, b.gridpos, block_type=11, client_id=b.client_id, timer=1)
 					logger.debug(f'poweruptimeout b={b} nb={nb} grid[x][y]={self.playerone.gamemap.grid[nx][ny]} bgridpos={b.gridpos} timer:{dt - b.start_time} >= {b.timer}')
-					b.kill()
 					pygame.event.post(Event(USEREVENT, payload={'msgtype': 'poweruptimeout', 'blockdata': nb}))
+					b.kill()
 
 	def update_bombs(self):
 		self.bombs.update()

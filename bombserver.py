@@ -67,7 +67,7 @@ class ServerGUI(Thread):
 					bctimer = pygame.time.get_ticks()-bc.lastupdate
 					self.gamemapgrid = bc.gamemap.grid
 					bcgridpos = (bc.gridpos[0], bc.gridpos[1])
-					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':int(bc.kill), 'gridpos':bcgridpos}
+					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':round(bc.kill), 'gridpos':bcgridpos}
 					self.netplayers[bc.client_id] = np
 					bc.netplayers[bc.client_id] = np
 					textmsg = f'[{bidx}/{len(self.bombclients)}] bc={bc.client_id} pos={bc.pos} np:{len(bc.netplayers)} t:{bctimer}'

@@ -3,9 +3,9 @@ from loguru import logger
 from constants import BLOCK, BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, BOMBSIZE, BLOCKSIZE, DEFAULTGRID,DEFAULTGRID3,DEFAULTGRID4,DEFAULTGRID1,DEFAULTGRID0
 
 def inside_circle(radius, pos_x, pos_y):
-	x = int(radius)  # radius is the radius
+	x = round(radius)  # radius is the radius
 	for x in range(-x, x + 1):
-		y = int((radius * radius - x * x) ** 0.5)  # bound for y given x
+		y = round((radius * radius - x * x) ** 0.5)  # bound for y given x
 		for y in range(-y, y + 1):
 			yield x + pos_x, y + pos_y
 
@@ -30,7 +30,7 @@ class Gamemap:
 	def generate_custom(self, gridsize=15):
 		# generate a custom map, gridsize is max blocks x and y
 		# players = list of players, clear spot around each player
-		grid = [[random.choice([1,2,3,4,5,11]) for k in range(gridsize)] for j in range(gridsize)]
+		grid = [[random.choice([1,2,3,4,5,11,11,11,10]) for k in range(gridsize)] for j in range(gridsize)]
 		# set edges to solid blocks, 10 = solid blockwalkk
 		#grid = DEFAULTGRID
 		gridsize = len(grid)
@@ -54,18 +54,18 @@ class Gamemap:
 			try:
 				gpx = random.randint(1, len(grid)-1)
 				gpy = random.randint(1, len(grid)-1)
-				nx = int(gpx * BLOCK)
-				ny = int(gpy * BLOCK)
+				nx = round(gpx * BLOCK)
+				ny = round(gpy * BLOCK)
 			except ValueError as e:
 				logger.error(f'[map] ValueError {e} gl={len(grid)} pos={pos} randpos={randpos} grid={grid}')
 				gpx = 2
 				gpy = 2
-				nx = int(gpx * BLOCK)
-				ny = int(gpy * BLOCK)
+				nx = round(gpx * BLOCK)
+				ny = round(gpy * BLOCK)
 		else:
 			# gridpos from pos			
-			gpx = int(pos[0] // BLOCK)
-			gpy = int(pos[1] // BLOCK)
+			gpx = round(pos[0] // BLOCK)
+			gpy = round(pos[1] // BLOCK)
 			nx = pos[0]
 			ny = pos[1]
 		# logger.info(f'[map] placeplayer pos={pos} x={xpos} y={ypos}')

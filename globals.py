@@ -240,7 +240,7 @@ class Particle(BasicThing):
 		xsize = random.randint(1,4)
 		ysize = random.randint(1,4)
 		self.image = pygame.Surface((xsize ,ysize))
-		self.image.fill((95, 95, 95))
+		self.image.fill((random.randint(1,255), random.randint(1,255), random.randint(1,255)))
 		#self.image.fill((random.randint(0,255),random.randint(0,255),random.randint(0,255)))
 		self.rect = self.image.get_rect(center = pos)
 		# self.size = PARTICLESIZE
@@ -250,9 +250,9 @@ class Particle(BasicThing):
 		#self.rect = self.image.get_rect(topleft=self.pos)
 		#self.rect.x = self.pos[0]
 		#self.rect.y = self.pos[1]
-		self.timer = 1000
+		self.timer = 2000
 		self.hits = 0
-		self.maxhits = random.randint(1,3)
+		self.maxhits = random.randint(2,5)
 		self.mass = 11
 		self.vel = vel
 
@@ -274,15 +274,18 @@ class Particle(BasicThing):
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
 		for b in spritecollide(self, blocks, False):
-			if pygame.Rect.colliderect(self.rect, b.rect) and b.block_type != 11:
-				pygame.draw.circle(surface, (255, 0, 0), b.rect.center, 2)
+			if b.block_type != 11:
 				self.hit()
 					
 
 	def hit(self):
 		self.hits += 1
 		self.vel = -self.vel
-		self.alpha = int(self.alpha * 0.6)
+		self.vel.y *= 0.5
+		#self.vel.x *= 0.5
+		self.vel.x -= random.triangular(0.01,0.03) 
+		self.vel.y -= random.triangular(0.01,0.03) 
+		self.alpha = round(self.alpha * 0.5)
 
 
 class Flame(BasicThing):

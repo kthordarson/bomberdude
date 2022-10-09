@@ -44,7 +44,7 @@ class Player(BasicThing, Thread):
 		self.netplayers = {}
 		self.gamemap = Gamemap()
 		self.bombs_left = 3
-		self.flame_len = BLOCK * 1.5
+		self.flame_len = round(BLOCK * 1.5)
 		self.score = 0
 		self.hearts = 3
 		self.sendcnt = 0
@@ -189,8 +189,8 @@ class Player(BasicThing, Thread):
 
 	def move(self, direction):
 		if self.ready and self.gotmap and self.gotpos:
-			gpx = int(self.pos[0] // BLOCK)
-			gpy = int(self.pos[1] // BLOCK)
+			gpx = round(self.pos[0] // BLOCK)
+			gpy = round(self.pos[1] // BLOCK)
 			self.gridpos = [gpx, gpy]
 			x = self.gridpos[0]
 			y = self.gridpos[1]
@@ -242,7 +242,7 @@ class Player(BasicThing, Thread):
 	# def update(self, blocks=None):
 	# 	self.gridpos = (self.pos[0] // BLOCK, self.pos[1] // BLOCK)
 	# 	#self.rect.topleft = (self.pos[0], self.pos[1])
-	# 	# self.gridpos = (int(self.pos[0] // BLOCK), int(self.pos[1] // BLOCK))
+	# 	# self.gridpos = (round(self.pos[0] // BLOCK), round(self.pos[1] // BLOCK))
 	# 	for netplayer in self.netplayers:
 	# 		np = self.netplayers[netplayer]
 	# 	if self.connected:

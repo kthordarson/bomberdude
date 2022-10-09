@@ -105,7 +105,7 @@ class Menu:
 		pos += (0,25)
 		self.panelfont.render_to(screen, dest=pos, text=f'hearts {playerone.hearts}', fgcolor=(111,222,111))
 		pos += (0,25)
-		self.panelfont.render_to(screen, dest=pos, text=f'bombs {playerone.bombs_left}', fgcolor=(111,222,111))
+		self.panelfont.render_to(screen, dest=pos, text=f'bombs {playerone.bombs_left} power {playerone.flame_len}', fgcolor=(111,222,111))
 
 
 	def get_selection(self):
