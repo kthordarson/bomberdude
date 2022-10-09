@@ -36,12 +36,12 @@ class Dummyplayer():
 		self.speed = 3
 		self.gotmap = False
 		self.gotpos = False
-		self.serveraddress = '192.168.1.160'
+		self.serveraddress = ''
 		self.serverport = 9696
 		self.server = (self.serveraddress, self.serverport)
 		self.gamemap = []
-		self.bombs_left = 3
-		self.bombpower = 10
+		self.bombs_left = 0
+		self.bombpower = 0
 		self.score = 0
 		self.hearts = 3
 		self.sendcnt = 0
@@ -174,7 +174,7 @@ class Game(Thread):
 			bombgridpos = gamemsg.get('bombdata').get('bombgridpos')
 
 			bombpower = gamemsg.get('bombdata').get('bombpower')
-			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos, bombpower=bombpower)
+			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos, flame_len=bombpower)
 			bx,by = newbomb.gridpos
 			self.playerone.gamemap.grid[bx][by] = 11
 			self.bombs.add(newbomb)
@@ -237,7 +237,7 @@ class Game(Thread):
 			clientid = gamemsg.get('client_id')
 			if blktype == 11:
 				newtimer = 1
-			elif blktype == 20 or blktype == 21:
+			elif blktype in range(20,29):
 				newtimer = 3000
 			elif blktype == 30:
 				newtimer = 5000
@@ -256,12 +256,6 @@ class Game(Thread):
 				if b.gridpos == newblock.gridpos:
 					logger.warning(f'netgridupdate: block already exists b={b.block_type} nb={newblock.block_type}')
 					b.kill()
-			if newblock.block_type >= 20:
-				if DEBUG:
-					pygame.draw.rect(self.screen, (255, 0, 0), newblock.rect)
-			elif 1 <= newblock.block_type <= 11:
-				if DEBUG:
-					pygame.draw.rect(self.screen, (2, 255, 0), newblock.rect)
 			self.blocks.add(newblock)
 			# logger.info(f'ngu bclid={bclid} clientid={clientid} newblock={newblock} {self.playerone.gamemap.grid[x][y]} ')
 
@@ -289,10 +283,10 @@ class Game(Thread):
 				blktype = gamemapgrid[j][k]
 				if blktype == 11:
 					newtimer = 1
-				elif blktype == 20 or blktype == 21:
-					newtimer = 2000
+				elif blktype in range(20,29):
+					newtimer = 5000
 				elif blktype == 30:
-					newtimer = 6000
+					newtimer = 3000
 				else:
 					newtimer = 44
 				try:
@@ -313,6 +307,8 @@ class Game(Thread):
 						self.playerone.hearts += 1
 					if b.block_type == 21:
 						self.playerone.bombs_left += 1
+					if b.block_type == 22:
+						self.playerone.flame_len += 10
 					x,y = b.gridpos
 					self.playerone.gamemap.grid[x][y] = 11
 					nb = Block((x,y), b.gridpos, block_type=11, client_id=b.client_id, timer=1)
@@ -465,13 +461,7 @@ class Game(Thread):
 					pygame.draw.rect(self.screen, color=(255,0,0), rect=b.rect, width=1)
 					self.font.render_to(self.screen, (textpos[0]+5, textpos[1]+25), f"{plg1item}", fcol2)
 					self.font.render_to(self.screen, b.pos, f"{b.block_type}", (255, 255, 255))
-
 					#self.font.render_to(self.screen, b.pos, f"{b.block_type}", (183, 183, 183))
-				elif b.block_type >= 20:
-					#
-					#pygame.draw.rect(self.screen, color=(255,0,0), rect=b.rect, width=1)
-					#self.font.render_to(self.screen, b.pos, f"{b.block_type} {b.gridpos} {b.pos}", (183, 18, 183))
-					pass
 				else:
 					self.font.render_to(self .screen, (textpos[0]+12, textpos[1]+12), f"{b.block_type}", (255, 1, 255))
 					#self.font.render_to(self.screen, (textpos[0], textpos[1]+15), f"{selfgitem} {plg1item}", (55, 211, 123))
@@ -580,7 +570,7 @@ class Game(Thread):
 							print(f'\power {len(self.powerups)}: {b}')
 				if event.key == pygame.K_n:
 					self.playerone.bombs_left = 30
-					self.playerone.bombpower = 100
+					self.playerone.flame_len = 100
 				if event.key == pygame.K_g:
 					pass
 				if event.key == pygame.K_r:

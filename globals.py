@@ -137,7 +137,7 @@ class Block(BasicThing):
 		particles = Group()
 		newblock = None
 		if self.powerup:
-			newblktype = random.choice([20,21])
+			newblktype = random.choice([20,21,22])
 			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, timer=3000)
 			logger.info(f'{self} hit by {flame} makepowerup newblock={newblock}')
 		else:
@@ -177,7 +177,7 @@ class Block(BasicThing):
 
 
 class Bomb(BasicThing):
-	def __init__(self, pos, bomber_id, bombpower=20, gridpos=None):
+	def __init__(self, pos, bomber_id, flame_len, gridpos):
 		self.pos = pos
 		super().__init__(pos, None)
 		if not gridpos:
@@ -199,8 +199,7 @@ class Bomb(BasicThing):
 		self.explode = False
 		self.exp_radius = 1
 		self.done = False
-		self.flame_power = bombpower
-		self.flame_len = bombpower
+		self.flame_len = flame_len
 		self.flame_width = 10
 		self.flamesout = False
 		self.flames = Group()
@@ -315,6 +314,9 @@ class Flame(BasicThing):
 		self.pos += self.vel
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
+		dist = Vector2(self.start_pos).distance_to(Vector2(self.pos))
+		if dist >= self.flame_length:
+			self.kill()
 		pygame.draw.line(surface, (200, 5, 5), self.start_center, self.pos, 1)
 		pygame.draw.line(surface, (255, 255, 255), self.start_midtop, self.pos, 2)
 		pygame.draw.line(surface, (255, 255, 255), self.start_midbottom, self.pos, 2)

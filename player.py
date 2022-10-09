@@ -44,7 +44,7 @@ class Player(BasicThing, Thread):
 		self.netplayers = {}
 		self.gamemap = Gamemap()
 		self.bombs_left = 3
-		self.bombpower = 10
+		self.flame_len = BLOCK * 1.5
 		self.score = 0
 		self.hearts = 3
 		self.sendcnt = 0
@@ -62,7 +62,7 @@ class Player(BasicThing, Thread):
 		if self.bombs_left > 0:
 			self.gamemap.grid[self.gridpos[0]][self.gridpos[1]] = 11
 			bombpos = self.rect.center			
-			payload = {'msgtype': 'bombdrop', 'client_id':self.client_id, 'bombpos':bombpos,'bombgridpos':self.gridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}
+			payload = {'msgtype': 'bombdrop', 'client_id':self.client_id, 'bombpos':bombpos,'bombgridpos':self.gridpos, 'bombs_left':self.bombs_left, 'bombpower':self.flame_len}
 			send_data(conn=self.socket, payload=payload)
 			self.sendcnt += 1
 			logger.debug(f'send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos")}')
@@ -184,8 +184,8 @@ class Player(BasicThing, Thread):
 			x,y = movegrid
 			self.gridpos[0] = x
 			self.gridpos[1] = y
-			if self.gamemap.grid[x][y] >= 20:
-				self.take_powerup(powertype=self.gamemap.grid[x][y], gridpos=self.gridpos)
+			#if self.gamemap.grid[x][y] >= 20:
+			#	self.take_powerup(powertype=self.gamemap.grid[x][y], gridpos=self.gridpos)
 
 	def move(self, direction):
 		if self.ready and self.gotmap and self.gotpos:
