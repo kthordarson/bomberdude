@@ -217,18 +217,6 @@ class Game(Thread):
 			#logger.debug(f'{msgtype} nb={nb} self.playerone.gamemap.grid[x][y]={self.playerone.gamemap.grid[x][y]} x={x} y={y}')
 			#self.blocks.add(nb)
 
-		elif msgtype == 'newpowerup':
-			nb = gamemsg.get('blockdata')
-			x = nb.gridpos[0]
-			y = nb.gridpos[1]
-			if self.playerone.gamemap.grid[x][y] != nb.block_type:
-				logger.warning(f'{msgtype} mismatch {nb} btype={nb.block_type} != client={self.playerone.gamemap.grid[x][y]}')
-			elif self.playerone.gamemap.grid[x][y] == nb.block_type:
-				logger.info(f'{msgtype} {nb} btype={nb.block_type} == client={self.playerone.gamemap.grid[x][y]}')
-			self.playerone.gamemap.grid[x][y] = nb.block_type
-			self.blocks.add(nb)
-			#logger.debug(f'{msgtype} {nb}')
-
 		elif msgtype == 'newblock':
 			nb = gamemsg.get('blockdata')
 			x = nb.gridpos[0]
