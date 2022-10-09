@@ -111,7 +111,7 @@ class BasicThing(Sprite):
 		return self.collisions
 
 class Block(BasicThing):
-	def __init__(self, pos, gridpos, block_type, client_id):
+	def __init__(self, pos, gridpos, block_type, client_id, timer):
 		super().__init__(pos,gridpos, None)
 		self.blkid = gen_randid()
 		self.client_id = client_id
@@ -121,10 +121,7 @@ class Block(BasicThing):
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		self.explode = False
-		self.poweruptime = 1000
-		self.timer = 5000
-		if self.powerup:
-			self.timer = 10000
+		self.timer = timer
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos[0]
@@ -133,7 +130,7 @@ class Block(BasicThing):
 		self.image.set_colorkey((0, 0, 0))
 
 	def __str__(self):
-		return f'[block] pos={self.pos} gp={self.gridpos} type={self.block_type}'
+		return f'[block] pos={self.pos} gp={self.gridpos} type={self.block_type} blkid={self.blkid} client_id={self.client_id}'
 
 
 	def hit(self, flame):
@@ -141,14 +138,12 @@ class Block(BasicThing):
 		newblock = None
 		if self.powerup:
 			newblktype = random.choice([20,21])
-			blkpos = self.rect.topleft
-			newblock = Block(blkpos, self.gridpos, block_type=newblktype, client_id=flame.client_id)
-			newblock.timer = 50000
-			newblock.rect.center = self.rect.center
-			newblock.image.set_alpha(128)
-		# else:
-		# 	newblktype = 11
-		# 	blkpos = self.rect.topleft
+			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, timer=3000)
+			logger.info(f'{self} hit by {flame} makepowerup newblock={newblock}')
+		else:
+			newblktype = 11
+			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, timer=1)
+			logger.info(f'{self} hit by {flame} normalblock newblock={newblock}')
 		
 		for k in range(1, MAXPARTICLES+random.randint(1, 10)):
 			if flame.vel.x < 0:  # flame come from left

@@ -33,7 +33,7 @@ class ServerGUI(Thread):
 		self.gamemapgrid = []
 
 	def renderinfo(self):
-			self.guiclock.tick(30)
+			self.guiclock.tick(FPS)
 			try:
 				pygame.display.flip()
 			except:
@@ -184,7 +184,7 @@ class BombClientHandler(Thread):
 		Thread.__init__(self, daemon=True)
 		self.queue = Queue()
 		self.sendq = Queue() # multiprocessing.Manager().Queue()
-		self.client_id = None
+		self.client_id = gen_randid()
 		self.kill = False
 		self.conn = conn
 		self.addr = addr
@@ -257,15 +257,19 @@ class BombClientHandler(Thread):
 		self.sender.queue.put((self.conn, payload))
 		logger.debug(f'[ {self} ] sent payload:{payload}')
 
+	def set_client_id(self):
+		# get real client id from remote client
+		payload = {'msgtype':'bcsetclid', 'client_id':self.client_id}
+		self.sender.queue.put((self.conn, payload))
+		logger.debug(f'[ {self} ] sent payload:{payload}')
+
 	def run(self):
-		self.get_client_id()
+		self.set_client_id()
 		logger.debug(f'[ {self} ]  run ')
 		self.sender.start()
 		while not self.kill:
 			self.netplayers = self.servercomm.netplayers
 			# logger.debug(f'[ {self} ] np={self.netplayers}')
-			if self.client_id is None or self.client_id == '0':
-				self.get_client_id()
 			if self.kill or self.sender.kill:
 				logger.debug(f'{self} killed sender={self.sender}')
 				self.sender.kill = True
@@ -362,7 +366,7 @@ class BombClientHandler(Thread):
 							self.client_id = s_clid
 							logger.warning(f'[ {self} ] r:{len(resps)} netbomb {rid} {resp}')
 						bx,by = resp.get('bombgridpos', None)
-						self.gamemap.grid[bx][by] = 30
+						self.gamemap.grid[bx][by] = 11
 						ev = Event(USEREVENT, payload={'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'bombpower':resp.get('bombpower')})
 						pygame.event.post(ev)
 
@@ -598,7 +602,7 @@ class BombServer(Thread):
 					logger.warning(f'[{len(serverevents)}] event={event}')
 			#self.netplayers.pop([self.netplayers.get(k) for k in self.netplayers if self.netplayers[k]['kill']][0].get('client_id'))
 			self.eventhandler(serverevents)
-			self.serverclock.tick(30)
+			self.serverclock.tick(FPS)
 			self.gui_refresh()
 			# kp = False
 			# try:
@@ -623,11 +627,15 @@ class BombServer(Thread):
 			deadnps = [self.netplayers.get(k) for k in self.netplayers if self.netplayers.get(k).get('kill')]
 			if len(deadnps) > 0:
 				killednp = [self.netplayers.pop(k.get('client_id')) for k in deadnps]
-				for k in killednp:
-					logger.debug(f'dnp={len(deadnps)} killed {k}')
+				for k in killednp:					
 					for bc in self.bombclients:
-						bc.netplayers.pop(k.get('client_id'))
-						logger.debug(f'dnp={len(deadnps)} {bc} popped {k}')
+						try:
+							bc.netplayers.pop(k.get('client_id'))
+						except KeyError as e:
+							pass
+							#logger.warning(f'KeyError e:{e} bc:{bc} k:{k}')
+							#break
+						# logger.debug(f'dnp={len(deadnps)} {bc} popped {k}')
 			for bc in self.bombclients:
 				if bc.client_id != '0':
 					bc.netplayers = self.netplayers

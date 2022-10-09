@@ -11,7 +11,7 @@ from pygame import USEREVENT
 import pygame
 from loguru import logger
 from globals import Block, Bomb
-from constants import BLOCK, DEBUG, DEFAULTFONT, NETPLAYERSIZE
+from constants import BLOCK, DEBUG, DEFAULTFONT, NETPLAYERSIZE,FPS
 from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread
@@ -124,7 +124,7 @@ class Game(Thread):
 				logger.warning(f'[ {self} ] game kill')
 				break
 			if self.playerone.kill:
-				logger.warning(f'[ {self} ] playerone kill {self.playerone}')
+				logger.warning(f'playerone kill {self.playerone}')
 				self.kill = True
 				break
 			self.draw()
@@ -176,7 +176,7 @@ class Game(Thread):
 			bombpower = gamemsg.get('bombdata').get('bombpower')
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos, bombpower=bombpower)
 			bx,by = newbomb.gridpos
-			self.playerone.gamemap.grid[bx][by] = 30
+			self.playerone.gamemap.grid[bx][by] = 11
 			self.bombs.add(newbomb)
 			logger.debug(f'bombpos = gridpos:{bombgridpos} pos:{bombpos} {newbomb.pos} bl={self.playerone.bombs_left} b:{len(self.bombs)}  mt:{msgtype} ')
 
@@ -214,7 +214,7 @@ class Game(Thread):
 			x,y = nb.gridpos
 			self.playerone.gamemap.grid[x][y] = 11
 			#self.blocks.add(nb)
-			logger.debug(f'{msgtype} nb={nb} self.playerone.gamemap.grid[x][y]={self.playerone.gamemap.grid[x][y]} x={x} y={y}')
+			#logger.debug(f'{msgtype} nb={nb} self.playerone.gamemap.grid[x][y]={self.playerone.gamemap.grid[x][y]} x={x} y={y}')
 			#self.blocks.add(nb)
 
 		elif msgtype == 'newpowerup':
@@ -247,7 +247,7 @@ class Game(Thread):
 			blktype = gamemsg.get('blktype')
 			bclid = gamemsg.get('bclid')
 			clientid = gamemsg.get('client_id')
-			newblock = Block(pos=(gridpos[0]*BLOCK, gridpos[1]*BLOCK), gridpos=gridpos, block_type=blktype, client_id=bclid)
+			newblock = Block(pos=(gridpos[0]*BLOCK, gridpos[1]*BLOCK), gridpos=gridpos, block_type=blktype, client_id=bclid, timer=1)
 			if self.playerone.client_id == bclid or self.playerone.client_id == clientid:
 				pass
 				# logger.warning(f'netgridupdate from self {self.playerone.client_id} gamemsg={gamemsg}')
@@ -292,7 +292,7 @@ class Game(Thread):
 			for j in range(0, len(gamemapgrid)):
 				blktype = gamemapgrid[j][k]
 				try:
-					newblock = Block(Vector2(j * BLOCK, k * BLOCK), (j, k), block_type=blktype, client_id=self.playerone.client_id)
+					newblock = Block(Vector2(j * BLOCK, k * BLOCK), (j, k), block_type=blktype, client_id=self.playerone.client_id, timer=1)
 					self.blocks.add(newblock)
 				except TypeError as e:
 					logger.error(f'updategrid: {e} gmg={gamemapgrid[j][k]} blktype={blktype} j={j} k={k} idx={idx}')
@@ -303,7 +303,7 @@ class Game(Thread):
 	def update_blocks(self):
 		self.particles.update(self.blocks, self.screen)
 		for b in self.blocks:
-			if b.block_type in range(20,40):
+			if b.block_type in range(20,29):
 				if pygame.Rect.colliderect(self.playerone.rect, b.rect):
 					if b.block_type == 20:
 						self.playerone.hearts += 1
@@ -311,19 +311,20 @@ class Game(Thread):
 						self.playerone.bombs_left += 1
 					x,y = b.gridpos
 					self.playerone.gamemap.grid[x][y] = 11
-					nb = Block((x,y), b.gridpos, block_type=11, client_id=b.client_id)
+					nb = Block((x,y), b.gridpos, block_type=11, client_id=b.client_id, timer=1)
 					b.kill()
 					blockmsg = Event(USEREVENT, payload={'msgtype': 'poweruppickup', 'blockdata': nb})
 					pygame.event.post(blockmsg)
 				# if block is powerup, check timer
 				dt = pygame.time.get_ticks()
 				if dt - b.start_time >= b.timer:
-					nx = b.gridpos[0] * BLOCK
-					ny = b.gridpos[1] * BLOCK
-					nb = Block((nx,ny), b.gridpos, block_type=11, client_id=b.client_id)
+					nx = b.gridpos[0]
+					ny = b.gridpos[1]
+					self.playerone.gamemap.grid[nx][ny] = 11
+					nb = Block(b.pos, b.gridpos, block_type=11, client_id=b.client_id, timer=1)
+					logger.debug(f'poweruptimeout b={b} nb={nb} grid[x][y]={self.playerone.gamemap.grid[nx][ny]} bgridpos={b.gridpos} timer:{dt - b.start_time} >= {b.timer}')
 					b.kill()
-					blockmsg = Event(USEREVENT, payload={'msgtype': 'poweruptimeout', 'blockdata': nb})
-					pygame.event.post(blockmsg)
+					pygame.event.post(Event(USEREVENT, payload={'msgtype': 'poweruptimeout', 'blockdata': nb}))
 
 	def update_bombs(self):
 		self.bombs.update()
@@ -334,7 +335,7 @@ class Game(Thread):
 					self.playerone.bombs_left += 1
 				bx,by = bomb.gridpos
 				pos = (bx * BLOCK, by * BLOCK)
-				nb = Block(pos=pos, gridpos=bomb.gridpos, block_type=11, client_id=bomb.bomber_id)
+				nb = Block(pos=pos, gridpos=bomb.gridpos, block_type=11, client_id=bomb.bomber_id, timer=1)
 				pygame.event.post(Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': nb}))
 				self.playerone.gamemap.grid[bx][by] = 11
 				flames = bomb.exploder()
@@ -355,14 +356,15 @@ class Game(Thread):
 			# check if flame collides with blocks
 			for block in spritecollide(flame, self.blocks, False):
 				if pygame.Rect.colliderect(flame.rect, block.rect):
+					x,y = block.gridpos
 					if block.block_type == 10:
 						# kill flame on wallhit
 						flame.kill()
 					elif block.block_type == 11:
 						# flames cann pass type 11
 						pass
-					elif 1 <= block.block_type < 10:
-						# flames kills self and block
+					elif 1 <= block.block_type < 40:
+						# flames kills block
 						if flame.client_id == self.playerone.client_id:
 							# add player score if flame from bomb was by playerone
 							self.playerone.add_score()
@@ -370,24 +372,11 @@ class Game(Thread):
 						particles, newblock = block.hit(flame)
 						particlemsg = Event(USEREVENT, payload={'msgtype': 'particles', 'particledata': particles})
 						pygame.event.post(particlemsg)
-						if newblock:					
-							blockmsg = Event(USEREVENT, payload={'msgtype': 'newpowerup', 'blockdata': newblock})
+						if newblock:
+							self.playerone.gamemap.grid[x][y] = newblock.block_type
+							blockmsg = Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': newblock})
 							pygame.event.post(blockmsg)
-						x,y = block.gridpos
-						self.playerone.gamemap.grid[x][y] = 11
 						flame.kill()
-						#newblock = Block(block.pos, block.gridpos, block_type=11, client_id=self.playerone.client_id)
-						#block.kill()
-						#blockmsg = Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': newblock})
-						#pygame.event.post(blockmsg)
-
-					elif block.block_type >= 20:
-						# flame kills self and powerup
-						x = block.gridpos[0]
-						y = block.gridpos[1]
-						self.playerone.gamemap.grid[x][y] = 11
-						flame.kill()
-						block.kill()
 
 	def update_powerups(self, playerone):
 		for p in self.powerups:
@@ -407,7 +396,7 @@ class Game(Thread):
 				#pygame.display.set_mode(self.screensize, 0, 8)
 				#self.screen = pygame.display.get_surface()
 				return
-		self.gameclock.tick(30)
+		self.gameclock.tick(FPS)
 		#self.blocks.draw(self.screen)
 		#if self.playerone.ready:
 		self.screen.fill(self.bg_color)		
@@ -502,7 +491,7 @@ class Game(Thread):
 				self.playerone.connected = True
 				mapreqcnt = 0
 				#while not self.playerone.gotmap and not self.playerone.gotpos:
-				self.playerone.send_maprequest()
+				self.playerone.send_mapreset()
 				mapreqcnt += 1
 				logger.debug(f'playeone={self.playerone} waiting for map mapreqcnt:{mapreqcnt} cgotmap={self.playerone.gotmap} cgotpos={self.playerone.gotpos}')
 				time.sleep(1)
