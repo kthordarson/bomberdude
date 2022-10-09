@@ -111,12 +111,12 @@ class Game(Thread):
 
 	def run(self):
 		pygame.init()
+		pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP, pygame.USEREVENT])
 		pygame.display.set_mode((800,800), 0, 8)
 		self.screen = pygame.display.get_surface() #  pygame.display.set_mode(SCREENSIZE, 0, vsync=0)  # pygame.display.get_surface()#  pygame.display.set_mode(SCREENSIZE, 0, 32)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.gui = GameGUI(self.screen)
-		pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP, pygame.USEREVENT])
 
 		logger.debug(f'[ {self} ] started ')
 		while True:
@@ -140,12 +140,13 @@ class Game(Thread):
 					#logger.info(f'evs={len(events)} event={event}')
 			#self.blocks.update()
 			if self.playerone.ready:
+				self.show_mainmenu = False
 				self.playerone.update(self.blocks)
-			#self.players.update(blocks=self.blocks, screen=self.screen)
-			self.update_bombs()
-			self.update_flames()
-			self.update_powerups(self.playerone)
-			self.update_blocks()
+				#self.players.update(blocks=self.blocks, screen=self.screen)
+				self.update_bombs()
+				self.update_flames()
+				self.update_powerups(self.playerone)
+				self.update_blocks()
 
 			# check map grids...
 			needrefresh = False
@@ -267,10 +268,11 @@ class Game(Thread):
 			gamemapgrid = gamemsg.get('gamemapgrid')
 			newpos = gamemsg.get('newpos')
 			newgridpos = gamemsg.get('newgridpos')
-
+			self.playerone.gotmap = True
+			self.playerone.gamemap.grid = gamemapgrid
+			self.playerone.pos = newpos
+			self.playerone.gotpos = True
 			self.updategrid(gamemapgrid)
-			#self.playerone.pos = newpos
-			#self.playerone.gridpos = newgridpos
 			logger.debug(f'gamemapgrid np={newpos} ngp={newgridpos}')
 
 	def updategrid(self, gamemapgrid):
@@ -278,8 +280,6 @@ class Game(Thread):
 			self.gotgamemapgrid = True
 		else:
 			pass
-		newblocks = Group()
-		oldlen = len(self.blocks)
 		self.blocks.empty()
 		idx = 0
 		for k in range(0, len(gamemapgrid)):
@@ -300,7 +300,8 @@ class Game(Thread):
 					logger.error(f'updategrid: {e} gmg={gamemapgrid[j][k]} blktype={blktype} j={j} k={k} idx={idx}')
 				idx += 1
 		self.playerone.gamemap.grid = gamemapgrid
-		logger.debug(f'gamemapgrid:{len(gamemapgrid)} blocks:{len(self.blocks)} oldlen:{oldlen} idx:{idx}')
+		self.playerone.gotmap = True
+		logger.debug(f'gamemapgrid:{len(gamemapgrid)} blocks:{len(self.blocks)} idx:{idx}')
 
 	def update_blocks(self):
 		self.particles.update(self.blocks, self.screen)
@@ -485,24 +486,7 @@ class Game(Thread):
 			#self.gui.show_mainmenu ^= True
 			self.playerone = Player()
 			self.players.add(self.playerone)
-			if self.playerone.connect_to_server():
-				self.playerone.connected = True
-				mapreqcnt = 0
-				#while not self.playerone.gotmap and not self.playerone.gotpos:
-				self.playerone.send_mapreset()
-				mapreqcnt += 1
-				logger.debug(f'playeone={self.playerone} waiting for map mapreqcnt:{mapreqcnt} cgotmap={self.playerone.gotmap} cgotpos={self.playerone.gotpos}')
-				time.sleep(1)
-				try:
-					self.playerone.start()
-					self.gui.show_mainmenu ^= True
-				except RuntimeError as e:					
-					logger.error(f'error starting playerone thread {e}')
-					self.playerone.socket.close()
-					
-			else:
-				logger.warning(f'p1 not connected  pc:{self.playerone.connected} pcc:{self.playerone.connected} pgm={self.playerone.gotmap} gg={self.gotgamemapgrid}')
-				self.gui.show_mainmenu ^= True
+			self.playerone.start()
 
 		if selection == "Connect to server":
 			pass
