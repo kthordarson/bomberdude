@@ -34,7 +34,7 @@ class Player(BasicThing, Thread):
 		self.gridpos = [0,0]
 		#self.image = pygame.image.load('data/playerone.png')
 		self.size = PLAYERSIZE
-		self.image = pygame.transform.scale(pygame.image.load('data/playerone.png'), self.size)
+		self.image = pygame.transform.scale(pygame.image.load('data/playerone.png').convert(), self.size)
 		self.rect = pygame.Surface.get_rect(self.image, center=self.pos)
 		self.surface = pygame.display.get_surface() # pygame.Surface(PLAYERSIZE)
 		#self.rect = self.surface.fill(color=(90,90,90))

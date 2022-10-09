@@ -24,15 +24,15 @@ class Dummyplayer():
 		self.gridpos = [0,0]
 		#self.image = pygame.image.load('data/playerone.png')
 		self.size = (0,0)
-		self.image = pygame.transform.scale(pygame.image.load('data/playerone.png'), self.size)
-		self.rect = pygame.Surface.get_rect(self.image, center=self.pos)
+		self.image = None
+		self.rect = None
 		self.ready = False
 		self.client_id = None
 		self.name = f'player{self.client_id}'
 		self.netplayers = []
 		self.connected = False
 		self.kill = False
-		self.centerpos = (self.rect.center[0], self.rect.center[1])
+		self.centerpos = None
 		self.speed = 3
 		self.gotmap = False
 		self.gotpos = False
@@ -71,7 +71,7 @@ class Game(Thread):
 	def __init__(self):
 		Thread.__init__(self, name='game')
 		# todo make this work
-		self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png'), (1000,900))
+		
 		self.gameclock = pygame.time.Clock()
 		self.name = 'game'
 		self.kill = False
@@ -120,7 +120,7 @@ class Game(Thread):
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.gui = GameGUI(self.screen)
-
+		self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png').convert(), (1000,900))
 		logger.debug(f'[ {self} ] started ')
 		while True:
 			if self.kill:

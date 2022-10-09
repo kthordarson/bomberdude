@@ -69,17 +69,17 @@ class ServerGUI(Thread):
 					bcgridpos = (bc.gridpos[0], bc.gridpos[1])
 					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':round(bc.kill), 'gridpos':bcgridpos}
 					self.netplayers[bc.client_id] = np
-					bc.netplayers[bc.client_id] = np
-					textmsg = f'[{bidx}/{len(self.bombclients)}] bc={bc.client_id} pos={bc.pos} np:{len(bc.netplayers)} t:{bctimer}'
+					bc.servercomm.netplayers[bc.client_id] = np
+					textmsg = f'[{bidx}/{len(self.bombclients)}] bc={bc.client_id} pos={bc.pos} np:{len(bc.servercomm.netplayers)} t:{bctimer}'
 					self.font.render_to(self.screen, ctextpos, textmsg, (130,130,130))
 					ctextpos[1] += 20
 					bidx += 1
 					#self.font.render_to(self.screen, (ctextpos[0]+10, ctextpos[1]), f'np={np}', (140,140,140))
 					#ctextpos[1] += 20
 					npidx = 1
-					for npitem in bc.netplayers:
-						bcnp = bc.netplayers[npitem]
-						msgstring = f'[{npidx}/{len(bc.netplayers)}] bcnp={bcnp["client_id"]} pos={bcnp["pos"]} {bcnp["gridpos"]} kill={bcnp["kill"]} t:{bctimer}'
+					for npitem in bc.servercomm.netplayers:
+						bcnp = bc.servercomm.netplayers[npitem]
+						msgstring = f'[{npidx}/{len(bc.servercomm.netplayers)}] bcnp={bcnp["client_id"]} pos={bcnp["pos"]} {bcnp["gridpos"]} kill={bcnp["kill"]} t:{bctimer}'
 						if npitem != '0':
 							self.font.render_to(self.screen, (ctextpos[0]+15, ctextpos[1]), msgstring, (145,245,145))
 							npidx += 1
@@ -194,7 +194,6 @@ class BombClientHandler(Thread):
 		self.kill = False
 		self.conn = conn
 		self.addr = addr
-		self.netplayers = {}
 		self.pos = npos
 		self.gridpos = ngpos
 		self.gotpos = False
@@ -277,7 +276,7 @@ class BombClientHandler(Thread):
 		logger.debug(f'[ {self} ]  run ')
 		self.sender.start()
 		while not self.kill:
-			self.netplayers = self.servercomm.netplayers
+			#self.netplayers = self.servercomm.netplayers
 			# logger.debug(f'[ {self} ] np={self.netplayers}')
 			if self.kill or self.sender.kill:
 				logger.debug(f'{self} killed sender={self.sender}')
@@ -288,8 +287,8 @@ class BombClientHandler(Thread):
 				self.conn.close()
 				logger.debug(f'{self} killed sender={self.sender} {self.conn} closed')
 				break
-			if len(self.netplayers) >= 1:
-				npayload = {'msgtype':'netplayers', 'client_id':self.client_id, 'netplayers':self.netplayers}
+			if len(self.servercomm.netplayers) >= 1:
+				npayload = {'msgtype':'netplayers', 'client_id':self.client_id, 'netplayers':self.servercomm.netplayers}
 				self.sender.queue.put((self.conn, npayload))
 
 			rid = None
@@ -410,7 +409,7 @@ class BombServer(Thread):
 		self.serverclock = pygame.time.Clock()
 
 	def __str__(self):
-		return f'[S] k:{self.kill} bc:{len(self.bombclients)} np:{len(self.netplayers)}'
+		return f'[S] k:{self.kill} bc:{len(self.bombclients)} np:{len(self.netplayers)} scomnp:{len(self.servercomm.netplayers)}'
 
 	def eventhandler(self, serverevents):
 		for data in serverevents:
@@ -434,9 +433,9 @@ class BombServer(Thread):
 						for np in self.netplayers:
 							if np == '0':
 								break
-							bc.netplayers[np] = self.netplayers[np]
-						for np in bc.netplayers:
-							self.netplayers[np] = bc.netplayers[np]
+							bc.servercomm.netplayers[np] = self.netplayers[np]
+						for np in bc.servercomm.netplayers:
+							self.netplayers[np] = bc.servercomm.netplayers[np]
 				logger.debug(f'[ {self} ] new player:{newbc} cl:{len(self.bombclients)}')
 			elif smsgtype == 'playerpos':
 				for bc in self.bombclients:
@@ -448,7 +447,7 @@ class BombServer(Thread):
 					ckill = data.get('kill')
 					#if clid != bc.client_id:
 					np = {'client_id':clid, 'pos':pos, 'centerpos':centerpos, 'kill':ckill, 'gridpos':gridpos}
-					bc.netplayers[clid] = np
+					bc.servercomm.netplayers[clid] = np
 					self.netplayers[clid] = np
 					#elif clid == bc.client_id:
 					#	logger.warning(f'[ {self} ] clid={clid} bc={bc} skipping')
@@ -456,7 +455,7 @@ class BombServer(Thread):
 						# client kill flag set, kill bombclient and remove from list
 						bc.kill = True
 						logger.warning(f'[ {self} ] {bc} kill')
-						bc.netplayers[clid]['kill'] = True
+						bc.servercomm.netplayers[clid]['kill'] = True
 						self.netplayers[clid]['kill'] = True
 			elif smsgtype == 'netplayers':
 				# unused
@@ -538,16 +537,15 @@ class BombServer(Thread):
 
 	def gui_refresh(self):
 		# refresh gui data
-		self.gui.bombclients = self.bombclients
-		self.gui.netplayers = self.netplayers
+		self.gui.bombclients = self.bombclients		
 		try:
 			for np in self.netplayers:
 				if np != '0' or not self.netplayers[np]['kill']:
 					self.gui.netplayers[np] = self.netplayers[np]
 					for bc in self.bombclients:
 						if bc.client_id != '0':
-							for npbc in bc.netplayers:
-								self.gui.netplayers[npbc] = bc.netplayers[npbc]
+							for npbc in bc.servercomm.netplayers:
+								self.gui.netplayers[npbc] = bc.servercomm.netplayers[npbc]
 		except RuntimeError as e:
 			logger.warning(f'{e}')
 		try:
@@ -611,9 +609,9 @@ class BombServer(Thread):
 						bc.kill = True
 						logger.warning(f'{bc} killtimeout')
 						for bc in self.bombclients:
-							bc.netplayers[bc.client_id]['kill'] = True
+							bc.servercomm.netplayers[bc.client_id]['kill'] = True
 						try:
-							bc.netplayers[bc.client_id]['kill'] = True
+							bc.servercomm.netplayers[bc.client_id]['kill'] = True
 							self.netplayers[bc.client_id]['kill'] = True
 						except KeyError as e:
 							logger.warning(f'KeyError e:{e} bc:{bc}')
@@ -625,7 +623,7 @@ class BombServer(Thread):
 				for k in killednp:					
 					for bc in self.bombclients:
 						try:
-							bc.netplayers.pop(k.get('client_id'))
+							bc.servercomm.netplayers.pop(k.get('client_id'))
 						except KeyError as e:
 							pass
 							#logger.warning(f'KeyError e:{e} bc:{bc} k:{k}')
@@ -633,13 +631,13 @@ class BombServer(Thread):
 						# logger.debug(f'dnp={len(deadnps)} {bc} popped {k}')
 			for bc in self.bombclients:
 				if bc.client_id != '0':
-					bc.netplayers = self.netplayers
+					bc.servercomm.netplayers = self.netplayers
 					for np in self.netplayers:
 						if np != '0' and not self.netplayers[np]['kill']:
-							bc.netplayers[np] = self.netplayers[np]
-					# for bcnp in bc.netplayers:
-					# 	if bcnp != '0' and not bc.netplayers[bcnp]['kill']:
-					# 		self.netplayers[bcnp] = bc.netplayers[bcnp]
+							bc.servercomm.netplayers[np] = self.netplayers[np]
+					# for bcnp in bc.servercomm.netplayers:
+					# 	if bcnp != '0' and not bc.servercomm.netplayers[bcnp]['kill']:
+					# 		self.netplayers[bcnp] = bc.servercomm.netplayers[bcnp]
 			ev = Event(USEREVENT, payload={'msgtype':'netplayers', 'netplayers':self.netplayers})
 			pygame.event.post(ev)
 

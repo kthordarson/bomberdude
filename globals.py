@@ -47,7 +47,7 @@ def get_angle(pos_1, pos_2):
 
 def load_image(name, colorkey=None):
 	fullname = os.path.join("data", name)
-	image = pygame.image.load(fullname)
+	image = pygame.image.load(fullname).convert()
 	# image = image.convert()
 	return image, image.get_rect()
 
@@ -58,7 +58,7 @@ class ResourceHandler:
 
 	def get_image(self, filename=None, force=False):
 		if force or filename not in list(self.__images.keys()):
-			img = pygame.image.load(filename)
+			img = pygame.image.load(filename).convert()
 			rect = img.get_rect()
 			self.__images[filename] = (img, rect)
 			return img, rect
