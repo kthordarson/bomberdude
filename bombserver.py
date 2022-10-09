@@ -125,7 +125,10 @@ class Sender(Thread):
 					self.kill = True
 					break
 				self.sendcount += 1
-				self.queue.task_done()
+				try:
+					self.queue.task_done()
+				except ValueError as e:
+					logger.warning(f'{self} queue.task_done err {e}')
 				# self.queue.task_done()
 
 class Servercomm(Thread):
@@ -174,7 +177,10 @@ class Servercomm(Thread):
 					elif payload.get('msgtype') == 'netgridupdate':
 						# logger.debug(f'netgridupdate payload:{len(payload)}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
-					self.queue.task_done()
+					try:
+						self.queue.task_done()
+					except ValueError as e:
+						logger.warning(f'{self} queue.task_done err {e}')
 
 				#logger.debug(f'[ {self} ] payload:{payload}')
 
@@ -238,6 +244,10 @@ class BombClientHandler(Thread):
 	def send_map(self):
 		# send mapgrid to player
 		# todo fix player pos on grid
+		if not self.gotmap:
+			logger.info(f'{self} sending map to {self.client_id} sendq={self.sendq.qsize()} ')
+		else:
+			logger.warning(f'{self} already gotmap sendq={self.sendq.qsize()} ')
 		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'newpos': self.pos, 'newgridpos':self.gridpos}
 		# logger.debug(f'[ {self} ] send_map payload={len(payload)} randpos={randpos}')
 		self.sender.queue.put((self.conn, payload))
@@ -278,9 +288,9 @@ class BombClientHandler(Thread):
 				self.conn.close()
 				logger.debug(f'{self} killed sender={self.sender} {self.conn} closed')
 				break
-			#if len(self.netplayers) >= 1:
-			#npayload = {'msgtype':'netplayers', 'client_id':self.client_id, 'netplayers':self.netplayers}
-			#self.sender.queue.put((self.conn, npayload))
+			if len(self.netplayers) >= 1:
+				npayload = {'msgtype':'netplayers', 'client_id':self.client_id, 'netplayers':self.netplayers}
+				self.sender.queue.put((self.conn, npayload))
 
 			rid = None
 			resps = []
@@ -324,9 +334,6 @@ class BombClientHandler(Thread):
 						logger.warning(f'r:{len(resps)} update {rid} {resp}')
 						# logger.debug(f'[ {self} ] received id:{rid} resp={resp}')
 
-					elif rid == 'maprequest':
-						self.send_map()
-
 					elif rid == 'requestclid':
 						self.set_client_id()
 
@@ -364,8 +371,12 @@ class BombClientHandler(Thread):
 
 					elif rid == 'resetmap':
 						# make new mapgrid and send to all clients
-						ev = Event(USEREVENT, payload={'msgtype':'resetmap', 'client_id':self.client_id})
-						pygame.event.post(ev)
+						pygame.event.post(Event(USEREVENT, payload={'msgtype':'resetmap', 'client_id':self.client_id}))
+
+					elif rid == 'maprequest':
+						pygame.event.post(Event(USEREVENT, payload={'msgtype':'maprequest', 'client_id':self.client_id}))
+						#self.send_map()
+
 
 					elif rid == 'refreshsgrid':
 						logger.warning(f'refreshsgrid rid={rid} resp={resp}')
@@ -389,7 +400,7 @@ class BombServer(Thread):
 		Thread.__init__(self, daemon=False)
 		self.bombclients  = []
 		self.gamemap = Gamemap()
-		self.gamemap.grid = self.gamemap.generate_custom(gridsize=20)
+		self.gamemap.grid = self.gamemap.generate_custom(gridsize=15)
 		self.kill = False
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -506,6 +517,22 @@ class BombServer(Thread):
 					bc.send_map()
 					self.gamemap.grid = bcg
 
+			elif smsgtype == 'maprequest':
+				# todo fix player pos on new grid
+				clid = data.get('client_id')
+				logger.info(f'[ {self} ] resetmap from {clid} {data}')
+				basegrid = self.gamemap.grid
+				#self.gamemap.grid = basegrid
+				for bc in self.bombclients:
+					bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)
+					bc.pos = bnewpos
+					bc.gridpos = newgridpos
+					bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
+					bc.gamemap.grid = bcg
+					bc.send_map()
+					self.gamemap.grid = bcg
+
+
 			else:
 				logger.warning(f'[ {self} ] data={data}')
 
@@ -536,7 +563,10 @@ class BombServer(Thread):
 			serverevents = []
 			if not self.queue.empty():
 				serverevents.append(self.queue.get())
-				self.queue.task_done()
+				try:
+					self.queue.task_done()
+				except ValueError as e:
+					logger.warning(f'{self} queue.task_done err {e}')
 			events = pygame.event.get()
 			for event in events:
 				if event.type == pygame.KEYDOWN:

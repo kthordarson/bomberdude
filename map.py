@@ -13,10 +13,10 @@ class Gamemap:
 	def __init__(self, genmap=False):
 		self.grid = []
 		if genmap:
-			self.grid = self.generate_custom()
+			self.grid = self.generate_custom(gridsize=15)
 		self.gridsize = (len(self.grid), len(self.grid))
 
-	def generate(self, gridsize=15):
+	def generate(self, gridsize):
 		grid = [[random.choice([1,2,3,4,5,11]) for k in range(gridsize)] for j in range(gridsize)]
 		# set edges to solid blocks, 10 = solid blockwalkk
 		for x in range(gridsize):
@@ -27,7 +27,7 @@ class Gamemap:
 		self.grid = grid
 		return self.grid
 
-	def generate_custom(self, gridsize=15):
+	def generate_custom(self, gridsize):
 		# generate a custom map, gridsize is max blocks x and y
 		# players = list of players, clear spot around each player
 		grid = [[random.choice([1,2,3,4,5,11,11,11,10]) for k in range(gridsize)] for j in range(gridsize)]

@@ -47,6 +47,10 @@ class Dummyplayer():
 		self.sendcnt = 0
 		self.recvcnt = 0
 		self.mapreqcnt = 0
+	def draw(self):
+		pass
+	def update(self, *args, **kwargs):
+		pass
 			
 class GameGUI:
 	def __init__(self, screen):
@@ -83,12 +87,11 @@ class Game(Thread):
 		self.playerone = Dummyplayer()
 		# self.players.add(self.playerone)
 		self.authkey = 'foobar'
-		self.gotgamemapgrid = False
 		self.extradebug = False
 		self.screensize = (800, 600)
 
 	def __str__(self):
-		return f'[G] run:{self.running} p1 p1conn:{self.playerone.connected} p1clientconn:{self.playerone.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.playerone.netplayers)} gmg:{self.gotgamemapgrid} '
+		return f'[G] run:{self.running} p1 p1conn:{self.playerone.connected} p1clientconn:{self.playerone.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.playerone.netplayers)} '
 
 	def get_block_count(self):
 		# get number of killable blocks on map
@@ -139,25 +142,26 @@ class Game(Thread):
 					pass
 					#logger.info(f'evs={len(events)} event={event}')
 			#self.blocks.update()
-			if self.playerone.ready:
-				self.show_mainmenu = False
-				self.playerone.update(self.blocks)
-				#self.players.update(blocks=self.blocks, screen=self.screen)
-				self.update_bombs()
-				self.update_flames()
-				self.update_powerups(self.playerone)
-				self.update_blocks()
+			self.show_mainmenu = False
+			self.playerone.update(self.blocks)
+			#self.players.update(blocks=self.blocks, screen=self.screen)
+			self.update_bombs()
+			self.update_flames()
+			self.update_powerups(self.playerone)
+			self.update_blocks()
 
 			# check map grids...
 			needrefresh = False
 			for b in self.blocks:
 				x,y = b.gridpos
 				if self.playerone.gamemap.grid[x][y] != b.block_type:
-					logger.warning(f'bcheck: mismatch {b} btype={b.block_type} != client={self.playerone.gamemap.grid[x][y]}')
+					self.playerone.gamemap.grid[x][y] = b.block_type
+					#logger.warning(f'bcheck: mismatch {b} btype={b.block_type} != client={self.playerone.gamemap.grid[x][y]}')
 					needrefresh = True
 			if needrefresh:
-				#self.playerone.send_refreshgrid()
 				self.updategrid(self.playerone.gamemap.grid)
+				#self.playerone.send_refreshgrid()
+				
 
 
 	def handle_mainq(self, gamemsg):
@@ -226,10 +230,10 @@ class Game(Thread):
 			nb = gamemsg.get('blockdata')
 			x = nb.gridpos[0]
 			y = nb.gridpos[1]
-			if self.playerone.gamemap.grid[x][y] != nb.block_type:
-				logger.warning(f'{msgtype} mismatch {nb} btype={nb.block_type} != client={self.playerone.gamemap.grid[x][y]}')
-			elif self.playerone.gamemap.grid[x][y] == nb.block_type:
-				logger.info(f'{msgtype} {nb} btype={nb.block_type} == client={self.playerone.gamemap.grid[x][y]}')
+			# if self.playerone.gamemap.grid[x][y] != nb.block_type:
+			# 	logger.warning(f'{msgtype} mismatch {nb} btype={nb.block_type} != client={self.playerone.gamemap.grid[x][y]}')
+			# elif self.playerone.gamemap.grid[x][y] == nb.block_type:
+			# 	logger.info(f'{msgtype} {nb} btype={nb.block_type} == client={self.playerone.gamemap.grid[x][y]}')
 			self.playerone.gamemap.grid[x][y] = nb.block_type
 			self.blocks.add(nb)
 
@@ -268,18 +272,15 @@ class Game(Thread):
 			gamemapgrid = gamemsg.get('gamemapgrid')
 			newpos = gamemsg.get('newpos')
 			newgridpos = gamemsg.get('newgridpos')
+			self.playerone.ready = True
 			self.playerone.gotmap = True
+			self.playerone.gotpos = True
 			self.playerone.gamemap.grid = gamemapgrid
 			self.playerone.pos = newpos
-			self.playerone.gotpos = True
 			self.updategrid(gamemapgrid)
 			logger.debug(f'gamemapgrid np={newpos} ngp={newgridpos}')
 
 	def updategrid(self, gamemapgrid):
-		if not self.gotgamemapgrid:
-			self.gotgamemapgrid = True
-		else:
-			pass
 		self.blocks.empty()
 		idx = 0
 		for k in range(0, len(gamemapgrid)):
@@ -299,8 +300,6 @@ class Game(Thread):
 				except TypeError as e:
 					logger.error(f'updategrid: {e} gmg={gamemapgrid[j][k]} blktype={blktype} j={j} k={k} idx={idx}')
 				idx += 1
-		self.playerone.gamemap.grid = gamemapgrid
-		self.playerone.gotmap = True
 		logger.debug(f'gamemapgrid:{len(gamemapgrid)} blocks:{len(self.blocks)} idx:{idx}')
 
 	def update_blocks(self):
@@ -372,7 +371,8 @@ class Game(Thread):
 						# flames kills block
 						if flame.client_id == self.playerone.client_id:
 							# add player score if flame from bomb was by playerone
-							self.playerone.add_score()
+							if 1 <= block.block_type < 10:
+								self.playerone.score += 1
 						# block hits return particles and a new block
 						particles, newblock = block.hit(flame)
 						particlemsg = Event(USEREVENT, payload={'msgtype': 'particles', 'particledata': particles})
@@ -483,7 +483,7 @@ class Game(Thread):
 	def handle_menu(self, selection):
 		# mainmenu
 		if selection == "Start":
-			#self.gui.show_mainmenu ^= True
+			self.gui.show_mainmenu ^= True
 			self.playerone = Player()
 			self.players.add(self.playerone)
 			self.playerone.start()
