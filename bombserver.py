@@ -13,7 +13,7 @@ from queue import Queue
 from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE,DEFAULTGRID, DEFAULTGRID4
 from map import Gamemap
 from globals import gen_randid
-from network import receive_data, send_data, dataid
+from network import receive_data, send_data
 
 class ServerGUI(Thread):
 	def __init__(self):
@@ -41,7 +41,7 @@ class ServerGUI(Thread):
 			self.screen.fill(self.bg_color)
 			ctextpos = [10, 10]
 			try:
-				
+
 				msgtxt = f'fps={self.guiclock.get_fps():2f} clients:{len(self.bombclients)} np:{len(self.netplayers)} '
 			except TypeError as e:
 				logger.warning(f'[ {self} ] TypeError:{e}')
@@ -53,9 +53,7 @@ class ServerGUI(Thread):
 			#self.netplayers = netplrs
 			for np in self.netplayers:
 				snp = self.netplayers[np]
-				spos = snp.get('pos')
-				sgpos = snp.get('gridpos')
-				msgtxt = f'[{npidx}/{len(self.netplayers)}] servernp:{snp} pos={spos} {sgpos}'
+				msgtxt = f"[{npidx}/{len(self.netplayers)}] servernp:{snp.get('client_id')} pos={snp.get('pos')} {snp.get('gridpos')} kill:{snp.get('kill')}"
 				self.font.render_to(self.screen, (ctextpos[0]+13, ctextpos[1] ), msgtxt, (130,30,130))
 				ctextpos[1] += 20
 				npidx += 1
@@ -233,27 +231,13 @@ class BombClientHandler(Thread):
 			pass
 			#logger.warning(f'{self.client_id} bclid={bclid} sending gridupdate to self blkpos={blkpos} blktype={blktype}')
 		self.sender.queue.put((self.conn, payload))
-		
+
 
 	def send_map(self):
 		# send mapgrid to player
 		# todo fix player pos on grid
-		# if refresh:
-		# 	ng, newpos, newgridpos = self.gamemap.generate_custom(gridsize=15)
-		# 	self.gamemap.grid = ng
-		# else:
-		# 	ng = self.gamemap.grid
-		# 	newpos = self.pos
-		# 	newgridpos = self.gridpos
-		# #newpos = (nx,ny)
-		# oldpos = self.pos
-		# oldgridpos = self.gridpos
-		# if randpos:
-		# 	self.set_pos(pos=newpos, gridpos=newgridpos)
-		# 	self.pos = newpos
-		# 	self.gridpos = newgridpos
 		logger.info(f'send_map self.pos:{self.pos}ng={self.gridpos} ')
-		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'data_id':dataid['gamegrid'], 'newpos': self.pos, 'newgridpos':self.gridpos}
+		payload = {'msgtype':'mapfromserver', 'gamemapgrid':self.gamemap.grid, 'newpos': self.pos, 'newgridpos':self.gridpos}
 		# logger.debug(f'[ {self} ] send_map payload={len(payload)} randpos={randpos}')
 		self.sender.queue.put((self.conn, payload))
 
@@ -269,7 +253,7 @@ class BombClientHandler(Thread):
 
 	def get_client_id(self):
 		# get real client id from remote client
-		payload = {'msgtype':'bcgetid', 'payload':'sendclientid', 'data_id':dataid['getid']}
+		payload = {'msgtype':'bcgetid', 'payload':'sendclientid'}
 		self.sender.queue.put((self.conn, payload))
 		logger.debug(f'[ {self} ] sent payload:{payload}')
 
@@ -292,10 +276,10 @@ class BombClientHandler(Thread):
 				logger.debug(f'{self} killed sender={self.sender} {self.conn} closed')
 				break
 			#if len(self.netplayers) >= 1:
-			npayload = {'msgtype':dataid['netplayers'], 'client_id':self.client_id, 'netplayers':self.netplayers, 'data_id':dataid['netplayers']}
+			npayload = {'msgtype':'netplayers', 'client_id':self.client_id, 'netplayers':self.netplayers}
 			self.sender.queue.put((self.conn, npayload))
 
-			rid, rtype = None, None
+			rid = None
 			resps = []
 			try:
 				resps = receive_data(self.conn)
@@ -308,24 +292,20 @@ class BombClientHandler(Thread):
 			if resps:
 				for resp in resps:
 					self.lastupdate = pygame.time.get_ticks()
-					try:
-						if isinstance(resp, int):
-							rid = resp
-						else:
-							rid = resp.get('data_id')
-						rtype = dataid.get(rid, None)
-					except AttributeError as e:
-						logger.warning(f'[ {self} ] AttributeError:{e}  self.lastupdate={self.lastupdate} resp={resp}')
-					if rid == dataid.get('info') or rid == 0:
+					rid = resp.get('msgtype')
+					# logger.debug(f'resps={len(resps)} rid={rid} resp={resp}')
+
+					if rid == 'info':
 						ev = Event(USEREVENT, payload={'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos})
 						pygame.event.post(ev)
 						# self.servercomm.queue.put({'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'centerpos':self.centerpos})
-					elif rtype == dataid.get('playerpos') or rid == 3:
-						#logger.debug(f'[ {self} ] {rtype} {rid} {resp}')
+
+					elif rid == 'playerpos':
+						#logger.debug(f'[ {self} ] {rid} {resp}')
 						s_clid = resp.get('client_id', None)
 						if not self.client_id or self.client_id == '0':
 							self.client_id = s_clid
-							logger.warning(f'r:{len(resps)} setclientid {rtype} {rid} {resp}')
+							logger.warning(f'r:{len(resps)} setclientid {rid} {resp}')
 						s_pos = resp.get('pos', None)
 						c_pos = resp.get('centerpos', None)
 						g_pos = resp.get('gridpos', None)
@@ -340,122 +320,107 @@ class BombClientHandler(Thread):
 						#posmsg = {'msgtype':'playerpos', 'client_id':s_clid, 'pos':s_pos, 'centerpos':c_pos, 'gridpos':g_pos}
 						#self.servercomm.queue.put(posmsg)
 
-					elif rtype == dataid.get('update') or rid == 4:
+					elif rid == 'update':
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.warning(f'r:{len(resps)} update {rtype} {rid} {resp}')
+							logger.warning(f'r:{len(resps)} update {rid} {resp}')
 						# logger.debug(f'[ {self} ] received id:{rid} resp={resp}')
 
-					elif rtype == dataid['reqmap'] or rid == 7:
+					elif rid == 'maprequest':
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.warning(f'r:{len(resps)} reqmap {rtype} {rid} {resp}')
+							logger.warning(f'r:{len(resps)} reqmap {rid} {resp}')
 						self.send_map()
 
-					elif rtype == dataid.get('gameevent') or rid == 9:
+					elif rid == 'gameevent':
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.warning(f'r:{len(resps)} gameevent {rtype} {rid} {resp}')
+							logger.warning(f'r:{len(resps)} gameevent {rid} {resp}')
 						else:
 							logger.debug(f'gamevent received id:{rid} resp={resp}')
 
-					elif rtype == dataid['gridupdate'] or rid == 12:
+					elif rid == 'gridupdate':
 						# new grid and send update to clients
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.warning(f'[ {self} ] r:{len(resps)} gridupdate {rtype} {rid} {resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} gridupdate {rid} {resp}')
 						senderid = resp.get('client_id', None)
 						blkgridpos = resp.get('blkgridpos', None)
 						blktype = resp.get('blktype', None)
-						# if not blktype:
-						# 	logger.error(f'gridupdate missing blktype rt={rtype} rid={rid}  r:{len(resps)} resp={resp}')
-						# 	blktype = 0
 						griddata = resp.get('griddata')
 						self.gamemap.grid[blkgridpos[0]][blkgridpos[1]] = blktype
-						ev = Event(USEREVENT, payload={'msgtype': 'netgridupdate', 'client_id': senderid, 'blkgridpos': blkgridpos, 'blktype':blktype, 'data_id': dataid['gridupdate'], 'griddata':griddata})
+						ev = Event(USEREVENT, payload={'msgtype': 'netgridupdate', 'client_id': senderid, 'blkgridpos': blkgridpos, 'blktype':blktype, 'griddata':griddata})
 						pygame.event.post(ev)
-						#gridmsg = {'msgtype': 'netgridupdate', 'client_id': senderid, 'blkgridpos': blkgridpos, 'blktype':blktype, 'data_id': dataid['gridupdate'], 'griddata':griddata}
-						#self.servercomm.queue.put(gridmsg)
-						#self.gamemap.grid = newgrid
-						#self.send_map()
-						# logger.debug(f'gridupdate senderid:{senderid} blkgridpos={blkgridpos} blktype={blktype}')
 
-					elif rtype == dataid.get('netbomb') or rid == 14:
+					elif rid == 'netbomb' or rid == 'bombdrop':
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.warning(f'[ {self} ] r:{len(resps)} netbomb {rtype} {rid} {resp}')
-						ev = Event(USEREVENT, payload={'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'data_id':dataid['netbomb'],'bombpower':resp.get('bombpower')})
+							logger.warning(f'[ {self} ] r:{len(resps)} netbomb {rid} {resp}')
+						bx,by = resp.get('bombgridpos', None)
+						self.gamemap.grid[bx][by] = 30
+						ev = Event(USEREVENT, payload={'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'bombpower':resp.get('bombpower')})
 						pygame.event.post(ev)
-						#updatemsg = {'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'data_id':dataid['netbomb']}
-						#self.servercomm.queue.put(updatemsg)
 
-					elif rtype == dataid.get('clientquit') or rid == 16:
+					elif rid == 'clientquit':
 						ev = Event(USEREVENT, payload={'msgtype':'clientquit', 'client_id':self.client_id})
 						pygame.event.post(ev)
-						#qmsg = {'msgtype':'clientquit', 'client_id':self.client_id}
-						#self.servercomm.queue.put(qmsg)
 
-					elif rtype == dataid.get('reqpos') or rid == 17:
+					elif rid == 'reqpos':
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.warning(f'[ {self} ] r:{len(resps)} reqpos {rtype} {rid} {resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} reqpos {rid} {resp}')
 						ev = Event(USEREVENT, payload={'msgtype':'reqpos', 'client_id':self.client_id})
 						pygame.event.post(ev)
-						#msg = {'msgtype':'reqpos', 'client_id':self.client_id}
-						#self.servercomm.queue.put(msg)
 
-					elif rtype == dataid.get('posupdate') or rid == 19:
+					elif rid == 'posupdate':
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.warning(f'[ {self} ] r:{len(resps)} posupdate {rtype} {rid} {resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} posupdate {rid} {resp}')
 						# client sent posupdate
 						ev = Event(USEREVENT, payload={'msgtype':'posupdate', 'client_id':self.client_id, 'posupdata':resp})
 						pygame.event.post(ev)
-						#self.servercomm.queue.put(msg)
 
-					elif rtype == dataid.get('resetmap') or rid == 20:
+					elif rid == 'resetmap':
 						# make new mapgrid and send to all clients
 						if not self.client_id or self.client_id == '0':
 							s_clid = resp.get('client_id', None)
 							self.client_id = s_clid
-							logger.warning(f'[ {self} ] r:{len(resps)} resetmap {rtype} {rid} {resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} resetmap {rid} {resp}')
 						ev = Event(USEREVENT, payload={'msgtype':'resetmap', 'client_id':self.client_id})
 						pygame.event.post(ev)
-						#self.servercomm.queue.put(msg)
 
-					elif rtype == dataid['refreshsgrid'] or rid == 21:
-						logger.debug(f'r:{len(resps)} refreshsgrid {rtype} {rid} {resp}')
+					elif rid == 'refreshsgrid':
+						logger.debug(f'r:{len(resps)} refreshsgrid {rid} {resp}')
 						# self.send_map()
 
-					elif rtype == dataid['auth'] or rid == 101:
+					elif rid == 'auth':
 						logger.debug(f'[ {self} ] r:{len(resps)} auth received id:{rid} resp={resp}')
 						clid = resp.get('client_id', None)
 						if not self.client_id or self.client_id == '0':
-							logger.debug(f'[ {self} ] r:{len(resps)} auth {rtype} {rid} {resp}')
+							logger.debug(f'[ {self} ] r:{len(resps)} auth {rid} {resp}')
 						self.client_id = clid
 
-					elif rtype == dataid['UnpicklingError'] or rid == 1002:
+					elif rid == 'UnpicklingError':
 						logger.warning(f'[ {self} ] r:{len(resps)} UnpicklingError rid:{rid}')
 					else:
 						if resp:
-							logger.warning(f'[ {self} ] r:{len(resps)} unknownevent rid:{rid} rtype:{rtype}  resp={resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} unknownevent rid:{rid} resp={resp}')
 						else:
 							pass
-						#logger.error(f'[ {self} ] unknownevent noresp rid:{rid} rtype:{rtype}  resp={type(resp)}')
 
 class BombServer(Thread):
 	def __init__(self, gui):
 		Thread.__init__(self, daemon=False)
 		self.bombclients  = []
 		self.gamemap = Gamemap()
-		self.gamemap.grid = self.gamemap.generate_custom(gridsize=10)
+		self.gamemap.grid = self.gamemap.generate_custom(gridsize=20)
 		self.kill = False
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -578,13 +543,17 @@ class BombServer(Thread):
 	def gui_refresh(self):
 		# refresh gui data
 		self.gui.bombclients = self.bombclients
-		for np in self.netplayers:
-			if np != '0' or not self.netplayers[np]['kill']:
-				self.gui.netplayers[np] = self.netplayers[np]
-				for bc in self.bombclients:
-					if bc.client_id != '0':
-						for npbc in bc.netplayers:
-							self.gui.netplayers[npbc] = bc.netplayers[npbc]
+		self.gui.netplayers = self.netplayers
+		try:
+			for np in self.netplayers:
+				if np != '0' or not self.netplayers[np]['kill']:
+					self.gui.netplayers[np] = self.netplayers[np]
+					for bc in self.bombclients:
+						if bc.client_id != '0':
+							for npbc in bc.netplayers:
+								self.gui.netplayers[npbc] = bc.netplayers[npbc]
+		except RuntimeError as e:
+			logger.warning(f'{e}')
 		try:
 			self.gui.renderinfo()
 		except Exception as e:
@@ -592,10 +561,8 @@ class BombServer(Thread):
 
 	def run(self):
 		logger.debug(f'[ {self} ] run')
-		#self.servercomm.run()
 		self.gui.start()
 		self.servercomm.start()
-		fps = -1
 		while not self.kill:
 			serverevents = []
 			if not self.queue.empty():
@@ -621,7 +588,7 @@ class BombServer(Thread):
 						self.servercomm.join(timeout=1)
 						logger.info(f'{self.servercomm} kill')
 						os._exit(0)
-						
+
 				elif event.type == pygame.USEREVENT:
 					#logger.info(f'[{len(serverevents)}] event={event}')
 					serverevents.append(event.payload)
@@ -629,11 +596,11 @@ class BombServer(Thread):
 					pass
 				else:
 					logger.warning(f'[{len(serverevents)}] event={event}')
+			#self.netplayers.pop([self.netplayers.get(k) for k in self.netplayers if self.netplayers[k]['kill']][0].get('client_id'))
 			self.eventhandler(serverevents)
 			self.serverclock.tick(30)
 			self.gui_refresh()
 			# kp = False
-			# # remove killed players
 			# try:
 			# 	self.netplayers.pop([self.netplayers.get(k) for k in self.netplayers if self.netplayers[k]['kill']][0].get('client_id'))
 			# 	kp = True
@@ -641,25 +608,38 @@ class BombServer(Thread):
 			# 	logger.warning(f'{e}')
 			for bc in self.bombclients:
 				if bc.client_id != '0':
-					bc.netplayers = self.netplayers
-					for bcnp in bc.netplayers:
-						if bcnp != '0':
-							self.netplayers[bcnp] = bc.netplayers[bcnp]
-					for np in self.netplayers:
-						if np != '0':
-							bc.netplayers[np] = self.netplayers[np]
-					ev = Event(USEREVENT, payload={'msgtype':'netplayers', 'netplayers':self.netplayers})
-					pygame.event.post(ev)
-					#bc.servercomm.queue.put(payload)
 					if pygame.time.get_ticks()-bc.lastupdate > 10000:
-						bc.kill = True					
+						bc.kill = True
+						logger.warning(f'{bc} killtimeout')
+						for bc in self.bombclients:
+							bc.netplayers[bc.client_id]['kill'] = True
 						try:
 							bc.netplayers[bc.client_id]['kill'] = True
 							self.netplayers[bc.client_id]['kill'] = True
 						except KeyError as e:
-							logger.error(f'err e:{e} bc:{bc}')
-						logger.warning(f'[ {self} ] {bc} timeout')
+							logger.warning(f'KeyError e:{e} bc:{bc}')
 						self.bombclients.pop(self.bombclients.index(bc))
+						# remove killed players
+			deadnps = [self.netplayers.get(k) for k in self.netplayers if self.netplayers.get(k).get('kill')]
+			if len(deadnps) > 0:
+				killednp = [self.netplayers.pop(k.get('client_id')) for k in deadnps]
+				for k in killednp:
+					logger.debug(f'dnp={len(deadnps)} killed {k}')
+					for bc in self.bombclients:
+						bc.netplayers.pop(k.get('client_id'))
+						logger.debug(f'dnp={len(deadnps)} {bc} popped {k}')
+			for bc in self.bombclients:
+				if bc.client_id != '0':
+					bc.netplayers = self.netplayers
+					for np in self.netplayers:
+						if np != '0' and not self.netplayers[np]['kill']:
+							bc.netplayers[np] = self.netplayers[np]
+					# for bcnp in bc.netplayers:
+					# 	if bcnp != '0' and not bc.netplayers[bcnp]['kill']:
+					# 		self.netplayers[bcnp] = bc.netplayers[bcnp]
+			ev = Event(USEREVENT, payload={'msgtype':'netplayers', 'netplayers':self.netplayers})
+			pygame.event.post(ev)
+
 
 
 def main():
@@ -684,7 +664,7 @@ def main():
 				return
 			conn, addr = server.conn.accept()
 			ncmsg=Event(USEREVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
-			logger.info(f'ncmsg={ncmsg}')			
+			logger.info(f'ncmsg={ncmsg}')
 			pygame.event.post(ncmsg)
 		except KeyboardInterrupt as e:
 			server.conn.close()

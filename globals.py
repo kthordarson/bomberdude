@@ -135,20 +135,9 @@ class Block(BasicThing):
 	def __str__(self):
 		return f'[block] pos={self.pos} gp={self.gridpos} type={self.block_type}'
 
-	# def update(self):
-	# 	if not self.block_type == 20:
-	# 		return
-	# 	else:
-	# 		if pygame.time.get_ticks() - self.start_time >= self.timer:
-	# 			logger.info(f'{self} powerup timeout')
-	# 			self.kill()
 
 	def hit(self, flame):
-		# self.bitmap = BLOCKTYPES.get(11)["bitmap"]
-		# self.permanent = True
-		# self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		particles = Group()
-		#newblocks = Group()
 		newblock = None
 		if self.powerup:
 			newblktype = random.choice([20,21])
@@ -191,40 +180,6 @@ class Block(BasicThing):
 				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down"))) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
 		return particles
 
-class Powerup(BasicThing):
-	def __init__(self, pos, gridpos, block_type=None):
-		super().__init__(pos, gridpos, None)
-		self.powertype = block_type # random.choice([1,2,3])
-		self.block_type = block_type # random.choice([1,2,3])
-		if self.powertype == 20:
-			self.image, self.rect = self.rm.get_image(filename='data/heart.png', force=False)
-		if self.powertype == 2:
-			self.image, self.rect = self.rm.get_image(filename='data/newbomb.png', force=False)
-		if self.powertype == 3:
-			self.image, self.rect = self.rm.get_image(filename='data/bombpwr.png', force=False)
-		self.size = POWERUPSIZE
-		self.image = pygame.transform.scale(self.image, self.size)
-		self.pos = pos
-		self.rect = self.image.get_rect()
-		self.rect.center = pos
-		self.alpha = 255
-		self.image.set_alpha(self.alpha)
-		self.timer = 6000
-		#self.clock = pygame.time.Clock()
-		self.start_time = pygame.time.get_ticks()
-
-	def __str__(self):
-		return f'[pwrup] pos={self.pos} gridpos={self.gridpos} type={self.powertype}'
-
-	def xupdate(self, items=None):
-		if self.timer < pygame.time.get_ticks() - self.start_time:
-			self.kill()
-
-	def xxupdate(self, surface=None):
-		# logger.info(f'{self} t={pygame.time.get_ticks() - self.start_time} timer={self.timer}')
-		if pygame.time.get_ticks() - self.start_time >= self.timer:
-			logger.info(f'{self} powerup timeout')
-			self.kill()
 
 class Bomb(BasicThing):
 	def __init__(self, pos, bomber_id, bombpower=20, gridpos=None):

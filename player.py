@@ -9,7 +9,6 @@ from loguru import logger
 from globals import gen_randid
 from threading import Thread
 from constants import *
-from network import dataid
 import socket
 from map import Gamemap
 from network import send_data, receive_data
@@ -39,55 +38,65 @@ class Player(BasicThing, Thread):
 		self.gotmap = False
 		self.gotpos = False
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.serveraddress = '192.168.1.160'
+		self.serveraddress = 'localhost'
 		self.serverport = 9696
 		self.server = (self.serveraddress, self.serverport)
 		self.netplayers = {}
 		self.gamemap = Gamemap()
 		self.bombs_left = 3
 		self.bombpower = 10
-		self.cl_score = 0
-		self.cl_hearts = 3
+		self.score = 0
+		self.hearts = 3
 		self.sendcnt = 0
 		self.recvcnt = 0
 		self.mapreqcnt = 0
 
 	def __str__(self):
-		return f'player {self.client_id} pos={self.pos} {self.gridpos} heats={self.cl_hearts}'
+		return f'player {self.client_id} pos={self.pos} {self.gridpos} heats={self.hearts}'
 
 	def flame_hit(self, flame):
-		self.cl_hearts -= 1
+		self.hearts -= 1
 
-	def req_mapreset(self):
-		# request server map reset
-		reqmsg = {'data_id': dataid['resetmap'], 'client_id': self.client_id, 'pos': self.pos, 'gridpos': self.gridpos}
-		send_data(conn=self.socket, payload=reqmsg)
-		self.sendcnt += 1
-
-	def send_bomb(self, pos=None):
+	def send_bomb(self):
 		# send bomb to server
 		if self.bombs_left > 0:
-			bombgridpos = (pos[0] // BLOCK, pos[1] // BLOCK)
-			payload = {'data_id':dataid['netbomb'], 'msgtype': dataid['bombdrop'], 'client_id':self.client_id, 'bombpos':pos,'bombgridpos':bombgridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}
+			self.gamemap.grid[self.gridpos[0]][self.gridpos[1]] = 30
+			bombpos = self.rect.center			
+			payload = {'msgtype': 'bombdrop', 'client_id':self.client_id, 'bombpos':bombpos,'bombgridpos':self.gridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}
 			send_data(conn=self.socket, payload=payload)
 			self.sendcnt += 1
 			logger.debug(f'send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos")}')
+	# if self.playerone.bombs_left > 0:
+	# 	candrop = True
+	# 	for bomb in self.bombs:
+	# 		logger.info(f'bomb={bomb} bombgridpos={self.playerone.gridpos}')
+	# 		bgpos = (bomb.gridpos[0], bomb.gridpos[1])
+	# 		ngbpos = (self.playerone.gridpos[0], self.playerone.gridpos[1])
+	# 		if bgpos == ngbpos:
+	# 			logger.warning(f'bomb={bomb} already exists at {self.playerone.gridpos}')
+	# 			candrop = False
 
-	def send_reqpos(self):
+	def send_requestpos(self):
 		# get initial position from server
-		reqmsg = {'data_id': dataid['reqpos'], 'client_id': self.client_id, 'payload': 'reqpos', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
+		reqmsg = {'client_id': self.client_id, 'payload': 'reqpos', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
 		send_data(conn=self.socket, payload=reqmsg)
 		self.sendcnt += 1
 
-	def send_mapreq(self):
+	def send_mapreset(self):
+		# request server map reset
+		reqmsg = {'msgtype': 'resetmap', 'client_id': self.client_id, 'pos': self.pos, 'gridpos': self.gridpos}
+		send_data(conn=self.socket, payload=reqmsg)
+		self.sendcnt += 1
+
+	def send_maprequest(self):
 		# request map from server
-		regmsg = {'client_id':self.client_id, 'payload':'reqmap', 'data_id':dataid['reqmap'], 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
+		regmsg = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
 		send_data(conn=self.socket,  payload=regmsg)
 		self.mapreqcnt += 1
 		payloads = None
 		payloads = receive_data(conn=self.socket)
 		if payloads:
-			# logger.debug(f'[ {self} ] send_mapreq payloads={len(payloads)}')
+			# logger.debug(f'[ {self} ] send_maprequest payloads={len(payloads)}')
 			for payload in payloads:
 				if payload.get('msgtype') == 'mapfromserver':
 					# complete grid from server
@@ -108,28 +117,28 @@ class Player(BasicThing, Thread):
 					logger.debug(f'{self.mapreqcnt} not map response payload={payload}')
 					#time.sleep(0.1)
 					#send_data(conn=self.socket,  payload=regmsg)
-					# self.send_mapreq()
+					# self.send_maprequest()
 
 	def send_refreshgrid(self):
 		# request map from server
-		regmsg = {'client_id':self.client_id, 'payload':'refreshsgrid', 'data_id':dataid['refreshsgrid'], 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
+		regmsg = {'client_id':self.client_id, 'msgtype':'refreshsgrid', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
 		send_data(conn=self.socket,  payload=regmsg)
 		logger.debug(f'[ {self} ] refreshsgrid')
 		self.sendcnt += 1
-		# self.send_reqpos()
+		# self.send_requestpos()
 
 	def send_pos(self, pos=None, center=None, gridpos=None):
 		# send pos to server
 		if self.gotpos:
 			# logger.debug(f'{self} send_pos pos={pos} center={center}')
-			posmsg = {'data_id': dataid['playerpos'], 'client_id': self.client_id, 'pos': self.pos, 'centerpos':self.centerpos, 'kill':self.kill, 'gridpos':self.gridpos, 'gotmap':self.gotmap,'gotpos':self.gotpos}
+			posmsg = {'msgtype': 'playerpos', 'client_id': self.client_id, 'pos': self.pos, 'centerpos':self.centerpos, 'kill':self.kill, 'gridpos':self.gridpos, 'gotmap':self.gotmap,'gotpos':self.gotpos}
 			send_data(conn=self.socket, payload=posmsg)
 			self.sendcnt += 1
 			# logger.debug(f'send_pos {pos} {gridpos}')
 
 	def send_clientid(self):
 		# send pos to server
-		cmsg = {'data_id': dataid['info'], 'client_id': self.client_id, 'pos': self.pos, 'centerpos':self.centerpos, 'kill':self.kill, 'gridpos':self.gridpos, 'gotmap':self.gotmap,'gotpos':self.gotpos}
+		cmsg = {'msgtype': 'info', 'client_id': self.client_id, 'pos': self.pos, 'centerpos':self.centerpos, 'kill':self.kill, 'gridpos':self.gridpos, 'gotmap':self.gotmap,'gotpos':self.gotpos}
 		send_data(conn=self.socket, payload=cmsg)
 		logger.info(f'[ {self} ] sending client_id ')
 		self.sendcnt += 1
@@ -138,14 +147,14 @@ class Player(BasicThing, Thread):
 		# inform server about grid update
 		# called after bomb explodes and kills block
 		self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
-		gridmsg = {'data_id': dataid['gridupdate'], 'client_id': self.client_id, 'blkgridpos': gridpos, 'blktype': blktype, 'pos': self.pos, 'griddata':grid_data, 'gridpos':self.gridpos}
+		gridmsg = {'msgtype':'gridupdate', 'client_id': self.client_id, 'blkgridpos': gridpos, 'blktype': blktype, 'pos': self.pos, 'griddata':grid_data, 'gridpos':self.gridpos}
 		send_data(conn=self.socket, payload=gridmsg)
 		self.sendcnt += 1
 		# logger.debug(f'[ {self} ] send_gridupdate {len(gridmsg)}')
 
 	def disconnect(self):
 		# send quitmsg to server
-		quitmsg = {'data_id': dataid['clientquit'], 'client_id': self.client_id, 'payload': 'quit'}
+		quitmsg = {'msgtype': 'clientquit', 'client_id': self.client_id, 'payload': 'quit'}
 		send_data(conn=self.socket, payload=quitmsg)
 		self.kill = True
 		self.connected = False
@@ -235,17 +244,17 @@ class Player(BasicThing, Thread):
 	def take_powerup(self, powertype=None, gridpos=None):
 		x,y = gridpos
 		if powertype == 20:
-			self.cl_hearts += 1
-			self.cl_score += 10
+			self.hearts += 1
+			self.score += 2
 			self.gamemap.grid[x][y] = 11
 		elif powertype == 21:
 			self.bombs_left += 1
 			self.gamemap.grid[x][y] = 11
-		logger.info(f'player {self.client_id} got extrabomb at gridpos={gridpos} griditem={self.gamemap.grid[x][y]} hearts={self.cl_hearts} bombsleft={self.bombs_left}')
+		logger.info(f'player {self.client_id} got extrabomb at gridpos={gridpos} griditem={self.gamemap.grid[x][y]} hearts={self.hearts} bombsleft={self.bombs_left}')
 		self.send_gridupdate(gridpos=(x,y), blktype=11, grid_data=self.gamemap.grid)
 
 	def add_score(self):
-		self.cl_score += 1
+		self.score += 1
 
 	def setpos(self, pos, gridpos):
 		self.pos = pos
@@ -258,7 +267,6 @@ class Player(BasicThing, Thread):
 		eventq = []
 		for payload in payloads:
 			self.recvcnt += 1
-			msgid = payload.get('data_id')
 			#logger.debug(f'[ {self} ] msgid:{msgid} payload:{payload}')
 			# logger.debug(f'[ {self} ] payload:{payload}')
 			if payload.get('msgtype') == 'bcgetid':
@@ -266,15 +274,16 @@ class Player(BasicThing, Thread):
 					# todo work on this....
 					self.send_clientid()
 					#pass
-			elif payload.get('msgtype') == dataid['netplayers']:
+			elif payload.get('msgtype') == 'netplayers':
 				netplayers = None
 				netplayers = payload.get('netplayers')
 				if netplayers:
-					#logger.debug(f'[ {self} ] netplayers {len(netplayers)} {netplayers}')
-					# update netplayers
-					for np in netplayers:
-						npgridpos = netplayers[np].get('gridpos')
-						self.netplayers[np] = netplayers[np]
+					self.netplayers = netplayers
+					# #logger.debug(f'[ {self} ] netplayers {len(netplayers)} {netplayers}')
+					# # update netplayers
+					# for np in netplayers:
+					# 	npgridpos = netplayers[np].get('gridpos')
+					# 	self.netplayers[np] = netplayers[np]
 			elif payload.get('msgtype') == 'netgridupdate':
 				# received gridupdate from server
 				gridpos = payload.get('blkgridpos')
@@ -308,13 +317,13 @@ class Player(BasicThing, Thread):
 			elif payload.get('msgtype') == 'netbomb':
 				# received bomb from server, forward to mainqueue
 				# logger.debug(f'bombfromserver payload={payload}')
-				eventq.append(Event(USEREVENT, payload={'msgtype':'netbomb', 'bombdata':payload, 'data_id':dataid['netbomb']}))
+				eventq.append(Event(USEREVENT, payload={'msgtype':'netbomb', 'bombdata':payload}))
 				#pygame.event.post(bombmsg)
 
-			elif msgid == dataid['posupdate']:
+			elif payload.get('msgtype') == 'posupdate':
 				# received posupdate from server, forward to mainqueue
 				logger.warning(f'[ {self} ] posupdate payload={payload}')
-				eventq.append(Event(USEREVENT, payload={'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos}))
+				eventq.append(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos}))
 				#pygame.event.post(posmsg)
 
 			elif payload.get('msgtype') == 'playerpos':
@@ -326,10 +335,10 @@ class Player(BasicThing, Thread):
 					self.gotpos = True
 					logger.info(f'playerpos newpos={newpos} ngp={newgridpos} ogp={self.gridpos} payload={payload}')
 					self.gridpos = newgridpos
-					eventq.append(Event(USEREVENT, payload={'msgtype':'newnetpos', 'data_id':dataid['netpos'], 'posdata':payload, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':newpos, 'newgridpos':self.gridpos}))
+					eventq.append(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':newpos, 'newgridpos':self.gridpos}))
 					#pygame.event.post(posmsg)
 			else:
-				logger.warning(f'[ {self} ] unknownpayload msgid={msgid} p={payload}')
+				logger.warning(f'[ {self} ] unknownpayload p={payload}')
 		return eventq
 
 

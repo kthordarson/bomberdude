@@ -79,11 +79,8 @@ class Gamemap:
 			gpy -= 1
 		if gpy == 0  or gpy == 1:
 			gpy += 1
-		#logger.warning(f'[map] placeplayer gpx:{gpx} gpy:{gpy} grid={grid}')
-		#logger.info(f'[mapplaceplayer] gpx={gpx} gpy={gpy} nx={nx} ny={ny} grid={grid[gpx][gpy]}')
-			# clear spot aound player
+		# clear spot aound player
 		logger.info(f'[placeplayer] pos={pos} randpos:{randpos} gpx:{gpx} gpy:{gpy} xp:{ny} yp:{ny}')
-		#logger.info(f'grid={grid}')
 		grid[gpx][gpy] = 11
 		grid[gpx-1][gpy] = 11
 		grid[gpx+1][gpy] = 11
@@ -98,7 +95,6 @@ class Gamemap:
 			grid[x][-1] = 10
 		#self.grid = grid
 		return grid, (nx, ny), (gpx, gpy)
-
 
 	def is_empty(self):
 		cnt = 0
@@ -117,7 +113,6 @@ class Gamemap:
 	def get_bcount(self, cval=0):
 		cnt = 0
 		return cnt
-
 
 def gengrid(gridx=10, gridy=10):
 	# generate a custom map, gridsize is max blocks x and y

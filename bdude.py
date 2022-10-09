@@ -29,6 +29,7 @@ class Dummyplayer():
 		self.ready = False
 		self.client_id = None
 		self.name = f'player{self.client_id}'
+		self.netplayers = []
 		self.connected = False
 		self.kill = False
 		self.centerpos = (self.rect.center[0], self.rect.center[1])
@@ -38,12 +39,11 @@ class Dummyplayer():
 		self.serveraddress = '192.168.1.160'
 		self.serverport = 9696
 		self.server = (self.serveraddress, self.serverport)
-		self.netplayers = {}
 		self.gamemap = []
 		self.bombs_left = 3
 		self.bombpower = 10
-		self.cl_score = 0
-		self.cl_hearts = 3
+		self.score = 0
+		self.hearts = 3
 		self.sendcnt = 0
 		self.recvcnt = 0
 		self.mapreqcnt = 0
@@ -165,14 +165,18 @@ class Game(Thread):
 		msgtype = gamemsg.get('msgtype')
 		if type == 'playerpos':
 			logger.debug(f'[ {self} ] gamemsg={gamemsg}')
+
 		if msgtype == 'bombdrop' or msgtype == 'netbomb':
 			bomber_id = gamemsg.get('bombdata').get('client_id')
 			if bomber_id == self.playerone.client_id:
 				self.playerone.bombs_left -= 1
 			bombpos = gamemsg.get('bombdata').get('bombpos')
 			bombgridpos = gamemsg.get('bombdata').get('bombgridpos')
+
 			bombpower = gamemsg.get('bombdata').get('bombpower')
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos, bombpower=bombpower)
+			bx,by = newbomb.gridpos
+			self.playerone.gamemap.grid[bx][by] = 30
 			self.bombs.add(newbomb)
 			logger.debug(f'bombpos = gridpos:{bombgridpos} pos:{bombpos} {newbomb.pos} bl={self.playerone.bombs_left} b:{len(self.bombs)}  mt:{msgtype} ')
 
@@ -287,8 +291,11 @@ class Game(Thread):
 		for k in range(0, len(gamemapgrid)):
 			for j in range(0, len(gamemapgrid)):
 				blktype = gamemapgrid[j][k]
-				newblock = Block(Vector2(j * BLOCK, k * BLOCK), (j, k), block_type=blktype, client_id=self.playerone.client_id)
-				self.blocks.add(newblock)
+				try:
+					newblock = Block(Vector2(j * BLOCK, k * BLOCK), (j, k), block_type=blktype, client_id=self.playerone.client_id)
+					self.blocks.add(newblock)
+				except TypeError as e:
+					logger.error(f'updategrid: {e} gmg={gamemapgrid[j][k]} blktype={blktype} j={j} k={k} idx={idx}')
 				idx += 1
 		self.playerone.gamemap.grid = gamemapgrid
 		logger.debug(f'gamemapgrid:{len(gamemapgrid)} blocks:{len(self.blocks)} oldlen:{oldlen} idx:{idx}')
@@ -296,9 +303,12 @@ class Game(Thread):
 	def update_blocks(self):
 		self.particles.update(self.blocks, self.screen)
 		for b in self.blocks:
-			if b.block_type >= 20:
+			if b.block_type in range(20,40):
 				if pygame.Rect.colliderect(self.playerone.rect, b.rect):
-					self.playerone.cl_hearts += 1
+					if b.block_type == 20:
+						self.playerone.hearts += 1
+					if b.block_type == 21:
+						self.playerone.bombs_left += 1
 					x,y = b.gridpos
 					self.playerone.gamemap.grid[x][y] = 11
 					nb = Block((x,y), b.gridpos, block_type=11, client_id=b.client_id)
@@ -322,6 +332,11 @@ class Game(Thread):
 			if dt - bomb.start_time >= bomb.timer:
 				if bomb.bomber_id == self.playerone.client_id:
 					self.playerone.bombs_left += 1
+				bx,by = bomb.gridpos
+				pos = (bx * BLOCK, by * BLOCK)
+				nb = Block(pos=pos, gridpos=bomb.gridpos, block_type=11, client_id=bomb.bomber_id)
+				pygame.event.post(Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': nb}))
+				self.playerone.gamemap.grid[bx][by] = 11
 				flames = bomb.exploder()
 				flamemsg = Event(USEREVENT, payload={'msgtype': 'flames', 'flamedata': flames})
 				pygame.event.post(flamemsg)
@@ -334,7 +349,7 @@ class Game(Thread):
 				if pygame.Rect.colliderect(flame.rect, player.rect):
 					player.flame_hit(flame)
 					flame.kill()
-					if player.cl_hearts <= 0:
+					if player.hearts <= 0:
 						logger.info(f'{player} killed by {flame}')
 						player.kill = True
 			# check if flame collides with blocks
@@ -487,7 +502,7 @@ class Game(Thread):
 				self.playerone.connected = True
 				mapreqcnt = 0
 				#while not self.playerone.gotmap and not self.playerone.gotpos:
-				self.playerone.send_mapreq()
+				self.playerone.send_maprequest()
 				mapreqcnt += 1
 				logger.debug(f'playeone={self.playerone} waiting for map mapreqcnt:{mapreqcnt} cgotmap={self.playerone.gotmap} cgotpos={self.playerone.gotpos}')
 				time.sleep(1)
@@ -530,21 +545,8 @@ class Game(Thread):
 						selection = self.gui.game_menu.get_selection()
 						self.handle_menu(selection)
 					elif not self.gui.show_mainmenu:
+						self.playerone.send_bomb()
 						#bombmsg = {'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos}
-						if self.playerone.bombs_left >= 0:
-							candrop = True
-							bombgridpos = (self.playerone.gridpos[1], self.playerone.gridpos[1])
-							for bomb in self.bombs:
-								logger.info(f'bomb={bomb} bombgridpos={bombgridpos}')
-								bgpos = (bomb.gridpos[0], bomb.gridpos[1])
-								ngbpos = (bombgridpos[0], bombgridpos[1])
-								if bgpos == ngbpos:
-									logger.warning(f'bomb={bomb} already exists at {bombgridpos}')
-									candrop = False
-							if candrop:
-								self.playerone.send_bomb(pos=self.playerone.rect.center)
-						else:
-							logger.warning(f'no bombs left {self.playerone.bombs_left}')
 				if event.key == pygame.K_ESCAPE:
 					self.gui.show_mainmenu ^= True
 				if event.key == pygame.K_q:
@@ -555,11 +557,11 @@ class Game(Thread):
 				if event.key == pygame.K_1:
 					#Event1=pygame.event.Event(pygame.USEREVENT, payload={'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos})
 					#pygame.event.post(Event1)
-					self.playerone.send_mapreq()
+					self.playerone.send_maprequest()
 				if event.key == pygame.K_2:
-					self.playerone.req_mapreset()
+					self.playerone.send_mapreset()
 				if event.key == pygame.K_3:
-					self.playerone.send_bomb(pos=self.playerone.rect.center)
+					pass
 				if event.key == pygame.K_4:
 					self.extradebug ^= True
 				if event.key == pygame.K_5:
