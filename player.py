@@ -119,9 +119,12 @@ class Player(BasicThing, Thread):
 
 	def send_maprequest(self, gridsize):
 		# request map from server
+		if not gridsize:
+			logger.error(f'gridsize not set')
+			return
 		reqmsg = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'gridsize':gridsize}
-		if not self.gotmap:
-			logger.warning(f'mapreqcnt={self.mapreqcnt} gotmap ={self.gotmap} already payload={reqmsg}')
+		#if not self.gotmap:
+		logger.warning(f'mapreqcnt={self.mapreqcnt} gotmap ={self.gotmap} payload={reqmsg}')
 		send_data(conn=self.socket,  payload=reqmsg)
 		self.mapreqcnt += 1
 			# logger.debug(f'{self} sending maprequest:{self.mapreqcnt} payload={reqmsg}')

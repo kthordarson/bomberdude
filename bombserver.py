@@ -444,7 +444,10 @@ class BombServer(Thread):
 				# todo fix player pos on new grid
 				clid = data.get('client_id')
 				gz = data.get('gridsize')
-				logger.info(f'[ {self} ] resetmap from {clid} {data}')
+				if not gz:
+					logger.error(f'{self} no gz data={data}')
+					return
+				logger.info(f'[ {self} ] resetmap from gz={gz} {clid} {data}')
 				basegrid = self.gamemap.generate_custom(gridsize=gz)
 				#self.gamemap.grid = basegrid
 				for bc in self.bombclients:
