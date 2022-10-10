@@ -533,7 +533,7 @@ class Game(Thread):
 				if event.key == pygame.K_1:
 					#Event1=pygame.event.Event(pygame.USEREVENT, payload={'msgtype': 'bombdrop', 'client_id': self.playerone.client_id, 'bombpos': self.playerone.pos})
 					#pygame.event.post(Event1)
-					self.playerone.send_maprequest(gridsize=20)
+					self.playerone.send_maprequest(gridsize=15)
 				if event.key == pygame.K_2:
 					self.playerone.send_mapreset(gridsize=10)
 				if event.key == pygame.K_3:

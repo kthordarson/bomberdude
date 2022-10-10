@@ -340,7 +340,13 @@ class BombServer(Thread):
 	def eventhandler(self, serverevents):
 		for data in serverevents:
 			smsgtype = data.get('msgtype')
-			if smsgtype == 'newclient':
+			if smsgtype == 'tuiquit':
+				logger.info(f'tuiquit data={data}')
+				self.kill = True
+				self.conn.close()
+				pygame.quit()
+				break
+			elif smsgtype == 'newclient':
 				# logger.debug(f'[ {self} ] q: {data}')
 				conn = data.get('conn')
 				addr = data.get('addr')
@@ -349,13 +355,12 @@ class BombServer(Thread):
 				basegrid, npos, ngpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=True)
 				self.gamemap.grid = basegrid
 				newbc = BombClientHandler(conn=conn, addr=addr, gamemap=self.gamemap, servercomm=self.servercomm, npos=npos, ngpos=ngpos)
-				newbc.gamemap.grid = self.gamemap.grid
 				newbc.start()
+				newbc.set_pos(pos=npos, gridpos=ngpos)
+				newbc.gamemap.grid = self.gamemap.grid
 				self.bombclients.append(newbc)
 				for bc in self.bombclients:
 					if bc.client_id:
-						#self.gamemap.grid, bnewpos, bcgridpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=False, pos=bc.pos)
-						#bc.send_map(randpos=False, refresh=False)
 						for np in self.netplayers:
 							if self.netplayers[np]['client_id']:
 								bc.servercomm.netplayers[np] = self.netplayers[np]
@@ -448,6 +453,9 @@ class BombServer(Thread):
 			elif smsgtype == 'maprequest':
 				# todo fix player pos on new grid
 				clid = data.get('client_id')
+				if not clid:
+					logger.error(f'no client id data={data}')
+					return
 				gz = data.get('gridsize')
 				if not gz:
 					logger.error(f'{self} no gz data={data}')
@@ -456,35 +464,19 @@ class BombServer(Thread):
 				basegrid = self.gamemap.generate_custom(gridsize=gz)
 				#self.gamemap.grid = basegrid
 				for bc in self.bombclients:
-					bcg, bnewpos, newgridpos = self.gamemap.placeplayer(basegrid, bc.pos)
+					logger.debug(f'{self} sending newgrid to {bc}')
+					bcg, bnewpos, newgridpos = self.gamemap.placeplayer(grid=basegrid, pos=bc.pos, randpos=True)
 					bc.pos = bnewpos
 					bc.gridpos = newgridpos
 					bc.set_pos(pos=bc.pos, gridpos=bc.gridpos)
 					bc.gamemap.grid = bcg
 					bc.send_map()
 					self.gamemap.grid = bcg
+					logger.debug(f'{self} done sending newgrid to {bc}')
 
 
 			else:
 				logger.warning(f'[ {self} ] data={data}')
-
-	def gui_refresh(self):
-		# refresh gui data
-		self.gui.bombclients = self.bombclients		
-		try:
-			for np in self.netplayers:
-				if not self.netplayers[np]['kill']:
-					self.gui.netplayers[np] = self.netplayers[np]
-					for bc in self.bombclients:
-						if bc.client_id:
-							for npbc in bc.servercomm.netplayers:
-								self.gui.netplayers[npbc] = bc.servercomm.netplayers[npbc]
-		except RuntimeError as e:
-			logger.warning(f'{e}')
-		try:
-			self.gui.renderinfo()
-		except Exception as e:
-			logger.error(f'gui error {e}')
 
 	def run(self):
 		logger.debug(f'[ {self} ] run')
@@ -502,22 +494,22 @@ class BombServer(Thread):
 			for event in events:
 				if event.type == pygame.KEYDOWN:
 					logger.info(f'[{len(serverevents)} {len(events)}] event={event}')
-					if event.key == pygame.K_q:
-						[logger.info(f'[{len(serverevents)} {len(events)}] pgevent={ev}') for ev in events]
-						self.kill = True
-						logger.info(f'{self} quitting')
-						for bc in self.bombclients:
-							logger.info(f'{self} killing {bc} ')
-							bc.sender.kill = True
-							bc.kill = True
-							logger.info(f'{self} killing {bc} sender {bc.sender}')
-						self.conn.close()
-						logger.info(f'{self.conn} close')
-						#self.gui.join(timeout=1)
-						#logger.info(f'{self.gui} kill')
-						self.servercomm.join(timeout=1)
-						logger.info(f'{self.servercomm} kill')
-						os._exit(0)
+				if event.type == pygame.QUIT:
+					[logger.info(f'[{len(serverevents)} {len(events)}] pgevent={ev}') for ev in events]
+					self.kill = True
+					logger.info(f'{self} quitting')
+					for bc in self.bombclients:
+						logger.info(f'{self} killing {bc} ')
+						bc.sender.kill = True
+						bc.kill = True
+						logger.info(f'{self} killing {bc} sender {bc.sender}')
+					self.conn.close()
+					logger.info(f'{self.conn} close')
+					#self.gui.join(timeout=1)
+					#logger.info(f'{self.gui} kill')
+					self.servercomm.join(timeout=1)
+					logger.info(f'{self.servercomm} kill')
+					os._exit(0)
 
 				elif event.type == pygame.USEREVENT:
 					#logger.info(f'[{len(serverevents)}] event={event}')
@@ -529,7 +521,6 @@ class BombServer(Thread):
 			#self.netplayers.pop([self.netplayers.get(k) for k in self.netplayers if self.netplayers[k]['kill']][0].get('client_id'))
 			self.eventhandler(serverevents)
 			self.serverclock.tick(FPS)
-			#self.gui_refresh()
 			# kp = False
 			# try:
 			# 	self.netplayers.pop([self.netplayers.get(k) for k in self.netplayers if self.netplayers[k]['kill']][0].get('client_id'))
@@ -572,7 +563,11 @@ class BombServer(Thread):
 					# 	if bcnp != '0' and not bc.servercomm.netplayers[bcnp]['kill']:
 					# 		self.netplayers[bcnp] = bc.servercomm.netplayers[bcnp]
 			ev = Event(USEREVENT, payload={'msgtype':'netplayers', 'netplayers':self.netplayers})
-			pygame.event.post(ev)
+			try:
+				pygame.event.post(ev)
+			except Exception as e:
+				logger.warning(f'err {e}')
+				self.kill = True
 
 class ServerTUI(Thread):
 	def __init__(self, server):
@@ -601,7 +596,8 @@ class ServerTUI(Thread):
 					self.get_serverinfo()
 				if cmd[:1] == 'q':
 					self.kill = True
-					self.server.conn.close()
+					#quitevent=Event(USEREVENT, payload={'msgtype':'tuiquit'})
+					pygame.event.post(Event(pygame.QUIT))
 					break
 			except KeyboardInterrupt:
 				self.kill = True
