@@ -535,11 +535,11 @@ class Game(Thread):
 					#pygame.event.post(Event1)
 					self.playerone.send_maprequest(gridsize=15)
 				if event.key == pygame.K_2:
-					self.playerone.send_mapreset(gridsize=10)
+					self.playerone.send_maprequest(gridsize=10)
 				if event.key == pygame.K_3:
-					self.playerone.send_mapreset(gridsize=15)
+					self.playerone.send_maprequest(gridsize=15)
 				if event.key == pygame.K_4:
-					self.playerone.send_mapreset(gridsize=25)
+					self.playerone.send_maprequest(gridsize=20)
 				if event.key == pygame.K_5:
 					self.extradebug ^= True
 				if event.key == pygame.K_6:
