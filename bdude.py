@@ -154,10 +154,15 @@ class Game(Thread):
 			needrefresh = False
 			for b in self.blocks:
 				x,y = b.gridpos
-				if self.playerone.gamemap.grid[x][y] != b.block_type:
-					self.playerone.gamemap.grid[x][y] = b.block_type
-					#logger.warning(f'bcheck: mismatch {b} btype={b.block_type} != client={self.playerone.gamemap.grid[x][y]}')
+				try:
+					if self.playerone.gamemap.grid[x][y] != b.block_type:
+						self.playerone.gamemap.grid[x][y] = b.block_type
+						needrefresh = True
+				except IndexError as e:
+					logger.warning(f'indexerror {e} x={x} y={y} b={b}')
 					needrefresh = True
+					#logger.warning(f'bcheck: mismatch {b} btype={b.block_type} != client={self.playerone.gamemap.grid[x][y]}')
+					
 			if needrefresh:
 				self.updategrid(self.playerone.gamemap.grid)
 				#self.playerone.send_refreshgrid()

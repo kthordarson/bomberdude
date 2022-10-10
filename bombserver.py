@@ -81,7 +81,8 @@ class Servercomm(Thread):
 					if payload.get('msgtype') == 'netplayers':
 						netplayers = payload.get('netplayers')
 						for np in netplayers:
-							self.netplayers[np] = netplayers[np]
+							if netplayers[np]['client_id']:
+								self.netplayers[np] = netplayers[np]
 					elif payload.get('msgtype') == 'netbomb':
 						#logger.debug(f'bomb payload:{payload}')
 						nb = Event(USEREVENT, payload=payload)
@@ -356,15 +357,18 @@ class BombServer(Thread):
 						#self.gamemap.grid, bnewpos, bcgridpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=False, pos=bc.pos)
 						#bc.send_map(randpos=False, refresh=False)
 						for np in self.netplayers:
-							bc.servercomm.netplayers[np] = self.netplayers[np]
+							if self.netplayers[np]['client_id']:
+								bc.servercomm.netplayers[np] = self.netplayers[np]
 						for np in bc.servercomm.netplayers:
-							self.netplayers[np] = bc.servercomm.netplayers[np]
+							if bc.servercomm.netplayers[np]['client_id']:
+								self.netplayers[np] = bc.servercomm.netplayers[np]
 				logger.debug(f'[ {self} ] new player:{newbc} cl:{len(self.bombclients)}')
 			elif smsgtype == 'playerpos':
 				for bc in self.bombclients:
 					clid = data.get('client_id', None)
 					if not clid:
 						logger.warning(f'[ {self} ] no client_id in data:{data}')
+						return
 					pos = data.get('pos', None)
 					gridpos = data.get('gridpos', None)
 					centerpos = data.get('centerpos')
@@ -577,9 +581,15 @@ class ServerTUI(Thread):
 		self.kill = False
 	
 	def get_serverinfo(self):
-		print(self.server)
+		logger.info(f'server={self.server} clients={len(self.server.bombclients)} np={len(self.server.netplayers)} scommnp={len(self.server.servercomm.netplayers)}')
+		logger.info(f'------bombclients------')
 		for bc in self.server.bombclients:
-			print(bc)
+			logger.debug(f'[bc] {bc}')
+			for np in bc.servercomm.netplayers:
+				logger.info(f'\t[np] {np} {bc.servercomm.netplayers[np]}')
+		logger.info(f'------servercomm------')
+		for np in self.server.servercomm.netplayers:
+			logger.info(f'\t[np] {np} {self.server.servercomm.netplayers[np]}')
 		
 	def run(self):
 		while not self.kill:
