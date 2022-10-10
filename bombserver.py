@@ -318,6 +318,7 @@ class BombClientHandler(Thread):
 						else:
 							pass
 
+
 class BombServer(Thread):
 	def __init__(self, gui=None):
 		Thread.__init__(self, daemon=False)
@@ -569,6 +570,32 @@ class BombServer(Thread):
 			ev = Event(USEREVENT, payload={'msgtype':'netplayers', 'netplayers':self.netplayers})
 			pygame.event.post(ev)
 
+class ServerTUI(Thread):
+	def __init__(self, server):
+		Thread.__init__(self, daemon=False)
+		self.server = server
+		self.kill = False
+	
+	def get_serverinfo(self):
+		print(self.server)
+		for bc in self.server.bombclients:
+			print(bc)
+		
+	def run(self):
+		while not self.kill:
+			if self.kill:
+				break
+			try:
+				cmd = input(':> ')
+				if cmd[:1] == 's':
+					self.get_serverinfo()
+				if cmd[:1] == 'q':
+					self.kill = True
+					self.server.conn.close()
+					break
+			except KeyboardInterrupt:
+				self.kill = True
+				break
 
 
 def main():
@@ -580,28 +607,32 @@ def main():
 	clients = 0
 	#gui = ServerGUI()
 	server = BombServer()
+	tui = ServerTUI(server)
 	server.conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	server.conn.bind(('0.0.0.0', 9696))
 	server.conn.listen()
 	server.start()
+	tui.start()
 	while not server.kill:
 		logger.debug(f'[bombserver] {server} waiting for connection clients:{clients}')
+		if server.kill or tui.kill:
+			logger.warning(f'[bombserver] {server} server killed')
+			server.conn.close()
+			return
 		try:
-			if server.kill:
-				logger.warning(f'[bombserver] {server} server killed')
-				server.conn.close()
-				return
 			conn, addr = server.conn.accept()
 			ncmsg=Event(USEREVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
 			logger.info(f'ncmsg={ncmsg}')
 			pygame.event.post(ncmsg)
 		except KeyboardInterrupt as e:
 			server.conn.close()
+			tui.kill = True
 			logger.warning(f'KeyboardInterrupt:{e} server:{server}')
 			for bc in server.bombclients:
 				logger.warning(f'kill bc:{bc}')
 				bc.kill = True
 				bc.join()
+			tui.join()
 			server.kill = True
 			server.join()
 			logger.warning(f'kill server:{server}')
