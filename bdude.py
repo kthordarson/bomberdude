@@ -49,8 +49,6 @@ class Dummyplayer():
 		self.mapreqcnt = 0
 	def draw(self):
 		pass
-	def update(self, *args, **kwargs):
-		pass
 			
 class GameGUI:
 	def __init__(self, screen):
@@ -143,7 +141,8 @@ class Game(Thread):
 					#logger.info(f'evs={len(events)} event={event}')
 			#self.blocks.update()
 			self.show_mainmenu = False
-			self.playerone.update(self.blocks)
+			if self.playerone.ready:
+				self.playerone.update(self.blocks)
 			#self.players.update(blocks=self.blocks, screen=self.screen)
 			self.update_bombs()
 			self.update_flames()

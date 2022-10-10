@@ -58,33 +58,19 @@ class Gamemap:
 					gpy = random.randint(1, len(grid)-1)
 					nx = round(gpx * BLOCK)
 					ny = round(gpy * BLOCK)
+					if grid[gpx][gpy] == 11 and grid[gpx][gpy-1] == 11 and grid[gpx+1][gpy] == 11:
+						validpos = True
 				except ValueError as e:
 					logger.error(f'[map] ValueError {e} gl={len(grid)} pos={pos} randpos={randpos} grid={grid}')
-					gpx = 2
-					gpy = 2
-					nx = round(gpx * BLOCK)
-					ny = round(gpy * BLOCK)
+			#else:
+				logger.warning(f'[map] invalid pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
 			else:
 				# gridpos from pos			
 				gpx = round(pos[0] // BLOCK)
 				gpy = round(pos[1] // BLOCK)
 				nx = pos[0]
 				ny = pos[1]
-			# logger.info(f'[map] placeplayer pos={pos} x={xpos} y={ypos}')
-	#		if gpx == 0 or gpy == 0 or gpx == 1 or gpy == 1:
-				#logger.warning(f'[map] placeplayer gpx:{gpx} gpy:{gpy} grid={grid}')
-			if gpx == 0 or gpx == 1:
-				gpx += 1
-			if gpx == len(grid) or gpx == len(grid) -1 or gpx == len(grid) -2:
-				gpx -= 1
-			if gpy == len(grid) or gpy == len(grid) -1 or gpy == len(grid) -2:
-				gpy -= 1
-			if gpy == 0  or gpy == 1:
-				gpy += 1
-			if grid[gpx][gpy] == 11:
 				validpos = True
-			else:
-				logger.warning(f'[map] invalid pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
 		# clear spot aound player
 		logger.info(f'[placeplayer] pos={pos} randpos:{randpos} gpx:{gpx} gpy:{gpy} xp:{ny} yp:{ny}')
 		grid[gpx][gpy] = 11

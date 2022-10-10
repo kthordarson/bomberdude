@@ -28,7 +28,7 @@ class get_netpayloads():
 
 class Player(BasicThing, Thread):
 	def __init__(self):
-		Thread.__init__(self, daemon=False)
+		Thread.__init__(self, daemon=True)
 		super().__init__((0,0), (0,0))
 		self.vel = Vector2(0, 0)
 		self.pos = (0,0)
@@ -41,7 +41,7 @@ class Player(BasicThing, Thread):
 		#self.rect = self.surface.fill(color=(90,90,90))
 		# BasicThing.__init__(self, pos, self.image)
 		self.ready = False
-		self.client_id = None# gen_randid()
+		self.client_id = None #gen_randid()
 		self.name = f'player{self.client_id}'
 		self.connected = False
 		self.kill = False
@@ -83,18 +83,49 @@ class Player(BasicThing, Thread):
 		self.hearts -= 1
 
 	def send_update(self):
-		updates = []
-		try:
-			updates = self.eventqueue.get()
-		except Empty:
-			pass
-		for update in updates:
-			# logger.info(f'sending update {update}')
-			send_data(self.socket, update)
+		while not self.kill:
+			updates = []
 			try:
-				self.eventqueue.task_done()
-			except ValueError as e:
-				logger.error(f'ValueError {e} updates={len(updates)} update={update}')
+				updates = self.eventqueue.get()
+			except Empty:
+				pass
+			for update in updates:
+				# logger.info(f'sending update {update}')
+				send_data(self.socket, update)
+				try:
+					self.eventqueue.task_done()
+				except ValueError as e:
+					logger.error(f'ValueError {e} updates={len(updates)} update={update}')
+			try:
+				payloads = receive_data(conn=self.socket)
+				#payloads = rcvr.get_payloads()
+			except Exception as e:
+				logger.error(e)
+			if payloads:
+				eventq = self.handle_payloadq(payloads)
+				for event in eventq:
+					logger.debug(f'{len(eventq)} events in eventq event={event.type}')
+					pygame.event.post(event)
+
+	def update(self, blocks=None):
+		# self.gridpos = (self.pos[0] // BLOCK, self.pos[1] // BLOCK)
+		#self.rect.topleft = (self.pos[0], self.pos[1])
+		# self.gridpos = (round(self.pos[0] // BLOCK), round(self.pos[1] // BLOCK))
+		payload = {
+			'msgtype': 'playerpos', 
+			'client_id': self.client_id, 
+			'pos': self.pos, 
+			'kill':self.kill, 
+			'gridpos':self.gridpos, 
+			'gotmap':self.gotmap,
+			'gotpos':self.gotpos,
+			'score':self.score,
+			'bombs_left':self.bombs_left,
+			'hearts':self.hearts,
+			'bombpower':self.bombpower,
+			}
+		#if self.ready:
+		self.eventqueue.put([payload])
 
 	def send_bomb(self):
 		# send bomb to server
@@ -189,24 +220,6 @@ class Player(BasicThing, Thread):
 		#self.sendcnt += 1
 		# self.send_requestpos()
 
-	def send_pos(self):
-		# send pos to server
-
-		payload = {
-			'msgtype': 'playerpos', 
-			'client_id': self.client_id, 
-			'pos': self.pos, 
-			'kill':self.kill, 'gridpos':self.gridpos, 
-			'gotmap':self.gotmap,
-			'gotpos':self.gotpos,
-			'score':self.score,
-			'bombs_left':self.bombs_left,
-			'hearts':self.hearts,
-			'bombpower':self.bombpower,
-			}
-		if self.ready:
-			self.eventqueue.put([payload])
-			#send_data(conn=self.socket, payload=posmsg)
 
 	def set_clientid(self, clid):
 		if not self.client_id:
@@ -214,10 +227,6 @@ class Player(BasicThing, Thread):
 			self.client_id = clid
 		else:
 			logger.warning(f'dupe set client_id to {clid} was {self.client_id}')
-
-	def send_clientid(self):
-		pass
-		# self.send_pos()
 
 	def send_gridupdate(self, gridpos=None, blktype=None, grid_data=None):
 		# inform server about grid update
@@ -297,7 +306,6 @@ class Player(BasicThing, Thread):
 			#self.pos[1] = self.gridpos[1] * BLOCK
 			self.rect.x = self.pos[0]
 			self.rect.y = self.pos[1]
-			self.send_pos()
 
 	def hit_list(self, objlist):
 		hlist = []
@@ -310,12 +318,6 @@ class Player(BasicThing, Thread):
 		self.collisions = spritecollide(self, items, False)
 		return self.collisions
 
-	def update(self, blocks=None):
-		# self.gridpos = (self.pos[0] // BLOCK, self.pos[1] // BLOCK)
-		#self.rect.topleft = (self.pos[0], self.pos[1])
-		# self.gridpos = (round(self.pos[0] // BLOCK), round(self.pos[1] // BLOCK))
-		if self.connected:
-			self.send_pos()
 
 	def take_powerup(self, powertype=None, gridpos=None):
 		x,y = gridpos
@@ -338,6 +340,7 @@ class Player(BasicThing, Thread):
 	def handle_payloadq(self, payloads):
 		eventq = []
 		for payload in payloads:
+			# logger.info(f'{len(payloads)} payload={payload}')
 			self.recvcnt += 1
 			if payload.get('msgtype') == 'bcsetclid':
 				clid = payload.get('client_id')
@@ -420,6 +423,8 @@ class Player(BasicThing, Thread):
 
 	def run(self):
 		self.connect_to_server()
+		st = Thread(target=self.send_update(),daemon=True)
+		st.start()
 		self.send_request_clid()
 		self.send_maprequest(gridsize=15)
 		payloads = []
@@ -435,27 +440,16 @@ class Player(BasicThing, Thread):
 				#logger.warning(f'{self} no client_id')
 				self.send_request_clid()
 			if not self.gotmap:
-				#logger.warning(f'{self} no map')
-				#self.send_maprequest()
-				pass
+				logger.warning(f'{self} no map')
+				self.send_maprequest()
+				#pass
 			if not self.ready:
-				pass
-				#logger.warning(f'{self} not ready')				
+				#pass
+				logger.warning(f'{self} not ready')				
 			if not self.gotpos:
 				logger.warning(f'{self} no pos')				
 			
 			# logger.debug(f'[ {self} ]  payload:{payload}')
-			self.send_update()
-			try:
-				payloads = receive_data(conn=self.socket)
-				#payloads = rcvr.get_payloads()
-			except Exception:
-				pass
-			if payloads:
-				eventq = self.handle_payloadq(payloads)
-				for event in eventq:
-					logger.debug(f'{len(eventq)} events in eventq event={event.type}')
-					pygame.event.post(event)
 
 
 
