@@ -167,8 +167,6 @@ class Game(Thread):
 				self.updategrid(self.playerone.gamemap.grid)
 				#self.playerone.send_refreshgrid()
 				
-
-
 	def handle_mainq(self, gamemsg):
 		msgtype = gamemsg.get('msgtype')
 		if type == 'playerpos':
@@ -182,7 +180,7 @@ class Game(Thread):
 			bombgridpos = gamemsg.get('bombdata').get('bombgridpos')
 
 			bombpower = gamemsg.get('bombdata').get('bombpower')
-			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos, flame_len=bombpower)
+			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos, bombpower=bombpower)
 			bx,by = newbomb.gridpos
 			self.playerone.gamemap.grid[bx][by] = 11
 			self.bombs.add(newbomb)
@@ -196,7 +194,8 @@ class Game(Thread):
 
 			if client_id == self.playerone.client_id:
 				logger.info(f'newnetpos np={newpos} ngp={newgridpos} posdata={posdata} ')
-				self.playerone.setpos(newpos, newgridpos)
+				self.playerone.pos = newpos
+				self.playerone.gridpos = newgridpos
 
 		elif msgtype == 'flames':
 			flames = gamemsg.get('flamedata')
@@ -317,7 +316,7 @@ class Game(Thread):
 					if b.block_type == 21:
 						self.playerone.bombs_left += 1
 					if b.block_type == 22:
-						self.playerone.flame_len += 5
+						self.playerone.bombpower += 5
 					x,y = b.gridpos
 					self.playerone.gamemap.grid[x][y] = 11
 					nb = Block(b.pos, b.gridpos, block_type=11, client_id=b.client_id, timer=1)
@@ -420,28 +419,30 @@ class Game(Thread):
 			self.players.draw(self.screen)
 		#self.playerone.draw(self.screen)
 		for npid in self.playerone.netplayers:
-			if npid == 0 or npid == '0':
-				pass
-				#logger.warning(f'npid:{npid} {self.playerone.netplayers[npid]}')
-			else:
-				npitem = self.playerone.netplayers[npid]
-				np = f'{npitem["gridpos"]}'
+			npitem = self.playerone.netplayers[npid]
+			if not npitem.get('pos'):
+				logger.error(f'nopos np={npid} npitem={npitem} ')
+			np = f'{npitem["gridpos"]}'
+			try:
 				x,y = self.playerone.netplayers[npid].get('pos', None)
-				pos = [x,y]
-				gpos = self.playerone.netplayers[npid].get('gridpos', None)
-				if self.playerone.client_id != npid:
-					#pos -= (0,5)
-					#pos[1] -=10
-					self.font.render_to(self.screen, pos, f'{np}', (255, 255, 255))
-					pos[0] += 20
-					pos[1] += 20
-					pygame.draw.circle(self.screen, color=(1,0,255), center=pos, radius=10)
-					#pos = self.playerone.netplayers[npid].get('pos')
-					#self.font.render_to(self.screen, pos, f'{np}', (255, 55, 55))
-				if npid == self.playerone.client_id:
-					#pos += (5,20)
-					pass
-					#self.font.render_to(self.screen, pos , f'{np}', (123, 123, 255))
+			except TypeError as e:
+				logger.error(f'err:{e} np={npid} npitem={npitem} ')
+				break
+			pos = [x,y]
+			gpos = self.playerone.netplayers[npid].get('gridpos', None)
+			if self.playerone.client_id != npid:
+				#pos -= (0,5)
+				#pos[1] -=10
+				# self.font.render_to(self.screen, pos, f'{np}', (255, 255, 255))
+				pos[0] += 20
+				pos[1] += 20
+				pygame.draw.circle(self.screen, color=(1,0,255), center=pos, radius=10)
+				#pos = self.playerone.netplayers[npid].get('pos')
+				#self.font.render_to(self.screen, pos, f'{np}', (255, 55, 55))
+			if npid == self.playerone.client_id:
+				#pos += (5,20)
+				pygame.draw.circle(self.screen, color=(255,255,255), center=pos, radius=5)
+				#self.font.render_to(self.screen, pos , f'{np}', (123, 123, 255))
 
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
@@ -565,7 +566,7 @@ class Game(Thread):
 							print(f'\power {len(self.powerups)}: {b}')
 				if event.key == pygame.K_n:
 					self.playerone.bombs_left = 30
-					self.playerone.flame_len = 100
+					self.playerone.bombpower = 100
 				if event.key == pygame.K_g:
 					pass
 				if event.key == pygame.K_r:

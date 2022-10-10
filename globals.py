@@ -177,7 +177,7 @@ class Block(BasicThing):
 
 
 class Bomb(BasicThing):
-	def __init__(self, pos, bomber_id, flame_len, gridpos):
+	def __init__(self, pos, bomber_id, bombpower, gridpos):
 		self.pos = pos
 		super().__init__(pos, None)
 		if not gridpos:
@@ -199,7 +199,7 @@ class Bomb(BasicThing):
 		self.explode = False
 		self.exp_radius = 1
 		self.done = False
-		self.flame_len = flame_len
+		self.bombpower = bombpower
 		self.flame_width = 10
 		self.flamesout = False
 		self.flames = Group()
@@ -217,7 +217,7 @@ class Bomb(BasicThing):
 		if not self.flamesout:
 			self.flames = Group()
 			dirs = [Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1), Vector2(0, -1)]
-			flex = [Flame(pos=Vector2(self.pos), vel=k, flame_length=self.flame_len) for k in dirs]
+			flex = [Flame(pos=Vector2(self.pos), vel=k, flame_length=self.bombpower) for k in dirs]
 			for f in flex:
 				self.flames.add(f)
 			self.flamesout = True
@@ -225,10 +225,10 @@ class Bomb(BasicThing):
 
 	def exploder(self):
 		flames = Group()
-		flames.add(Flame(pos=self.pos, vel=Vector2(1,0), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
-		flames.add(Flame(pos=self.pos, vel=Vector2(-1,0), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
-		flames.add(Flame(pos=self.pos, vel=Vector2(0,-1), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
-		flames.add(Flame(pos=self.pos, vel=Vector2(0,1), flame_length=self.flame_len, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(1,0), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(-1,0), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(0,-1), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(0,1), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
 		# self.bomber_id.bombs_left += 1
 		return flames
 

@@ -105,7 +105,19 @@ class Menu:
 		pos += (0,25)
 		self.panelfont.render_to(screen, dest=pos, text=f'hearts {playerone.hearts}', fgcolor=(111,222,111))
 		pos += (0,25)
-		self.panelfont.render_to(screen, dest=pos, text=f'bombs {playerone.bombs_left} power {playerone.flame_len}', fgcolor=(111,222,111))
+		self.panelfont.render_to(screen, dest=pos, text=f'bombs {playerone.bombs_left} power {playerone.bombpower}', fgcolor=(111,222,111))
+		#pos = [10,10]
+		for netp in playerone.netplayers:
+			if netp != playerone.client_id:
+				np = playerone.netplayers[netp]
+				pos.y += 30
+				self.panelfont.render_to(screen, dest=pos, text=f'netplayer {netp}', fgcolor=(111,222,211))
+				pos.y += 30
+				self.panelfont.render_to(screen, dest=pos, text=f'hearts {np.get("hearts")}', fgcolor=(211,222,111))
+				pos.y += 30
+				self.panelfont.render_to(screen, dest=pos, text=f'score {np.get("score")}', fgcolor=(211,222,111))
+				pos.y += 30
+
 
 
 	def get_selection(self):
@@ -170,7 +182,7 @@ class ServerGUI(Thread):
 					bctimer = pygame.time.get_ticks()-bc.lastupdate
 					self.gamemapgrid = bc.gamemap.grid
 					bcgridpos = (bc.gridpos[0], bc.gridpos[1])
-					np = {'client_id':bc.client_id, 'pos':bc.pos, 'centerpos':bc.centerpos,'kill':round(bc.kill), 'gridpos':bcgridpos}
+					np = {'client_id':bc.client_id, 'pos':bc.pos, 'kill':round(bc.kill), 'gridpos':bcgridpos}
 					self.netplayers[bc.client_id] = np
 					bc.servercomm.netplayers[bc.client_id] = np
 					textmsg = f'[{bidx}/{len(self.bombclients)}] bc={bc.client_id} pos={bc.pos} np:{len(bc.servercomm.netplayers)} t:{bctimer}'
