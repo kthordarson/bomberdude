@@ -124,7 +124,7 @@ class Player(BasicThing, Thread):
 			return
 		reqmsg = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'gridsize':gridsize}
 		#if not self.gotmap:
-		logger.warning(f'mapreqcnt={self.mapreqcnt} gotmap ={self.gotmap} payload={reqmsg}')
+		logger.info(f'mapreqcnt={self.mapreqcnt} gotmap={self.gotmap} gridsize={gridsize} payload={reqmsg}')
 		send_data(conn=self.socket,  payload=reqmsg)
 		self.mapreqcnt += 1
 			# logger.debug(f'{self} sending maprequest:{self.mapreqcnt} payload={reqmsg}')
@@ -388,33 +388,30 @@ class Player(BasicThing, Thread):
 	def run(self):
 		self.connect_to_server()
 		self.send_request_clid()
-		self.send_maprequest(gridsize=20)
+		self.send_maprequest(gridsize=15)
 		payloads = []
 		#rcvr = Thread(target=get_netpayloads, args=(self.socket,), daemon=True)
 		#rcvr.start()
 		while not self.kill:
-			for np in self.netplayers:
-				npgridpos = self.netplayers[np]['gridpos']
-			if self.kill or self.socket._closed:
+			if self.kill or self.socket._closed or not self.connected:
 				logger.debug(F'{self} killed')
 				self.kill = True
 				self.connected = False
 				break			
-			if self.connected:
-				if not self.client_id:
-					#logger.warning(f'{self} no client_id')
-					self.send_request_clid()
-				if not self.gotmap:
-					#logger.warning(f'{self} no map')
-					#self.send_maprequest()
-					pass
-				if not self.ready:
-					pass
-					#logger.warning(f'{self} not ready')				
-				if not self.gotpos:
-					logger.warning(f'{self} no pos')				
-				
-				# logger.debug(f'[ {self} ]  payload:{payload}')
+			if not self.client_id:
+				#logger.warning(f'{self} no client_id')
+				self.send_request_clid()
+			if not self.gotmap:
+				#logger.warning(f'{self} no map')
+				#self.send_maprequest()
+				pass
+			if not self.ready:
+				pass
+				#logger.warning(f'{self} not ready')				
+			if not self.gotpos:
+				logger.warning(f'{self} no pos')				
+			
+			# logger.debug(f'[ {self} ]  payload:{payload}')
 			try:
 				payloads = receive_data(conn=self.socket)
 				#payloads = rcvr.get_payloads()

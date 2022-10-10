@@ -157,17 +157,12 @@ class ServerGUI(Thread):
 			self.font.render_to(self.screen, ctextpos, msgtxt, (150,150,150))
 			ctextpos = [15, 25]
 			npidx = 1
-			#netplrs = [self.netplayers[k] for k in self.netplayers if not self.netplayers[k]['kill']]
-			#self.netplayers = netplrs
 			for np in self.netplayers:
 				snp = self.netplayers[np]
 				msgtxt = f"[{npidx}/{len(self.netplayers)}] servernp:{snp.get('client_id')} pos={snp.get('pos')} {snp.get('gridpos')} kill:{snp.get('kill')}"
 				self.font.render_to(self.screen, (ctextpos[0]+13, ctextpos[1] ), msgtxt, (130,30,130))
 				ctextpos[1] += 20
 				npidx += 1
-#				if sid == '0':
-#					self.font.render_to(self.screen, (ctextpos[0]+13, ctextpos[1] ), msgtxt, (190,80,230))
-#					ctextpos[1] += 20
 			bidx = 1
 			plcolor = [255,0,0]
 			for bc in self.bombclients:
