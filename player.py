@@ -424,7 +424,7 @@ class Player(BasicThing, Thread):
 	def run(self):
 		self.connect_to_server()
 		st = Thread(target=self.send_update(),daemon=True)
-		st.start()
+		st.run()
 		self.send_request_clid()
 		self.send_maprequest(gridsize=15)
 		payloads = []

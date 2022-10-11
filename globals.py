@@ -70,20 +70,6 @@ def gen_randid():
 	hashid.update(str(time.time()).encode("utf-8"))
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
 
-def stop_all_threads(threads):
-	logger.debug(f'stopping {threads}')
-	for t in threads:
-		logger.debug(f'waiting for {t}')
-		t.kill = True
-		t.join(0)
-	sys.exit()
-
-def start_all_threads(threads):
-	logger.debug(f'starting {threads}')
-	for t in threads:
-		logger.debug(f'start {t}')
-		t.run()
-
 class BasicThing(Sprite):
 	rm = ResourceHandler()
 	def __init__(self, pos, gridpos, image=None):
@@ -213,22 +199,13 @@ class Bomb(BasicThing):
 #	def draw(self, screen):
 #		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
 
-	def gen_flames(self):
-		if not self.flamesout:
-			self.flames = Group()
-			dirs = [Vector2(-1, 0), Vector2(1, 0), Vector2(0, 1), Vector2(0, -1)]
-			flex = [Flame(pos=Vector2(self.pos), vel=k, flame_length=self.bombpower) for k in dirs]
-			for f in flex:
-				self.flames.add(f)
-			self.flamesout = True
-		return self.flames
-
 	def exploder(self):
 		flames = Group()
-		flames.add(Flame(pos=self.pos, vel=Vector2(1,0), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
-		flames.add(Flame(pos=self.pos, vel=Vector2(-1,0), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
-		flames.add(Flame(pos=self.pos, vel=Vector2(0,-1), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
-		flames.add(Flame(pos=self.pos, vel=Vector2(0,1), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
+		fvel = self.bombpower/100
+		flames.add(Flame(pos=self.pos, vel=Vector2(1+fvel,0), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(-1-fvel,0), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(0,-1-fvel), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.pos, vel=Vector2(0,1+fvel), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
 		# self.bomber_id.bombs_left += 1
 		return flames
 

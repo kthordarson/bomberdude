@@ -501,16 +501,12 @@ class Game(Thread):
 
 		if selection == "Pause":
 			self.gui.show_mainmenu ^= True
-			# self.pause_game()
 
 		if selection == "Restart":
 			self.gui.show_mainmenu ^= True
-			# self.restart_game()
 
 		if selection == "Start server":
 			pass
-			#self.gameserver.run()
-			#self.is_server = True
 
 	def handle_input(self, event):
 		#events = pygame.event.get()

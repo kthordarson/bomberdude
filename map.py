@@ -13,7 +13,7 @@ class Gamemap:
 	def __init__(self, genmap=False):
 		self.grid = []
 		if genmap:
-			self.grid = self.generate_custom(gridsize=15)
+			self.grid = self.generate_custom(gridsize=10)
 		self.gridsize = (len(self.grid), len(self.grid))
 
 	def generate(self, gridsize):
@@ -50,6 +50,7 @@ class Gamemap:
 		#self.grid = grid
 		# logger.debug(f'[map] placeplayer g:{len(grid)}  pos={pos} randpos={randpos} sg={len(self.grid)}')
 		validpos = False
+		invcnt = 0
 		while not validpos:
 			if randpos:
 				# find a random spot on the map to place the player
@@ -60,10 +61,18 @@ class Gamemap:
 					ny = round(gpy * BLOCK)
 					if grid[gpx][gpy] == 11 and grid[gpx][gpy-1] == 11 and grid[gpx+1][gpy] == 11:
 						validpos = True
+					if invcnt >= 5:
+						gpx = 3
+						gpy = 3
+						nx = round(gpx * BLOCK)
+						ny = round(gpy * BLOCK)
+						validpos = True
+					else:
+						logger.warning(f'[map] invalid {invcnt} pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
+						invcnt += 1
 				except ValueError as e:
 					logger.error(f'[map] ValueError {e} gl={len(grid)} pos={pos} randpos={randpos} grid={grid}')
-			#else:
-				logger.warning(f'[map] invalid pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
+
 			else:
 				# gridpos from pos			
 				gpx = round(pos[0] // BLOCK)
