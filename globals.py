@@ -201,7 +201,7 @@ class Bomb(BasicThing):
 
 	def exploder(self):
 		flames = Group()
-		fvel = self.bombpower/100
+		fvel = self.bombpower/10011
 		flames.add(Flame(pos=self.pos, vel=Vector2(1+fvel,0), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
 		flames.add(Flame(pos=self.pos, vel=Vector2(-1-fvel,0), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
 		flames.add(Flame(pos=self.pos, vel=Vector2(0,-1-fvel), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
