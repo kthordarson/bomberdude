@@ -560,8 +560,8 @@ class Game(Thread):
 						for b in self.powerups:
 							print(f'\power {len(self.powerups)}: {b}')
 				if event.key == pygame.K_n:
-					self.playerone.bombs_left = 30
-					self.playerone.bombpower = 100
+					self.playerone.bombs_left += 3
+					self.playerone.bombpower += 10
 				if event.key == pygame.K_g:
 					pass
 				if event.key == pygame.K_r:
