@@ -187,6 +187,10 @@ class Game(Thread):
 
 		elif msgtype == 'newnetpos':
 			posdata = gamemsg.get('posdata')
+			# blkcnt = len(self.blocks)
+			# if blkcnt <= 1:
+			# 	logger.warning(f'{self} block count mismatch! posdata={posdata} gamemsg={gamemsg}')
+			# 	return
 			client_id = posdata.get('client_id')
 			newpos = posdata.get('newpos')
 			newgridpos = posdata.get('newgridpos')
@@ -195,6 +199,9 @@ class Game(Thread):
 				logger.info(f'newnetpos np={newpos} ngp={newgridpos} posdata={posdata} ')
 				self.playerone.pos = newpos
 				self.playerone.gridpos = newgridpos
+				self.playerone.gamemap.grid = posdata.get('griddata')
+			else:
+				logger.warning(f'newnetpos clid mismatch clid={client_id} != {self.playerone.client_id} np={newpos} ngp={newgridpos} posdata={posdata} ')
 
 		elif msgtype == 'flames':
 			flames = gamemsg.get('flamedata')
@@ -284,6 +291,7 @@ class Game(Thread):
 			logger.debug(f'gamemapgrid np={newpos} ngp={newgridpos}')
 
 	def updategrid(self, gamemapgrid):
+		old_blkcnt = len(self.blocks)
 		self.blocks.empty()
 		idx = 0
 		for k in range(0, len(gamemapgrid)):
@@ -303,7 +311,11 @@ class Game(Thread):
 				except TypeError as e:
 					logger.error(f'updategrid: {e} gmg={gamemapgrid[j][k]} blktype={blktype} j={j} k={k} idx={idx}')
 				idx += 1
-		logger.debug(f'gamemapgrid:{len(gamemapgrid)} blocks:{len(self.blocks)} idx:{idx}')
+		blkchk = len(gamemapgrid) ** 2
+		if blkchk == len(self.blocks):
+			logger.debug(f'gridlen={len(gamemapgrid)} block count was {old_blkcnt} now={len(self.blocks)} idx:{idx}')
+		else:
+			logger.error(f'gridlen={len(gamemapgrid)} block count mismatch was {old_blkcnt} now={len(self.blocks)} idx:{idx}')
 
 	def update_blocks(self):
 		self.particles.update(self.blocks, self.screen)
@@ -433,14 +445,15 @@ class Game(Thread):
 				#pos -= (0,5)
 				#pos[1] -=10
 				# self.font.render_to(self.screen, pos, f'{np}', (255, 255, 255))
-				pos[0] += 20
-				pos[1] += 20
-				pygame.draw.circle(self.screen, color=(1,0,255), center=pos, radius=10)
+				pos[0] += 15
+				pos[1] += 15
+				pygame.draw.circle(self.screen, color=(0,0,255), center=pos, radius=10)
 				#pos = self.playerone.netplayers[npid].get('pos')
 				#self.font.render_to(self.screen, pos, f'{np}', (255, 55, 55))
 			if npid == self.playerone.client_id:
-				#pos += (5,20)
-				pygame.draw.circle(self.screen, color=(255,255,255), center=pos, radius=5)
+				pos[0] += 15
+				pos[1] += 15
+				pygame.draw.circle(self.screen, color=(0,255,0), center=pos, radius=2)
 				#self.font.render_to(self.screen, pos , f'{np}', (123, 123, 255))
 
 		if self.gui.show_mainmenu:

@@ -381,22 +381,26 @@ class Player(BasicThing, Thread):
 
 			elif payload.get('msgtype') == 'posupdate':
 				# received posupdate from server, forward to mainqueue
-				logger.warning(f'[ {self} ] posupdate payload={payload}')
+				logger.info(f'posupdate payload={payload}')
 				eventq.append(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos}))
 				#pygame.event.post(posmsg)
 
 			elif payload.get('msgtype') == 'posfromserver':
 				# received playerpos from server, forward to mainqueue
-				if self.gotpos:
-					logger.warning(f'{self} playerpos gotpos already set payload={payload}')
 				newpos = payload.get('pos')
 				newgridpos = payload.get('newgridpos')
+				self.gamemap.grid = payload.get('griddata')
 				self.pos = newpos
 				self.gotpos = True
 				self.rect.x = self.pos[0]
 				self.rect.y = self.pos[1]
-				logger.info(f'playerpos newpos={newpos} ngp={newgridpos} ogp={self.gridpos} payload={payload}')
 				self.gridpos = newgridpos
+				if self.gotpos:
+					pass
+				if not self.gotmap:
+					logger.warning(f'{self} playerpos gotmap={self.gotmap} payload={len(payload)}')
+					pygame.event.post(Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.gamemap.grid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'newgridpos':self.gridpos}))
+				logger.info(f'playerpos newpos={newpos} ngp={newgridpos} ogp={self.gridpos} payload={len(payload)}')
 				eventq.append(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':newpos, 'newgridpos':self.gridpos}))
 					#pygame.event.post(posmsg)
 			elif payload.get('msgtype') == 'mapfromserver':

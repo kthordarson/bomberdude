@@ -135,16 +135,17 @@ class BombClientHandler(Thread):
 		self.start_time = pygame.time.get_ticks()
 		self.lastupdate = self.start_time
 		self.maxtimeout = 9000
+		self.timer = pygame.time.get_ticks()-self.start_time
 		logger.info(f'[BC] BombClientHandler init addr:{self.addr} client_id:{self.client_id}')
 
 	def __str__(self):
-		return f'[BCH] {self.client_id} t:{pygame.time.get_ticks()-self.start_time} l:{self.lastupdate} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.servercomm}'
+		return f'[BCH] {self.client_id} t:{pygame.time.get_ticks()-self.start_time} l:{self.lastupdate} timer:{self.timer} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.servercomm}'
 
 	def set_pos(self, pos=None, gridpos=None):
 		# called when server generates new map and new player position
 		self.pos = pos
 		self.gridpos = gridpos
-		posmsg = {'msgtype':'posfromserver', 'client_id':self.client_id, 'pos':self.pos, 'newpos':pos, 'newgridpos':gridpos}
+		posmsg = {'msgtype':'posfromserver', 'client_id':self.client_id, 'pos':self.pos, 'newpos':pos, 'newgridpos':gridpos, 'griddata':self.gamemap.grid}
 		self.sender.queue.put((self.conn, posmsg))
 		logger.info(f'[ {self} ] set_pos newpos={pos} ngp={gridpos}')
 
@@ -232,6 +233,7 @@ class BombClientHandler(Thread):
 				self.kill = True
 				break
 			if resps:
+				self.timer = pygame.time.get_ticks()-self.start_time
 				for resp in resps:
 					self.lastupdate = pygame.time.get_ticks()
 					rid = resp.get('msgtype')
@@ -545,7 +547,7 @@ class BombServer(Thread):
 			# 	logger.warning(f'{e}')
 			for bc in self.bombclients:
 				if bc.client_id:
-					if pygame.time.get_ticks()-bc.lastupdate > 10000:
+					if pygame.time.get_ticks()-bc.lastupdate > bc.maxtimeout:
 						bc.kill = True
 						logger.warning(f'{bc} killtimeout')
 						for bc in self.bombclients:
