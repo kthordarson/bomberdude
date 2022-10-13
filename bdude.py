@@ -17,38 +17,6 @@ from player import Player
 from threading import Thread
 import threading
 
-class Dummyplayer():
-	def __init__(self):
-		self.vel = Vector2(0, 0)
-		self.pos = (0,0)
-		self.gridpos = [0,0]
-		#self.image = pygame.image.load('data/playerone.png')
-		self.size = (0,0)
-		self.image = None
-		self.rect = None
-		self.ready = False
-		self.client_id = None
-		self.name = f'player{self.client_id}'
-		self.netplayers = []
-		self.connected = False
-		self.kill = False
-		self.centerpos = None
-		self.speed = 3
-		self.gotmap = False
-		self.gotpos = False
-		self.serveraddress = ''
-		self.serverport = 9696
-		self.server = (self.serveraddress, self.serverport)
-		self.gamemap = []
-		self.bombs_left = 0
-		self.bombpower = 0
-		self.score = 0
-		self.hearts = 3
-		self.sendcnt = 0
-		self.recvcnt = 0
-		self.mapreqcnt = 0
-	def draw(self):
-		pass
 			
 class GameGUI:
 	def __init__(self, screen):
@@ -82,14 +50,13 @@ class Game(Thread):
 		self.bombs = Group()
 		self.flames = Group()
 		self.lostblocks = Group()
-		self.playerone = Dummyplayer()
 		# self.players.add(self.playerone)
 		self.authkey = 'foobar'
 		self.extradebug = False
 		self.screensize = (800, 600)
 
-	def __str__(self):
-		return f'[G] run:{self.running} p1 p1conn:{self.playerone.connected} p1clientconn:{self.playerone.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.playerone.netplayers)} '
+#	def __str__(self):
+#		return f'[G] run:{self.running} p1 p1conn:{self.playerone.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.playerone.netplayers)} '
 
 	def get_block_count(self):
 		# get number of killable blocks on map
@@ -111,7 +78,6 @@ class Game(Thread):
 		return {'bcnt': bcnt, 'pcnt': pcnt, 'wcnt': wcnt, 'ocnt': ocnt}
 
 	def run(self):
-		pygame.init()
 		pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP, pygame.USEREVENT])
 		pygame.display.set_mode((800,800), 0, 8)
 		self.screen = pygame.display.get_surface() #  pygame.display.set_mode(SCREENSIZE, 0, vsync=0)  # pygame.display.get_surface()#  pygame.display.set_mode(SCREENSIZE, 0, 32)
@@ -120,6 +86,7 @@ class Game(Thread):
 		self.gui = GameGUI(self.screen)
 		self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png').convert(), (1000,900))
 		logger.debug(f'[ {self} ] started ')
+		self.playerone = Player()
 		while True:
 			if self.kill:
 				logger.warning(f'[ {self} ] game kill')
@@ -187,14 +154,29 @@ class Game(Thread):
 
 		elif msgtype == 'newnetpos':
 			posdata = gamemsg.get('posdata')
+			# blkcnt = len(self.blocks)
 			client_id = posdata.get('client_id')
-			newpos = posdata.get('newpos')
-			newgridpos = posdata.get('newgridpos')
-
 			if client_id == self.playerone.client_id:
-				logger.info(f'newnetpos np={newpos} ngp={newgridpos} posdata={posdata} ')
-				self.playerone.pos = newpos
-				self.playerone.gridpos = newgridpos
+				pass
+				#logger.info(f'newnetpos np={newpos} ngp={newgridpos} posdata={posdata} ')
+			else:
+				logger.warning(f'newnetpos clid mismatch clid={client_id} != {self.playerone.client_id} np={newpos} ngp={newgridpos} posdata={posdata} ')
+			self.playerone.pos = posdata.get('newpos')
+			self.playerone.gridpos = posdata.get('newgridpos')
+
+			#self.playerone.pos = Vector2(newpos[0], newpos[1])
+			self.playerone.rect.x = self.playerone.pos[0]
+			self.playerone.rect.y = self.playerone.pos[1]
+			self.playerone.gamemap.grid = posdata.get('griddata')
+			if len(self.blocks) != len(self.playerone.gamemap.grid[0])**2 or len(self.blocks) == 0:
+				logger.warning(f'{self} blkc={len(self.blocks)} p1g={len(self.playerone.gamemap.grid[0])**2} {len(self.playerone.gamemap.grid[0])} {len(self.playerone.gamemap.grid)} block count mismatch! ')
+				logger.warning(f'posdata={posdata} ')
+				logger.warning(f'gamemsg={gamemsg}')
+				logger.info(f'self.playerone.gamemap.grid={self.playerone.gamemap.grid}')
+				self.updategrid(self.playerone.gamemap.grid)
+				
+				#self.updategrid(gamemsg.get('gamemapgrid'))
+				#return
 
 		elif msgtype == 'flames':
 			flames = gamemsg.get('flamedata')
@@ -284,6 +266,10 @@ class Game(Thread):
 			logger.debug(f'gamemapgrid np={newpos} ngp={newgridpos}')
 
 	def updategrid(self, gamemapgrid):
+		if not gamemapgrid:
+			logger.warning(f'updategrid: no gamemapgrid')
+			return
+		old_blkcnt = len(self.blocks)
 		self.blocks.empty()
 		idx = 0
 		for k in range(0, len(gamemapgrid)):
@@ -303,7 +289,11 @@ class Game(Thread):
 				except TypeError as e:
 					logger.error(f'updategrid: {e} gmg={gamemapgrid[j][k]} blktype={blktype} j={j} k={k} idx={idx}')
 				idx += 1
-		logger.debug(f'gamemapgrid:{len(gamemapgrid)} blocks:{len(self.blocks)} idx:{idx}')
+		blkchk = len(gamemapgrid) ** 2
+		if blkchk == len(self.blocks):
+			logger.debug(f'gridlen={len(gamemapgrid)} block count was {old_blkcnt} now={len(self.blocks)} idx:{idx}')
+		else:
+			logger.error(f'gridlen={len(gamemapgrid)} block count mismatch was {old_blkcnt} now={len(self.blocks)} idx:{idx}')
 
 	def update_blocks(self):
 		self.particles.update(self.blocks, self.screen)
@@ -433,14 +423,15 @@ class Game(Thread):
 				#pos -= (0,5)
 				#pos[1] -=10
 				# self.font.render_to(self.screen, pos, f'{np}', (255, 255, 255))
-				pos[0] += 20
-				pos[1] += 20
-				pygame.draw.circle(self.screen, color=(1,0,255), center=pos, radius=10)
+				pos[0] += 15
+				pos[1] += 15
+				pygame.draw.circle(self.screen, color=(0,0,255), center=pos, radius=10)
 				#pos = self.playerone.netplayers[npid].get('pos')
 				#self.font.render_to(self.screen, pos, f'{np}', (255, 55, 55))
 			if npid == self.playerone.client_id:
-				#pos += (5,20)
-				pygame.draw.circle(self.screen, color=(255,255,255), center=pos, radius=5)
+				pos[0] += 15
+				pos[1] += 15
+				pygame.draw.circle(self.screen, color=(0,255,0), center=pos, radius=2)
 				#self.font.render_to(self.screen, pos , f'{np}', (123, 123, 255))
 
 		if self.gui.show_mainmenu:
@@ -489,7 +480,7 @@ class Game(Thread):
 		# mainmenu
 		if selection == "Start":
 			self.gui.show_mainmenu ^= True
-			self.playerone = Player()
+			# self.playerone = Player()
 			self.players.add(self.playerone)
 			self.playerone.start()
 
@@ -543,6 +534,7 @@ class Game(Thread):
 				if event.key == pygame.K_f:
 					pass
 				if event.key == pygame.K_p:
+					print(self)
 					print('client netplayers:')
 					for np in self.playerone.netplayers:
 						print(f'\t{np} {self.playerone.netplayers[np]}')
@@ -560,8 +552,8 @@ class Game(Thread):
 						for b in self.powerups:
 							print(f'\power {len(self.powerups)}: {b}')
 				if event.key == pygame.K_n:
-					self.playerone.bombs_left = 30
-					self.playerone.bombpower = 100
+					self.playerone.bombs_left += 3
+					self.playerone.bombpower += 10
 				if event.key == pygame.K_g:
 					pass
 				if event.key == pygame.K_r:
@@ -627,6 +619,7 @@ class Game(Thread):
 if __name__ == "__main__":
 
 	#pygame.display.set_mode((800,600), 0, 8)
+	pygame.init()
 	game = Game()
 	game.daemon = True
 	game.run()

@@ -74,7 +74,7 @@ BLOCKTYPES = {
 	},
 	20: {		
 		"size": POWERUPSIZE,
-		"bitmap": "data/heart.png",
+		"bitmap": "data/heart.png", # bmargo
 		"bgbitmap": "data/blackfloor.png",
 		"powerup": False,
 	},
