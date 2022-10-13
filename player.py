@@ -74,6 +74,7 @@ class Player(BasicThing, Thread):
 			'score':self.score,
 			'bombpower':self.bombpower,
 			'events':[]}
+		self.st = Thread(target=self.send_update,daemon=True)
 
 
 	def __str__(self):
@@ -124,8 +125,8 @@ class Player(BasicThing, Thread):
 			'hearts':self.hearts,
 			'bombpower':self.bombpower,
 			}
-		#if self.ready:
-		self.eventqueue.put([payload])
+		if self.ready:
+			self.eventqueue.put([payload])
 
 	def send_bomb(self):
 		# send bomb to server
@@ -257,6 +258,9 @@ class Player(BasicThing, Thread):
 				return False
 			self.connected = True
 		logger.debug(f'[ {self} ] connect_to_server {self.server}')
+		self.send_request_clid()
+		self.send_maprequest(gridsize=15)
+		self.st.run()
 		return True
 
 	def movetogrid(self, movegrid):
@@ -395,13 +399,15 @@ class Player(BasicThing, Thread):
 				self.rect.x = self.pos[0]
 				self.rect.y = self.pos[1]
 				self.gridpos = newgridpos
-				if self.gotpos:
-					pass
-				if not self.gotmap:
-					logger.warning(f'{self} playerpos gotmap={self.gotmap} payload={len(payload)}')
-					pygame.event.post(Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.gamemap.grid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'newgridpos':self.gridpos}))
-				logger.info(f'playerpos newpos={newpos} ngp={newgridpos} ogp={self.gridpos} payload={len(payload)}')
-				eventq.append(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':newpos, 'newgridpos':self.gridpos}))
+				# if self.gotpos:
+				# 	pass
+				# if not self.gotmap:
+				# 	logger.warning(f'{self} playerpos gotmap={self.gotmap} payload={len(payload)}')
+				# 	eventq.append(Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.gamemap.grid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'newgridpos':self.gridpos}))
+				# else:
+				# logger.info(f'playerpos newpos={newpos} ngp={newgridpos} ogp={self.gridpos} payload={len(payload)}')
+				eventq.append(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':newpos, 'newgridpos':self.gridpos,'griddata':self.gamemap.grid}))
+					#eventq.append(Event(USEREVENT, payload={'msgtype':'gamemapgrid', 'client_id':self.client_id, 'gamemapgrid':self.gamemap.grid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'newgridpos':self.gridpos}))
 					#pygame.event.post(posmsg)
 			elif payload.get('msgtype') == 'mapfromserver':
 				# complete grid from server
@@ -426,11 +432,7 @@ class Player(BasicThing, Thread):
 
 
 	def run(self):
-		self.connect_to_server()
-		st = Thread(target=self.send_update(),daemon=True)
-		st.run()
-		self.send_request_clid()
-		self.send_maprequest(gridsize=15)
+		logger.debug(f'{self.connect_to_server()}')
 		payloads = []
 		#rcvr = Thread(target=get_netpayloads, args=(self.socket,), daemon=True)
 		#rcvr.start()
