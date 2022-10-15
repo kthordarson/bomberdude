@@ -35,10 +35,10 @@ class GameGUI:
 
 
 class Game(Thread):
-	def __init__(self):
+	def __init__(self, args=None):
 		Thread.__init__(self, name='game')
 		# todo make this work
-		
+		self.args = args
 		self.gameclock = pygame.time.Clock()
 		self.name = 'game'
 		self.kill = False
@@ -50,7 +50,7 @@ class Game(Thread):
 		self.bombs = Group()
 		self.flames = Group()
 		self.lostblocks = Group()
-		self.playerone = Player(dummy=True)
+		self.playerone = Player(dummy=True, serverargs=self.args)
 		# self.players.add(self.playerone)
 		self.authkey = 'foobar'
 		self.extradebug = False
@@ -506,7 +506,7 @@ class Game(Thread):
 		if selection == "Start":
 			# self.gui.show_mainmenu ^= True
 			self.playerone.kill = True
-			self.playerone = Player(dummy=False)
+			self.playerone = Player(dummy=False, serverargs=self.args)
 			self.players.add(self.playerone)
 			self.playerone.start()
 
@@ -536,7 +536,7 @@ class Game(Thread):
 				self.handle_menu(selection)
 			elif not self.gui.show_mainmenu:
 				self.playerone.send_bomb()
-		elif keypressed == pygame.K_ESCAPE:
+		elif keypressed in  (pygame.K_ESCAPE, 27):
 			self.gui.show_mainmenu ^= True
 		elif keypressed in(pygame.K_q, 113,'q','Q'):
 			# quit game
@@ -593,6 +593,7 @@ class Game(Thread):
 			print(f'pl={self.playerone.gamemap.grid}')
 		elif keypressed == pygame.K_n:
 			self.playerone.bombs_left += 3
+			self.playerone.hearts += 3
 			self.playerone.bombpower += 30
 		elif keypressed == pygame.K_g:
 			pass
@@ -640,10 +641,17 @@ class Game(Thread):
 
 
 if __name__ == "__main__":
+	parser = ArgumentParser(description='bdude')
+	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
+	parser.add_argument('--server',  action='store', dest='server', default='localhost')
+	parser.add_argument('--port',  action='store', dest='port', default=9696)
+	args = parser.parse_args()
+	if args.testclient:
+		pass
 
 	#pygame.display.set_mode((800,600), 0, 8)
 	pygame.init()
-	game = Game()
+	game = Game(args)
 	game.daemon = True
 	game.running = True
 	game.run()

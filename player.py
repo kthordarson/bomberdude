@@ -16,9 +16,14 @@ from queue import Queue, Empty
 
 
 class Player(BasicThing, Thread):
-	def __init__(self, dummy=True):
+	def __init__(self, dummy=True, serverargs=None):
 		Thread.__init__(self, daemon=True)
 		super().__init__((0,0), (0,0))
+		self.serverargs = serverargs
+		self.serveraddress = self.serverargs.server
+		self.serverport = self.serverargs.port
+		self.server = (self.serveraddress, self.serverport)
+		#print(self.serverargs)
 		self.vel = Vector2(0, 0)
 		self.pos = (0,0)
 		self.gridpos = [0,0]
@@ -41,9 +46,6 @@ class Player(BasicThing, Thread):
 		self.gotmap = False
 		self.gotpos = False
 		self.socket = None # socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.serveraddress = 'localhost'
-		self.serverport = 9696
-		self.server = (self.serveraddress, self.serverport)
 		self.netplayers = {}
 		self.gamemap = Gamemap()
 		self.bombs_left = 3
@@ -136,22 +138,24 @@ class Player(BasicThing, Thread):
 			'cl_status': self.status,
 			}
 		if self.ready:
-			self.eventqueue.put(payload)
+			self.eventqueue.put_nowait(payload)
 			self.status = f'update r={self.rcnt} scount={self.sendcnt} rcount={self.recvcnt} pcnt={self.payloadcnt} updates={len(self.updates)} eventq={self.eventqueue.qsize()}'
 
 	def send_bomb(self):
 		# send bomb to server
+		if self.bombs_left <= 0:
+			return
 		if self.bombs_left > 0 and self.ready:
 			bombpos = self.rect.center
 			payload = {'msgtype': 'cl_bombdrop', 'client_id':self.client_id, 'bombpos':bombpos,'bombgridpos':self.gridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}		
-			self.eventqueue.put(payload)
+			self.eventqueue.put_nowait(payload)
 			logger.debug(f'{self} send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos")}')
 			self.status = f'sendbomb eventq={self.eventqueue.qsize()}'
 
 	def send_requestpos(self):
 		# get initial position from server
 		payload = {'msgtype': 'cl_reqpos', 'client_id': self.client_id, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
-		self.eventqueue.put(payload)
+		self.eventqueue.put_nowait(payload)
 		self.status = f'cl_reqpos eventq={self.eventqueue.qsize()}'
 		if not self.gotpos:
 			logger.debug(f'sending cl_reqpos payload={payload}')
@@ -162,7 +166,7 @@ class Player(BasicThing, Thread):
 		# request server map reset
 		self.status = f'send_mapreset eventq={self.eventqueue.qsize()}'
 		payload = {'msgtype': 'resetmap', 'client_id': self.client_id, 'pos': self.pos, 'gridpos': self.gridpos, 'gridsize': gridsize}
-		self.eventqueue.put(payload)
+		self.eventqueue.put_nowait(payload)
 		logger.debug(f'sending resetmap payload={payload}')
 
 	def send_maprequest(self, gridsize):
@@ -179,7 +183,7 @@ class Player(BasicThing, Thread):
 		self.gotpos = False
 		logger.debug(f'{self} send_maprequest gridsize={gridsize} / p1gz={self.gamemap.gridsize}')
 		payload = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'gridsize':gridsize}
-		self.eventqueue.put(payload)
+		self.eventqueue.put_nowait(payload)
 		self.status = f'maprequest waiting for response gz={gridsize} connected={self.connected} eventq={self.eventqueue.qsize()}'
 
 
@@ -187,7 +191,7 @@ class Player(BasicThing, Thread):
 		# request map from server
 		self.status = f'sending refreshgrid connected={self.connected} eventq={self.eventqueue.qsize()}'
 		payload = {'client_id':self.client_id, 'msgtype':'refreshsgrid', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
-		self.eventqueue.put(payload)
+		self.eventqueue.put_nowait(payload)
 
 	def send_gridupdate(self, gridpos=None, blktype=None, grid_data=None):
 		# inform server about grid update
@@ -195,7 +199,7 @@ class Player(BasicThing, Thread):
 		self.status = f'sending gridupdate connected={self.connected} eventq={self.eventqueue.qsize()}'
 		self.gamemap.grid[gridpos[0]][gridpos[1]] = blktype
 		payload = {'msgtype':'cl_gridupdate', 'client_id': self.client_id, 'blkgridpos': gridpos, 'blktype': blktype, 'pos': self.pos, 'griddata':grid_data, 'gridpos':self.gridpos}
-		self.eventqueue.put(payload)
+		self.eventqueue.put_nowait(payload)
 
 	def set_clientid(self, clid):
 		if not self.client_id:
@@ -210,12 +214,13 @@ class Player(BasicThing, Thread):
 		self.status = 'disconnecting'
 		payload = {'msgtype': 'clientquit', 'client_id': self.client_id, 'payload': 'quit'}
 		logger.info(f'sending quitmsg payload={payload}')
-		self.eventqueue.put(payload)
+		self.eventqueue.put_nowait(payload)
 		#send_data(conn=self.socket, payload=quitmsg)
 		self.status = 'disconnected'
 		self.kill = True
 		self.connected = False
-		self.socket.close()
+		if self.socket:
+			self.socket.close()
 
 	def connect_to_server(self):
 		self.status = f'connecting'
