@@ -23,3 +23,4 @@ rencode.py
 net/oldbombclient.py
 net/oldbombserver.py
 workspace.code-workspace
+*.tmp
