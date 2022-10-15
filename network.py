@@ -5,7 +5,7 @@ dataid = {
 	'info': 0,
 	'data': 1,
 	'dummy': 2,
-	'playerpos': 3,
+	'cl_playerpos': 3,
 	'update': 4,
 	'updatefromserver':5,
 	'gamegrid': 6,
@@ -19,7 +19,7 @@ dataid = {
 	'netbomb': 14,
 	'getid': 15,
 	'clientquit': 16,
-	'reqpos'	: 17,
+	'cl_reqpos'	: 17,
 	'netpos'	: 18,
 	'posupdate': 19,
 	'resetmap': 20,
@@ -36,6 +36,10 @@ def send_data(conn=None, payload=None):
 	except (KeyError, IndexError, TypeError) as e:
 		logger.warning(f'[send] err={e} sendcheck={sendcheck} t:{type(payload)} payload={payload}')
 		sendcheck = False
+	if not sendcheck:
+		if isinstance(payload, list):
+			sendcheck = isinstance(payload[0], dict)
+			payload = payload[0]
 	if sendcheck:
 		if conn._closed:
 			return

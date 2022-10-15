@@ -16,6 +16,7 @@ from menus import Menu, DebugDialog
 from player import Player
 from threading import Thread
 import threading
+from queue import Queue, Empty
 
 			
 class GameGUI:
@@ -169,12 +170,11 @@ class Game(Thread):
 			self.playerone.rect.y = self.playerone.pos[1]
 			self.playerone.gamemap.grid = posdata.get('griddata')
 			if len(self.blocks) != len(self.playerone.gamemap.grid[0])**2 or len(self.blocks) == 0:
-				logger.warning(f'{self} blkc={len(self.blocks)} p1g={len(self.playerone.gamemap.grid[0])**2} {len(self.playerone.gamemap.grid[0])} {len(self.playerone.gamemap.grid)} block count mismatch! ')
-				logger.warning(f'posdata={posdata} ')
-				logger.warning(f'gamemsg={gamemsg}')
-				logger.info(f'self.playerone.gamemap.grid={self.playerone.gamemap.grid}')
+				logger.warning(f'{self} block count mismatch! p1gotpos={self.playerone.gotpos} p1gotmap={self.playerone.gotmap} p1r={self.playerone.ready} blkc={len(self.blocks)} p1g={len(self.playerone.gamemap.grid[0])**2} {len(self.playerone.gamemap.grid[0])} {len(self.playerone.gamemap.grid)} ')
 				self.updategrid(self.playerone.gamemap.grid)
-				
+				self.playerone.gotpos = True
+				self.playerone.gotmap = True
+				self.playerone.ready = True
 				#self.updategrid(gamemsg.get('gamemapgrid'))
 				#return
 
@@ -444,7 +444,7 @@ class Game(Thread):
 			pos = Vector2(10, self.screenh - 100)
 			self.font.render_to(self.screen, pos, f"blklen:{len(self.blocks)} pups:{len(self.powerups)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} bcounts:{self.get_block_count()} ", (173, 173, 173))
 			pos += (0, 15)
-			self.font.render_to(self.screen, pos, f"fps={self.gameclock.get_fps():.2f} threads:{threading.active_count()}  p1 np:{len(self.playerone.netplayers)}", (183, 183, 183))
+			self.font.render_to(self.screen, pos, f"fps={self.gameclock.get_fps():.2f} threads:{threading.active_count()}  p1 np:{len(self.playerone.netplayers)} p1eventq={self.playerone.eventqueue.qsize()} p1u={len(self.playerone.updates)}", (183, 183, 183))
 			pos += (0, 15)
 			self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} cpos {self.playerone.pos} {self.playerone.gridpos}", (183, 183, 183))
 			pos += (0, 15)
@@ -534,6 +534,16 @@ class Game(Thread):
 					self.playerone.send_refreshgrid()
 				if event.key == pygame.K_f:
 					pass
+				if event.key == pygame.K_e:
+					if not self.playerone.eventqueue.empty():
+						evs=[]
+						print(f'[eventq] size={self.playerone.eventqueue.qsize()}')
+						try:
+							evs = self.playerone.eventqueue.get_nowait()
+						except Empty:
+							pass
+						for ev in evs:
+							print(ev)
 				if event.key == pygame.K_p:
 					print(self)
 					print('client netplayers:')

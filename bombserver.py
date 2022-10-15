@@ -78,29 +78,30 @@ class Servercomm(Thread):
 				payload = self.queue.get()
 				self.srvcount += 1
 				if payload:
-					if payload.get('msgtype') == 'netplayers':
+					msgtype = payload.get('msgtype')
+					if msgtype == 'netplayers':
 						logger.debug(f'[sc] netplayers payload={payload}')
 						netplayers = payload.get('netplayers')
 						for np in netplayers:
 							if netplayers[np]['client_id']:
 								self.netplayers[np] = netplayers[np]
-					elif payload.get('msgtype') == 'netbomb':
+					elif msgtype == 'netbomb':
 						#logger.debug(f'bomb payload:{payload}')
 						nb = Event(USEREVENT, payload=payload)
 						pygame.event.post(nb)
-					elif payload.get('msgtype') == 'netgrid':
+					elif msgtype == 'netgrid':
 						#logger.debug(f'bomb payload:{payload}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
-					elif payload.get('msgtype') == 'clientquit':
-						logger.debug(f'quit payload:{payload}')
+					elif msgtype == 'clientquit':
+						logger.debug(f'msgtype={msgtype}  payload:{payload}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
-					elif payload.get('msgtype') == 'reqpos':
-						logger.debug(f'reqpos payload:{payload}')
+					elif msgtype == 'cl_reqpos':
+						logger.debug(f'msgtype={msgtype} payload:{payload}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
-					elif payload.get('msgtype') == 'resetmap':
-						logger.debug(f'resetmaps payload:{payload}')
+					elif msgtype == 'resetmap':
+						logger.debug(f'msgtype={msgtype} payload:{payload}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
-					elif payload.get('msgtype') == 'netgridupdate':
+					elif msgtype == 'netgridupdate':
 						# logger.debug(f'netgridupdate payload:{len(payload)}')
 						pygame.event.post(Event(USEREVENT, payload=payload))
 					try:
@@ -222,7 +223,7 @@ class BombClientHandler(Thread):
 			npayload = {'msgtype':'netplayers', 'client_id':self.client_id, 'netplayers':self.servercomm.netplayers}
 			self.sender.queue.put((self.conn, npayload))
 
-			rid = None
+			msgtype = None
 			resps = []
 			try:
 				resps = receive_data(self.conn)
@@ -236,16 +237,15 @@ class BombClientHandler(Thread):
 				self.timer = pygame.time.get_ticks()-self.start_time
 				for resp in resps:
 					self.lastupdate = pygame.time.get_ticks()
-					rid = resp.get('msgtype')
+					msgtype = resp.get('msgtype')
 					# logger.debug(f'resps={len(resps)} rid={rid} resp={resp}')
 
-					if rid == 'info':
+					if msgtype == 'info':
 						ev = Event(USEREVENT, payload={'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'gridpos':self.gridpos, 'score':self.score, 'hearts':self.hearts, 'bombpower': self.bombpower})
 						pygame.event.post(ev)
 						
-					elif rid == 'playerpos':
+					elif msgtype == 'cl_playerpos':
 						# logger.debug(f'[ {self} ] {rid} {resp}')
-						posdata = resp.get('posdata')
 						clid = resp.get('client_id', None)
 						if clid:
 							self.client_id = clid
@@ -267,17 +267,17 @@ class BombClientHandler(Thread):
 						else:
 							logger.warning(f'no client_id in resp:{resp}')
 
-					elif rid == 'update':
-						logger.warning(f'r:{len(resps)} update {rid} {resp}')
+					elif msgtype == 'update':
+						logger.warning(f'r:{len(resps)} update {msgtype} {resp}')
 						# logger.debug(f'[ {self} ] received id:{rid} resp={resp}')
 
-					elif rid == 'requestclid':
+					elif msgtype == 'requestclid':
 						self.set_client_id()
 
-					elif rid == 'gameevent':
-						logger.warning(f'gamevent received id:{rid} resp={resp}')
+					elif msgtype == 'gameevent':
+						logger.warning(f'gamevent received id:{msgtype} resp={resp}')
 
-					elif rid == 'gridupdate':
+					elif msgtype == 'gridupdate':
 						# new grid and send update to clients
 						#senderid = resp.get('client_id', None)
 						blkgridpos = resp.get('blkgridpos', None)
@@ -286,47 +286,45 @@ class BombClientHandler(Thread):
 						self.gamemap.grid[blkgridpos[0]][blkgridpos[1]] = blktype
 						pygame.event.post(Event(USEREVENT, payload={'msgtype': 'netgridupdate', 'gridupdate': resp}))
 
-					elif rid == 'netbomb' or rid == 'bombdrop':
+					elif msgtype == 'netbomb' or msgtype == 'bombdrop':
 						bx,by = resp.get('bombgridpos', None)
 						self.gamemap.grid[bx][by] = 11						
 						pygame.event.post(Event(USEREVENT, payload={'msgtype':'netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'bombpower':resp.get('bombpower')}))
 
-					elif rid == 'clientquit':
+					elif msgtype == 'clientquit':
 						ev = Event(USEREVENT, payload={'msgtype':'clientquit', 'client_id':self.client_id})
 						pygame.event.post(ev)
 
-					elif rid == 'reqpos':
-						ev = Event(USEREVENT, payload={'msgtype':'reqpos', 'client_id':self.client_id})
-						pygame.event.post(ev)
+					elif msgtype == 'cl_reqpos':
+						pygame.event.post(Event(USEREVENT, payload={'msgtype':'cl_reqpos', 'client_id':self.client_id}))
 
-					elif rid == 'posupdate':
+					elif msgtype == 'posupdate':
 						# client sent posupdate
 						ev = Event(USEREVENT, payload={'msgtype':'posupdate', 'client_id':self.client_id, 'posupdata':resp})
 						pygame.event.post(ev)
 
-					elif rid == 'resetmap':
+					elif msgtype == 'resetmap':
 						# make new mapgrid and send to all clients
 						pygame.event.post(Event(USEREVENT, payload={'msgtype':'resetmap', 'client_id':self.client_id}))
 
-					elif rid == 'maprequest':
+					elif msgtype == 'maprequest':
 						pygame.event.post(Event(USEREVENT, payload={'msgtype':'maprequest', 'client_id':self.client_id, 'gridsize':resp.get('gridsize')}))
 						#self.send_map()
 
-
-					elif rid == 'refreshsgrid':
-						logger.warning(f'refreshsgrid rid={rid} resp={resp}')
+					elif msgtype == 'refreshsgrid':
+						logger.warning(f'refreshsgrid rid={msgtype} resp={resp}')
 						# self.send_map()
 
-					elif rid == 'auth':
-						logger.debug(f'[ {self} ] r:{len(resps)} auth received id:{rid} resp={resp}')
+					elif msgtype == 'auth':
+						logger.debug(f'[ {self} ] r:{len(resps)} auth received id:{msgtype} resp={resp}')
 						clid = resp.get('client_id', None)
 						self.client_id = clid
 
-					elif rid == 'UnpicklingError':
-						logger.warning(f'[ {self} ] r:{len(resps)} UnpicklingError rid:{rid}')
+					elif msgtype == 'UnpicklingError':
+						logger.warning(f'[ {self} ] r:{len(resps)} UnpicklingError rid:{msgtype}')
 					else:
 						if resp:
-							logger.warning(f'[ {self} ] r:{len(resps)} unknownevent rid:{rid} resp={resp}')
+							logger.warning(f'[ {self} ] r:{len(resps)} unknownevent rid:{msgtype} resp={resp}')
 						else:
 							pass
 
@@ -433,9 +431,9 @@ class BombServer(Thread):
 				quitter = data.get('client_id')
 				for bc in self.bombclients:
 					bc.quitplayer(quitter)
-			elif smsgtype == 'reqpos':
+			elif smsgtype == 'cl_reqpos':
 				clid = data.get('client_id')
-				logger.debug(f'[ {self} ] reqpos from {clid} {data}')
+				logger.debug(f'[ {self} ] smsgtype={smsgtype} from {clid} data={data}')
 				for bc in self.bombclients:
 					if bc.client_id == clid:
 						bc.posupdate(data)
@@ -482,7 +480,7 @@ class BombServer(Thread):
 				basegrid = self.gamemap.generate_custom(gridsize=gz)
 				#self.gamemap.grid = basegrid
 				for bc in self.bombclients:
-					logger.debug(f'{self} sending newgrid to {bc}')
+					# logger.debug(f'{self} sending newgrid to {bc}')
 					bcg, bnewpos, newgridpos = self.gamemap.placeplayer(grid=basegrid, pos=bc.pos, randpos=True)
 					bc.pos = bnewpos
 					bc.gridpos = newgridpos
