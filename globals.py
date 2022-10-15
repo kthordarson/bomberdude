@@ -97,7 +97,7 @@ class BasicThing(Sprite):
 		return self.collisions
 
 class Block(BasicThing):
-	def __init__(self, pos, gridpos, block_type, client_id, timer):
+	def __init__(self, pos, gridpos, block_type, client_id):
 		super().__init__(pos,gridpos, None)
 		self.blkid = gen_randid()
 		self.client_id = client_id
@@ -107,7 +107,7 @@ class Block(BasicThing):
 		self.powerup = BLOCKTYPES.get(self.block_type)["powerup"]
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		self.explode = False
-		self.timer = timer
+		self.timer = BLOCKTYPES.get(self.block_type)["timer"]
 		self.image = pygame.transform.scale(self.image, self.size)
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos[0]
@@ -122,16 +122,17 @@ class Block(BasicThing):
 	def hit(self, flame):
 		particles = Group()
 		newblock = None
+		pcount = MAXPARTICLES+random.randint(1, 10)
 		if self.powerup:
 			newblktype = random.choice([20,21,22])
-			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, timer=3000)
-			logger.info(f'{self} hit by {flame} makepowerup newblock={newblock}')
+			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id)
+			logger.info(f'{self} pc={pcount} hit by {flame} powerup newblock={newblock}')
 		else:
 			newblktype = 11
-			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, timer=1)
-			logger.info(f'{self} hit by {flame} normalblock newblock={newblock}')
+			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id)
+			#logger.info(f'{self} pc={pcount} hit by {flame} block newblock={newblock}')
 		
-		for k in range(1, MAXPARTICLES+random.randint(1, 10)):
+		for k in range(1, pcount):
 			if flame.vel.x < 0:  # flame come from left
 				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
 			elif flame.vel.x > 0:  # right
@@ -177,7 +178,7 @@ class Bomb(BasicThing):
 		self.rect.centerx = self.pos[0]
 		self.rect.centery = self.pos[1]
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.timer = 2525
+		self.timer = 1234
 		self.bomb_timer = 1
 		self.bomb_fuse = 1
 		self.bomb_end = 2
@@ -227,22 +228,22 @@ class Particle(BasicThing):
 		#self.rect = self.image.get_rect(topleft=self.pos)
 		#self.rect.x = self.pos[0]
 		#self.rect.y = self.pos[1]
-		self.timer = 2000
+		self.timer = 7000
 		self.hits = 0
 		self.maxhits = random.randint(2,5)
 		self.mass = 11
 		self.vel = vel
 
 	def __str__(self) -> str:
-		return f'[particle] pos={self.blocks} vel={self.vel}'
+		return f'[particle] pos={self.pos} vel={self.vel}'
 
-	def update(self, blocks=None, surface=None):
+	def update(self, blocks):
 		#pygame.draw.circle(surface, (255, 0, 0), self.rect.center, 2)
 		if pygame.time.get_ticks() - self.start_time >= self.timer:
+			# logger.info(f'{self} timer expired')
 			self.kill()
 		if self.rect.top <= 0 or self.rect.left <= 0:
-			self.kill()
-		if self.hits >= self.maxhits:
+			logger.info(f'{self} outofbounds')
 			self.kill()
 		self.image.set_alpha(self.alpha)
 		self.vel -= self.accel
@@ -252,17 +253,23 @@ class Particle(BasicThing):
 		self.rect.y = self.pos[1]
 		for b in spritecollide(self, blocks, False):
 			if b.block_type != 11:
+				#logger.info(f'{self} hitblock {b}')
 				self.hit()
 					
 
 	def hit(self):
 		self.hits += 1
+		if self.hits >= self.maxhits:
+			#logger.info(f'{self} maxhits')
+			self.kill()
+			return
 		self.vel = -self.vel
 		self.vel.y *= 0.5
 		#self.vel.x *= 0.5
 		self.vel.x -= random.triangular(0.01,0.03) 
 		self.vel.y -= random.triangular(0.01,0.03) 
 		self.alpha = round(self.alpha * 0.5)
+		
 
 
 class Flame(BasicThing):
@@ -288,7 +295,7 @@ class Flame(BasicThing):
 	def __str__(self) -> str:
 		return f'[flame] clid={self.client_id} pos={self.pos} vel={self.vel}'
 
-	def update(self, surface=None):
+	def update(self, surface):
 		if pygame.time.get_ticks() - self.start_time >= self.timer:
 			self.kill()
 		self.pos += self.vel
