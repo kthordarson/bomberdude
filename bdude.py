@@ -85,6 +85,8 @@ class Game(Thread):
 			[self.handle_mainq(gamemsg=event.payload) for event in userevents]
 			for event in events:
 				if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP or event.type == pygame.TEXTINPUT:
+					if event.type == pygame.TEXTINPUT or event.type == pygame.KEYDOWN:
+						logger.debug(event)
 					self.handle_input(event)
 				elif event.type == pygame.USEREVENT:
 					logger.warning(f'events in queue={len(events)} {event}')
@@ -517,124 +519,123 @@ class Game(Thread):
 	def handle_input(self, event):
 		#events = pygame.event.get()
 		#for event in events:
-			if event.type == pygame.KEYDOWN:
-				if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
-					if self.gui.show_mainmenu:  # or self.paused:
-						selection = self.gui.game_menu.get_selection()
-						self.handle_menu(selection)
-					elif not self.gui.show_mainmenu:
-						self.playerone.send_bomb()
-				if event.key == pygame.K_ESCAPE:
-					self.gui.show_mainmenu ^= True
-				if event.key == pygame.K_q:
-					# quit game
-					self.playerone.disconnect()
-					self.kill = True
-					self.running = False
-				if event.key == pygame.K_1:
-					self.blocks.empty()
-					self.playerone.send_maprequest(gridsize=15)
-				if event.key == pygame.K_2:
-					self.blocks.empty()
-					self.playerone.send_maprequest(gridsize=10)
-				if event.key == pygame.K_3:
-					self.blocks.empty()
-					self.playerone.send_maprequest(gridsize=13)
-				if event.key == pygame.K_4:
-					self.blocks.empty()
-					self.playerone.send_maprequest(gridsize=18)
-				if event.key == pygame.K_5:
-					self.blocks.empty()
-					self.playerone.send_maprequest(gridsize=22)
-				if event.key == pygame.K_6:
-					self.blocks.empty()
-					self.playerone.send_refreshgrid()
-					# logger.debug(f'send_refreshgrid p1gz={self.playerone.gamemap.gridsize} p1={self.playerone}')
-				if event.key == pygame.K_0:
-					self.extradebug ^= True
-					logger.info(f'{self} extradebug={self.extradebug}')
-				if event.key == pygame.K_f:
+		keypressed = None
+		if event.type == pygame.KEYDOWN:
+			keypressed = event.key
+		elif event.type == pygame.TEXTINPUT:
+			keypressed = event.text
+		if event.type == pygame.KEYUP:
+			return
+		if not keypressed:
+			logger.warning(f'event {event} not handled')
+			return
+		logger.info(f'keypressed={keypressed}')
+		if keypressed == pygame.K_SPACE or keypressed == pygame.K_RETURN:
+			if self.gui.show_mainmenu:  # or self.paused:
+				selection = self.gui.game_menu.get_selection()
+				self.handle_menu(selection)
+			elif not self.gui.show_mainmenu:
+				self.playerone.send_bomb()
+		if keypressed == pygame.K_ESCAPE:
+			self.gui.show_mainmenu ^= True
+		if keypressed == pygame.K_q:
+			# quit game
+			self.playerone.disconnect()
+			self.kill = True
+			self.running = False
+		if keypressed == pygame.K_1:
+			self.blocks.empty()
+			self.playerone.send_maprequest(gridsize=15)
+		if keypressed == pygame.K_2:
+			self.blocks.empty()
+			self.playerone.send_maprequest(gridsize=10)
+		if keypressed == pygame.K_3:
+			self.blocks.empty()
+			self.playerone.send_maprequest(gridsize=13)
+		if keypressed == pygame.K_4:
+			self.blocks.empty()
+			self.playerone.send_maprequest(gridsize=18)
+		if keypressed == pygame.K_5:
+			self.blocks.empty()
+			self.playerone.send_maprequest(gridsize=22)
+		if keypressed == pygame.K_6:
+			self.blocks.empty()
+			self.playerone.send_refreshgrid()
+			# logger.debug(f'send_refreshgrid p1gz={self.playerone.gamemap.gridsize} p1={self.playerone}')
+		if keypressed == pygame.K_0:
+			self.extradebug ^= True
+			logger.info(f'{self} extradebug={self.extradebug}')
+		if keypressed == pygame.K_f:
+			pass
+		if keypressed == pygame.K_e:
+			if not self.playerone.eventqueue.empty():
+				evs=[]
+				print(f'{self} p1evqsize={self.playerone.eventqueue.qsize()}')
+				try:
+					evs = self.playerone.eventqueue.get_nowait()
+				except Empty:
 					pass
-				if event.key == pygame.K_e:
-					if not self.playerone.eventqueue.empty():
-						evs=[]
-						print(f'{self} p1evqsize={self.playerone.eventqueue.qsize()}')
-						try:
-							evs = self.playerone.eventqueue.get_nowait()
-						except Empty:
-							pass
-						for ev in evs:
-							print(ev)
-				if event.key == pygame.K_p:
-					print(f'-'*80)
-					print(self)
-					print(f'-'*80)
-					print('client netplayers:')
-					for np in self.playerone.netplayers:
-						print(f'\t{np} {self.playerone.netplayers[np]}')
-						print(f'-'*80)
-					# for tempg in tempgrids:
-					# 	for tx in range(len(tempg)):
-					# 		if len(tempg[tx]) != len(tempg):
-					# 			logger.error(f'grid1 x={tx} len={len(tx)}')
-				if event.key == pygame.K_m:
-					print(f'pl={self.playerone.gamemap.grid}')
-				if event.key == pygame.K_n:
-					self.playerone.bombs_left += 3
-					self.playerone.bombpower += 30
-				if event.key == pygame.K_g:
-					pass
-				if event.key == pygame.K_r:
-					pass
-				if event.key in {pygame.K_DOWN, pygame.K_s}:
-					if self.gui.show_mainmenu:
-						self.gui.game_menu.menu_down()
-					else:
-						try:
-							self.playerone.move("down")
-						except IndexError as e:
-							logger.warning(f'err={e} {self.playerone} {self.playerone}')
-						#self.playerone.vel.y = self.playerone.speed
-						#self.playerone.vel.x = 0
-				if event.key in {pygame.K_UP, pygame.K_w}:
-					if self.gui.show_mainmenu:
-						self.gui.game_menu.menu_up()
-					else:
-						try:
-							self.playerone.move("up")
-						except IndexError as e:
-							logger.warning(f'err={e} {self.playerone} {self.playerone}')
-						#self.playerone.vel.y = -self.playerone.speed
-						#self.playerone.vel.x = 0
-				if event.key in {pygame.K_RIGHT, pygame.K_d}:
-					if not self.gui.show_mainmenu:
-						try:
-							self.playerone.move("right")
-						except IndexError as e:
-							logger.warning(f'err={e} {self.playerone} {self.playerone}')
-						#self.playerone.vel.x = self.playerone.speed
-						#self.playerone.vel.y = 0
-				if event.key in {pygame.K_LEFT, pygame.K_a}:
-					if not self.gui.show_mainmenu:
-						try:
-							self.playerone.move("left")
-						except IndexError as e:
-							logger.warning(f'err={e} {self.playerone} {self.playerone}')
-						#self.playerone.vel.x = -self.playerone.speed
-						#self.playerone.vel.y = 0
+				for ev in evs:
+					print(ev)
+		if keypressed == pygame.K_p:
+			print(f'-'*80)
+			print(self)
+			print(f'-'*80)
+			print('client netplayers:')
+			for np in self.playerone.netplayers:
+				print(f'\t{np} {self.playerone.netplayers[np]}')
+				print(f'-'*80)
+			# for tempg in tempgrids:
+			# 	for tx in range(len(tempg)):
+			# 		if len(tempg[tx]) != len(tempg):
+			# 			logger.error(f'grid1 x={tx} len={len(tx)}')
+		if keypressed == pygame.K_m:
+			print(f'pl={self.playerone.gamemap.grid}')
+		if keypressed == pygame.K_n:
+			self.playerone.bombs_left += 3
+			self.playerone.bombpower += 30
+		if keypressed == pygame.K_g:
+			pass
+		if keypressed == pygame.K_r:
+			pass
+		if keypressed in {pygame.K_DOWN, pygame.K_s}:
+			if self.gui.show_mainmenu:
+				self.gui.game_menu.menu_down()
+			else:
+				try:
+					self.playerone.move("down")
+				except IndexError as e:
+					logger.warning(f'err={e} {self.playerone} {self.playerone}')
+				#self.playerone.vel.y = self.playerone.speed
+				#self.playerone.vel.x = 0
+		if keypressed in {pygame.K_UP, pygame.K_w}:
+			if self.gui.show_mainmenu:
+				self.gui.game_menu.menu_up()
+			else:
+				try:
+					self.playerone.move("up")
+				except IndexError as e:
+					logger.warning(f'err={e} {self.playerone} {self.playerone}')
+				#self.playerone.vel.y = -self.playerone.speed
+				#self.playerone.vel.x = 0
+		if keypressed in {pygame.K_RIGHT, pygame.K_d}:
+			if not self.gui.show_mainmenu:
+				try:
+					self.playerone.move("right")
+				except IndexError as e:
+					logger.warning(f'err={e} {self.playerone} {self.playerone}')
+				#self.playerone.vel.x = self.playerone.speed
+				#self.playerone.vel.y = 0
+		if keypressed in {pygame.K_LEFT, pygame.K_a}:
+			if not self.gui.show_mainmenu:
+				try:
+					self.playerone.move("left")
+				except IndexError as e:
+					logger.warning(f'err={e} {self.playerone} {self.playerone}')
+				#self.playerone.vel.x = -self.playerone.speed
+				#self.playerone.vel.y = 0
 			if event.type == pygame.KEYUP:
-				if event.key == pygame.K_a:
-					pass
-				if event.key == pygame.K_d:
-					pass
-				if event.key in {pygame.K_DOWN, pygame.K_s}:
-					self.playerone.vel.y = 0
-				if event.key in {pygame.K_UP, pygame.K_w}:
-					self.playerone.vel.y = 0
-				if event.key in {pygame.K_RIGHT, pygame.K_d}:
-					self.playerone.vel.x = 0
-				if event.key in {pygame.K_LEFT, pygame.K_a}:
-					self.playerone.vel.x = 0
+				pass
 			if event.type == pygame.MOUSEBUTTONDOWN:
 				mx, my = pygame.mouse.get_pos()
 				logger.info(f'mouse click at {mx}, {my}')
