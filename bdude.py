@@ -530,7 +530,7 @@ class Game(Thread):
 			logger.warning(f'event {event} not handled')
 			return
 		logger.info(f'keypressed={keypressed}')
-		if keypressed == pygame.K_SPACE or keypressed == pygame.K_RETURN:
+		if keypressed in (pygame.K_SPACE, pygame.K_RETURN):
 			if self.gui.show_mainmenu:  # or self.paused:
 				selection = self.gui.game_menu.get_selection()
 				self.handle_menu(selection)
@@ -538,7 +538,7 @@ class Game(Thread):
 				self.playerone.send_bomb()
 		if keypressed == pygame.K_ESCAPE:
 			self.gui.show_mainmenu ^= True
-		if keypressed == pygame.K_q:
+		if keypressed in(pygame.K_q, 113):
 			# quit game
 			self.playerone.disconnect()
 			self.kill = True
@@ -598,7 +598,7 @@ class Game(Thread):
 			pass
 		if keypressed == pygame.K_r:
 			pass
-		if keypressed in {pygame.K_DOWN, pygame.K_s}:
+		if keypressed in {pygame.K_DOWN, pygame.K_s, 's',115}:
 			if self.gui.show_mainmenu:
 				self.gui.game_menu.menu_down()
 			else:
@@ -608,7 +608,7 @@ class Game(Thread):
 					logger.warning(f'err={e} {self.playerone} {self.playerone}')
 				#self.playerone.vel.y = self.playerone.speed
 				#self.playerone.vel.x = 0
-		if keypressed in {pygame.K_UP, pygame.K_w}:
+		if keypressed in {pygame.K_UP, pygame.K_w, 'w',119}:
 			if self.gui.show_mainmenu:
 				self.gui.game_menu.menu_up()
 			else:
@@ -618,7 +618,7 @@ class Game(Thread):
 					logger.warning(f'err={e} {self.playerone} {self.playerone}')
 				#self.playerone.vel.y = -self.playerone.speed
 				#self.playerone.vel.x = 0
-		if keypressed in {pygame.K_RIGHT, pygame.K_d}:
+		if keypressed in {pygame.K_RIGHT, pygame.K_d, 'd', 100}:
 			if not self.gui.show_mainmenu:
 				try:
 					self.playerone.move("right")
@@ -626,7 +626,7 @@ class Game(Thread):
 					logger.warning(f'err={e} {self.playerone} {self.playerone}')
 				#self.playerone.vel.x = self.playerone.speed
 				#self.playerone.vel.y = 0
-		if keypressed in {pygame.K_LEFT, pygame.K_a}:
+		if keypressed in {pygame.K_LEFT, pygame.K_a, 'a', 97}:
 			if not self.gui.show_mainmenu:
 				try:
 					self.playerone.move("left")
