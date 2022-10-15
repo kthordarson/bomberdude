@@ -1,34 +1,7 @@
 import re
 import json
 from loguru import logger
-dataid = {
-	'info': 0,
-	'data': 1,
-	'dummy': 2,
-	'cl_playerpos': 3,
-	'update': 4,
-	'updatefromserver':5,
-	'gamegrid': 6,
-	'reqmap': 7,
-	'requpdate':8,
-	'gameevent':9,
-	'eventfromserver':10,
-	'bombdrop': 11,
-	'gridupdate': 12,
-	'netplayers': 13,
-	'netbomb': 14,
-	'getid': 15,
-	'clientquit': 16,
-	'cl_reqpos'	: 17,
-	'netpos'	: 18,
-	'posupdate': 19,
-	'resetmap': 20,
-	'refreshsgrid': 21,
-	'auth':101,
-	'error':1000,
-	'errorfromserver':1001,
-	'UnpicklingError':1002
-	}
+
 def send_data(conn=None, payload=None):
 	sendcheck = False
 	try:
