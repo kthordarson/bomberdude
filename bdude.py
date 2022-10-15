@@ -84,10 +84,18 @@ class Game(Thread):
 			userevents = [event for event in events_ if event.type == pygame.USEREVENT]
 			[self.handle_mainq(gamemsg=event.payload) for event in userevents]
 			for event in events:
-				if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP or event.type == pygame.TEXTINPUT:
-					if event.type == pygame.TEXTINPUT or event.type == pygame.KEYDOWN:
-						logger.debug(event)
-					self.handle_input(event)
+				if event.type in (pygame.KEYDOWN, pygame.TEXTINPUT):
+					keypressed = None
+					if event.type == pygame.KEYDOWN:
+						keypressed = event.key
+						self.handle_input(keypressed)
+					# elif event.type == pygame.TEXTINPUT:
+					# 	keypressed = event.text
+					# 	self.handle_input(keypressed)
+					# else:
+					# 	logger.error(f'event {event} not handled keypressed={keypressed}')			
+					#logger.info(f'{event} keypressed={keypressed}')
+					
 				elif event.type == pygame.USEREVENT:
 					logger.warning(f'events in queue={len(events)} {event}')
 					# self.handle_mainq(gamemsg=event.payload)
@@ -113,6 +121,8 @@ class Game(Thread):
 				elif event.type == pygame.VIDEOEXPOSE:
 					pass
 				elif event.type == 772:
+					pass
+				elif event.type == pygame.KEYUP:
 					pass
 				else:
 					#pass
@@ -516,58 +526,48 @@ class Game(Thread):
 		if selection == "Start server":
 			pass
 
-	def handle_input(self, event):
+	def handle_input(self, keypressed):
 		#events = pygame.event.get()
 		#for event in events:
-		keypressed = None
-		if event.type == pygame.KEYDOWN:
-			keypressed = event.key
-		elif event.type == pygame.TEXTINPUT:
-			keypressed = event.text
-		if event.type == pygame.KEYUP:
-			return
-		if not keypressed:
-			logger.warning(f'event {event} not handled')
-			return
-		logger.info(f'keypressed={keypressed}')
-		if keypressed in (pygame.K_SPACE, pygame.K_RETURN,32,13):
+		if keypressed in (pygame.K_SPACE, pygame.K_RETURN,32,13,r'\r'):
 			if self.gui.show_mainmenu:  # or self.paused:
 				selection = self.gui.game_menu.get_selection()
+				print(selection)
 				self.handle_menu(selection)
 			elif not self.gui.show_mainmenu:
 				self.playerone.send_bomb()
-		if keypressed == pygame.K_ESCAPE:
+		elif keypressed == pygame.K_ESCAPE:
 			self.gui.show_mainmenu ^= True
-		if keypressed in(pygame.K_q, 113):
+		elif keypressed in(pygame.K_q, 113,'q','Q'):
 			# quit game
 			self.playerone.disconnect()
 			self.kill = True
 			self.running = False
-		if keypressed == pygame.K_1:
+		elif keypressed == pygame.K_1:
 			self.blocks.empty()
 			self.playerone.send_maprequest(gridsize=15)
-		if keypressed == pygame.K_2:
+		elif keypressed == pygame.K_2:
 			self.blocks.empty()
 			self.playerone.send_maprequest(gridsize=10)
-		if keypressed == pygame.K_3:
+		elif keypressed == pygame.K_3:
 			self.blocks.empty()
 			self.playerone.send_maprequest(gridsize=13)
-		if keypressed == pygame.K_4:
+		elif keypressed == pygame.K_4:
 			self.blocks.empty()
 			self.playerone.send_maprequest(gridsize=18)
-		if keypressed == pygame.K_5:
+		elif keypressed == pygame.K_5:
 			self.blocks.empty()
 			self.playerone.send_maprequest(gridsize=22)
-		if keypressed == pygame.K_6:
+		elif keypressed == pygame.K_6:
 			self.blocks.empty()
 			self.playerone.send_refreshgrid()
 			# logger.debug(f'send_refreshgrid p1gz={self.playerone.gamemap.gridsize} p1={self.playerone}')
-		if keypressed == pygame.K_0:
+		elif keypressed == pygame.K_0:
 			self.extradebug ^= True
 			logger.info(f'{self} extradebug={self.extradebug}')
-		if keypressed == pygame.K_f:
+		elif keypressed == pygame.K_f:
 			pass
-		if keypressed == pygame.K_e:
+		elif keypressed == pygame.K_e:
 			if not self.playerone.eventqueue.empty():
 				evs=[]
 				print(f'{self} p1evqsize={self.playerone.eventqueue.qsize()}')
@@ -577,7 +577,7 @@ class Game(Thread):
 					pass
 				for ev in evs:
 					print(ev)
-		if keypressed == pygame.K_p:
+		elif keypressed == pygame.K_p:
 			print(f'-'*80)
 			print(self)
 			print(f'-'*80)
@@ -589,16 +589,16 @@ class Game(Thread):
 			# 	for tx in range(len(tempg)):
 			# 		if len(tempg[tx]) != len(tempg):
 			# 			logger.error(f'grid1 x={tx} len={len(tx)}')
-		if keypressed == pygame.K_m:
+		elif keypressed == pygame.K_m:
 			print(f'pl={self.playerone.gamemap.grid}')
-		if keypressed == pygame.K_n:
+		elif keypressed == pygame.K_n:
 			self.playerone.bombs_left += 3
 			self.playerone.bombpower += 30
-		if keypressed == pygame.K_g:
+		elif keypressed == pygame.K_g:
 			pass
-		if keypressed == pygame.K_r:
+		elif keypressed == pygame.K_r:
 			pass
-		if keypressed in {pygame.K_DOWN, pygame.K_s, 's',115}:
+		elif keypressed in {pygame.K_DOWN, pygame.K_s, 's',115}:
 			if self.gui.show_mainmenu:
 				self.gui.game_menu.menu_down()
 			else:
@@ -608,7 +608,7 @@ class Game(Thread):
 					logger.warning(f'err={e} {self.playerone} {self.playerone}')
 				#self.playerone.vel.y = self.playerone.speed
 				#self.playerone.vel.x = 0
-		if keypressed in {pygame.K_UP, pygame.K_w, 'w',119}:
+		elif keypressed in {pygame.K_UP, pygame.K_w, 'w',119}:
 			if self.gui.show_mainmenu:
 				self.gui.game_menu.menu_up()
 			else:
@@ -618,7 +618,7 @@ class Game(Thread):
 					logger.warning(f'err={e} {self.playerone} {self.playerone}')
 				#self.playerone.vel.y = -self.playerone.speed
 				#self.playerone.vel.x = 0
-		if keypressed in {pygame.K_RIGHT, pygame.K_d, 'd', 100}:
+		elif keypressed in {pygame.K_RIGHT, pygame.K_d, 'd', 100}:
 			if not self.gui.show_mainmenu:
 				try:
 					self.playerone.move("right")
@@ -626,7 +626,7 @@ class Game(Thread):
 					logger.warning(f'err={e} {self.playerone} {self.playerone}')
 				#self.playerone.vel.x = self.playerone.speed
 				#self.playerone.vel.y = 0
-		if keypressed in {pygame.K_LEFT, pygame.K_a, 'a', 97}:
+		elif keypressed in {pygame.K_LEFT, pygame.K_a, 'a', 97}:
 			if not self.gui.show_mainmenu:
 				try:
 					self.playerone.move("left")
@@ -634,15 +634,8 @@ class Game(Thread):
 					logger.warning(f'err={e} {self.playerone} {self.playerone}')
 				#self.playerone.vel.x = -self.playerone.speed
 				#self.playerone.vel.y = 0
-			if event.type == pygame.KEYUP:
-				pass
-			if event.type == pygame.MOUSEBUTTONDOWN:
-				mx, my = pygame.mouse.get_pos()
-				logger.info(f'mouse click at {mx}, {my}')
-			if event.type == pygame.QUIT:
-				logger.warning(f'{self}  quit {event.type}')
-				self.kill = True
-				self.running = False
+		else:
+			logger.warning(f'unhandled key keypressed={keypressed} {type(keypressed)}')
 
 
 
