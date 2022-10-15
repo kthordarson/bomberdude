@@ -223,7 +223,7 @@ class BombClientHandler(Thread):
 			if resps:
 				self.bchtimer = pygame.time.get_ticks()-self.start_time
 				for resp in resps:
-					if len(resps) >= 5:
+					if len(resps) >= 15:
 						logger.warning(f'respsoversize! {self} resps:{len(resps)} resp={resp}')
 					self.lastupdate = pygame.time.get_ticks()
 					msgtype = resp.get('msgtype')
