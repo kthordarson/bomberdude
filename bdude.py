@@ -480,7 +480,8 @@ class Game(Thread):
 		# mainmenu
 		if selection == "Start":
 			self.gui.show_mainmenu ^= True
-			# self.playerone = Player()
+			self.playerone.kill = True
+			self.playerone = Player()
 			self.players.add(self.playerone)
 			self.playerone.start()
 
