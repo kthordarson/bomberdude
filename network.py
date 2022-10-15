@@ -38,7 +38,7 @@ def receive_data(conn):
 	data = []
 	rawdata = None
 	try:
-		rawdata = conn.recv(1024).decode('utf-8')
+		rawdata = conn.recv(9000).decode('utf-8')
 	except OSError as e:
 		logger.error(f'[recv] OSError:{e} conn:{conn}')
 		return None
@@ -54,7 +54,7 @@ def receive_data(conn):
 			try:
 				data.append(json.loads(rawdata))
 			except json.decoder.JSONDecodeError as e:
-				logger.error(f'[recv] JSONDecodeError:{e} rawdata={rawdata}')
+				logger.error(f'[recv] JSONDecodeError:{e} rawcheck={rawcheck} data={data} rawlen={len(rawdata)} t:{type(rawdata)} rawdata={rawdata}')
 			return data
 	elif parts > 1:
 		data = []
@@ -72,13 +72,13 @@ def receive_data(conn):
 				try:
 					jsondata = json.loads(datapart)
 				except json.decoder.JSONDecodeError as e:
-					logger.error(f'[recv] idx={idx} d={len(data)} rc:{rawcheck} dc:{datapartcheck} JSONDecodeError:{e} parts={parts} startpos={startpos} endpos={endpos} datapart={datapart} rawdata={rawdata}')				
+					logger.error(f'[recv] idx={idx} d={data} rc:{rawcheck} dc:{datapartcheck} JSONDecodeError:{e} parts={parts} startpos={startpos} endpos={endpos} datapart={datapart} rawdata={rawdata}')				
 				if jsondata:
 					data.append(jsondata)
 					idx += 1
 			else:
 				if idx >= 1:
-					logger.warning(f'[recv] rawcheck2 fail idx={idx} d={len(data)} rc:{rawcheck} dc:{datapartcheck}  parts={parts} startpos={startpos} endpos={endpos} rwsplit={rawsplit} datapart={datapart} rawdata={rawdata}')
+					logger.warning(f'[recv] rawcheck2 fail idx={idx} d={data} rc:{rawcheck} dc:{datapartcheck}  parts={parts} startpos={startpos} endpos={endpos} rwsplit={rawsplit} datapart={datapart} rawdata={rawdata}')
 			startpos = rawsplit.span()[1] - 1
 		return data
 	return None

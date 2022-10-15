@@ -10,7 +10,7 @@ from loguru import logger
 from threading import Thread
 from queue import Queue
 # from things import Block
-from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE,DEFAULTGRID, DEFAULTGRID4
+from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE
 from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data
@@ -23,10 +23,10 @@ class Sender(Thread):
 		self.queue = Queue()
 		self.sendcount = 0
 		self.client_id = client_id
-		logger.info(f'{self} senderthread init')
+		logger.info(f'{self} init')
 
 	def __str__(self):
-		return f'[sender] clid={self.client_id} count={self.sendcount} sq:{self.queue.qsize()}'
+		return f'[sender clid={self.client_id} count={self.sendcount} sq:{self.queue.qsize()}]'
 
 	def run(self):
 		logger.info(f'{self} run')
@@ -55,15 +55,16 @@ class Servercomm(Thread):
 		self.queue = Queue()
 		self.netplayers = {}
 		self.srvcount = 0
+		logger.debug(self)
 
 	def __str__(self):
-		return f'count={self.srvcount} np={len(self.netplayers)} sq:{self.queue.qsize()}'
+		return f'[scomm count={self.srvcount} np={len(self.netplayers)} sq:{self.queue.qsize()}]'
 
 	def run(self):
-		logger.info(f'{self} server_comm run')
+		logger.info(f'{self} run')
 		while not self.kill:
 			if self.kill:
-				logger.warning(f'{self} server_comm killed')
+				logger.warning(f'{self} killed')
 				break
 			payload = None
 			if not self.queue.empty():
@@ -102,6 +103,7 @@ class Servercomm(Thread):
 class BombClientHandler(Thread):
 	def __init__(self, conn=None, addr=None, gamemap=None, servercomm=None, npos=None, ngpos=None):
 		Thread.__init__(self, daemon=True)
+		self.servercomm = servercomm # Servercomm(self.queue)
 		self.queue = Queue()
 		self.sendq = Queue() # multiprocessing.Manager().Queue()
 		self.client_id = gen_randid()
@@ -118,15 +120,15 @@ class BombClientHandler(Thread):
 		self.clidset = False
 		self.centerpos = (0,0)
 		self.gamemap = gamemap
-		self.sender = Sender(client_id=self.client_id)
-		self.servercomm = servercomm # Servercomm(self.queue)
 		self.start_time = pygame.time.get_ticks()
 		self.lastupdate = self.start_time
 		self.maxtimeout = 9000
 		self.bchtimer = pygame.time.get_ticks()-self.start_time
+		self.sender = Sender(client_id=self.client_id)
+		logger.debug(self)
 
 	def __str__(self):
-		return f'[BCH] {self.client_id} t:{pygame.time.get_ticks()-self.start_time} l:{self.lastupdate} timer:{self.bchtimer} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} {self.sender} {self.servercomm}'
+		return f'[BCH {self.client_id} t:{pygame.time.get_ticks()-self.start_time} l:{self.lastupdate} timer:{self.bchtimer} sq:{self.queue.qsize()} sqs:{self.sendq.qsize()} sender={self.sender} scomm={self.servercomm}]'
 
 	def set_pos(self, pos=None, gridpos=None):
 		# called when server generates new map and new player position
@@ -190,7 +192,7 @@ class BombClientHandler(Thread):
 	def run(self):
 		self.set_client_id()
 		logger.debug(f'{self}  run ')
-		self.sender.start()
+		# self.sender.start()
 		while not self.kill:
 			#self.netplayers = self.servercomm.netplayers
 			# logger.debug(f'{self} np={self.netplayers}')
@@ -257,12 +259,12 @@ class BombClientHandler(Thread):
 						blkgridpos = resp.get('blkgridpos', None)
 						blktype = resp.get('blktype', None)
 						#griddata = resp.get('griddata')
-						self.gamemap.grid[blkgridpos[0]][blkgridpos[1]] = blktype
+						self.gamemap.grid[blkgridpos[0]][blkgridpos[1]] = {'blktype':blktype, 'bomb':False}
 						pygame.event.post(Event(USEREVENT, payload={'msgtype': 'netgridupdate', 'gridupdate': resp, 'bchtimer':self.bchtimer}))
 
 					elif msgtype == 'cl_bombdrop':
 						bx,by = resp.get('bombgridpos', None)
-						self.gamemap.grid[bx][by] = 11						
+						self.gamemap.grid[bx][by] = {'blktype':11, 'bomb':True}
 						pygame.event.post(Event(USEREVENT, payload={'msgtype':'bc_netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'bombpower':resp.get('bombpower'), 'bchtimer':self.bchtimer}))
 
 					elif msgtype == 'clientquit':
@@ -306,14 +308,13 @@ class BombClientHandler(Thread):
 class BombServer(Thread):
 	def __init__(self, gui=None):
 		Thread.__init__(self, daemon=False)
+		self.servercomm = Servercomm()
 		self.bombclients = []
 		self.gamemap = Gamemap()
 		self.gamemap.grid = self.gamemap.generate_custom(gridsize=15)
 		self.kill = False
 		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		#self.gui = gui # ServerGUI()
-		self.servercomm = Servercomm()
 		self.serverclock = pygame.time.Clock()
 
 	def __str__(self):
@@ -337,7 +338,9 @@ class BombServer(Thread):
 				basegrid, npos, ngpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=True)
 				self.gamemap.grid = basegrid
 				newbc = BombClientHandler(conn=conn, addr=addr, gamemap=self.gamemap, servercomm=self.servercomm, npos=npos, ngpos=ngpos)
+				newbc.sender.start()
 				newbc.start()
+				#newbc.start()
 				newbc.set_pos(pos=npos, gridpos=ngpos)
 				newbc.gamemap.grid = self.gamemap.grid
 				self.bombclients.append(newbc)
@@ -413,7 +416,7 @@ class BombServer(Thread):
 			elif smsgtype == 'netgridupdate':
 				updated = data.get('gridupdate')
 				blkpos = updated.get('blkgridpos')
-				blktype = updated.get('blktype')
+				blktype = updated.get("blktype")
 				bclid = updated.get('client_id')
 				self.gamemap.grid[blkpos[0]][blkpos[1]] = blktype
 				# logger.info(f'netgridupdate data={len(data)} blkpos={blkpos} blktype={blktype} grid={self.gamemap.grid[blkpos[0]][blkpos[1]]}')
@@ -468,7 +471,7 @@ class BombServer(Thread):
 	def run(self):
 		logger.debug(f'{self} run')
 		# self.gui.start()
-		self.servercomm.start()
+		# self.servercomm.start()
 		while not self.kill:
 			serverevents = []
 			if not self.queue.empty():
@@ -600,8 +603,9 @@ def main():
 	server.conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	server.conn.bind(('0.0.0.0', 9696))
 	server.conn.listen()
-	server.start()
 	tui.start()
+	server.servercomm.start()
+	server.start()
 	while not server.kill:
 		logger.debug(f'[bombserver] {server} waiting for connection clients:{clients}')
 		if server.kill or tui.kill:
