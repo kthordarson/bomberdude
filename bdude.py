@@ -530,7 +530,7 @@ class Game(Thread):
 			logger.warning(f'event {event} not handled')
 			return
 		logger.info(f'keypressed={keypressed}')
-		if keypressed in (pygame.K_SPACE, pygame.K_RETURN):
+		if keypressed in (pygame.K_SPACE, pygame.K_RETURN,32,13):
 			if self.gui.show_mainmenu:  # or self.paused:
 				selection = self.gui.game_menu.get_selection()
 				self.handle_menu(selection)
