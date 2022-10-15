@@ -164,7 +164,7 @@ class ServerGUI(Thread):
 
 				msgtxt = f'fps={self.guiclock.get_fps():2f} clients:{len(self.bombclients)} np:{len(self.netplayers)} '
 			except TypeError as e:
-				logger.warning(f'[ {self} ] TypeError:{e}')
+				logger.warning(f'{self}  TypeError:{e}')
 				msgtxt = ''
 			self.font.render_to(self.screen, ctextpos, msgtxt, (150,150,150))
 			ctextpos = [15, 25]
