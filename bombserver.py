@@ -211,25 +211,29 @@ class BombClientHandler(Thread):
 			self.sender.queue.put((self.conn, npayload))
 
 			msgtype = None
-			resps = []
+			incoming_data = None
 			try:
-				resps = receive_data(self.conn)
+				incoming_data = receive_data(self.conn)
 				# logger.debug(f'{self} rid:{rid} resp:{resp}')
 			except (ConnectionResetError, BrokenPipeError, struct.error, EOFError, OSError) as e:
 				logger.error(f'{self} receive_data error:{e}')
 				self.conn.close()
 				self.kill = True
 				break
-			if resps:
-				if len(resps) >= 15:
-					logger.warning(f'respsoversize! {self} resps:{len(resps)} resp={resp}')
-					resps = resps[:5]
+			if incoming_data:
+				# if len(incoming_data) >= 5:
+				# 	logger.warning(f'incoming_data oversize {len(incoming_data)} t={type(incoming_data)}')
+				# 	logger.info(f'r0={incoming_data[0]}')
+				# 	logger.info(f'r-1={incoming_data[:-1]}')
+					#resps = resps[0]
 				self.bchtimer = pygame.time.get_ticks()-self.start_time
-				for resp in resps:
-					if len(resps) >= 15:
-						logger.warning(f'respsoversize! {self} resps:{len(resps)} resp={resp}')
+				for resp in incoming_data:
 					self.lastupdate = pygame.time.get_ticks()
-					msgtype = resp.get('msgtype')
+					try:
+						msgtype = resp.get('msgtype')
+					except AttributeError as e: 
+						logger.error(f'AttributeError {e} resp={resp}')
+						break
 					# logger.debug(f'resps={len(resps)} rid={rid} resp={resp}')
 					#if msgtype == 'info':						
 					#	pygame.event.post(Event(USEREVENT, payload={'msgtype':'playerpos', 'client_id':self.client_id, 'pos':self.pos, 'gridpos':self.gridpos, 'score':self.score, 'hearts':self.hearts, 'bombpower': self.bombpower}))						
@@ -295,15 +299,15 @@ class BombClientHandler(Thread):
 						# self.send_map()
 
 					elif msgtype == 'auth':
-						logger.debug(f'{self} r:{len(resps)} auth received id:{msgtype} resp={resp}')
+						logger.debug(f'{self} r:{len(incoming_data)} auth received id:{msgtype} resp={resp}')
 						clid = resp.get('client_id', None)
 						self.client_id = clid
 
 					elif msgtype == 'UnpicklingError':
-						logger.warning(f'{self} r:{len(resps)} UnpicklingError rid:{msgtype}')
+						logger.warning(f'{self} r:{len(incoming_data)} UnpicklingError rid:{msgtype}')
 					else:
 						if resp:
-							logger.warning(f'{self} r:{len(resps)} unknownevent rid:{msgtype} resp={resp}')
+							logger.warning(f'{self} r:{len(incoming_data)} unknownevent rid:{msgtype} resp={resp}')
 						else:
 							pass
 
@@ -596,11 +600,8 @@ class ServerTUI(Thread):
 def main():
 	pygame.init()
 	pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
-	mainthreads = []
-	key_message = 'bomberdude'
 	logger.debug(f'[bombserver] started')
 	clients = 0
-	#gui = ServerGUI()
 	server = BombServer()
 	tui = ServerTUI(server)
 	server.conn.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

@@ -14,8 +14,6 @@ def send_data(conn=None, payload=None):
 			sendcheck = isinstance(payload[0], dict)
 			payload = payload[0]
 	if sendcheck:
-		if conn._closed:
-			return
 		if conn is None:
 			logger.error(f'No connection conn:{conn} payload:{payload}')
 			return
@@ -32,7 +30,7 @@ def send_data(conn=None, payload=None):
 		logger.warning(f'[send] bracketsmismatch payload={payload}')
 
 def receive_data(conn):
-	if conn._closed:
+	if not conn:
 		return None
 	rid = None
 	data = []
@@ -40,7 +38,7 @@ def receive_data(conn):
 	try:
 		rawdata = conn.recv(9000).decode('utf-8')
 	except OSError as e:
-		logger.error(f'[recv] OSError:{e} conn:{conn}')
+		#logger.error(f'[recv] OSError:{e} conn:{conn}')
 		return None
 	parts = len(rawdata.split('}{'))
 	rawcheck = False
