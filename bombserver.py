@@ -221,10 +221,11 @@ class BombClientHandler(Thread):
 				self.kill = True
 				break
 			if resps:
+				if len(resps) >= 15:
+					logger.warning(f'respsoversize! {self} resps:{len(resps)} resp={resp}')
+					resps = resps[:5]
 				self.bchtimer = pygame.time.get_ticks()-self.start_time
 				for resp in resps:
-					if len(resps) >= 5:
-						logger.warning(f'respsoversize! {self} resps:{len(resps)} resp={resp}')
 					self.lastupdate = pygame.time.get_ticks()
 					msgtype = resp.get('msgtype')
 					# logger.debug(f'resps={len(resps)} rid={rid} resp={resp}')
