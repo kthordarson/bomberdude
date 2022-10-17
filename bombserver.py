@@ -162,9 +162,9 @@ class BombClientHandler(Thread):
 		# send mapgrid to player
 		# todo fix player pos on grid
 		if not self.gotmap:
-			logger.info(f'{self} sending map to {self.client_id} sendq={self.sendq.qsize()} ')
+			logger.info(f'sending map to {self.client_id} sendq={self.sendq.qsize()} ')
 		else:
-			logger.warning(f'{self} already gotmap sendq={self.sendq.qsize()} ')
+			logger.warning(f'already gotmap sendq={self.sendq.qsize()} ')
 		payload = {'msgtype':'s_grid', 'gamemapgrid':self.gamemap.grid, 'newpos': self.pos, 'newgridpos':self.gridpos, 'bchtimer':self.bchtimer}
 		# logger.debug(f'{self} send_map payload={len(payload)} randpos={randpos}')
 		self.sender.queue.put((self.conn, payload))
@@ -176,7 +176,7 @@ class BombClientHandler(Thread):
 
 	def bombevent(self, data):
 		# when client sends bomb
-		logger.debug(f'{self} sending bombevent bomber:{data.get("client_id")} pos:{data.get("bombpos")} {data.get("bombgridpos")} data={data}')
+		logger.debug(f'sending bombevent bomber:{data.get("client_id")} pos:{data.get("bombpos")} {data.get("bombgridpos")} data={data}')
 		self.sender.queue.put((self.conn, data))
 
 	def set_client_id(self):
@@ -395,7 +395,7 @@ class BombServer(Thread):
 					# else:
 					# 	logger.warning(f'netplayersmsg data={len(data)} netplrs={len(netplrs)} np={np} netp={netplrs[np]}')
 			elif smsgtype == 'bc_netbomb':
-				logger.debug(f'{self} netbomb data={data}')
+				logger.debug(f'netbomb data={data}')
 				for bc in self.bombclients:
 					# inform all clients about bomb
 					bc.bombevent(data)

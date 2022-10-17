@@ -138,7 +138,7 @@ class Menu:
 class ServerGUI(Thread):
 	def __init__(self):
 		super().__init__(daemon=True)
-		self.screen =  pygame.display.set_mode((800,600), 0, 8)
+		self.screen =  pygame.display.set_mode(size=(800,800), flags=pygame.SCALED, vsync=1) # pygame.display.set_mode((800,600), 0, 8)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.menusize = (250, 180)
 		self.image = pygame.Surface(self.menusize)
@@ -157,7 +157,8 @@ class ServerGUI(Thread):
 			try:
 				pygame.display.flip()
 			except:
-				self.screen = pygame.display.set_mode((800,600), 0, 8)
+				# self.screen = pygame.display.set_mode((800,600), 0, 8)
+				self.screen = pygame.display.set_mode(size=(800,800), flags=pygame.SCALED, vsync=1)
 			self.screen.fill(self.bg_color)
 			ctextpos = [10, 10]
 			try:

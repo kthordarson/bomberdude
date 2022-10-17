@@ -129,7 +129,7 @@ class Block(BasicThing):
 		if self.powerup:
 			newblktype = random.choice([20,21,22])
 			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, rm=self.rm)
-			logger.info(f'{self} pc={pcount} hit by {flame} powerup newblock={newblock}')
+			logger.info(f'blockhit by {flame} powerup newblock={newblock} pc={pcount} ')
 		else:
 			newblktype = 11
 			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, rm=self.rm)
@@ -182,7 +182,7 @@ class Bomb(BasicThing):
 		self.rect.centerx = self.pos[0]
 		self.rect.centery = self.pos[1]
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.timer = 1234
+		self.timer = 3232
 		self.bomb_timer = 1
 		self.bomb_fuse = 1
 		self.bomb_end = 2
