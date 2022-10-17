@@ -61,8 +61,10 @@ class ResourceHandler:
 			img = pygame.image.load(filename).convert()
 			rect = img.get_rect()
 			self.__images[filename] = (img, rect)
+			# logger.info(f'Image {filename} loaded images={len(self.__images)}')
 			return img, rect
 		else:
+			# logger.info(f'Image {filename} already loaded images={len(self.__images)}')
 			return self.__images[filename]
 
 def gen_randid():
@@ -71,7 +73,7 @@ def gen_randid():
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
 
 class BasicThing(Sprite):
-	rm = ResourceHandler()
+	
 	def __init__(self, pos, gridpos, image=None):
 		super().__init__()
 		self.gridpos = gridpos
@@ -97,8 +99,9 @@ class BasicThing(Sprite):
 		return self.collisions
 
 class Block(BasicThing):
-	def __init__(self, pos, gridpos, block_type, client_id):
+	def __init__(self, pos, gridpos, block_type, client_id, rm):
 		super().__init__(pos,gridpos, None)
+		self.rm = rm
 		self.blkid = gen_randid()
 		self.client_id = client_id
 		self.block_type = block_type
@@ -125,11 +128,11 @@ class Block(BasicThing):
 		pcount = MAXPARTICLES+random.randint(1, 10)
 		if self.powerup:
 			newblktype = random.choice([20,21,22])
-			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id)
+			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, rm=self.rm)
 			logger.info(f'{self} pc={pcount} hit by {flame} powerup newblock={newblock}')
 		else:
 			newblktype = 11
-			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id)
+			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, rm=self.rm)
 			#logger.info(f'{self} pc={pcount} hit by {flame} block newblock={newblock}')
 		
 		for k in range(1, pcount):
@@ -164,7 +167,8 @@ class Block(BasicThing):
 
 
 class Bomb(BasicThing):
-	def __init__(self, pos, bomber_id, bombpower, gridpos):
+	def __init__(self, pos, bomber_id, bombpower, gridpos, rm):
+		self.rm = rm
 		self.pos = pos
 		super().__init__(pos, None)
 		if not gridpos:
@@ -172,7 +176,7 @@ class Bomb(BasicThing):
 		else:
 			self.gridpos = gridpos
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
-		self.image = pygame.transform.scale(self.image, BOMBSIZE)
+		#self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.bomber_id = bomber_id
 		self.rect = self.image.get_rect(center=self.pos)
 		self.rect.centerx = self.pos[0]
@@ -224,7 +228,7 @@ class Particle(BasicThing):
 		# self.size = PARTICLESIZE
 		#self.image = pygame.transform.scale(self.image, self.size)
 		self.alpha = 255
-		self.image.set_alpha(self.alpha)
+		#self.image.set_alpha(self.alpha)
 		#self.rect = self.image.get_rect(topleft=self.pos)
 		#self.rect.x = self.pos[0]
 		#self.rect.y = self.pos[1]
