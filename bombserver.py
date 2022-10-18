@@ -13,51 +13,9 @@ from queue import Queue
 from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE
 from map import Gamemap
 from globals import gen_randid
-from network import receive_data, send_data
+from network import receive_data, send_data, Sender
 
 
-class Sender(Thread):
-	def __init__(self, client_id):
-		Thread.__init__(self, daemon=True)
-		self.kill = False
-		self.queue = Queue()
-		self.sendcount = 0
-		self.client_id = client_id
-		logger.info(f'{self} init')
-
-	def __str__(self):
-		return f'[sender clid={self.client_id} count={self.sendcount} sq:{self.queue.qsize()}]'
-
-	def run(self):
-		logger.info(f'{self} run')
-		while not self.kill:
-			if self.kill:
-				logger.warning(f'{self} killed')
-				break
-			if not self.queue.empty():
-				conn, payload = self.queue.get()
-				self.queue.task_done()
-				# logger.debug(f'{self} senderthread sending payload:{payload}')
-				try:
-					# send_data(conn, payload={'msgtype':'bcnetupdate', 'payload':payload})
-					send_data(conn, payload)
-					self.sendcount += 1
-				except (BrokenPipeError, ConnectionResetError) as e:
-					logger.error(f'{self} senderr {e}')
-					self.kill = True
-					break				
-
-class Servercomm(Thread):
-	# forward messages from clients to server
-	def __init__(self):
-		Thread.__init__(self, daemon=True)
-		self.kill = False
-		self.netplayers = {}
-		self.srvcount = 0
-		logger.debug(self)
-
-	def __str__(self):
-		return f'[scomm count={self.srvcount} np={len(self.netplayers)} ]'
 
 
 class BombClientHandler(Thread):
@@ -163,8 +121,7 @@ class BombClientHandler(Thread):
 				self.conn.close()
 				logger.debug(f'{self} killed sender={self.sender} {self.conn} closed')
 				break
-
-
+			self.sender.queue.put((self.conn, {'msgtype':'s_ping', 'client_id':self.client_id, 'bchtimer':self.bchtimer}))
 			msgtype = None
 			incoming_data = None
 			try:
@@ -298,7 +255,6 @@ class BombServer(Thread):
 			conn = serverevent.get('conn')
 			addr = serverevent.get('addr')
 			# clid = data.get('clid')
-			#srvcomm = Servercomm(serverqueue=self.queue)
 			basegrid, npos, ngpos = self.gamemap.placeplayer(grid=self.gamemap.grid, randpos=True)
 			self.gamemap.grid = basegrid
 			newbc = BombClientHandler(conn=conn, addr=addr, gamemap=self.gamemap, npos=npos, ngpos=ngpos)
@@ -437,10 +393,10 @@ class BombServer(Thread):
 		while not self.kill:
 			if not self.queue.empty():
 				self.eventhandler(self.queue.get())
-				try:
-					self.queue.task_done()
-				except ValueError as e:
-					logger.warning(f'{self} queue.task_done err {e}')
+				# try:
+				# 	self.queue.task_done()
+				# except ValueError as e:
+				# 	logger.warning(f'{self} queue.task_done err {e}')
 			events = pygame.event.get()
 			for event in events:
 				if event.type == pygame.KEYDOWN:

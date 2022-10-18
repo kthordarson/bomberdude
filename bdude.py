@@ -15,7 +15,7 @@ from menus import Menu
 from player import Player
 from threading import Thread
 import threading
-from queue import Queue, Empty
+# from queue import Queue, Empty
 
 class GameGUI:
 	def __init__(self, screen):
@@ -421,7 +421,10 @@ class Game(Thread):
 		pos += (0, 15)
 		self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} cpos {self.playerone.pos} {self.playerone.gridpos}", (183, 183, 183))
 		pos += (0, 15)
-		self.font.render_to(self.screen, pos, f"client {self.playerone} eq={self.playerone.eventqueue.qsize()} pq={self.playerone.payloadqueue.qsize()}", (183, 183, 183))
+		try:
+			self.font.render_to(self.screen, pos, f"client {self.playerone} sendq={self.playerone.sender.queue.qsize()} pq={self.playerone.payloadqueue.qsize()}", (183, 183, 183))
+		except:
+			pass
 		if self.extradebug:
 			pos = self.playerone.pos
 			self.font.render_to(self.screen, pos, f'{self.playerone.gridpos}', (255,255,255))
@@ -446,11 +449,6 @@ class Game(Thread):
 			conn = self.playerone.connect_to_server()
 			logger.debug(f'p1conn={conn}')
 			self.playerone.start()
-			logger.debug(f'starting p1 p1conn={conn}')
-			self.playerone.sender.start()
-			logger.debug(f'sender started {self.playerone.sender} p1 p1conn={conn}')
-			self.playerone.receiver.start()
-			logger.debug(f'receiver started {self.playerone.receiver} p1 p1conn={conn}')
 		if selection == "Connect to server":
 			pass
 
