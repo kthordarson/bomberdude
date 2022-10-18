@@ -176,7 +176,7 @@ class Bomb(BasicThing):
 		super().__init__(pos, None)
 		self.gridpos = gridpos
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
-		#self.image = pygame.transform.scale(self.image, BOMBSIZE)
+		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.bomber_id = bomber_id
 		self.rect = self.image.get_rect(center=self.pos)
 		self.rect.centerx = self.pos[0]
@@ -228,9 +228,6 @@ class Particle(BasicThing):
 		return f'[particle] pos={self.pos} vel={self.vel}'
 
 	def update(self, blocks):
-		if pygame.time.get_ticks() - self.start_time >= self.timer:
-			# logger.info(f'{self} timer expired')
-			self.kill()
 		if self.rect.top <= 0 or self.rect.left <= 0:
 			logger.info(f'{self} outofbounds')
 			self.kill()

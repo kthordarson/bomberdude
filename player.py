@@ -95,15 +95,12 @@ class Player(BasicThing, Thread):
 
 	def send_bomb(self):
 		# send bomb to server
-		if self.bombs_left <= 0:
-			return
-		if self.bombs_left > 0 and self.ready:
+		if self.bombs_left >= 0 and self.ready:
 			bombpos = self.rect.center
-			payload = {'msgtype': 'cl_bombdrop', 'client_id':self.client_id, 'bombpos':bombpos,'bombgridpos':self.gridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}
-			
+			payload = {'msgtype': 'cl_bombdrop', 'client_id':self.client_id, 'bombpos':bombpos,'bombgridpos':self.gridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}			
 			#self.eventqueue.put(payload)
 			self.sender.queue.put((self.socket, payload))
-			logger.debug(f'send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos")}')
+			logger.debug(f'send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos") } bombs_left={self.bombs_left}')
 
 	def send_requestpos(self):
 		# get initial position from server

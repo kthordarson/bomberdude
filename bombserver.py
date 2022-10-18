@@ -92,9 +92,8 @@ class BombClientHandler(Thread):
 		logger.debug(f'griddata:{len(data)}')
 		self.sender.queue.put((self.conn, data))
 
-	def bombevent(self, data):
+	def send_bombevent(self, data):
 		# when client sends bomb
-		logger.debug(f'sending bombevent bomber:{data.get("client_id")} pos:{data.get("bombpos")} {data.get("bombgridpos")} data={data}')
 		self.sender.queue.put((self.conn, data))
 
 	def set_client_id(self):
@@ -185,7 +184,7 @@ class BombClientHandler(Thread):
 						pygame.event.post(Event(USEREVENT, payload={'msgtype':'cl_reqpos', 'client_id':self.client_id, 'bchtimer':self.bchtimer}))
 
 					elif msgtype == 'cl_pong':
-						self.bchtimer = 0 # pygame.time.get_ticks()-self.start_time
+						self.bchtimer = 0
 						self.lastupdate = 0
 						pygame.event.post(Event(USEREVENT, payload={'msgtype':'scl_pong', 'client_id':self.client_id, 'bchtimer':self.bchtimer}))
 
@@ -287,11 +286,11 @@ class BombServer(Thread):
 			for bc in self.bombclients:
 				if bc.client_id == serverevent.get('client_id'):
 					bc.lastupdate = 0
-		elif smsgtype == 'bc_netbomb':
-			logger.debug(f'netbomb serverevent={serverevent}')
+		elif smsgtype == 'bc_netbomb':			
 			for bc in self.bombclients:
 				# inform all clients about bomb
-				bc.bombevent(serverevent)
+				logger.debug(f'{smsgtype} sending to {bc} serverevent={serverevent}')
+				bc.send_bombevent(serverevent)
 		elif smsgtype == 'netgrid':
 			self.gamemap.grid = serverevent.get('gamemapgrid')
 			# logger.debug(f'{self} netgrid {len(data)}')
