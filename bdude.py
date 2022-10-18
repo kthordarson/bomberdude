@@ -383,11 +383,12 @@ class Game(Thread):
 		if self.playerone.gotpos and self.playerone.ready:
 			self.playerone.draw(self.screen)
 			self.gui.game_menu.draw_panel(screen=self.screen, blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames, grid=self.playerone.gamemap.grid)
-		# for npid in self.playerone.netplayers:
-		# 	npitem = self.playerone.netplayers[npid]
-		# 	if not npitem.get('pos'):
-		# 		logger.error(f'nopos np={npid} npitem={npitem} ')
-		# 	np = f'{npitem["gridpos"]}'
+		for npid in self.playerone.netplayers:
+			npitem = self.playerone.netplayers[npid]
+			x,y = self.playerone.netplayers[npid].get('pos', None)
+			pos = [x,y]
+			if self.playerone.client_id != npid:
+				pygame.draw.circle(self.screen, color=(0,0,255), center=pos, radius=10)
 		# 	try:
 		# 		x,y = self.playerone.netplayers[npid].get('pos', None)
 		# 	except TypeError as e:
@@ -422,7 +423,7 @@ class Game(Thread):
 		self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} cpos {self.playerone.pos} {self.playerone.gridpos}", (183, 183, 183))
 		pos += (0, 15)
 		try:
-			self.font.render_to(self.screen, pos, f"client {self.playerone} sendq={self.playerone.sender.queue.qsize()} pq={self.playerone.payloadqueue.qsize()}", (183, 183, 183))
+			self.font.render_to(self.screen, pos, f"client {self.playerone} clt={self.playerone.cl_timer} sendq={self.playerone.sender.queue.qsize()} pq={self.playerone.payloadqueue.qsize()}", (183, 183, 183))
 		except:
 			pass
 		if self.extradebug:
@@ -503,6 +504,7 @@ class Game(Thread):
 		elif keypressed == pygame.K_e:
 			pass
 		elif keypressed == pygame.K_p:
+			logger.info(f'p1={self.playerone} cltimer={self.playerone.cl_timer} st={self.playerone.start_time} pytick={pygame.time.get_ticks()}')
 			print(f'-'*80)
 			print(self)
 			print(f'-'*80)

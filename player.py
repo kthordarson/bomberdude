@@ -59,7 +59,7 @@ class Player(BasicThing, Thread):
 
 		self.eventqueue = Queue()
 		self.payloadqueue = Queue()
-		self.cl_timer = pygame.time.get_ticks()-self.start_time
+		self.cl_timer = 0
 		self.status = 'idle'
 		
 	def __str__(self):
@@ -235,15 +235,17 @@ class Player(BasicThing, Thread):
 			if msgtype == 'bcsetclid':
 				clid = payload.get('client_id')
 				self.set_clientid(clid)
-			if msgtype == 'netplayers':
+			if msgtype == 's_netplayers':
 				# logger.debug(f'netplayers payload={payload}')
 				netplayers = payload.get('netplayers', None)
 				if netplayers:
 					self.netplayers = netplayers
 			if msgtype == 's_ping':
-				#logger.debug(f's_ping payload={payload}')
+				#logger.debug(f'{self} s_ping payload={payload}')
+				bchtimer = payload.get('bchtimer')			
+				#logger.debug(f's_ping payload={payload} bchtimer={bchtimer} cl_timer={self.cl_timer} sendq={self.sender.queue.qsize()}')
 				pospayload = {
-					'msgtype': 'cl_playerpos',
+					'msgtype': 'cl_pong',
 					'client_id': self.client_id,
 					'pos': self.pos,
 					'kill':self.kill,
@@ -256,7 +258,7 @@ class Player(BasicThing, Thread):
 					'bombpower':self.bombpower,
 					'cl_timer': self.cl_timer,
 					}
-				if self.ready and self.client_id:
+				if self.ready:
 					self.sender.queue.put((self.socket, pospayload))
 			if msgtype == 's_netgridupdate':
 				# received gridupdate from server
@@ -323,11 +325,34 @@ class Player(BasicThing, Thread):
 		self.send_maprequest(gridsize=15)
 		# 	time.sleep(3)
 		while not self.kill:
-			if not self.connected or self.kill:
+			
+			if not self.connected or self.kill:				
 				logger.debug(F'{self} killed')
 				self.kill = True
 				self.connected = False
 				break
+			else:
+				pospayload = {
+					'msgtype': 'cl_playerpos',
+					'client_id': self.client_id,
+					'pos': self.pos,
+					'kill':self.kill,
+					'gridpos':self.gridpos,
+					'gotmap':self.gotmap,
+					'gotpos':self.gotpos,
+					'score':self.score,
+					'bombs_left':self.bombs_left,
+					'hearts':self.hearts,
+					'bombpower':self.bombpower,
+					'cl_timer': self.cl_timer,
+					}
+				if self.ready:
+					self.cl_timer += 1
+					if self.cl_timer % 10000 == 0:
+						self.sender.queue.put((self.socket, pospayload))
+						self.cl_timer = 0
+						#logger.debug(f's_ping  cl_timer={self.cl_timer} sendq={self.sender.queue.qsize()}')
+
 				# if not self.eventqueue.empty():
 				# 	#ev = self.eventqueue.get()
 				# 	try:					
@@ -338,7 +363,7 @@ class Player(BasicThing, Thread):
 				# 	except Exception as e:
 				# 		logger.error(f'error {e} eventq={self.eventqueue.qsize()} ')
 				
-			self.cl_timer = pygame.time.get_ticks()-self.start_time
+			
 			if not self.payloadqueue.empty():
 				self.handle_payloadq(self.payloadqueue.get())
 				#self.payloadqueue.task_done()
