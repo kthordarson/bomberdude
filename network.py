@@ -1,8 +1,12 @@
 import re
 import json
 from loguru import logger
-
+from queue import SimpleQueue as Queue
+from threading import Thread
 def send_data(conn=None, payload=None):
+	if conn:
+		if conn._closed:
+			return
 	sendcheck = False
 	try:
 		sendcheck = isinstance(payload, dict) # payload[0] == '{' and payload[-1] == '}'
@@ -14,8 +18,6 @@ def send_data(conn=None, payload=None):
 			sendcheck = isinstance(payload[0], dict)
 			payload = payload[0]
 	if sendcheck:
-		if conn._closed:
-			return
 		if conn is None:
 			logger.error(f'No connection conn:{conn} payload:{payload}')
 			return
@@ -32,7 +34,7 @@ def send_data(conn=None, payload=None):
 		logger.warning(f'[send] bracketsmismatch payload={payload}')
 
 def receive_data(conn):
-	if conn._closed:
+	if not conn:
 		return None
 	rid = None
 	data = []
@@ -40,7 +42,7 @@ def receive_data(conn):
 	try:
 		rawdata = conn.recv(9000).decode('utf-8')
 	except OSError as e:
-		logger.error(f'[recv] OSError:{e} conn:{conn}')
+		#logger.error(f'[recv] OSError:{e} conn:{conn}')
 		return None
 	parts = len(rawdata.split('}{'))
 	rawcheck = False
@@ -82,3 +84,38 @@ def receive_data(conn):
 			startpos = rawsplit.span()[1] - 1
 		return data
 	return None
+
+
+class Sender(Thread):
+	def __init__(self, client_id):
+		Thread.__init__(self, daemon=True)
+		self.kill = False
+		self.queue = Queue()
+		self.sendcount = 0
+		self.client_id = client_id
+		logger.info(f'{self} init')
+
+	def __str__(self):
+		return f'[sender clid={self.client_id} count={self.sendcount} sq:{self.queue.qsize()}]'
+
+	def run(self):
+		logger.info(f'{self} run')
+		while not self.kill:
+			if self.kill:
+				logger.warning(f'{self} killed')
+				break
+			while not self.queue.empty():
+				try:
+					conn, payload = self.queue.get()
+				except ValueError as e:
+					logger.error(f'valueerror {e}')
+				#self.queue.task_done()
+				# logger.debug(f'{self} senderthread sending payload:{payload}')
+				try:
+					# send_data(conn, payload={'msgtype':'bcnetupdate', 'payload':payload})
+					send_data(conn, payload)
+					self.sendcount += 1
+				except (BrokenPipeError, ConnectionResetError) as e:
+					logger.error(f'{self} senderr {e}')
+					self.kill = True
+					break				

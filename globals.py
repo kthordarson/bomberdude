@@ -73,7 +73,7 @@ def gen_randid():
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
 
 class BasicThing(Sprite):
-	
+
 	def __init__(self, pos, gridpos, image=None):
 		super().__init__()
 		self.gridpos = gridpos
@@ -86,6 +86,9 @@ class BasicThing(Sprite):
 
 	def __str__(self):
 		return f'[basic] pos={self.pos} gridpos={self.gridpos}'
+
+	def draw(self, screen):
+		screen.blit(self.image, self.rect)
 
 	def hit_list(self, objlist):
 		hlist = []
@@ -129,12 +132,12 @@ class Block(BasicThing):
 		if self.powerup:
 			newblktype = random.choice([20,21,22])
 			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, rm=self.rm)
-			logger.info(f'{self} pc={pcount} hit by {flame} powerup newblock={newblock}')
+			logger.info(f'blockhit by {flame} powerup newblock={newblock} pc={pcount} ')
 		else:
 			newblktype = 11
 			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, rm=self.rm)
 			#logger.info(f'{self} pc={pcount} hit by {flame} block newblock={newblock}')
-		
+
 		for k in range(1, pcount):
 			if flame.vel.x < 0:  # flame come from left
 				particles.add(Particle(pos=flame.rect.midright, vel=random_velocity(direction="right")))  # make particle go right
@@ -171,18 +174,15 @@ class Bomb(BasicThing):
 		self.rm = rm
 		self.pos = pos
 		super().__init__(pos, None)
-		if not gridpos:
-			self.gridpos = (pos[0]//BLOCK, pos[1]//BLOCK)
-		else:
-			self.gridpos = gridpos
+		self.gridpos = gridpos
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
-		#self.image = pygame.transform.scale(self.image, BOMBSIZE)
+		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.bomber_id = bomber_id
 		self.rect = self.image.get_rect(center=self.pos)
 		self.rect.centerx = self.pos[0]
 		self.rect.centery = self.pos[1]
 		self.font = pygame.font.SysFont("calibri", 10, True)
-		self.timer = 1234
+		self.timer = 3232
 		self.bomb_timer = 1
 		self.bomb_fuse = 1
 		self.bomb_end = 2
@@ -198,12 +198,6 @@ class Bomb(BasicThing):
 	def __str__(self):
 		return f'[bomb] gridpos={self.gridpos} pos={self.pos} bomber={self.bomber_id} timer={self.timer}'
 
-#	def draw(self, screen):
-#		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
-
-#	def draw(self, screen):
-#		pygame.draw.circle(screen, (255, 0, 0), self.pos, 5, 0)
-
 	def exploder(self):
 		flames = Group()
 		fvel = self.bombpower/100
@@ -217,21 +211,13 @@ class Bomb(BasicThing):
 class Particle(BasicThing):
 	def __init__(self, pos, vel):
 		super().__init__(pos, None)
-		#self.image, self.rect = self.rm.get_image(filename='data/greenorb.png', force=False)
 		self.pos = pos
 		xsize = random.randint(1,4)
 		ysize = random.randint(1,4)
 		self.image = pygame.Surface((xsize ,ysize))
 		self.image.fill((random.randint(1,255), random.randint(1,255), random.randint(1,255)))
-		#self.image.fill((random.randint(0,255),random.randint(0,255),random.randint(0,255)))
 		self.rect = self.image.get_rect(center = pos)
-		# self.size = PARTICLESIZE
-		#self.image = pygame.transform.scale(self.image, self.size)
 		self.alpha = 255
-		#self.image.set_alpha(self.alpha)
-		#self.rect = self.image.get_rect(topleft=self.pos)
-		#self.rect.x = self.pos[0]
-		#self.rect.y = self.pos[1]
 		self.timer = 7000
 		self.hits = 0
 		self.maxhits = random.randint(2,5)
@@ -242,10 +228,6 @@ class Particle(BasicThing):
 		return f'[particle] pos={self.pos} vel={self.vel}'
 
 	def update(self, blocks):
-		#pygame.draw.circle(surface, (255, 0, 0), self.rect.center, 2)
-		if pygame.time.get_ticks() - self.start_time >= self.timer:
-			# logger.info(f'{self} timer expired')
-			self.kill()
 		if self.rect.top <= 0 or self.rect.left <= 0:
 			logger.info(f'{self} outofbounds')
 			self.kill()
@@ -259,7 +241,6 @@ class Particle(BasicThing):
 			if b.block_type != 11:
 				#logger.info(f'{self} hitblock {b}')
 				self.hit()
-					
 
 	def hit(self):
 		self.hits += 1
@@ -270,11 +251,9 @@ class Particle(BasicThing):
 		self.vel = -self.vel
 		self.vel.y *= 0.5
 		#self.vel.x *= 0.5
-		self.vel.x -= random.triangular(0.01,0.03) 
-		self.vel.y -= random.triangular(0.01,0.03) 
+		self.vel.x -= random.triangular(0.01,0.03)
+		self.vel.y -= random.triangular(0.01,0.03)
 		self.alpha = round(self.alpha * 0.5)
-		
-
 
 class Flame(BasicThing):
 	def __init__(self, pos, vel, flame_length, rect, client_id):

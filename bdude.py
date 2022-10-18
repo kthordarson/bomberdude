@@ -1,9 +1,7 @@
 # bomberdude
 # 07102022 todo fix mapsync, limit one bomb per grid on map,
-#  		   remove killed netplayers when server sends killnpevent
+# 		  remove killed netplayers when server sends killnpevent
 # 17102022 todo fix fps drops
-import socket
-import time
 from argparse import ArgumentParser
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
@@ -13,11 +11,11 @@ import pygame
 from loguru import logger
 from globals import Block, Bomb, ResourceHandler
 from constants import BLOCK, DEBUG, DEFAULTFONT, NETPLAYERSIZE,FPS
-from menus import Menu, DebugDialog
+from menus import Menu
 from player import Player
 from threading import Thread
 import threading
-from queue import Queue, Empty
+# from queue import Queue, Empty
 
 class GameGUI:
 	def __init__(self, screen):
@@ -26,13 +24,9 @@ class GameGUI:
 		self.blocks = Group()
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.game_menu = Menu(self.screen, self.font)
-		self.debug_dialog = DebugDialog(self.screen, self.font)
 		self.font_color = (255, 255, 255)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 	# self.debugfont = pygame.freetype.Font(DEFAULTFONT, 10)
-	def draw(self):
-		pass
-
 
 class Game(Thread):
 	def __init__(self, args=None):
@@ -45,13 +39,11 @@ class Game(Thread):
 		self.bg_color = pygame.Color("black")
 		self.running = False
 		self.blocks = Group()
-		self.players = Group()
 		self.particles = Group()
 		self.bombs = Group()
 		self.flames = Group()
 		self.lostblocks = Group()
 		self.playerone = Player(dummy=True, serverargs=self.args)
-		# self.players.add(self.playerone)
 		self.authkey = 'foobar'
 		self.extradebug = False
 		self.screensize = (800, 600)
@@ -62,17 +54,15 @@ class Game(Thread):
 	
 	def run(self):
 		# pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP, pygame.USEREVENT])
-		pygame.display.set_mode((800,800), 0, 8)
-		self.screen = pygame.display.get_surface() #  pygame.display.set_mode(SCREENSIZE, 0, vsync=0)  # pygame.display.get_surface()#  pygame.display.set_mode(SCREENSIZE, 0, 32)
+		pygame.display.set_mode(size=(800,800), flags=pygame.DOUBLEBUF, vsync=1)
+		self.screen = pygame.display.get_surface() # pygame.display.set_mode(SCREENSIZE, 0, vsync=0) # pygame.display.get_surface()# pygame.display.set_mode(SCREENSIZE, 0, 32)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.gui = GameGUI(self.screen)
-		self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png').convert(), (1000,900))
-		logger.debug(f'{self}  started ')
-
+		# self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png').convert(), (1000,900))
 		while True:
 			if self.kill:
-				logger.warning(f'{self}  game kill')
+				logger.warning(f'{self} game kill')
 				self.kill = True
 				self.playerone.kill = True
 				break
@@ -83,7 +73,7 @@ class Game(Thread):
 			mouse_events = [event for event in events_ if event.type == pygame.MOUSEBUTTONDOWN]
 			input_events = [event for event in events_ if event.type in (pygame.KEYDOWN, pygame.TEXTINPUT)]
 			user_events = [event for event in events_ if event.type == pygame.USEREVENT]
-			self.font.render_to(self.screen, (10, 20), f'events={len(events_)} me={len(mouse_events)} ie={len(input_events)} ue={len(user_events)}', (255, 255, 255))
+		
 			# [self.handle_mainq(gamemsg=event.payload) for event in events_ if event.type == pygame.USEREVENT]
 			# [self.handle_mainq(gamemsg=event.payload) for event in userevents]
 			for event in user_events:
@@ -104,40 +94,10 @@ class Game(Thread):
 					except IndexError as e:
 						logger.error(f'indexerror:{e} mouse {mx},{my} grid={gx},{gy} ')
 
-				# elif event.type == pygame.MOUSEBUTTONUP:
-				# 	pass
-				# elif event.type == pygame.AUDIODEVICEADDED or event.type == pygame.AUDIODEVICEREMOVED:
-				# 	pass
-				# elif event.type == pygame.WINDOWSHOWN or event.type == pygame.WINDOWHIDDEN or event.type == pygame.WINDOWMOVED or event.type == pygame.WINDOWEXPOSED or event.type == pygame.ACTIVEEVENT:
-				# 	pass
-				# elif event.type == pygame.WINDOWENTER or event.type == pygame.WINDOWTAKEFOCUS:
-				# 	pass
-				# elif event.type == pygame.WINDOWFOCUSGAINED or event.type == pygame.WINDOWFOCUSLOST or event.type == pygame.WINDOWLEAVE:
-				# 	pass
-				# elif event.type == pygame.VIDEOEXPOSE:
-				# 	pass
-				# elif event.type == 772:
-				# 	pass
-				# elif event.type == pygame.KEYUP:
-				# 	pass
-				# else:
-				# 	#pass
-				# 	logger.warning(f'unhandled event events={len(events)} event={event}')
-			#self.blocks.update()
-			if self.playerone.ready:
-				self.playerone.update(self.blocks)
-				self.gui.show_mainmenu = False
-			#else:
-			self.font.render_to(self.screen, (10, 10), f'p1status={self.playerone.status}', (255, 255, 255))
-			#self.players.update(blocks=self.blocks, screen=self.screen)
-			if len(self.bombs) >= 1:
-				self.update_bombs()
-			if len(self.flames) >= 1:
-				self.update_flames()
-			if len(self.blocks) >= 1:
-				self.update_blocks()
-			if len(self.particles) >= 1:
-				self.update_particles()
+			self.update_bombs()
+			self.update_flames()
+			self.update_blocks()
+			self.update_particles()
 
 			# check map grids...
 			needrefresh = False
@@ -149,36 +109,34 @@ class Game(Thread):
 				except (IndexError, AttributeError) as e:
 					logger.error(f'{e} bcheck {b} btype={b.block_type} != p1grid={self.playerone.gamemap.grid}')
 					needrefresh = True
+					break
 				try:
-						self.playerone.gamemap.grid[x][y] = {'blktype':b.block_type, 'bomb':False}
+					self.playerone.gamemap.grid[x][y] = {'blktype':b.block_type, 'bomb':False}
 				except (IndexError, AttributeError) as e:
 					logger.error(f'{e} x={x} y={y} b={b} p1gridlen={len(self.playerone.gamemap.grid)} grid={self.playerone.gamemap.grid}')
 					needrefresh = True
+					break
 					#logger.warning(f'bcheck: mismatch {b} btype={b.block_type} != client={self.playerone.gamemap.grid[x][y].get("blktype")}')
 			if needrefresh:
 				self.updategrid(self.playerone.gamemap.grid)
-				#self.playerone.send_refreshgrid()
+			# 	#self.playerone.send_refreshgrid()
 	
 	def handle_mainq(self, gamemsg):
 		msgtype = gamemsg.get('msgtype')
 		if msgtype == 'playerpos':
-			logger.debug(f'{self}  gamemsg={gamemsg}')
-		if msgtype == 'bombdrop' or msgtype == 'netbomb':
+			logger.debug(f'{self} gamemsg={gamemsg}')
+		if msgtype == 'netbomb':
 			bomber_id = gamemsg.get('bombdata').get('client_id')
 			if bomber_id == self.playerone.client_id:
 				self.playerone.bombs_left -= 1
 			bombpos = gamemsg.get('bombdata').get('bombpos')
 			bombgridpos = gamemsg.get('bombdata').get('bombgridpos')
-
 			bombpower = gamemsg.get('bombdata').get('bombpower')
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos, bombpower=bombpower, rm=self.rm)
 			bx,by = newbomb.gridpos
-			try:
-				self.playerone.gamemap.grid[bx][by] = {'blktype':11, 'bomb':False}
-				self.bombs.add(newbomb)
-				logger.debug(f'bombpos = gridpos:{bombgridpos} pos:{bombpos} {newbomb.pos} bl={self.playerone.bombs_left} b:{len(self.bombs)}  mt:{msgtype} ')
-			except IndexError as e:
-				logger.error(f'bombpos = gridpos:{bombgridpos} pos:{bombpos} {newbomb.pos} bl={self.playerone.bombs_left} b:{len(self.bombs)}  mt:{msgtype} {e}')
+			self.playerone.gamemap.grid[bx][by] = {'blktype':11, 'bomb':False}
+			self.bombs.add(newbomb)
+			logger.debug(f'{msgtype} gridpos:{bombgridpos} pos:{bombpos} {newbomb.pos} bl={self.playerone.bombs_left} b:{len(self.bombs)}')
 
 		elif msgtype == 'newnetpos':
 			posdata = gamemsg.get('posdata')
@@ -188,7 +146,7 @@ class Game(Thread):
 				pass
 				#logger.info(f'newnetpos np={newpos} ngp={newgridpos} posdata={posdata} ')
 			else:
-				logger.warning(f'newnetpos clid mismatch clid={client_id} != {self.playerone.client_id} np={newpos} ngp={newgridpos} posdata={posdata} ')
+				logger.warning(f'newnetpos clid mismatch clid={client_id} != {self.playerone.client_id} ') # np={newpos} ngp={newgridpos} posdata={posdata} ')
 			self.playerone.pos = posdata.get('newpos')
 			self.playerone.gridpos = posdata.get('newgridpos')
 
@@ -201,7 +159,7 @@ class Game(Thread):
 				if len(self.blocks) == 0 or not self.playerone.gotmap:
 					pass
 				else:
-					logger.warning(f'{self} block count mismatch! grid_data={len(grid_data)} p1g={len(self.playerone.gamemap.grid)} p1g2={len(self.playerone.gamemap.grid[0])**2} p1gotpos={self.playerone.gotpos} p1gotmap={self.playerone.gotmap} p1r={self.playerone.ready} blkc={len(self.blocks)}   ')
+					logger.warning(f'{self} block count mismatch! grid_data={len(grid_data)} p1g={len(self.playerone.gamemap.grid)} p1g2={len(self.playerone.gamemap.grid[0])**2} p1gotpos={self.playerone.gotpos} p1gotmap={self.playerone.gotmap} p1r={self.playerone.ready} blkc={len(self.blocks)}  ')
 				self.playerone.gamemap.grid = grid_data
 				self.updategrid(self.playerone.gamemap.grid)
 				self.playerone.gotpos = True
@@ -273,17 +231,11 @@ class Game(Thread):
 			logger.info(f'{msgtype} bclid={bclid} clientid={clientid} newblock={newblock} {self.playerone.gamemap.grid[x][y].get("blktype")} blkcnt={blkcnt}/{old_blkcnt}')
 
 		elif msgtype == 's_gamemapgrid':
-			self.playerone.ready = False
 			grid = gamemsg.get('grid', None)
 			newpos = gamemsg.get('newpos')
 			newgridpos = gamemsg.get('newgridpos')
-			logger.debug(f'{self} gamemapgrid np={newpos} ngp={newgridpos} p1={self.playerone}')
 			self.updategrid(grid)
-			self.playerone.ready = True
-			self.playerone.gotmap = True
-			self.playerone.gotpos = True
-			self.playerone.gamemap.grid = grid
-			self.playerone.pos = newpos
+			logger.debug(f's_gamemapgrid np={newpos} ngp={newgridpos} p1={self.playerone}')
 	
 	def updategrid(self, gamemapgrid):
 		self.updategridcnt += 1
@@ -299,12 +251,11 @@ class Game(Thread):
 		for k in range(0, len(self.playerone.gamemap.grid)):
 			for j in range(0, len(self.playerone.gamemap.grid)):
 				try:
-					blktype =  self.playerone.gamemap.grid[j][k].get("blktype")
+					blktype = self.playerone.gamemap.grid[j][k].get("blktype")
 				except (IndexError, TypeError) as e:
 					logger.error(f'updategrid: {e} blktype={blktype} j={j} k={k} idx={idx} p1gridlen={len(self.playerone.gamemap.grid)}') # gmg={self.playerone.gamemap.grid[j][k]}
 					logger.error(f'grid={self.playerone.gamemap.grid}')
 					break
-
 				if not blktype:
 					logger.error(f'updategrid: blktype={blktype} j={j} k={k} idx={idx} p1gridlen={len(self.playerone.gamemap.grid)}')
 					logger.error(f'grid={self.playerone.gamemap.grid}')
@@ -326,8 +277,6 @@ class Game(Thread):
 	
 	def update_blocks(self):
 		# self.particles.update(self.blocks, self.screen)
-		if len(self.blocks) == 0:
-			return
 		for b in self.blocks:
 			if b.block_type in range(20,29):
 				#powerups are between 20 and 29
@@ -342,7 +291,7 @@ class Game(Thread):
 					x,y = b.gridpos
 					self.playerone.gamemap.grid[x][y] = {'blktype':11, 'bomb':False}
 					nb = Block(b.pos, b.gridpos, block_type=11, client_id=b.client_id, rm=self.rm)
-					logger.debug(f'p1={self.playerone} poweruppickup b={b} nb={nb} grid[x][y].get("blktype")={self.playerone.gamemap.grid[x][y].get("blktype")} bgridpos={b.gridpos} timer:{pygame.time.get_ticks() - b.start_time} >= {b.timer}')
+					logger.debug(f'p1={self.playerone} poweruppickup b={b} nb={nb} grid[x][y].get("blktype")={self.playerone.gamemap.grid[x][y].get("blktype")} bgridpos={b.gridpos} ')
 					pygame.event.post(Event(USEREVENT, payload={'msgtype': 'poweruppickup', 'blockdata': nb}))
 					b.kill()
 				# if block is powerup, check timer
@@ -351,7 +300,7 @@ class Game(Thread):
 					ny = b.gridpos[1]
 					self.playerone.gamemap.grid[nx][ny] = {'blktype':11, 'bomb':False}
 					nb = Block(b.pos, b.gridpos, block_type=11, client_id=b.client_id, rm=self.rm)
-					logger.debug(f'poweruptimeout b={b} nb={nb} grid[x][y].get("blktype")={self.playerone.gamemap.grid[nx][ny]} bgridpos={b.gridpos} timer:{pygame.time.get_ticks() - b.start_time} >= {b.timer}')
+					logger.debug(f'poweruptimeout b={b} nb={nb} grid[x][y].get("blktype")={self.playerone.gamemap.grid[nx][ny]} bgridpos={b.gridpos} ')
 					pygame.event.post(Event(USEREVENT, payload={'msgtype': 'poweruptimeout', 'blockdata': nb}))
 					b.kill()
 	
@@ -377,16 +326,15 @@ class Game(Thread):
 	def update_flames(self):
 		if len(self.flames) == 0:
 			return
-		#self.flames.update(surface=self.screen)
-		for flame in self.flames:
-			flame.update(surface=self.screen)
-			for player in spritecollide(flame, self.players, False):
-				if pygame.Rect.colliderect(flame.rect, player.rect):
-					player.flame_hit(flame)
-					flame.kill()
-					if player.hearts <= 0:
-						logger.info(f'{player} killed by {flame}')
-						player.kill = True
+		self.flames.update(surface=self.screen)
+		for flame in self.flames:			
+			# for player in spritecollide(flame, self.playerone, False):
+			# 	if pygame.Rect.colliderect(flame.rect, player.rect):
+			# 		player.flame_hit(flame)
+			# 		flame.kill()
+			# 		if player.hearts <= 0:
+			# 			logger.info(f'{player} killed by {flame}')
+			# 			player.kill = True
 			# check if flame collides with blocks
 			for block in spritecollide(flame, self.blocks, False):
 				if pygame.Rect.colliderect(flame.rect, block.rect):
@@ -415,112 +363,72 @@ class Game(Thread):
 						block.kill()
 	
 	def update_particles(self):
-		for p in self.particles:
-			p.update(self.blocks)
-			# if pygame.time.get_ticks() - p.start_time >= p.timer:
-			# 	logger.info(f'particles={p} timeout')
-			# 	p.kill()
+		self.particles.update(self.blocks)
 	
 	def draw(self):
-		# draw on screen
-		if pygame.display.get_init():
-			try:
-				pygame.display.update()
-			except pygame.error as e:
-				logger.error(f'{self}  err:{e} getinit:{pygame.display.get_init()}')
-				pygame.display.set_mode((800,800), 0, 8)
-				#pygame.display.set_mode(self.screensize, 0, 8)
-				#self.screen = pygame.display.get_surface()
-				return
+		try:
+			pygame.display.update()
+		except:
+			pass
 		self.gameclock.tick(FPS)
-		#self.blocks.draw(self.screen)
-		#if self.playerone.ready:
 		self.screen.fill(self.bg_color)
-		self.screen.blit(self.bgimage, (0,0))
 		self.blocks.draw(self.screen)
 		self.bombs.draw(self.screen)
 		self.flames.draw(self.screen)
 		self.particles.draw(self.screen)
 		if self.playerone.gotpos and self.playerone.ready:
-			self.players.draw(self.screen)
-		#self.playerone.draw(self.screen)
+			self.playerone.draw(self.screen)
+			self.gui.game_menu.draw_panel(screen=self.screen, blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames, grid=self.playerone.gamemap.grid)
 		for npid in self.playerone.netplayers:
 			npitem = self.playerone.netplayers[npid]
-			if not npitem.get('pos'):
-				logger.error(f'nopos np={npid} npitem={npitem} ')
-			np = f'{npitem["gridpos"]}'
-			try:
-				x,y = self.playerone.netplayers[npid].get('pos', None)
-			except TypeError as e:
-				logger.error(f'err:{e} np={npid} npitem={npitem} ')
-				break
+			x,y = self.playerone.netplayers[npid].get('pos', None)
 			pos = [x,y]
-			gpos = self.playerone.netplayers[npid].get('gridpos', None)
 			if self.playerone.client_id != npid:
-				#pos -= (0,5)
-				#pos[1] -=10
-				# self.font.render_to(self.screen, pos, f'{np}', (255, 255, 255))
-				pos[0] += 15
-				pos[1] += 15
 				pygame.draw.circle(self.screen, color=(0,0,255), center=pos, radius=10)
-				#pos = self.playerone.netplayers[npid].get('pos')
-				#self.font.render_to(self.screen, pos, f'{np}', (255, 55, 55))
-			if npid == self.playerone.client_id:
-				pos[0] += 15
-				pos[1] += 15
-				pygame.draw.circle(self.screen, color=(0,255,0), center=pos, radius=2)
+		# 	try:
+		# 		x,y = self.playerone.netplayers[npid].get('pos', None)
+		# 	except TypeError as e:
+		# 		logger.error(f'err:{e} np={npid} npitem={npitem} ')
+		# 		break
+		# 	pos = [x,y]
+		# 	gpos = self.playerone.netplayers[npid].get('gridpos', None)
+		# 	if self.playerone.client_id != npid:
+		# 		#pos -= (0,5)
+		# 		#pos[1] -=10
+		# 		# self.font.render_to(self.screen, pos, f'{np}', (255, 255, 255))
+		# 		pos[0] += 15
+		# 		pos[1] += 15
+		# 		pygame.draw.circle(self.screen, color=(0,0,255), center=pos, radius=10)
+		# 		#pos = self.playerone.netplayers[npid].get('pos')
+		# 		#self.font.render_to(self.screen, pos, f'{np}', (255, 55, 55))
+		# 	if npid == self.playerone.client_id:
+		# 		pos[0] += 15
+		# 		pos[1] += 15
+		# 		pygame.draw.circle(self.screen, color=(0,255,0), center=pos, radius=2)
 				#self.font.render_to(self.screen, pos , f'{np}', (123, 123, 255))
 
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
-		if self.playerone.ready:
-			self.gui.game_menu.draw_panel(screen=self.screen, blocks=self.blocks, particles=self.particles, playerone=self.playerone, flames=self.flames, grid=self.playerone.gamemap.grid)
 	
 	def draw_debug(self):
 		pos = Vector2(10, self.screenh - 100)
-		self.font.render_to(self.screen, pos, f"blklen:{len(self.blocks)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)}  ", (173, 173, 173))
+		self.font.render_to(self.screen, pos, f"blklen:{len(self.blocks)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} ", (173, 173, 173))
 		pos += (0, 15)
-		self.font.render_to(self.screen, pos, f"fps={self.gameclock.get_fps():.2f} threads:{threading.active_count()}  p1 np:{len(self.playerone.netplayers)} p1eventq={self.playerone.eventqueue.qsize()} p1u={len(self.playerone.updates)}", (183, 183, 183))
+		self.font.render_to(self.screen, pos, f"fps={self.gameclock.get_fps():.2f} threads:{threading.active_count()} p1 np:{len(self.playerone.netplayers)} ", (183, 183, 183))
 		pos += (0, 15)
 		self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} cpos {self.playerone.pos} {self.playerone.gridpos}", (183, 183, 183))
 		pos += (0, 15)
-		self.font.render_to(self.screen, pos, f"client {self.playerone}", (183, 183, 183))
-		pos = self.playerone.pos
-		self.font.render_to(self.screen, pos, f'{self.playerone.gridpos}', (255,255,255))
 		if self.extradebug:
-			for b in self.blocks:
-				gx, gy = b.gridpos
-				plg1item = self.playerone.gamemap.grid[gx][gy]
-				textpos = [b.rect.topleft[0]+3, b.rect.topleft[1]]
-				if b.block_type != plg1item:
-					fcol1 = (255,0,0)
-					fcol2 = (255,1,255)
-					pygame.draw.rect(self.screen, color=(255,0,0), rect=b.rect, width=1)
-					self.font.render_to(self.screen, (textpos[0]+5, textpos[1]+25), f"{plg1item}", fcol2)
-					self.font.render_to(self.screen, b.pos, f"{b.block_type}", (255, 255, 255))
-					#self.font.render_to(self.screen, b.pos, f"{b.block_type}", (183, 183, 183))
-				else:
-					self.font.render_to(self .screen, (textpos[0]+12, textpos[1]+12), f"{b.block_type}", (255, 1, 255))
-					#self.font.render_to(self.screen, (textpos[0], textpos[1]+15), f"{selfgitem} {plg1item}", (55, 211, 123))
-					#self.font.render_to(self.screen, b.pos, f"{b.block_type}", (183, 23, 23))
-
-					#textpos[0] -= 5
-					#textpos[1] -= 10
-					#self.font.render_to(self.screen, textpos, f"b {b.block_type}", (183, 255, 183))
-					#textpos += (15, 15)
-						#self.font.render_to(self.screen, (textpos[0], textpos[1]+25), f"b {plg1item} ", (183, 211, 183))
-					#textpos += (5, 5)
-					#self.font.render_to(self.screen, textpos, f"p={plg1item} ", (0, 183, 183))
+			pos = self.playerone.pos
+			self.font.render_to(self.screen, pos, f'{self.playerone.gridpos}', (255,255,255))
 	
 	def handle_menu(self, selection):
 		# mainmenu
 		if selection == "Start":
-			# self.gui.show_mainmenu ^= True
-			self.playerone.kill = True
+			self.gui.show_mainmenu ^= True
 			self.playerone = Player(dummy=False, serverargs=self.args)
-			self.players.add(self.playerone)
+			conn = self.playerone.connect_to_server()
 			self.playerone.start()
-
 		if selection == "Connect to server":
 			pass
 
@@ -541,13 +449,12 @@ class Game(Thread):
 		#events = pygame.event.get()
 		#for event in events:
 		if keypressed in (pygame.K_SPACE, pygame.K_RETURN,32,13,r'\r'):
-			if self.gui.show_mainmenu:  # or self.paused:
+			if self.gui.show_mainmenu: # or self.paused:
 				selection = self.gui.game_menu.get_selection()
-				print(selection)
 				self.handle_menu(selection)
 			elif not self.gui.show_mainmenu:
 				self.playerone.send_bomb()
-		elif keypressed in  (pygame.K_ESCAPE, 27):
+		elif keypressed in (pygame.K_ESCAPE, 27):
 			self.gui.show_mainmenu ^= True
 		elif keypressed in(pygame.K_q, 113,'q','Q'):
 			# quit game
@@ -555,22 +462,16 @@ class Game(Thread):
 			self.kill = True
 			self.running = False
 		elif keypressed == pygame.K_1:
-			self.blocks.empty()
 			self.playerone.send_maprequest(gridsize=15)
 		elif keypressed == pygame.K_2:
-			self.blocks.empty()
 			self.playerone.send_maprequest(gridsize=10)
 		elif keypressed == pygame.K_3:
-			self.blocks.empty()
 			self.playerone.send_maprequest(gridsize=13)
 		elif keypressed == pygame.K_4:
-			self.blocks.empty()
 			self.playerone.send_maprequest(gridsize=18)
 		elif keypressed == pygame.K_5:
-			self.blocks.empty()
 			self.playerone.send_maprequest(gridsize=22)
 		elif keypressed == pygame.K_6:
-			self.blocks.empty()
 			self.playerone.send_refreshgrid()
 			# logger.debug(f'send_refreshgrid p1gz={self.playerone.gamemap.gridsize} p1={self.playerone}')
 		elif keypressed == pygame.K_0:
@@ -579,29 +480,15 @@ class Game(Thread):
 		elif keypressed == pygame.K_f:
 			pass
 		elif keypressed == pygame.K_e:
-			if not self.playerone.eventqueue.empty():
-				evs=[]
-				print(f'{self} p1evqsize={self.playerone.eventqueue.qsize()}')
-				try:
-					evs = self.playerone.eventqueue.get_nowait()
-				except Empty:
-					pass
-				for ev in evs:
-					print(ev)
+			pass
 		elif keypressed == pygame.K_p:
-			print(f'-'*80)
-			print(self)
-			print(f'-'*80)
-			print('client netplayers:')
+			logger.info(f'p1={self.playerone} cltimer={self.playerone.cl_timer}')
 			for np in self.playerone.netplayers:
-				print(f'\t{np} {self.playerone.netplayers[np]}')
-				print(f'-'*80)
+				logger.info(f'\t{np} {self.playerone.netplayers[np]}')
 			# for tempg in tempgrids:
 			# 	for tx in range(len(tempg)):
 			# 		if len(tempg[tx]) != len(tempg):
 			# 			logger.error(f'grid1 x={tx} len={len(tx)}')
-		elif keypressed == pygame.K_m:
-			print(f'pl={self.playerone.gamemap.grid}')
 		elif keypressed == pygame.K_n:
 			self.playerone.bombs_left += 3
 			self.playerone.hearts += 3
@@ -649,18 +536,7 @@ class Game(Thread):
 		else:
 			logger.warning(f'unhandled key keypressed={keypressed} {type(keypressed)}')
 
-
-
-if __name__ == "__main__":
-	parser = ArgumentParser(description='bdude')
-	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
-	parser.add_argument('--server',  action='store', dest='server', default='localhost')
-	parser.add_argument('--port',  action='store', dest='port', default=9696)
-	args = parser.parse_args()
-	if args.testclient:
-		pass
-
-	#pygame.display.set_mode((800,600), 0, 8)
+def main(args):
 	pygame.init()
 	game = Game(args)
 	game.daemon = True
@@ -671,5 +547,18 @@ if __name__ == "__main__":
 			game.running = False
 			break
 	pygame.quit()
+
+
+if __name__ == "__main__":
+	parser = ArgumentParser(description='bdude')
+	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
+	parser.add_argument('--server', action='store', dest='server', default='localhost')
+	parser.add_argument('--port', action='store', dest='port', default=9696)
+	args = parser.parse_args()
+	if args.testclient:
+		pass
+
+	#pygame.display.set_mode((800,600), 0, 8)
+	main(args)
 
 
