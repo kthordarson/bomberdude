@@ -87,6 +87,9 @@ class BasicThing(Sprite):
 	def __str__(self):
 		return f'[basic] pos={self.pos} gridpos={self.gridpos}'
 
+	def draw(self, screen):
+		screen.blit(self.image, self.rect)
+
 	def hit_list(self, objlist):
 		hlist = []
 		for obj in objlist:

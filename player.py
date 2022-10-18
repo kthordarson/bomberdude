@@ -31,6 +31,11 @@ class Player(BasicThing, Thread):
 			self.rect = pygame.Surface.get_rect(self.image, center=self.pos)
 			self.surface = pygame.display.get_surface() # pygame.Surface(PLAYERSIZE)
 			self.centerpos = (self.rect.center[0], self.rect.center[1])
+			self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			self.receiver = Thread(target=self.receive_data, daemon=True)
+			self.sender = Thread(target=self.send_updates,daemon=True)
+		if dummy:
+			self.socket = None # socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.ready = False
 		self.client_id = None #gen_randid()
 		self.name = f'player{self.client_id}'
@@ -39,7 +44,6 @@ class Player(BasicThing, Thread):
 		self.speed = 3
 		self.gotmap = False
 		self.gotpos = False
-		self.socket = None # socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.netplayers = {}
 		self.gamemap = Gamemap()
 		self.bombs_left = 3
@@ -57,11 +61,12 @@ class Player(BasicThing, Thread):
 		self.payloadqueue = Queue()
 		self.cl_timer = pygame.time.get_ticks()-self.start_time
 		self.status = 'idle'
-		self.receiver = Thread(target=self.receive_data, daemon=True)
-		self.sender = Thread(target=self.send_updates,daemon=True)
-
+		
 	def __str__(self):
 		return f'playerone={self.client_id} pos={self.pos} {self.gridpos} hearts={self.hearts} gotmap ={self.gotmap} gotpos={self.gotpos} ready={self.ready} '
+	
+	def draw(self, screen):
+		pygame.Surface.blit(screen, self.image, self.rect)
 
 	def flame_hit(self, flame):
 		self.hearts -= 1
@@ -160,7 +165,6 @@ class Player(BasicThing, Thread):
 			return self.connected
 		else:
 			try:
-				self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 				self.socket.connect(self.server)
 			except Exception as e:
 				logger.error(f'{self} connect_to_server err:{e}')
@@ -211,8 +215,12 @@ class Player(BasicThing, Thread):
 			self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 			self.rect.x = self.pos[0]
 			self.rect.y = self.pos[1]
+			#send_data(self.socket, payload)
+
 
 	def handle_payloadq(self, payloads):
+		if not payloads:
+			return
 		for payload in payloads:
 			self.payloadcnt += 1
 			msgtype = payload.get('msgtype')
@@ -287,7 +295,7 @@ class Player(BasicThing, Thread):
 		#self.sender.start()
 		logger.debug(f'{self} receiver = {self.receiver} sender = {self.sender}')
 		# if not self.gotmap:
-		# 	self.send_maprequest(gridsize=15)
+		self.send_maprequest(gridsize=15)
 		# 	time.sleep(3)
 		while not self.kill:
 			if not self.connected or self.kill:
@@ -295,8 +303,7 @@ class Player(BasicThing, Thread):
 				self.kill = True
 				self.connected = False
 				break
-			self.cl_timer = pygame.time.get_ticks()-self.start_time
-			payload = {
+			pospayload = {
 				'msgtype': 'cl_playerpos',
 				'client_id': self.client_id,
 				'pos': self.pos,
@@ -309,12 +316,10 @@ class Player(BasicThing, Thread):
 				'hearts':self.hearts,
 				'bombpower':self.bombpower,
 				'cl_timer': self.cl_timer,
-				'cl_status': self.status,
 				}
 			if self.ready:
-				# self.eventqueue.put(payload)
-				send_data(self.socket, payload)
-			payloads = None
+				self.eventqueue.put(pospayload)
+			self.cl_timer = pygame.time.get_ticks()-self.start_time
 			if not self.payloadqueue.empty():
 				self.handle_payloadq(self.payloadqueue.get())
 				self.payloadqueue.task_done()

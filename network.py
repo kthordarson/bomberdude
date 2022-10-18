@@ -3,6 +3,9 @@ import json
 from loguru import logger
 
 def send_data(conn=None, payload=None):
+	if conn:
+		if conn._closed:
+			return
 	sendcheck = False
 	try:
 		sendcheck = isinstance(payload, dict) # payload[0] == '{' and payload[-1] == '}'
