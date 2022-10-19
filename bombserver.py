@@ -277,7 +277,7 @@ class BombServer(Thread):
 				#if clid != bc.client_id:
 				np = {'src':'net','client_id':clid, 'pos':pos, 'kill':ckill, 'gridpos':gridpos, 'hearts':hearts, 'score':score,'bombpower':bombpower, 'cl_timer':cl_timer}
 				self.netplayers[clid] = np
-		elif smsgtype == 'netplayers':
+		elif smsgtype == 's_netplayers':
 			# unused
 			netplrs = serverevent.get('netplayers')
 			for np in netplrs:
@@ -348,7 +348,7 @@ class BombServer(Thread):
 				logger.error(f'{self} no gz data={serverevent}')
 				return
 			logger.info(f'{self} resetmap from {clid} gz={gz} data={serverevent}')
-			basegrid = self.gamemap.generate_custom(gridsize=gz)
+			basegrid = self.gamemap.grid # generate_custom(gridsize=gz)
 			#self.gamemap.grid = basegrid
 			for bc in self.bombclients:
 				# logger.debug(f'{self} sending newgrid to {bc}')
@@ -401,7 +401,7 @@ class BombServer(Thread):
 			for bc in self.bombclients:
 				if bc.client_id:
 					bc.send_netplayers(self.netplayers)
-			pygame.event.post(Event(USEREVENT, payload={'msgtype':'netplayers', 'netplayers':self.netplayers}))
+			pygame.event.post(Event(USEREVENT, payload={'msgtype':'s_netplayers', 'netplayers':self.netplayers}))
 
 class ServerTUI(Thread):
 	def __init__(self, server):

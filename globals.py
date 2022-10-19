@@ -13,20 +13,16 @@ from constants import BLOCKTYPES, POWERUPSIZE, FLAMESIZE, BOMBSIZE, MAXPARTICLES
 
 
 def random_velocity(direction=None):
-	while True:
-		vel = Vector2((random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0)))
-		if direction == "left":
-			vel.x = random.uniform(-3.0, -1)
-		if direction == "right":
-			vel.x = random.uniform(1, 3.0)
-		if direction == "down":
-			vel.y = random.uniform(1, 3.0)
-		if direction == "up":
-			vel.y = random.uniform(-3.0, -1)
-		if vel.y != 0 and vel.x != 0:
-			return vel
-		else:
-			logger.debug(f"[vel] {vel}")
+	vel = Vector2((random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0)))
+	if direction == "left":
+		vel.x = random.uniform(-5.0, -2)
+	if direction == "right":
+		vel.x = random.uniform(2, 5.0)
+	if direction == "down":
+		vel.y = random.uniform(2, 5.0)
+	if direction == "up":
+		vel.y = random.uniform(-5.0, -2)
+	return vel
 
 
 def rot_center(image, rect, angle):
@@ -222,7 +218,7 @@ class Particle(BasicThing):
 		self.hits = 0
 		self.maxhits = random.randint(2,5)
 		self.mass = 11
-		self.vel = vel
+		self.vel = Vector2(vel[0], vel[1])
 
 	def __str__(self) -> str:
 		return f'[particle] pos={self.pos} vel={self.vel}'
@@ -232,7 +228,7 @@ class Particle(BasicThing):
 			logger.info(f'{self} outofbounds')
 			self.kill()
 		self.image.set_alpha(self.alpha)
-		self.vel -= self.accel
+		#self.vel -= self.accel
 		self.vel.y += abs(self.vel.y * 0.1) + random.triangular(0.01,0.03) # 0.025
 		self.pos += self.vel
 		self.rect.x = self.pos[0]

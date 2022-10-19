@@ -241,22 +241,13 @@ class Player(BasicThing, Thread):
 				#logger.debug(f'{self} s_ping payload={payload}')
 				bchtimer = payload.get('bchtimer')			
 				#logger.debug(f's_ping payload={payload} bchtimer={bchtimer} cl_timer={self.cl_timer} sendq={self.sender.queue.qsize()}')
-				pospayload = {
+				clpongpayload = {
 					'msgtype': 'cl_pong',
 					'client_id': self.client_id,
-					'pos': self.pos,
-					'kill':self.kill,
-					'gridpos':self.gridpos,
-					'gotmap':self.gotmap,
-					'gotpos':self.gotpos,
-					'score':self.score,
-					'bombs_left':self.bombs_left,
-					'hearts':self.hearts,
-					'bombpower':self.bombpower,
 					'cl_timer': self.cl_timer,
 					}
 				if self.ready:
-					self.sender.queue.put((self.socket, pospayload))
+					self.sender.queue.put((self.socket, clpongpayload))
 			if msgtype == 's_netgridupdate':
 				# received gridupdate from server
 				gridpos = payload.get('blkgridpos')

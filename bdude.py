@@ -239,36 +239,19 @@ class Game(Thread):
 	
 	def updategrid(self, gamemapgrid):
 		self.updategridcnt += 1
-		if not gamemapgrid:
-			logger.error(f'updategrid: no gamemapgrid')
-			return
-		else:
-			self.playerone.gamemap.grid = gamemapgrid
+		self.playerone.gamemap.grid = gamemapgrid
 		old_blkcnt = len(self.blocks)
 		# self.blocks.empty()
 		newblks = Group()
 		idx = 0
 		for k in range(0, len(self.playerone.gamemap.grid)):
 			for j in range(0, len(self.playerone.gamemap.grid)):
-				try:
-					blktype = self.playerone.gamemap.grid[j][k].get("blktype")
-				except (IndexError, TypeError) as e:
-					logger.error(f'updategrid: {e} blktype={blktype} j={j} k={k} idx={idx} p1gridlen={len(self.playerone.gamemap.grid)}') # gmg={self.playerone.gamemap.grid[j][k]}
-					logger.error(f'grid={self.playerone.gamemap.grid}')
-					break
-				if not blktype:
-					logger.error(f'updategrid: blktype={blktype} j={j} k={k} idx={idx} p1gridlen={len(self.playerone.gamemap.grid)}')
-					logger.error(f'grid={self.playerone.gamemap.grid}')
-					break
-				try:
-					newblock = Block(Vector2(j * BLOCK, k * BLOCK), (j, k), block_type=blktype, client_id=self.playerone.client_id, rm=self.rm)
-					newblks.add(newblock)
-					idx += 1
-				except Exception as e:
-					logger.error(f'updategrid: {e} blktype={blktype} j={j} k={k} idx={idx} p1gridlen={len(self.playerone.gamemap.grid)}')
-					logger.error(f'grid={self.playerone.gamemap.grid}')
+				blktype = self.playerone.gamemap.grid[j][k].get("blktype")
+				newblock = Block(Vector2(j * BLOCK, k * BLOCK), (j, k), block_type=blktype, client_id=self.playerone.client_id, rm=self.rm)
+				newblks.add(newblock)
+				idx += 1
 		self.blocks.empty()
-		self.blocks = newblks
+		self.blocks.add(newblks)
 		blkchk = len(self.playerone.gamemap.grid) ** 2
 		if blkchk == len(self.blocks) or old_blkcnt == 0:
 			logger.debug(f'gridlen={len(self.playerone.gamemap.grid)} block count was {old_blkcnt} now={len(self.blocks)} idx:{idx} self.updategridcnt={self.updategridcnt}')
@@ -382,7 +365,7 @@ class Game(Thread):
 		for npid in self.playerone.netplayers:
 			npitem = self.playerone.netplayers[npid]
 			x,y = self.playerone.netplayers[npid].get('pos', None)
-			pos = [x,y]
+			pos = [x+15,y+15]
 			if self.playerone.client_id != npid:
 				pygame.draw.circle(self.screen, color=(0,0,255), center=pos, radius=10)
 		# 	try:
