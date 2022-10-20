@@ -15,7 +15,6 @@ from menus import Menu
 from player import Player
 from threading import Thread
 import threading
-# from queue import Queue, Empty
 
 class GameGUI:
 	def __init__(self, screen):
@@ -60,20 +59,30 @@ class Game(Thread):
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.gui = GameGUI(self.screen)
 		# self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png').convert(), (1000,900))
+		send_pos_event = pygame.USEREVENT + 10
+		pygame.time.set_timer(send_pos_event, 50)
 		while True:
 			if self.kill:
 				logger.warning(f'{self} game kill')
 				self.kill = True
 				self.playerone.kill = True
 				break
-			self.draw()
-			if DEBUG:
-				self.draw_debug()
 			events_ = pygame.event.get()
 			mouse_events = [event for event in events_ if event.type == pygame.MOUSEBUTTONDOWN]
 			input_events = [event for event in events_ if event.type in (pygame.KEYDOWN, pygame.TEXTINPUT)]
 			user_events = [event for event in events_ if event.type == pygame.USEREVENT]
-		
+			sendposevents = [event for event in events_ if event.type == pygame.USEREVENT+10]
+			self.draw()
+			if DEBUG:
+				pos = Vector2(10, self.screenh - 100)
+				self.font.render_to(self.screen, pos, f"blklen:{len(self.blocks)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} ", (173, 173, 173))
+				pos += (0, 15)
+				self.font.render_to(self.screen, pos, f"fps={self.gameclock.get_fps():.2f} threads:{threading.active_count()}  ev:{len(events_)} me:{len(mouse_events)} ie:{len(input_events)} ue:{len(user_events)} se:{len(sendposevents)} ", (183, 183, 183))
+				pos += (0, 15)
+				if self.playerone.ready:
+					self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} sendq {self.playerone.sender.queue.qsize()} np:{len(self.playerone.netplayers)}", (183, 183, 183))
+			for event in sendposevents:
+				self.playerone.send_pos()
 			# [self.handle_mainq(gamemsg=event.payload) for event in events_ if event.type == pygame.USEREVENT]
 			# [self.handle_mainq(gamemsg=event.payload) for event in userevents]
 			for event in user_events:
@@ -274,7 +283,7 @@ class Game(Thread):
 					x,y = b.gridpos
 					self.playerone.gamemap.grid[x][y] = {'blktype':11, 'bomb':False}
 					nb = Block(b.pos, b.gridpos, block_type=11, client_id=b.client_id, rm=self.rm)
-					logger.debug(f'p1={self.playerone} poweruppickup b={b} nb={nb} grid[x][y].get("blktype")={self.playerone.gamemap.grid[x][y].get("blktype")} bgridpos={b.gridpos} ')
+					logger.debug(f'p1={self.playerone} poweruppickup b={b} ')
 					pygame.event.post(Event(USEREVENT, payload={'msgtype': 'poweruppickup', 'blockdata': nb}))
 					b.kill()
 				# if block is powerup, check timer
@@ -393,17 +402,6 @@ class Game(Thread):
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
 	
-	def draw_debug(self):
-		pos = Vector2(10, self.screenh - 100)
-		self.font.render_to(self.screen, pos, f"blklen:{len(self.blocks)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} ", (173, 173, 173))
-		pos += (0, 15)
-		self.font.render_to(self.screen, pos, f"fps={self.gameclock.get_fps():.2f} threads:{threading.active_count()} p1 np:{len(self.playerone.netplayers)} ", (183, 183, 183))
-		pos += (0, 15)
-		self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} cpos {self.playerone.pos} {self.playerone.gridpos}", (183, 183, 183))
-		pos += (0, 15)
-		if self.extradebug:
-			pos = self.playerone.pos
-			self.font.render_to(self.screen, pos, f'{self.playerone.gridpos}', (255,255,255))
 	
 	def handle_menu(self, selection):
 		# mainmenu

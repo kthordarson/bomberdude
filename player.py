@@ -302,7 +302,26 @@ class Player(BasicThing, Thread):
 				self.gotpos = True
 				self.ready = True
 				pygame.event.post(Event(USEREVENT, payload={'msgtype':'s_gamemapgrid', 'client_id':self.client_id, 'grid':self.gamemap.grid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'newgridpos':self.gridpos}))
-				logger.debug(f's_grid g={len(self.gamemap.grid)} newpos={self.pos} {self.gridpos} p1={self}')		
+				logger.debug(f's_grid g={len(self.gamemap.grid)} newpos={self.pos} {self.gridpos} p1={self}')
+
+	def send_pos(self):
+		pospayload = {
+			'msgtype': 'cl_playerpos',
+			'client_id': self.client_id,
+			'pos': self.pos,
+			'kill':self.kill,
+			'gridpos':self.gridpos,
+			'gotmap':self.gotmap,
+			'gotpos':self.gotpos,
+			'score':self.score,
+			'bombs_left':self.bombs_left,
+			'hearts':self.hearts,
+			'bombpower':self.bombpower,
+			'cl_timer': self.cl_timer,
+			}
+		if self.ready:
+			self.sender.queue.put((self.socket, pospayload))
+			# logger.debug(f'sending {pospayload.get("msgtype")} sendq={self.sender.queue.qsize()} ')
 
 	def run(self):
 		#conn = self.connect_to_server()
@@ -312,49 +331,11 @@ class Player(BasicThing, Thread):
 		# if not self.gotmap:
 		self.send_maprequest(gridsize=15)
 		# 	time.sleep(3)
-		while not self.kill:
-			
+		while not self.kill:			
 			if not self.connected or self.kill:				
 				logger.debug(F'{self} killed')
 				self.kill = True
 				self.connected = False
 				break
-			else:
-				pospayload = {
-					'msgtype': 'cl_playerpos',
-					'client_id': self.client_id,
-					'pos': self.pos,
-					'kill':self.kill,
-					'gridpos':self.gridpos,
-					'gotmap':self.gotmap,
-					'gotpos':self.gotpos,
-					'score':self.score,
-					'bombs_left':self.bombs_left,
-					'hearts':self.hearts,
-					'bombpower':self.bombpower,
-					'cl_timer': self.cl_timer,
-					}
-				if self.ready:
-					self.cl_timer += 1
-					if self.cl_timer % 10000 == 0:
-						self.sender.queue.put((self.socket, pospayload))
-						self.cl_timer = 0
-						#logger.debug(f's_ping  cl_timer={self.cl_timer} sendq={self.sender.queue.qsize()}')
-
-				# if not self.eventqueue.empty():
-				# 	#ev = self.eventqueue.get()
-				# 	try:					
-				# 		self.sender.queue.put((self.socket, self.eventqueue.get()))
-				# 		#send_data(self.socket, self.eventqueue.get())
-				# 		self.eventqueue.task_done()
-				# 		self.sendcnt += 1
-				# 	except Exception as e:
-				# 		logger.error(f'error {e} eventq={self.eventqueue.qsize()} ')
-				
-			
 			if not self.payloadqueue.empty():
 				self.handle_payloadq(self.payloadqueue.get())
-				#self.payloadqueue.task_done()
-				# payloads = self.payloadqueue.get_nowait()
-				# if payloads:
-				# 	self.handle_payloadq(payloads)
