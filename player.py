@@ -11,8 +11,7 @@ from constants import *
 import socket
 from map import Gamemap
 from network import send_data, receive_data, Sender
-from queue import SimpleQueue as Queue
-
+#from queue import SimpleQueue as Queue
 
 class Player(BasicThing, Thread):
 	def __init__(self, dummy=True, serverargs=None):
@@ -56,9 +55,6 @@ class Player(BasicThing, Thread):
 		self.recvcnt = 0
 		self.payloadcnt = 0
 		self.mapreqcnt = 0
-
-		self.eventqueue = Queue()
-		self.payloadqueue = Queue()
 		self.cl_timer = 0
 		self.status = 'idle'
 		
@@ -75,30 +71,18 @@ class Player(BasicThing, Thread):
 		while not self.kill:
 			try:
 				if self.connected:
-					self.payloadqueue.put(receive_data(conn=self.socket))
+					self.handle_payloadq(receive_data(conn=self.socket))
 					self.recvcnt += 1
 			except Exception as e:
 				logger.error(e)
 
-	# def send_updates(self):
-	# 	if self.connected:
-	# 		#updates = []
-	# 		if not self.eventqueue.empty():
-	# 			#ev = self.eventqueue.get()
-	# 			try:					
-	# 				self.sender.queue.put((self.socket, self.eventqueue.get()))
-	# 				#send_data(self.socket, self.eventqueue.get())
-	# 				self.eventqueue.task_done()
-	# 				self.sendcnt += 1
-	# 			except Exception as e:
-	# 				logger.error(f'error {e} eventq={self.eventqueue.qsize()} ')
 
 	def send_bomb(self):
 		# send bomb to server
 		if self.bombs_left >= 0 and self.ready:
 			bombpos = self.rect.center
 			payload = {'msgtype': 'cl_bombdrop', 'client_id':self.client_id, 'bombpos':bombpos,'bombgridpos':self.gridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}			
-			#self.eventqueue.put(payload)
+			
 			self.sender.queue.put((self.socket, payload))
 			logger.debug(f'send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos") } bombs_left={self.bombs_left}')
 
@@ -106,7 +90,7 @@ class Player(BasicThing, Thread):
 		# get initial position from server
 		
 		payload = {'msgtype': 'cl_reqpos', 'client_id': self.client_id, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
-		#self.eventqueue.put(payload)
+		
 		self.sender.queue.put((self.socket, payload))
 		if not self.gotpos:
 			logger.debug(f'sending cl_reqpos payload={payload}')
@@ -125,12 +109,12 @@ class Player(BasicThing, Thread):
 		logger.debug(f'send_maprequest gridsize={gridsize} / p1gz={self.gamemap.gridsize}')
 		payload = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'gridsize':gridsize}
 		self.sender.queue.put((self.socket, payload))
-		#self.eventqueue.put(payload)
+		
 		
 	def send_refreshgrid(self):
 		# request map from server		
 		payload = {'client_id':self.client_id, 'msgtype':'refreshsgrid', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
-		#self.eventqueue.put(payload)
+		
 		self.sender.queue.put((self.socket, payload))
 
 	def send_gridupdate(self, gridpos=None, blktype=None, grid_data=None):
@@ -139,7 +123,7 @@ class Player(BasicThing, Thread):
 		self.gamemap.grid[gridpos[0]][gridpos[1]] = {'blktype':blktype, 'bomb':False}
 		payload = {'msgtype':'cl_gridupdate', 'client_id': self.client_id, 'blkgridpos': gridpos, 'blktype': blktype, 'pos': self.pos, 'griddata':grid_data, 'gridpos':self.gridpos}
 		if self.ready:
-			#self.eventqueue.put(payload)
+			
 			self.sender.queue.put((self.socket, payload))
 
 	def set_clientid(self, clid):
@@ -155,7 +139,7 @@ class Player(BasicThing, Thread):
 		
 		payload = {'msgtype': 'clientquit', 'client_id': self.client_id, 'payload': 'quit'}
 		logger.info(f'sending quitmsg payload={payload}')
-		#self.eventqueue.put(payload)
+		
 		self.sender.queue.put((self.socket, payload))
 		#send_data(conn=self.socket, payload=quitmsg)
 		
@@ -337,5 +321,3 @@ class Player(BasicThing, Thread):
 				self.kill = True
 				self.connected = False
 				break
-			if not self.payloadqueue.empty():
-				self.handle_payloadq(self.payloadqueue.get())

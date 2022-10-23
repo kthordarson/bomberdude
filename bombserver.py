@@ -8,9 +8,6 @@ import socket
 import sys,os
 from loguru import logger
 from threading import Thread
-from queue import SimpleQueue as Queue
-
-# from things import Block
 from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE
 from map import Gamemap
 from globals import gen_randid
@@ -22,7 +19,6 @@ from network import receive_data, send_data, Sender
 class BombClientHandler(Thread):
 	def __init__(self, conn=None, addr=None, gamemap=None, npos=None, ngpos=None):
 		Thread.__init__(self, daemon=True)
-		self.queue = Queue()
 		self.client_id = gen_randid()
 		self.kill = False
 		self.conn = conn
@@ -44,7 +40,7 @@ class BombClientHandler(Thread):
 		logger.debug(self)
 
 	def __str__(self):
-		return f'[BCH {self.client_id} l:{self.lastupdate} timer:{self.bchtimer} sq:{self.queue.qsize()} sender={self.sender}]'
+		return f'[BCH {self.client_id} ]'
 
 	def send_netplayers(self, netplayers):
 		self.sender.queue.put((self.conn, {'msgtype':'s_netplayers', 'netplayers':netplayers}))
@@ -227,7 +223,6 @@ class BombServer(Thread):
 		self.gamemap = Gamemap()
 		self.gamemap.grid = self.gamemap.generate_custom(gridsize=15)
 		self.kill = False
-		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.serverclock = pygame.time.Clock()
 		self.netplayers = {}
@@ -382,8 +377,6 @@ class BombServer(Thread):
 		send_update_event = pygame.USEREVENT + 11
 		pygame.time.set_timer(send_update_event, 50)
 		while not self.kill:
-			if not self.queue.empty():
-				self.eventhandler(self.queue.get())
 			events = pygame.event.get()
 			for event in events:
 				if event.type == pygame.KEYDOWN:
@@ -417,13 +410,13 @@ class ServerTUI(Thread):
 		self.kill = False
 	
 	def get_serverinfo(self):
-		logger.info(f'clients={len(self.server.bombclients)} server queue = {self.server.queue.qsize()}')
+		logger.info(f'clients={len(self.server.bombclients)} ')
 		logger.info(f'------netplayers------')
 		for np in self.server.netplayers:
 			logger.info(f'\t[np] {np} {self.server.netplayers[np].get("pos")}')
 		logger.info(f'------bombclients------')
 		for bc in self.server.bombclients:
-			logger.info(f'\t[bc] {bc} clientqueue = {bc.queue.qsize()} sender queue = {bc.sender.queue.qsize()}')
+			logger.info(f'\t[bc] {bc} sender queue = {bc.sender.queue.qsize()}')
 		
 	def run(self):
 		while not self.kill:
@@ -466,7 +459,7 @@ def main():
 			ncmsg=Event(USEREVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
 			logger.info(f'ncmsg={ncmsg}')
 			pygame.event.post(ncmsg)
-		except KeyboardInterrupt as e:
+		except (KeyboardInterrupt, OSError) as e:
 			server.conn.close()
 			tui.kill = True
 			logger.warning(f'KeyboardInterrupt:{e} server:{server}')
@@ -479,8 +472,6 @@ def main():
 			server.join()
 			logger.warning(f'kill server:{server}')
 			break
-
-
 
 if __name__ == '__main__':
 	logger.info('start')

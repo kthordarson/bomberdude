@@ -15,7 +15,6 @@ from menus import Menu
 from player import Player
 from threading import Thread
 import threading
-
 class GameGUI:
 	def __init__(self, screen):
 		self.screen = screen
@@ -60,7 +59,7 @@ class Game(Thread):
 		self.gui = GameGUI(self.screen)
 		# self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png').convert(), (1000,900))
 		send_pos_event = pygame.USEREVENT + 10
-		pygame.time.set_timer(send_pos_event, 50)
+		pygame.time.set_timer(send_pos_event, 100)
 		while True:
 			if self.kill:
 				logger.warning(f'{self} game kill')
