@@ -179,25 +179,25 @@ class Player(BasicThing, Thread):
 			# logger.debug(f'{self} move {direction} {self.gridpos}')
 			# = {'blktype':blktype, 'bomb':False}
 			if direction == 'up':
-				if self.gamemap.grid[x][y-1].get('blktype') > 10:
+				if self.gamemap.grid[x][y-1].get('blktype', 0) > 10:
 					newgridpos = [x, y-1]
 				else:
 					pass
 					#logger.warning(f'cant move {direction} to {newgridpos} g:{self.gamemap.grid[x][y-1]}')
 			elif direction == 'down':
-				if self.gamemap.grid[x][y+1].get('blktype') > 10:
+				if self.gamemap.grid[x][y+1].get('blktype', 0) > 10:
 					newgridpos = [x, y+1]
 				else:
 					pass
 					#logger.warning(f'cant move {direction} to [{x}, {y+1}] g:{self.gamemap.grid[x][y+1]}')
 			elif direction == 'left':
-				if self.gamemap.grid[x-1][y].get('blktype') > 10:
+				if self.gamemap.grid[x-1][y].get('blktype', 0) > 10:
 					newgridpos = [x-1, y]
 				else:
 					pass
 					#logger.warning(f'cant move {direction}to [{x-1}, {y}] g:{self.gamemap.grid[x-1][y]}')
 			elif direction == 'right':
-				if self.gamemap.grid[x+1][y].get('blktype') > 10:
+				if self.gamemap.grid[x+1][y].get('blktype', 0) > 10:
 					newgridpos = [x+1, y]
 				else:
 					pass

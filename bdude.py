@@ -189,7 +189,7 @@ class Game(Thread):
 			pwrup = gamemsg.get('powerupdata')
 			for b in self.blocks:
 				if b.gridpos == pwrup.gridpos:
-					logger.warning(f'powerupdata: block already exists b={b.block_type} nb={newblock.block_type}')
+					logger.warning(f'powerupdata: block already exists b={b.block_type} nb={pwrup.block_type}')
 					b.kill()
 			self.blocks.add(pwrup)
 

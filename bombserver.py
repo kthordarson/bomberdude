@@ -231,6 +231,7 @@ class BombServer(Thread):
 		return f'[S] k:{self.kill} bc:{len(self.bombclients)} '
 
 	def eventhandler(self, serverevent):
+		smsgtype = None
 		try:
 			smsgtype = serverevent.get('msgtype')
 		except AttributeError as e:

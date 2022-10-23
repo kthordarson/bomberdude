@@ -105,6 +105,7 @@ class Sender(Thread):
 				logger.warning(f'{self} killed')
 				break
 			while not self.queue.empty():
+				conn, payload = None, None
 				try:
 					conn, payload = self.queue.get()
 				except ValueError as e:
@@ -112,7 +113,7 @@ class Sender(Thread):
 				# logger.debug(f'{self} senderthread sending payload:{payload}')
 				try:
 					# send_data(conn, payload={'msgtype':'bcnetupdate', 'payload':payload})
-					send_data(conn, payload)
+					send_data(conn=conn, payload=payload)
 					self.sendcount += 1
 				except (BrokenPipeError, ConnectionResetError) as e:
 					logger.error(f'{self} senderr {e}')
