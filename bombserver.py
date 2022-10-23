@@ -8,8 +8,6 @@ import socket
 import sys,os
 from loguru import logger
 from threading import Thread
-from queue import Queue
-# from things import Block
 from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE
 from map import Gamemap
 from globals import gen_randid
@@ -21,7 +19,6 @@ from network import receive_data, send_data, Sender
 class BombClientHandler(Thread):
 	def __init__(self, conn=None, addr=None, gamemap=None, npos=None, ngpos=None):
 		Thread.__init__(self, daemon=True)
-		self.queue = Queue()
 		self.client_id = gen_randid()
 		self.kill = False
 		self.conn = conn
@@ -43,7 +40,7 @@ class BombClientHandler(Thread):
 		logger.debug(self)
 
 	def __str__(self):
-		return f'[BCH {self.client_id} l:{self.lastupdate} timer:{self.bchtimer} sq:{self.queue.qsize()} sender={self.sender}]'
+		return f'[BCH {self.client_id} ]'
 
 	def send_netplayers(self, netplayers):
 		self.sender.queue.put((self.conn, {'msgtype':'s_netplayers', 'netplayers':netplayers}))
@@ -226,7 +223,6 @@ class BombServer(Thread):
 		self.gamemap = Gamemap()
 		self.gamemap.grid = self.gamemap.generate_custom(gridsize=15)
 		self.kill = False
-		self.queue = Queue() # multiprocessing.Manager().Queue()
 		self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.serverclock = pygame.time.Clock()
 		self.netplayers = {}
@@ -235,6 +231,7 @@ class BombServer(Thread):
 		return f'[S] k:{self.kill} bc:{len(self.bombclients)} '
 
 	def eventhandler(self, serverevent):
+		smsgtype = None
 		try:
 			smsgtype = serverevent.get('msgtype')
 		except AttributeError as e:
@@ -277,7 +274,7 @@ class BombServer(Thread):
 				#if clid != bc.client_id:
 				np = {'src':'net','client_id':clid, 'pos':pos, 'kill':ckill, 'gridpos':gridpos, 'hearts':hearts, 'score':score,'bombpower':bombpower, 'cl_timer':cl_timer}
 				self.netplayers[clid] = np
-		elif smsgtype == 'netplayers':
+		elif smsgtype == 's_netplayers':
 			# unused
 			netplrs = serverevent.get('netplayers')
 			for np in netplrs:
@@ -289,7 +286,7 @@ class BombServer(Thread):
 		elif smsgtype == 'bc_netbomb':			
 			for bc in self.bombclients:
 				# inform all clients about bomb
-				logger.debug(f'{smsgtype} sending to {bc} serverevent={serverevent}')
+				logger.debug(f'{smsgtype} sending to {bc.client_id}')
 				bc.send_bombevent(serverevent)
 		elif smsgtype == 'netgrid':
 			self.gamemap.grid = serverevent.get('gamemapgrid')
@@ -348,7 +345,7 @@ class BombServer(Thread):
 				logger.error(f'{self} no gz data={serverevent}')
 				return
 			logger.info(f'{self} resetmap from {clid} gz={gz} data={serverevent}')
-			basegrid = self.gamemap.generate_custom(gridsize=gz)
+			basegrid = self.gamemap.grid # generate_custom(gridsize=gz)
 			#self.gamemap.grid = basegrid
 			for bc in self.bombclients:
 				# logger.debug(f'{self} sending newgrid to {bc}')
@@ -363,11 +360,24 @@ class BombServer(Thread):
 		else:
 			logger.warning(f'{self} data={serverevent}')
 
+	def send_update_event(self):
+		for bc in self.bombclients:
+			bc.sender.queue.put((bc.conn, {'msgtype':'s_ping', 'client_id':bc.client_id, 'bchtimer':bc.bchtimer}))
+			if bc.client_id:
+				bc.lastupdate += 1
+				if bc.lastupdate > bc.maxtimeout:
+					bc.kill = True
+					logger.warning(f'{bc} killtimeout bc.lastupdate={bc.lastupdate} bc.maxtimeout={bc.maxtimeout}' )
+		for bc in self.bombclients:
+			if bc.client_id:
+				bc.send_netplayers(self.netplayers)
+		# pygame.event.post(Event(USEREVENT, payload={'msgtype':'s_netplayers', 'netplayers':self.netplayers}))
+
 	def run(self):
 		logger.debug(f'{self} run')
+		send_update_event = pygame.USEREVENT + 11
+		pygame.time.set_timer(send_update_event, 50)
 		while not self.kill:
-			if not self.queue.empty():
-				self.eventhandler(self.queue.get())
 			events = pygame.event.get()
 			for event in events:
 				if event.type == pygame.KEYDOWN:
@@ -385,23 +395,14 @@ class BombServer(Thread):
 					os._exit(0)
 				elif event.type == pygame.USEREVENT:
 					self.eventhandler(event.payload)
+				elif event.type == pygame.USEREVENT+11:
+					self.send_update_event()
 				elif event.type in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP, 32786, 32777, 772, 32768, 1027, 32775, 32774, 32770, 32785, 4352,32776, 32788,32783,32784,32788]:
 					pass
 				else:
 					logger.warning(f'event={event}')
 			
 			self.serverclock.tick(FPS)
-			for bc in self.bombclients:
-				bc.sender.queue.put((bc.conn, {'msgtype':'s_ping', 'client_id':bc.client_id, 'bchtimer':bc.bchtimer}))
-				if bc.client_id:
-					bc.lastupdate += 1
-					if bc.lastupdate > bc.maxtimeout:
-						bc.kill = True
-						logger.warning(f'{bc} killtimeout bc.lastupdate={bc.lastupdate} bc.maxtimeout={bc.maxtimeout}' )
-			for bc in self.bombclients:
-				if bc.client_id:
-					bc.send_netplayers(self.netplayers)
-			pygame.event.post(Event(USEREVENT, payload={'msgtype':'netplayers', 'netplayers':self.netplayers}))
 
 class ServerTUI(Thread):
 	def __init__(self, server):
@@ -410,10 +411,13 @@ class ServerTUI(Thread):
 		self.kill = False
 	
 	def get_serverinfo(self):
-		logger.info(f'server={self.server} clients={len(self.server.bombclients)} ')
-		logger.info(f'------bombclients------')
+		logger.info(f'clients={len(self.server.bombclients)} ')
+		logger.info(f'------netplayers------')
 		for np in self.server.netplayers:
-			logger.info(f'\t[np] {np} {self.server.netplayers[np]}')
+			logger.info(f'\t[np] {np} {self.server.netplayers[np].get("pos")}')
+		logger.info(f'------bombclients------')
+		for bc in self.server.bombclients:
+			logger.info(f'\t[bc] {bc} sender queue = {bc.sender.queue.qsize()}')
 		
 	def run(self):
 		while not self.kill:
@@ -456,7 +460,7 @@ def main():
 			ncmsg=Event(USEREVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
 			logger.info(f'ncmsg={ncmsg}')
 			pygame.event.post(ncmsg)
-		except KeyboardInterrupt as e:
+		except (KeyboardInterrupt, OSError) as e:
 			server.conn.close()
 			tui.kill = True
 			logger.warning(f'KeyboardInterrupt:{e} server:{server}')
@@ -469,8 +473,6 @@ def main():
 			server.join()
 			logger.warning(f'kill server:{server}')
 			break
-
-
 
 if __name__ == '__main__':
 	logger.info('start')
