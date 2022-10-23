@@ -109,7 +109,6 @@ class Sender(Thread):
 					conn, payload = self.queue.get()
 				except ValueError as e:
 					logger.error(f'valueerror {e}')
-				#self.queue.task_done()
 				# logger.debug(f'{self} senderthread sending payload:{payload}')
 				try:
 					# send_data(conn, payload={'msgtype':'bcnetupdate', 'payload':payload})

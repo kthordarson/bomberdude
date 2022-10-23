@@ -11,7 +11,6 @@ from constants import *
 import socket
 from map import Gamemap
 from network import send_data, receive_data, Sender
-#from queue import SimpleQueue as Queue
 
 class Player(BasicThing, Thread):
 	def __init__(self, dummy=True, serverargs=None):
@@ -161,9 +160,12 @@ class Player(BasicThing, Thread):
 				self.ready = False
 				self.gotmap = False
 				self.gotpos = False				
-				return self.connected
+				return False
 		self.connected = True
-		logger.debug(f'{self} connect_to_server {self.server} sending maprequest')
+		self.receiver.start()	
+		self.sender.start()
+		# if not self.gotmap:
+		self.send_maprequest(gridsize=15)
 		return self.connected
 
 	def move(self, direction):
@@ -245,22 +247,22 @@ class Player(BasicThing, Thread):
 				else:
 					logger.debug(f'{msgtype} g={gridpos} b={blktype} bclid={bclid} client_id={self.client_id}')
 					pygame.event.post(Event(USEREVENT, payload={'msgtype':'c_ngu', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid}))
-					# send grid update to mainqueue
+					# send grid update
 				
 			if msgtype == 'bc_netbomb':
-				# received bomb from server, forward to mainqueue
+				# received bomb from server
 				# logger.debug(f'bombfromserver payload={payload}')
 				pygame.event.post(Event(USEREVENT, payload={'msgtype':'netbomb', 'bombdata':payload}))				
 				#pygame.event.post(bombmsg)
 
 			if msgtype == 'posupdate':
-				# received posupdate from server, forward to mainqueue
+				# received posupdate from server
 				logger.info(f'posupdate payload={payload}')
 				pygame.event.post(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos}))				
 				#pygame.event.post(posmsg)
 
 			if msgtype == 's_pos':
-				# received playerpos from server, forward to mainqueue
+				# received playerpos from server
 				newpos = payload.get('pos')
 				newgridpos = payload.get('newgridpos')
 				self.gamemap.grid = payload.get('griddata')
@@ -306,18 +308,3 @@ class Player(BasicThing, Thread):
 		if self.ready:
 			self.sender.queue.put((self.socket, pospayload))
 			# logger.debug(f'sending {pospayload.get("msgtype")} sendq={self.sender.queue.qsize()} ')
-
-	def run(self):
-		#conn = self.connect_to_server()
-		self.receiver.start()	
-		self.sender.start()
-		logger.debug(f'{self} receiver = {self.receiver} sender = {self.sender}')
-		# if not self.gotmap:
-		self.send_maprequest(gridsize=15)
-		# 	time.sleep(3)
-		while not self.kill:			
-			if not self.connected or self.kill:				
-				logger.debug(F'{self} killed')
-				self.kill = True
-				self.connected = False
-				break

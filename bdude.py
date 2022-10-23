@@ -407,8 +407,8 @@ class Game(Thread):
 		if selection == "Start":
 			self.gui.show_mainmenu ^= True
 			self.playerone = Player(dummy=False, serverargs=self.args)
-			conn = self.playerone.connect_to_server()
 			self.playerone.start()
+			conn = self.playerone.connect_to_server()
 		if selection == "Connect to server":
 			pass
 
