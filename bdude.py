@@ -1,7 +1,7 @@
 # bomberdude
 # 07102022 todo fix mapsync, limit one bomb per grid on map,
 # 		  remove killed netplayers when server sends killnpevent
-# 17102022 todo fix fps drops
+import trio
 from argparse import ArgumentParser
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
@@ -10,11 +10,12 @@ from pygame import USEREVENT
 import pygame
 from loguru import logger
 from globals import Block, Bomb, ResourceHandler
-from constants import BLOCK, DEBUG, DEFAULTFONT, NETPLAYERSIZE,FPS
+from constants import BLOCK, DEBUG, DEFAULTFONT, NETPLAYERSIZE, FPS
 from menus import Menu
 from player import Player
 from threading import Thread
 import threading
+
 class GameGUI:
 	def __init__(self, screen):
 		self.screen = screen
@@ -142,7 +143,7 @@ class Game(Thread):
 			bombpower = gamemsg.get('bombdata').get('bombpower')
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos, bombpower=bombpower, rm=self.rm)
 			bx,by = newbomb.gridpos
-			self.playerone.gamemap.grid[bx][by] = {'blktype':11, 'bomb':False}
+			self.playerone.gamemap.grid[bx][by] = {'blktype':11, 'bomb':True}
 			self.bombs.add(newbomb)
 			logger.debug(f'{msgtype} gridpos:{bombgridpos} pos:{bombpos} {newbomb.pos} bl={self.playerone.bombs_left} b:{len(self.bombs)}')
 
@@ -481,43 +482,24 @@ class Game(Thread):
 			if self.gui.show_mainmenu:
 				self.gui.game_menu.menu_down()
 			else:
-				try:
-					self.playerone.move("down")
-				except IndexError as e:
-					logger.warning(f'err={e} {self.playerone} {self.playerone}')
-				#self.playerone.vel.y = self.playerone.speed
-				#self.playerone.vel.x = 0
+				self.playerone.move("down")
 		elif keypressed in {pygame.K_UP, pygame.K_w, 'w',119}:
 			if self.gui.show_mainmenu:
 				self.gui.game_menu.menu_up()
 			else:
-				try:
-					self.playerone.move("up")
-				except IndexError as e:
-					logger.warning(f'err={e} {self.playerone} {self.playerone}')
-				#self.playerone.vel.y = -self.playerone.speed
-				#self.playerone.vel.x = 0
+				self.playerone.move("up")
 		elif keypressed in {pygame.K_RIGHT, pygame.K_d, 'd', 100}:
 			if not self.gui.show_mainmenu:
-				try:
-					self.playerone.move("right")
-				except IndexError as e:
-					logger.warning(f'err={e} {self.playerone} {self.playerone}')
-				#self.playerone.vel.x = self.playerone.speed
-				#self.playerone.vel.y = 0
+				self.playerone.move("right")
 		elif keypressed in {pygame.K_LEFT, pygame.K_a, 'a', 97}:
 			if not self.gui.show_mainmenu:
-				try:
-					self.playerone.move("left")
-				except IndexError as e:
-					logger.warning(f'err={e} {self.playerone} {self.playerone}')
-				#self.playerone.vel.x = -self.playerone.speed
-				#self.playerone.vel.y = 0
+				self.playerone.move("left")
 		else:
-			logger.warning(f'unhandled key keypressed={keypressed} {type(keypressed)}')
+			pass
+			#logger.warning(f'unhandled key keypressed={keypressed} {type(keypressed)}')
 
 def main(args):
-	pygame.init()
+
 	game = Game(args)
 	game.daemon = True
 	game.running = True
@@ -530,6 +512,7 @@ def main(args):
 
 
 if __name__ == "__main__":
+	pygame.init()
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
 	parser.add_argument('--server', action='store', dest='server', default='localhost')
@@ -537,8 +520,5 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 	if args.testclient:
 		pass
-
-	#pygame.display.set_mode((800,600), 0, 8)
-	main(args)
-
+	main(args)		
 

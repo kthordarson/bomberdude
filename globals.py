@@ -2,7 +2,6 @@ import hashlib
 import math
 import os
 import random
-import sys
 import time
 import pygame
 from pygame.sprite import Group, spritecollide, Sprite
@@ -70,14 +69,14 @@ def gen_randid():
 
 class BasicThing(Sprite):
 
-	def __init__(self, pos, gridpos, image=None):
+	def __init__(self, gridpos, image):
 		super().__init__()
 		self.gridpos = gridpos
-		self.pos = pos
+		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+		self.image = image
 		self.vel = Vector2()
 		self.start_time = pygame.time.get_ticks()
 		self.clock = pygame.time.Clock()
-		self.image = image
 		self.accel = Vector2(0, 0)
 
 	def __str__(self):
@@ -99,7 +98,7 @@ class BasicThing(Sprite):
 
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type, client_id, rm):
-		super().__init__(pos,gridpos, None)
+		super().__init__(gridpos=gridpos, image=None)
 		self.rm = rm
 		self.blkid = gen_randid()
 		self.client_id = client_id
@@ -169,8 +168,8 @@ class Bomb(BasicThing):
 	def __init__(self, pos, bomber_id, bombpower, gridpos, rm):
 		self.rm = rm
 		self.pos = pos
-		super().__init__(pos, None)
 		self.gridpos = gridpos
+		super().__init__(gridpos=self.gridpos, image=None)
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.bomber_id = bomber_id
@@ -206,8 +205,11 @@ class Bomb(BasicThing):
 
 class Particle(BasicThing):
 	def __init__(self, pos, vel):
-		super().__init__(pos, None)
 		self.pos = pos
+		self.gridpos = (self.pos[0]//BLOCK, self.pos[1]//BLOCK)
+		super().__init__(gridpos=self.gridpos, image=None)
+		#super().__init__(pos, None)
+		# self.pos = pos
 		xsize = random.randint(1,4)
 		ysize = random.randint(1,4)
 		self.image = pygame.Surface((xsize ,ysize))
@@ -254,7 +256,8 @@ class Particle(BasicThing):
 class Flame(BasicThing):
 	def __init__(self, pos, vel, flame_length, rect, client_id):
 		self.pos = pos
-		super().__init__(pos, None)
+		self.gridpos = (self.pos[0]//BLOCK, self.pos[1]//BLOCK)
+		super().__init__(gridpos=self.gridpos, image=None)
 		self.client_id = client_id
 		self.image = pygame.Surface((5,5), pygame.SRCALPHA)
 		#self.image.fill((255,0,0))

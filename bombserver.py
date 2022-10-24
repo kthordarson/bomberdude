@@ -1,5 +1,3 @@
-import time
-from pygame.math import Vector2
 from pygame.event import Event
 from pygame import USEREVENT
 import pygame
@@ -31,10 +29,9 @@ class BombClientHandler(Thread):
 		self.gotpos = False
 		self.gotmap = False
 		self.clidset = False
-		self.centerpos = (0,0)
 		self.gamemap = gamemap
 		self.lastupdate = 0
-		self.maxtimeout = 1000
+		self.maxtimeout = 100
 		self.bchtimer = pygame.time.get_ticks()
 		self.sender = Sender(client_id=self.client_id)
 		logger.debug(self)
@@ -368,10 +365,22 @@ class BombServer(Thread):
 				if bc.lastupdate > bc.maxtimeout:
 					bc.kill = True
 					logger.warning(f'{bc} killtimeout bc.lastupdate={bc.lastupdate} bc.maxtimeout={bc.maxtimeout}' )
+					self.remove_dead_player(bc)
+					self.bombclients.pop(self.bombclients.index(bc))
+					
 		for bc in self.bombclients:
 			if bc.client_id:
 				bc.send_netplayers(self.netplayers)
 		# pygame.event.post(Event(USEREVENT, payload={'msgtype':'s_netplayers', 'netplayers':self.netplayers}))
+
+	def remove_dead_player(self, bc):
+		logger.warning(f'remove_dead_player {bc}')
+		old_np = self.netplayers
+		new_np = {}
+		for np in self.netplayers:
+			if np != bc.client_id:
+				new_np[np] = old_np.get(np)
+		self.netplayers = new_np
 
 	def run(self):
 		logger.debug(f'{self} run')
