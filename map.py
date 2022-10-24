@@ -34,9 +34,8 @@ class Gamemap:
 		# self.grid = grid
 		# [f'gridpos=({k},{j}) blk={grid[k][j]}' for k in range(gridsize) for j in range(gridsize)]
 
-	def placeplayer(self, grid=None, pos=None, randpos=True):
+	def placeplayer(self, grid=None, pos=None):
 		#self.grid = grid
-		# logger.debug(f'[map] placeplayer g:{len(grid)}  pos={pos} randpos={randpos} sg={len(self.grid)}')
 		validpos = False
 		invcnt = 0
 		while not validpos:
