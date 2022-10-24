@@ -47,6 +47,7 @@ class Game(Thread):
 		self.extradebug = False
 		self.screensize = (800, 600)
 		self.updategridcnt = 0
+		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 10)
 
 	def __str__(self):
 		return f'[G] run:{self.running} updategridcnt={self.updategridcnt} p1 p1conn:{self.playerone.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.playerone.netplayers)} '
@@ -73,14 +74,6 @@ class Game(Thread):
 			user_events = [event for event in events_ if event.type == pygame.USEREVENT]
 			sendposevents = [event for event in events_ if event.type == pygame.USEREVENT+10]
 			self.draw()
-			if DEBUG:
-				pos = Vector2(10, self.screenh - 100)
-				self.font.render_to(self.screen, pos, f"blklen:{len(self.blocks)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} ", (173, 173, 173))
-				pos += (0, 15)
-				self.font.render_to(self.screen, pos, f"fps={self.gameclock.get_fps():.2f} threads:{threading.active_count()}  ev:{len(events_)} me:{len(mouse_events)} ie:{len(input_events)} ue:{len(user_events)} se:{len(sendposevents)} ", (183, 183, 183))
-				pos += (0, 15)
-				if self.playerone.ready:
-					self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} sendq {self.playerone.sender.queue.qsize()} np:{len(self.playerone.netplayers)}", (183, 183, 183))
 			for event in sendposevents:
 				self.playerone.send_pos()
 			# [self.handle_mainq(gamemsg=event.payload) for event in events_ if event.type == pygame.USEREVENT]
@@ -142,6 +135,7 @@ class Game(Thread):
 			bombgridpos = gamemsg.get('bombdata').get('bombgridpos')
 			bombpower = gamemsg.get('bombdata').get('bombpower')
 			newbomb = Bomb(pos=bombpos, bomber_id=bomber_id, gridpos=bombgridpos, bombpower=bombpower, rm=self.rm)
+			newbomb.rect.center = bombpos
 			bx,by = newbomb.gridpos
 			self.playerone.gamemap.grid[bx][by] = {'blktype':11, 'bomb':True}
 			self.bombs.add(newbomb)
@@ -156,20 +150,13 @@ class Game(Thread):
 				#logger.info(f'newnetpos np={newpos} ngp={newgridpos} posdata={posdata} ')
 			else:
 				logger.warning(f'newnetpos clid mismatch clid={client_id} != {self.playerone.client_id} ') # np={newpos} ngp={newgridpos} posdata={posdata} ')
-			self.playerone.pos = posdata.get('newpos')
-			self.playerone.gridpos = posdata.get('newgridpos')
-
-			#self.playerone.pos = Vector2(newpos[0], newpos[1])
-			self.playerone.rect.x = self.playerone.pos[0]
-			self.playerone.rect.y = self.playerone.pos[1]
-			grid_data = posdata.get('griddata')
+			grid_data = posdata.get('grid')
 
 			if len(self.blocks) != len(self.playerone.gamemap.grid[0])**2 or len(self.blocks) == 0 or not self.playerone.gotmap or len(self.playerone.gamemap.grid) == 0:
 				if len(self.blocks) == 0 or not self.playerone.gotmap:
 					pass
 				else:
 					logger.warning(f'{self} block count mismatch! grid_data={len(grid_data)} p1g={len(self.playerone.gamemap.grid)} p1g2={len(self.playerone.gamemap.grid[0])**2} p1gotpos={self.playerone.gotpos} p1gotmap={self.playerone.gotmap} p1r={self.playerone.ready} blkc={len(self.blocks)}  ')
-				self.playerone.gamemap.grid = grid_data
 				self.updategrid(self.playerone.gamemap.grid)
 				self.playerone.gotpos = True
 				self.playerone.gotmap = True
@@ -401,6 +388,17 @@ class Game(Thread):
 
 		if self.gui.show_mainmenu:
 			self.gui.game_menu.draw_mainmenu(self.screen)
+		if DEBUG:
+			pos = Vector2(10, self.screenh - 100)
+			self.font.render_to(self.screen, pos, f"blklen:{len(self.blocks)} b:{len(self.bombs)} fl:{len(self.flames)} p:{len(self.particles)} ", (173, 173, 173))
+			pos += (0, 15)
+			self.font.render_to(self.screen, pos, f"fps={self.gameclock.get_fps():.2f} threads:{threading.active_count()}   ", (183, 183, 183))
+			pos += (0, 15)
+			if self.playerone.ready:
+				self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} sendq {self.playerone.sender.queue.qsize()} np:{len(self.playerone.netplayers)}", (183, 183, 183))
+		if self.extradebug:
+			for b in self.blocks:
+				b.debug_draw(screen=self.screen, font=self.debugfont)
 	
 	
 	def handle_menu(self, selection):
@@ -478,19 +476,23 @@ class Game(Thread):
 			pass
 		elif keypressed == pygame.K_r:
 			pass
+		
 		elif keypressed in {pygame.K_DOWN, pygame.K_s, 's',115}:
 			if self.gui.show_mainmenu:
 				self.gui.game_menu.menu_down()
 			else:
 				self.playerone.move("down")
+
 		elif keypressed in {pygame.K_UP, pygame.K_w, 'w',119}:
 			if self.gui.show_mainmenu:
 				self.gui.game_menu.menu_up()
 			else:
 				self.playerone.move("up")
+
 		elif keypressed in {pygame.K_RIGHT, pygame.K_d, 'd', 100}:
 			if not self.gui.show_mainmenu:
 				self.playerone.move("right")
+
 		elif keypressed in {pygame.K_LEFT, pygame.K_a, 'a', 97}:
 			if not self.gui.show_mainmenu:
 				self.playerone.move("left")

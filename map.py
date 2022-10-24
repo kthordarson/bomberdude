@@ -40,43 +40,21 @@ class Gamemap:
 		validpos = False
 		invcnt = 0
 		while not validpos:
-			if randpos:
-				# find a random spot on the map to place the player
-				try:
-					while invcnt >= len(grid)**2 or not validpos:
-						gpx = random.randint(2, len(grid)-2)
-						gpy = random.randint(2, len(grid)-2)
-						nx = round(gpx * BLOCK)
-						ny = round(gpy * BLOCK)
-						if grid[gpx][gpy].get("blktype") == 11 and grid[gpx][gpy-1].get("blktype") == 11 and grid[gpx+1][gpy].get("blktype") == 11:
-							validpos = True
-							logger.info(f'valid {invcnt} pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
-							# logger.info(f'grid={grid}')
-							break
-						else:							
-							invcnt += 1
-							grid[gpx][gpy] = {'blktype':11, 'bomb':False}
-						if invcnt >= 500:
-							validpos = True
-							logger.warning(f'invalid {invcnt} pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
-							logger.warning(f'grid={grid}')
-							gpx = 3
-							gpy = 3
-							nx = round(gpx * BLOCK)
-							ny = round(gpy * BLOCK)
-							break
-				except ValueError as e:
-					logger.error(f'[map] ValueError {e} gl={len(grid)} pos={pos} randpos={randpos} grid={grid}')
+			# find a random spot on the map to place the player
+			gpx = random.randint(1, len(grid)-1)
+			gpy = random.randint(1, len(grid)-1)
+			try:
+				if grid[gpx][gpy].get("blktype") == 11:
+					validpos = True
+					logger.info(f'valid {invcnt} pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
+					break
+			except (IndexError, ValueError) as e:
+				logger.error(f'Err: {e} gl={len(grid)} pos={pos} gpx={gpx} gpy={gpy} ')
 
-			else:
-				# gridpos from pos			
-				gpx = round(pos[0] // BLOCK)
-				gpy = round(pos[1] // BLOCK)
-				nx = pos[0]
-				ny = pos[1]
-				validpos = True
 		# clear spot aound player
-		logger.info(f'[placeplayer] pos={pos} randpos:{randpos} gpx:{gpx} gpy:{gpy} xp:{ny} yp:{ny}')
+		nx = int(gpx * BLOCK)
+		ny = int(gpy * BLOCK)
+		logger.info(f'[placeplayer] pos={pos} gpx:{gpx} gpy:{gpy} xp:{ny} yp:{ny}')
 		grid[gpx][gpy] = {'blktype':11, 'bomb':False}
 		grid[gpx-1][gpy] = {'blktype':11, 'bomb':False}
 		grid[gpx+1][gpy] = {'blktype':11, 'bomb':False}
@@ -109,3 +87,6 @@ class Gamemap:
 	def get_bcount(self, cval=0):
 		cnt = 0
 		return cnt
+	
+	def get_block(self, gridpos):
+		return self.grid[gridpos[0]][gridpos[1]]

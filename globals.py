@@ -8,7 +8,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
 
-from constants import BLOCKTYPES, POWERUPSIZE, FLAMESIZE, BOMBSIZE, MAXPARTICLES,BLOCK
+from constants import BLOCKTYPES, POWERUPSIZE, FLAMESIZE, BOMBSIZE, MAXPARTICLES, BLOCK, DEFAULTFONT
 
 
 def random_velocity(direction=None):
@@ -83,7 +83,8 @@ class BasicThing(Sprite):
 		return f'[basic] pos={self.pos} gridpos={self.gridpos}'
 
 	def draw(self, screen):
-		screen.blit(self.image, self.rect)
+		pass
+		# screen.blit(self.image, self.rect)
 
 	def hit_list(self, objlist):
 		hlist = []
@@ -119,6 +120,16 @@ class Block(BasicThing):
 	def __str__(self):
 		return f'[block] pos={self.pos} gp={self.gridpos} type={self.block_type} blkid={self.blkid} client_id={self.client_id}'
 
+	def debug_draw(self, screen=None, font=None):
+		if self.block_type == 11:
+			col = (255, 0, 0)
+		elif self.block_type == 10:
+			col = (55, 10, 10)
+		else:
+			col = (10,10,10)
+		pygame.draw.rect(surface=screen, color=col, rect=self.rect, width=1)
+		font.render_to(surf=screen,dest=(self.rect.x+5, self.rect.y+5), text=f'{self.gridpos}', fgcolor=col)
+		font.render_to(surf=screen,dest=(self.rect.x+5, self.rect.y+15), text=f'{self.block_type}', fgcolor=col)
 
 	def hit(self, flame):
 		particles = Group()
@@ -174,8 +185,8 @@ class Bomb(BasicThing):
 		self.image = pygame.transform.scale(self.image, BOMBSIZE)
 		self.bomber_id = bomber_id
 		self.rect = self.image.get_rect(center=self.pos)
-		self.rect.centerx = self.pos[0]
-		self.rect.centery = self.pos[1]
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
 		self.font = pygame.font.SysFont("calibri", 10, True)
 		self.timer = 3232
 		self.bomb_timer = 1
@@ -196,10 +207,10 @@ class Bomb(BasicThing):
 	def exploder(self):
 		flames = Group()
 		fvel = self.bombpower/100
-		flames.add(Flame(pos=self.pos, vel=Vector2(1+fvel,0), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
-		flames.add(Flame(pos=self.pos, vel=Vector2(-1-fvel,0), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
-		flames.add(Flame(pos=self.pos, vel=Vector2(0,-1-fvel), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
-		flames.add(Flame(pos=self.pos, vel=Vector2(0,1+fvel), flame_length=self.bombpower, rect=self.rect, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.rect.center, vel=Vector2(1+fvel,0), flame_length=self.bombpower, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.rect.center, vel=Vector2(-1-fvel,0), flame_length=self.bombpower, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.rect.center, vel=Vector2(0,-1-fvel), flame_length=self.bombpower, client_id=self.bomber_id))
+		flames.add(Flame(pos=self.rect.center, vel=Vector2(0,1+fvel), flame_length=self.bombpower, client_id=self.bomber_id))
 		# self.bomber_id.bombs_left += 1
 		return flames
 
@@ -254,22 +265,22 @@ class Particle(BasicThing):
 		self.alpha = round(self.alpha * 0.5)
 
 class Flame(BasicThing):
-	def __init__(self, pos, vel, flame_length, rect, client_id):
+	def __init__(self, pos, vel, flame_length, client_id):
+		gridpos = (pos[0]//BLOCK, pos[1]//BLOCK)
+		super().__init__(gridpos=gridpos, image=None)
 		self.pos = pos
-		self.gridpos = (self.pos[0]//BLOCK, self.pos[1]//BLOCK)
-		super().__init__(gridpos=self.gridpos, image=None)
 		self.client_id = client_id
 		self.image = pygame.Surface((5,5), pygame.SRCALPHA)
 		#self.image.fill((255,0,0))
 		self.rect = self.image.get_rect()
 		self.size = FLAMESIZE
-		self.rect.centerx = self.pos[0]
-		self.rect.centery = self.pos[1]
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
 		self.start_pos = self.pos
 		self.start_rect = self.rect
 		self.start_midtop = self.rect.midtop
 		self.start_midbottom = self.rect.midbottom
-		self.start_center = Vector2((rect.centerx, rect.centery))
+		self.start_center = Vector2((self.rect.x, self.rect.y))
 		self.vel = Vector2(vel)
 		self.timer = 4000
 		self.flame_length = flame_length
@@ -286,10 +297,10 @@ class Flame(BasicThing):
 		dist = Vector2(self.start_pos).distance_to(Vector2(self.pos))
 		if dist >= self.flame_length:
 			self.kill()
-		pygame.draw.line(surface, (200, 5, 5), self.start_center, self.pos, 1)
-		pygame.draw.line(surface, (255, 255, 255), self.start_midtop, self.pos, 2)
-		pygame.draw.line(surface, (255, 255, 255), self.start_midbottom, self.pos, 2)
-		pygame.draw.line(surface, (255, 5, 5), self.start_rect.midbottom, self.pos, 3)
+		pygame.draw.line(surface, (200, 5, 5), self.start_center, self.rect.center, 1)
+		#pygame.draw.line(surface, (255, 255, 255), self.start_midtop, self.pos, 2)
+		#pygame.draw.line(surface, (255, 255, 255), self.start_midbottom, self.pos, 2)
+		#pygame.draw.line(surface, (255, 5, 5), self.start_rect.midbottom, self.pos, 3)
 		pygame.draw.circle(surface, color=(200, 5, 5), center=self.rect.center, radius=7, width=1)
 		#pygame.draw.line(surface, (1, 255, 0), self.start_pos, self.rect.center, 2)
 		#pygame.draw.line(surface, (255, 0, 1), self.start_center, self.rect.center, 2)

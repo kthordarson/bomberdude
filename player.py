@@ -78,7 +78,7 @@ class Player(BasicThing, Thread):
 	def send_bomb(self):
 		# send bomb to server
 		# self.gamemap.grid[bx][by] = {'blktype':11, 'bomb':True}
-		bombpos = (self.rect.x*BLOCK, self.rect.y*BLOCK)
+		bombpos = self.rect.center
 		bx,by = self.gridpos
 		if self.bombs_left >= 0 and not self.gamemap.grid[bx][by].get('bomb'):
 			self.gamemap.grid[bx][by] = {'blktype':11, 'bomb':True}
@@ -90,9 +90,7 @@ class Player(BasicThing, Thread):
 
 	def send_requestpos(self):
 		# get initial position from server
-
 		payload = {'msgtype': 'cl_reqpos', 'client_id': self.client_id, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
-
 		self.sender.queue.put((self.socket, payload))
 		if not self.gotpos:
 			logger.debug(f'sending cl_reqpos payload={payload}')
@@ -112,11 +110,9 @@ class Player(BasicThing, Thread):
 		payload = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'gridsize':gridsize}
 		self.sender.queue.put((self.socket, payload))
 
-
 	def send_refreshgrid(self):
 		# request map from server
 		payload = {'client_id':self.client_id, 'msgtype':'refreshsgrid', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
-
 		self.sender.queue.put((self.socket, payload))
 
 	def send_gridupdate(self, gridpos=None, blktype=None, grid_data=None):
@@ -172,41 +168,37 @@ class Player(BasicThing, Thread):
 		return self.connected
 
 	def move(self, direction):
-		if self.ready and self.gotmap and self.gotpos:
-			gpx = round(self.rect.x // BLOCK)
-			gpy = round(self.rect.y // BLOCK)
-			newgridpos = [gpx, gpy]
-			# logger.debug(f'{self} move {direction} {self.gridpos}')
-			# = {'blktgpype':blktgpype, 'bomb':False}
-			if direction == 'up':
-				if self.gamemap.grid[gpx][gpy-1].get('blktgpype', 0) > 10:
-					newgridpos = [gpx, gpy-1]
-				else:
-					pass
-					#logger.warning(f'cant move {direction} to {newgridpos} g:{self.gamemap.grid[gpx][gpy-1]}')
-			elif direction == 'down':
-				if self.gamemap.grid[gpx][gpy+1].get('blktgpype', 0) > 10:
-					newgridpos = [gpx, gpy+1]
-				else:
-					pass
-					#logger.warning(f'cant move {direction} to [{gpx}, {gpy+1}] g:{self.gamemap.grid[gpx][gpy+1]}')
-			elif direction == 'left':
-				if self.gamemap.grid[gpx-1][gpy].get('blktgpype', 0) > 10:
-					newgridpos = [gpx-1, gpy]
-				else:
-					pass
-					#logger.warning(f'cant move {direction}to [{gpx-1}, {gpy}] g:{self.gamemap.grid[gpx-1][gpy]}')
-			elif direction == 'right':
-				if self.gamemap.grid[gpx+1][gpy].get('blktgpype', 0) > 10:
-					newgridpos = [gpx+1, gpy]
-				else:
-					pass
-					# logger.warning(f'cant move {direction}to [{gpx+1}, {gpy}] g:{self.gamemap.grid[gpx+1][gpy]}')
+		#gpx = int(self.rect.x // BLOCK)
+		#gpy = int(self.rect.y // BLOCK)
+		oldgridpos = self.gridpos
+		gpx, gpy = self.gridpos
+		newgridpos = [gpx, gpy]
+		moved = False
+		# logger.debug(f'{self} move {direction} {self.gridpos}')
+		# = {'blktype':blktype, 'bomb':False}
+		if direction == 'up':
+			newgridpos = [gpx, gpy-1]
+		elif direction == 'down':
+			newgridpos = [gpx, gpy+1]
+		elif direction == 'left':
+			newgridpos = [gpx-1, gpy]
+		elif direction == 'right':
+			newgridpos = [gpx+1, gpy]
+		if self.gamemap.get_block(gridpos=newgridpos).get('blktype') > 10:
+			moved = True
+		if moved:
 			self.gridpos = newgridpos
 			self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 			self.rect.x = self.pos[0]
-			self.rect.x = self.pos[1]
+			self.rect.y = self.pos[1]
 			#send_data(self.socket, payload)
+			#logger.info(f'move {direction} from {oldgridpos} to {newgridpos} g:{self.gamemap.grid[gpx][gpy]} selfgridpos={self.gridpos} rect={self.rect} pos={self.pos}')
+		#else:
+			#gx,gy = newgridpos
+			# gtemp = self.gamemap.grid[gx][gy].get('blk')
+			#logger.warning(f'cant move {direction} from {oldgridpos} to {newgridpos} g:{self.gamemap.grid[gx][gy]} selfgridpos={self.gridpos} rect={self.rect} pos={self.pos}')
+			#logger.warning(f'selfgp={self.gamemap.get_block(gridpos=self.gridpos)} ngp={self.gamemap.get_block(gridpos=newgridpos)}')
+			# logger.warning(f'')
 
 
 	def handle_payloadq(self, payloads):
@@ -255,7 +247,7 @@ class Player(BasicThing, Thread):
 				pygame.event.post(Event(USEREVENT, payload={'msgtype':'netbomb', 'bombdata':payload}))
 				#pygame.event.post(bombmsg)
 
-			if msgtype == 'posupdate':
+			if msgtype == 's_posupdate':
 				# received posupdate from server
 				logger.info(f'posupdate payload={payload}')
 				pygame.event.post(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos}))
@@ -263,26 +255,18 @@ class Player(BasicThing, Thread):
 
 			if msgtype == 's_pos':
 				# received playerpos from server
-				newpos = payload.get('pos')
-				newgridpos = payload.get('newgridpos')
-				self.gridpos = newgridpos
-				self.gamemap.grid = payload.get('griddata')
-				self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+				self.pos = payload.get('pos')
+				self.gridpos = payload.get('newgridpos')
+				self.gamemap.grid = payload.get('grid')
 				self.gotpos = True
-				self.rect.x = self.pos[0]
-				self.rect.y = self.pos[1]
-				pygame.event.post(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':newpos, 'newgridpos':self.gridpos,'griddata':self.gamemap.grid}))
+				self.gotmap = True
+				pygame.event.post(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'newgridpos':self.gridpos, 'grid':self.gamemap.grid}))
 
 			if msgtype == 's_grid':
 				# complete grid from server
-				grid = payload.get('gamemapgrid', None)
-				if not grid:
-					logger.warning(f'no grid from server payload={payload}')
-					return
-				self.gamemap.grid = grid
-				#self.pos = payload.get('newpos', None)
+				self.gamemap.grid = payload.get('grid', None)
 				self.gridpos = payload.get('newgridpos', None)
-				self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+				self.pos = payload.get('newpos', None)
 				self.rect.x = self.pos[0]
 				self.rect.y = self.pos[1]
 				self.gotmap = True
