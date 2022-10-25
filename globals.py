@@ -200,6 +200,7 @@ class Bomb(BasicThing):
 		self.flame_width = 10
 		self.flamesout = False
 		self.flames = Group()
+		self.block_type = 11
 
 	def __str__(self):
 		return f'[bomb] gridpos={self.gridpos} pos={self.pos} bomber={self.bomber_id} timer={self.timer}'

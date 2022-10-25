@@ -1,6 +1,6 @@
 # bomberdude
 # 07102022 todo fix mapsync, limit one bomb per grid on map,
-import trio
+# todo check player movement while holding now keys
 from argparse import ArgumentParser
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
@@ -102,7 +102,12 @@ class Game(Thread):
 			for b in self.blocks:
 				x,y = b.gridpos
 				try:
-					if self.playerone.gamemap.grid[x][y].get("blktype") != b.block_type:
+					if isinstance(self.playerone.gamemap.grid[x][y], dict):
+						blkt = self.playerone.gamemap.grid[x][y].get("blktype")
+					else:
+						blkt = self.playerone.gamemap.grid[x][y]
+						logger.warning(f'grid {x},{y} is not dict but {blkt} -- b={b}')
+					if blkt != b.block_type:
 						needrefresh = True
 				except (IndexError, AttributeError) as e:
 					logger.error(f'{e} bcheck {b} btype={b.block_type} != p1grid={self.playerone.gamemap.grid}')
@@ -132,6 +137,7 @@ class Game(Thread):
 			newbomb.rect.center = bombpos
 			bx,by = newbomb.gridpos
 			self.playerone.gamemap.grid[bx][by] = {'blktype':11, 'bomb':True}
+			self.playerone.send_gridupdate(gridpos=newbomb.gridpos, blktype=newbomb.block_type, bomb=False)
 			self.bombs.add(newbomb)
 			logger.debug(f'{msgtype} gridpos:{bombgridpos} pos:{bombpos} {newbomb.pos} bl={self.playerone.bombs_left} b:{len(self.bombs)}')
 
@@ -174,18 +180,21 @@ class Game(Thread):
 					logger.warning(f'powerupdata: block already exists b={b.block_type} nb={pwrup.block_type}')
 					b.kill()
 			self.blocks.add(pwrup)
+			self.playerone.send_gridupdate(gridpos=pwrup.gridpos, blktype=pwrup.block_type, bomb=False)
 
 		elif msgtype == 'poweruptimeout':
 			nb = gamemsg.get('blockdata')
 			x,y = nb.gridpos
 			self.playerone.gamemap.grid[x][y] = {'blktype':11, 'bomb':False}
 			self.blocks.add(nb)
+			self.playerone.send_gridupdate(gridpos=nb.gridpos, blktype=nb.block_type, bomb=False)
 
 		elif msgtype == 'poweruppickup':
 			nb = gamemsg.get('blockdata')
 			x,y = nb.gridpos
 			self.playerone.gamemap.grid[x][y] = {'blktype':11, 'bomb':False}
 			self.blocks.add(nb)
+			self.playerone.send_gridupdate(gridpos=nb.gridpos, blktype=nb.block_type, bomb=False)
 
 		elif msgtype == 'newblock':
 			nb = gamemsg.get('blockdata')
@@ -194,6 +203,7 @@ class Game(Thread):
 			x,y = nb.gridpos
 			self.playerone.gamemap.grid[x][y] = {'blktype':nb.block_type, 'bomb':False}
 			self.blocks.add(nb)
+			self.playerone.send_gridupdate(gridpos=nb.gridpos, blktype=nb.block_type, bomb=False)
 			# self.updategrid(self.playerone.gamemap.grid)
 
 		elif msgtype == 'c_ngu':
@@ -203,7 +213,7 @@ class Game(Thread):
 			blktype = gamemsg.get("blktype")
 			bclid = gamemsg.get('bclid')
 			clientid = gamemsg.get('client_id')
-			newblock = Block(pos=(x*BLOCK, y*BLOCK), gridpos=gridpos, block_type=blktype, client_id=bclid, rm=self.rm)
+			nb = Block(pos=(x*BLOCK, y*BLOCK), gridpos=gridpos, block_type=blktype, client_id=bclid, rm=self.rm)
 			if self.playerone.client_id == bclid or self.playerone.client_id == clientid:
 				pass
 			else:
@@ -212,12 +222,13 @@ class Game(Thread):
 				logger.warning(f'{msgtype} mismatch {self.playerone.client_id} gamemsg={gamemsg}')
 			self.playerone.gamemap.grid[x][y] = {'blktype':blktype, 'bomb':False}
 			for b in self.blocks:
-				if b.gridpos == newblock.gridpos:
-					logger.warning(f'{msgtype} block already exists b={b.block_type} nb={newblock.block_type}')
+				if b.gridpos == nb.gridpos:
+					# logger.warning(f'{msgtype} block already exists b={b.block_type} nb={nb.block_type}')
 					b.kill()
-			self.blocks.add(newblock)
+			self.blocks.add(nb)
+			self.playerone.send_gridupdate(gridpos=nb.gridpos, blktype=nb.block_type, bomb=False)
 			blkcnt = len(self.blocks)
-			logger.info(f'{msgtype} bclid={bclid} clientid={clientid} newblock={newblock} {self.playerone.gamemap.grid[x][y].get("blktype")} blkcnt={blkcnt}/{old_blkcnt}')
+			# logger.info(f'{msgtype} bclid={bclid} clientid={clientid} newblock={nb} {self.playerone.gamemap.grid[x][y].get("blktype")} blkcnt={blkcnt}/{old_blkcnt}')
 
 		elif msgtype == 's_gamemapgrid':
 			grid = gamemsg.get('grid', None)
@@ -233,7 +244,12 @@ class Game(Thread):
 		idx = 0
 		for k in range(0, len(self.playerone.gamemap.grid)):
 			for j in range(0, len(self.playerone.gamemap.grid)):
-				blktype = self.playerone.gamemap.grid[j][k].get("blktype")
+				blktype_ = self.playerone.gamemap.grid[j][k] #.get("blktype")
+				if isinstance(blktype_, dict):
+					blktype = blktype_.get("blktype")
+				else:
+					logger.warning(blktype_)
+					blktype = blktype_
 				newblock = Block(Vector2(j * BLOCK, k * BLOCK), (j, k), block_type=blktype, client_id=self.playerone.client_id, rm=self.rm)
 				newblks.add(newblock)
 				idx += 1
