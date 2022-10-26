@@ -207,27 +207,21 @@ class Game(Thread):
 			# self.updategrid(self.playerone.gamemap.grid)
 
 		elif msgtype == 'c_ngu':
-			old_blkcnt = len(self.blocks)
 			gridpos = gamemsg.get('blkgridpos')
 			x,y = gridpos
 			blktype = gamemsg.get("blktype")
 			bclid = gamemsg.get('bclid')
 			clientid = gamemsg.get('client_id')
 			nb = Block(pos=(x*BLOCK, y*BLOCK), gridpos=gridpos, block_type=blktype, client_id=bclid, rm=self.rm)
-			if self.playerone.client_id == bclid or self.playerone.client_id == clientid:
-				pass
-			else:
-				logger.info(f'{msgtype} from netplayer b={bclid} bc={clientid} p1={self.playerone.client_id} gamemsg={gamemsg}')
 			if self.playerone.gamemap.grid[x][y].get("blktype") != blktype:
-				logger.warning(f'{msgtype} mismatch {self.playerone.client_id} gamemsg={gamemsg}')
-			self.playerone.gamemap.grid[x][y] = {'blktype':blktype, 'bomb':False}
-			for b in self.blocks:
-				if b.gridpos == nb.gridpos:
-					# logger.warning(f'{msgtype} block already exists b={b.block_type} nb={nb.block_type}')
-					b.kill()
-			self.blocks.add(nb)
-			self.playerone.send_gridupdate(gridpos=nb.gridpos, blktype=nb.block_type, bomb=False)
-			blkcnt = len(self.blocks)
+				logger.info(f'{msgtype} blockupdate from {clientid} blktype={blktype} p1gridblktype={self.playerone.gamemap.grid[x][y].get("blktype")} gamemsg={gamemsg}')
+				self.playerone.gamemap.grid[x][y] = {'blktype':blktype, 'bomb':False}
+				for b in self.blocks:
+					if b.gridpos == nb.gridpos:
+						# logger.warning(f'{msgtype} block already exists b={b.block_type} nb={nb.block_type}')
+						b.kill()
+				self.blocks.add(nb)
+				self.playerone.send_gridupdate(gridpos=nb.gridpos, blktype=nb.block_type, bomb=False)
 			# logger.info(f'{msgtype} bclid={bclid} clientid={clientid} newblock={nb} {self.playerone.gamemap.grid[x][y].get("blktype")} blkcnt={blkcnt}/{old_blkcnt}')
 
 		elif msgtype == 's_gamemapgrid':
