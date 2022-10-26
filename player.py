@@ -184,7 +184,7 @@ class Player(BasicThing, Thread):
 			newgridpos = [gpx-1, gpy]
 		elif direction == 'right':
 			newgridpos = [gpx+1, gpy]
-		if self.gamemap.get_block(gridpos=newgridpos).get('blktype') > 10:
+		if self.gamemap.get_block(gridpos=newgridpos).get('blktype', 0) > 10:
 			moved = True
 		if moved:
 			self.gridpos = newgridpos
