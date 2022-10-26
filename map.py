@@ -70,18 +70,19 @@ class Gamemap:
 		return grid, (nx, ny), (gpx, gpy)
 
 	def is_empty(self):
-		cnt = 0
-		try:
-			for x in range(len(self.grid)):
-				for y in range(len(self.grid)):
-					if self.grid[x][y].get("blktype") in range(1,9):
-						cnt += 1
-			if cnt == 0:
-				return True
-			else:
-				return False
-		except TypeError as e:
-			logger.error(f'[map] is_empty {e} {self.grid}')
+		return False
+		# cnt = 0
+		# try:
+		# 	for x in range(len(self.grid)):
+		# 		for y in range(len(self.grid)):
+		# 			if self.grid[x][y].get("blktype") in range(1,9):
+		# 				cnt += 1
+		# 	if cnt == 0:
+		# 		return True
+		# 	else:
+		# 		return False
+		# except TypeError as e:
+		# 	logger.error(f'[map] is_empty {e} {self.grid}')
 
 	def get_bcount(self, cval=0):
 		cnt = 0

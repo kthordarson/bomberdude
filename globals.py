@@ -68,7 +68,6 @@ def gen_randid():
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
 
 class BasicThing(Sprite):
-
 	def __init__(self, gridpos, image):
 		super().__init__()
 		self.gridpos = gridpos
@@ -110,7 +109,7 @@ class Block(BasicThing):
 		self.image, self.rect = self.rm.get_image(filename=self.bitmap, force=False)
 		self.explode = False
 		self.timer = BLOCKTYPES.get(self.block_type)["timer"]
-		self.image = pygame.transform.scale(self.image, self.size)
+		self.image = pygame.transform.scale(self.image, self.size).convert()
 		self.rect = self.image.get_rect(topleft=self.pos)
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
@@ -182,7 +181,7 @@ class Bomb(BasicThing):
 		self.gridpos = gridpos
 		super().__init__(gridpos=self.gridpos, image=None)
 		self.image, self.rect = self.rm.get_image(filename='data/bomb.png', force=False)
-		self.image = pygame.transform.scale(self.image, BOMBSIZE)
+		self.image = pygame.transform.scale(self.image, BOMBSIZE).convert()
 		self.bomber_id = bomber_id
 		self.rect = self.image.get_rect(center=self.pos)
 		self.rect.x = self.pos[0]
@@ -200,6 +199,7 @@ class Bomb(BasicThing):
 		self.flame_width = 10
 		self.flamesout = False
 		self.flames = Group()
+		self.block_type = 11
 
 	def __str__(self):
 		return f'[bomb] gridpos={self.gridpos} pos={self.pos} bomber={self.bomber_id} timer={self.timer}'

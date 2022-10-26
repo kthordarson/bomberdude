@@ -115,7 +115,7 @@ class Player(BasicThing, Thread):
 		payload = {'client_id':self.client_id, 'msgtype':'refreshsgrid', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
 		self.sender.queue.put((self.socket, payload))
 
-	def send_gridupdate(self, gridpos=None, blktype=None, grid_data=None):
+	def send_gridupdate(self, gridpos=None, blktype=None, grid_data=None, bomb=False):
 		# inform server about grid update
 		# called after bomb explodes and kills block
 		self.gamemap.grid[gridpos[0]][gridpos[1]] = {'blktype':blktype, 'bomb':False}
@@ -233,13 +233,9 @@ class Player(BasicThing, Thread):
 				bclid = payload.get('bclid')
 				# update local grid
 				self.gamemap.grid[gridpos[0]][gridpos[1]] = {'blktype':blktype, 'bomb':False}
-				if not blktype:
-					logger.error(f'missing blktype gp={gridpos} b={blktype} payload={payload} bclid={bclid}')
-					return
-				else:
-					logger.debug(f'{msgtype} g={gridpos} b={blktype} bclid={bclid} client_id={self.client_id}')
-					pygame.event.post(Event(USEREVENT, payload={'msgtype':'c_ngu', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid}))
-					# send grid update
+				# logger.debug(f'{msgtype} g={gridpos} b={blktype} bclid={bclid} client_id={self.client_id}')
+				pygame.event.post(Event(USEREVENT, payload={'msgtype':'c_ngu', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid}))
+				# send grid update to bdude
 
 			if msgtype == 'bc_netbomb':
 				# received bomb from server
