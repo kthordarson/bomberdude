@@ -1,5 +1,4 @@
 import pygame
-from pygame import USEREVENT
 from pygame.event import Event
 from pygame.math import Vector2
 from pygame.sprite import spritecollide
@@ -7,7 +6,7 @@ from globals import BasicThing
 from loguru import logger
 from globals import gen_randid
 from threading import Thread
-from constants import BLOCK, PLAYERSIZE
+from constants import BLOCK, PLAYERSIZE, PLAYEREVENT
 import socket
 from map import Gamemap
 from network import send_data, receive_data, Sender
@@ -234,20 +233,20 @@ class Player(BasicThing, Thread):
 				# update local grid
 				self.gamemap.grid[gridpos[0]][gridpos[1]] = {'blktype':blktype, 'bomb':False}
 				# logger.debug(f'{msgtype} g={gridpos} b={blktype} bclid={bclid} client_id={self.client_id}')
-				pygame.event.post(Event(USEREVENT, payload={'msgtype':'c_ngu', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid}))
+				pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'c_ngu', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid}))
 				# send grid update to bdude
 
 			if msgtype == 'bc_netbomb':
 				# received bomb from server
 				if payload.get('client_id') == self.client_id:
 					self.bombs_left -= 1	
-				pygame.event.post(Event(USEREVENT, payload={'msgtype':'bc_netbomb', 'bombdata':payload}))
+				pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'bc_netbomb', 'bombdata':payload}))
 				logger.info(f'bombfromserver bl={self.bombs_left} payload={payload}')
 
 			if msgtype == 's_posupdate':
 				# received posupdate from server
 				logger.info(f'posupdate payload={payload}')
-				pygame.event.post(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos}))
+				pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos}))
 				#pygame.event.post(posmsg)
 
 			if msgtype == 's_pos':
@@ -257,7 +256,7 @@ class Player(BasicThing, Thread):
 				self.gamemap.grid = payload.get('grid')
 				self.gotpos = True
 				self.gotmap = True
-				pygame.event.post(Event(USEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'gridpos':self.gridpos, 'grid':self.gamemap.grid}))
+				pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'gridpos':self.gridpos, 'grid':self.gamemap.grid}))
 
 			if msgtype == 's_grid':
 				# complete grid from server
@@ -269,7 +268,7 @@ class Player(BasicThing, Thread):
 				self.gotmap = True
 				self.gotpos = True
 				self.ready = True
-				pygame.event.post(Event(USEREVENT, payload={'msgtype':'s_gamemapgrid', 'client_id':self.client_id, 'grid':self.gamemap.grid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'gridpos':self.gridpos}))
+				pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'s_gamemapgrid', 'client_id':self.client_id, 'grid':self.gamemap.grid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'gridpos':self.gridpos}))
 				logger.debug(f's_grid g={len(self.gamemap.grid)} newpos={self.pos} {self.gridpos} p1={self}')
 
 	def send_pos(self):

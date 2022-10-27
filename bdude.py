@@ -5,11 +5,10 @@ from argparse import ArgumentParser
 from pygame.sprite import Group, spritecollide
 from pygame.math import Vector2
 from pygame.event import Event
-from pygame import USEREVENT
 import pygame
 from loguru import logger
 from globals import Block, Bomb, ResourceHandler
-from constants import BLOCK, DEBUG, DEFAULTFONT, NETPLAYERSIZE, FPS
+from constants import BLOCK, DEBUG, DEFAULTFONT, NETPLAYERSIZE, FPS, BDUDEEVENT,SENDPOSEVENT,PLAYEREVENT
 from menus import Menu
 from player import Player
 from threading import Thread
@@ -51,15 +50,13 @@ class Game(Thread):
 		return f'[G] run:{self.running} updategridcnt={self.updategridcnt} p1 p1conn:{self.playerone.connected} p1ready:{self.playerone.ready} p1gotmap:{self.playerone.gotmap} p1gotpos:{self.playerone.gotpos} np:{len(self.playerone.netplayers)} '
 	
 	def run(self):
-		# pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP, pygame.USEREVENT])
 		pygame.display.set_mode(size=(800,800), flags=pygame.DOUBLEBUF, vsync=1)
 		self.screen = pygame.display.get_surface() # pygame.display.set_mode(SCREENSIZE, 0, vsync=0) # pygame.display.get_surface()# pygame.display.set_mode(SCREENSIZE, 0, 32)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 12)
 		self.screenw, self.screenh = pygame.display.get_surface().get_size()
 		self.gui = GameGUI(self.screen)
 		self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png').convert(), (1000,900))
-		send_pos_event = pygame.USEREVENT + 10
-		pygame.time.set_timer(send_pos_event, 100)
+		pygame.time.set_timer(SENDPOSEVENT, 100)
 		while True:
 			if self.kill:
 				logger.warning(f'{self} game kill')
@@ -69,8 +66,8 @@ class Game(Thread):
 			events_ = pygame.event.get()
 			mouse_events = [event for event in events_ if event.type == pygame.MOUSEBUTTONDOWN]
 			input_events = [event for event in events_ if event.type in (pygame.KEYDOWN, pygame.TEXTINPUT)]
-			user_events = [event for event in events_ if event.type == pygame.USEREVENT]
-			sendposevents = [event for event in events_ if event.type == pygame.USEREVENT+10]
+			user_events = [event for event in events_ if event.type in (BDUDEEVENT, PLAYEREVENT)]
+			sendposevents = [event for event in events_ if event.type == SENDPOSEVENT]
 			self.draw()
 			for event in sendposevents:
 				self.playerone.send_pos()
@@ -272,7 +269,7 @@ class Game(Thread):
 					self.playerone.gamemap.grid[x][y] = {'blktype':11, 'bomb':False}
 					nb = Block(b.pos, b.gridpos, block_type=11, client_id=b.client_id, rm=self.rm)
 					logger.debug(f'p1={self.playerone} poweruppickup b={b} ')
-					pygame.event.post(Event(USEREVENT, payload={'msgtype': 'poweruppickup', 'blockdata': nb}))
+					pygame.event.post(Event(BDUDEEVENT, payload={'msgtype': 'poweruppickup', 'blockdata': nb}))
 					b.kill()
 				# if block is powerup, check timer
 				if pygame.time.get_ticks() - b.start_time >= b.timer:
@@ -281,7 +278,7 @@ class Game(Thread):
 					self.playerone.gamemap.grid[nx][ny] = {'blktype':11, 'bomb':False}
 					nb = Block(b.pos, b.gridpos, block_type=11, client_id=b.client_id, rm=self.rm)
 					logger.debug(f'poweruptimeout b={b} nb={nb} grid[x][y].get("blktype")={self.playerone.gamemap.grid[nx][ny]} bgridpos={b.gridpos} ')
-					pygame.event.post(Event(USEREVENT, payload={'msgtype': 'poweruptimeout', 'blockdata': nb}))
+					pygame.event.post(Event(BDUDEEVENT, payload={'msgtype': 'poweruptimeout', 'blockdata': nb}))
 					b.kill()
 	
 	def update_bombs(self):
@@ -296,10 +293,10 @@ class Game(Thread):
 				bx,by = bomb.gridpos
 				pos = (bx * BLOCK, by * BLOCK)
 				nb = Block(pos=pos, gridpos=bomb.gridpos, block_type=11, client_id=bomb.bomber_id, rm=self.rm)
-				pygame.event.post(Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': nb, 'oldblock':bomb}))
+				pygame.event.post(Event(BDUDEEVENT, payload={'msgtype': 'newblock', 'blockdata': nb, 'oldblock':bomb}))
 				self.playerone.gamemap.grid[bx][by] = {'blktype':nb.block_type, 'bomb':False}
 				flames = bomb.exploder()
-				flamemsg = Event(USEREVENT, payload={'msgtype': 'flames', 'flamedata': flames})
+				flamemsg = Event(BDUDEEVENT, payload={'msgtype': 'flames', 'flamedata': flames})
 				pygame.event.post(flamemsg)
 				bomb.kill()
 	
@@ -326,11 +323,11 @@ class Game(Thread):
 								self.playerone.score += 1
 						# block hits return particles and a new block
 						particles, newblock = block.hit(flame)
-						particlemsg = Event(USEREVENT, payload={'msgtype': 'particles', 'particledata': particles})
+						particlemsg = Event(BDUDEEVENT, payload={'msgtype': 'particles', 'particledata': particles})
 						pygame.event.post(particlemsg)
 						#if newblock:
 						self.playerone.gamemap.grid[x][y] = {'blktype':newblock.block_type, 'bomb':False}
-						blockmsg = Event(USEREVENT, payload={'msgtype': 'newblock', 'blockdata': newblock, 'oldblock':block})
+						blockmsg = Event(BDUDEEVENT, payload={'msgtype': 'newblock', 'blockdata': newblock, 'oldblock':block})
 						pygame.event.post(blockmsg)
 						flame.kill()
 						block.kill()

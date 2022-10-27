@@ -1,7 +1,14 @@
 import pygame
+from pygame import Color
+from pygame import USEREVENT
+SERVEREVENT = USEREVENT + 1
+SENDUPDATEEVENT = pygame.USEREVENT + 11
+BDUDEEVENT = pygame.USEREVENT + 12
+PLAYEREVENT = pygame.USEREVENT + 13
+SENDPOSEVENT = pygame.USEREVENT + 14
+
 DEBUG = True
 DEFAULTFONT = "data/DejaVuSans.ttf"
-from pygame import Color
 COLOR_INACTIVE = Color('lightskyblue3')
 COLOR_ACTIVE = Color('dodgerblue2')
 

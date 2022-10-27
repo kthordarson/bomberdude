@@ -1,12 +1,11 @@
 from pygame.event import Event
-from pygame import USEREVENT
 import pygame
 import struct
 import socket
 import sys,os
 from loguru import logger
 from threading import Thread
-from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE
+from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE, SERVEREVENT,SENDUPDATEEVENT
 from map import Gamemap
 from globals import gen_randid
 from network import receive_data, send_data, Sender
@@ -140,42 +139,42 @@ class BombClientHandler(Thread):
 						#logger.debug(f'resp={resp}')
 						self.gridpos = resp.get('gridpos')
 						if self.client_id:
-							pygame.event.post(Event(USEREVENT, payload={'msgtype':'playerpos', 'client_id':self.client_id, 'posdata':resp, 'bchtimer':self.bchtimer}))
+							pygame.event.post(Event(SERVEREVENT, payload={'msgtype':'playerpos', 'client_id':self.client_id, 'posdata':resp, 'bchtimer':self.bchtimer}))
 						else:
 							logger.warning(f'no client_id in resp:{resp}')
 
 					elif msgtype == 'cl_gridupdate':
 						# new grid and send update to clients
-						pygame.event.post(Event(USEREVENT, payload={'msgtype': 'cl_gridupdate', 'cl_gridupdate': resp, 'bchtimer':self.bchtimer}))
+						pygame.event.post(Event(SERVEREVENT, payload={'msgtype': 'cl_gridupdate', 'cl_gridupdate': resp, 'bchtimer':self.bchtimer}))
 
 					elif msgtype == 'cl_bombdrop':
-						pygame.event.post(Event(USEREVENT, payload={'msgtype':'bc_netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'bombpower':resp.get('bombpower'), 'bchtimer':self.bchtimer}))
+						pygame.event.post(Event(SERVEREVENT, payload={'msgtype':'bc_netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'bombpower':resp.get('bombpower'), 'bchtimer':self.bchtimer}))
 
 					elif msgtype == 'clientquit':
-						ev = Event(USEREVENT, payload={'msgtype':'clientquit', 'client_id':self.client_id, 'bchtimer':self.bchtimer})
+						ev = Event(SERVEREVENT, payload={'msgtype':'clientquit', 'client_id':self.client_id, 'bchtimer':self.bchtimer})
 						pygame.event.post(ev)
 
 					elif msgtype == 'cl_reqpos':
-						pygame.event.post(Event(USEREVENT, payload={'msgtype':'cl_reqpos', 'client_id':self.client_id, 'bchtimer':self.bchtimer}))
+						pygame.event.post(Event(SERVEREVENT, payload={'msgtype':'cl_reqpos', 'client_id':self.client_id, 'bchtimer':self.bchtimer}))
 
 					elif msgtype == 'cl_pong':
 						self.bchtimer = 0
 						self.lastupdate = 0
-						pygame.event.post(Event(USEREVENT, payload={'msgtype':'scl_pong', 'client_id':self.client_id, 'bchtimer':self.bchtimer}))
+						pygame.event.post(Event(SERVEREVENT, payload={'msgtype':'scl_pong', 'client_id':self.client_id, 'bchtimer':self.bchtimer}))
 
 					elif msgtype == 'posupdate':
 						logger.warning(f'msgtype={msgtype} resp={resp}')
 						# client sent posupdate
-						# ev = Event(USEREVENT, payload={'msgtype':'posupdate', 'client_id':self.client_id, 'posupdata':resp, 'bchtimer':self.bchtimer})
+						# ev = Event(SERVEREVENT, payload={'msgtype':'posupdate', 'client_id':self.client_id, 'posupdata':resp, 'bchtimer':self.bchtimer})
 						#pygame.event.post(ev)
 
 					elif msgtype == 'resetmap':
 						# make new mapgrid and send to all clients
 						logger.warning(f'msgtype={msgtype} resp={resp}')
-						# pygame.event.post(Event(USEREVENT, payload={'msgtype':'resetmap', 'client_id':self.client_id, 'bchtimer':self.bchtimer}))
+						# pygame.event.post(Event(SERVEREVENT, payload={'msgtype':'resetmap', 'client_id':self.client_id, 'bchtimer':self.bchtimer}))
 
 					elif msgtype == 'maprequest':
-						pygame.event.post(Event(USEREVENT, payload={'msgtype':'maprequest', 'client_id':self.client_id, 'gridsize':resp.get('gridsize'), 'bchtimer':self.bchtimer}))
+						pygame.event.post(Event(SERVEREVENT, payload={'msgtype':'maprequest', 'client_id':self.client_id, 'gridsize':resp.get('gridsize'), 'bchtimer':self.bchtimer}))
 						#self.send_map()
 
 					elif msgtype == 'refreshsgrid':
@@ -331,7 +330,7 @@ class BombServer(Thread):
 		for bc in self.bombclients:
 			if bc.client_id:
 				bc.send_netupdate(netplayers=self.netplayers, grid=self.gamemap.grid)
-		# pygame.event.post(Event(USEREVENT, payload={'msgtype':'s_netplayers', 'netplayers':self.netplayers}))
+		# pygame.event.post(Event(SERVEREVENT, payload={'msgtype':'s_netplayers', 'netplayers':self.netplayers}))
 
 	def remove_dead_player(self, bc):
 		logger.warning(f'remove_dead_player {bc}')
@@ -344,8 +343,8 @@ class BombServer(Thread):
 
 	def run(self):
 		logger.debug(f'{self} run')
-		send_update_event = pygame.USEREVENT + 11
-		pygame.time.set_timer(send_update_event, 50)
+		
+		pygame.time.set_timer(SENDUPDATEEVENT, 50)
 		while not self.kill:
 			events = pygame.event.get()
 			for event in events:
@@ -362,9 +361,9 @@ class BombServer(Thread):
 					self.conn.close()
 					logger.info(f'{self.conn} close')
 					os._exit(0)
-				elif event.type == pygame.USEREVENT:
+				elif event.type == SERVEREVENT:
 					self.eventhandler(event.payload)
-				elif event.type == pygame.USEREVENT+11:
+				elif event.type == SENDUPDATEEVENT:
 					self.send_update_event()
 				elif event.type in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION, pygame.MOUSEBUTTONUP, 32786, 32777, 772, 32768, 1027, 32775, 32774, 32770, 32785, 4352,32776, 32788,32783,32784,32788]:
 					pass
@@ -398,7 +397,6 @@ class ServerTUI(Thread):
 					self.get_serverinfo()
 				if cmd[:1] == 'q':
 					self.kill = True
-					#quitevent=Event(USEREVENT, payload={'msgtype':'tuiquit'})
 					pygame.event.post(Event(pygame.QUIT))
 					break
 			except KeyboardInterrupt:
@@ -426,7 +424,7 @@ def main():
 			return
 		try:
 			conn, addr = server.conn.accept()
-			ncmsg=Event(USEREVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
+			ncmsg=Event(SERVEREVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
 			logger.info(f'ncmsg={ncmsg}')
 			pygame.event.post(ncmsg)
 		except (KeyboardInterrupt, OSError) as e:
