@@ -3,7 +3,9 @@ import json
 from loguru import logger
 from queue import SimpleQueue as Queue
 from threading import Thread
-def send_data(conn=None, payload=None):
+
+from globals import gen_randid
+def send_data(conn=None, payload=None, pktid=None):
 	if conn:
 		if conn._closed:
 			return
@@ -24,6 +26,7 @@ def send_data(conn=None, payload=None):
 		if payload is None:
 			logger.error('No payload')
 			return
+		payload['pktid'] = pktid
 		data = json.dumps(payload, skipkeys=True).encode('utf-8')
 		try:
 			conn.sendall(data)
@@ -87,8 +90,9 @@ def receive_data(conn):
 
 
 class Sender(Thread):
-	def __init__(self, client_id):
+	def __init__(self, client_id, s_type):
 		Thread.__init__(self, daemon=True)
+		self.s_type = s_type
 		self.kill = False
 		self.queue = Queue()
 		self.sendcount = 0
@@ -96,7 +100,7 @@ class Sender(Thread):
 		logger.info(f'{self} init')
 
 	def __str__(self):
-		return f'[sender clid={self.client_id} count={self.sendcount} sq:{self.queue.qsize()}]'
+		return f'[sender {self.s_type} clid={self.client_id} count={self.sendcount} sq:{self.queue.qsize()}]'
 
 	def run(self):
 		logger.info(f'{self} run')
@@ -113,7 +117,7 @@ class Sender(Thread):
 				# logger.debug(f'{self} senderthread sending payload:{payload}')
 				try:
 					# send_data(conn, payload={'msgtype':'bcnetupdate', 'payload':payload})
-					send_data(conn=conn, payload=payload)
+					send_data(conn=conn, payload=payload, pktid=gen_randid())
 					self.sendcount += 1
 				except (BrokenPipeError, ConnectionResetError) as e:
 					logger.error(f'{self} senderr {e}')
