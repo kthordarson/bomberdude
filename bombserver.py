@@ -28,7 +28,7 @@ class BombClientHandler(Thread):
 		self.lastupdate = 0
 		self.maxtimeout = 100
 		self.bchtimer = pygame.time.get_ticks()
-		self.sender = Sender(client_id=self.client_id)
+		self.sender = Sender(client_id=self.client_id, s_type='bch')
 		logger.debug(self)
 
 	def __str__(self):
@@ -116,6 +116,7 @@ class BombClientHandler(Thread):
 				for resp in incoming_data:
 					try:
 						msgtype = resp.get('msgtype')
+						in_pktid = resp.get('pktid')
 					except AttributeError as e: 
 						logger.error(f'AttributeError {e} resp={resp}')
 						break

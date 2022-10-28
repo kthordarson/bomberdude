@@ -366,6 +366,8 @@ class Game(Thread):
 			pos += (0, 15)
 			if self.playerone.ready:
 				self.font.render_to(self.screen, pos, f"p1 pos {self.playerone.pos} {self.playerone.gridpos} sendq {self.playerone.sender.queue.qsize()} np:{len(self.playerone.netplayers)}", (183, 183, 183))
+				pos += (0, 15)
+				self.font.render_to(self.screen, pos, f"recpayloadcnt= {self.playerone.payloadcnt} send= {self.playerone.sender.sendcount}  diff= {self.playerone.payloadcnt - self.playerone.sender.sendcount}  ", (183, 183, 183))
 		if self.extradebug:
 			for b in self.blocks:
 				b.debug_draw(screen=self.screen, font=self.debugfont)

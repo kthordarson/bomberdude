@@ -30,7 +30,7 @@ class Player(BasicThing, Thread):
 			self.surface = pygame.display.get_surface() # pygame.Surface(PLAYERSIZE)
 			self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			self.receiver = Thread(target=self.receive_data, daemon=True)
-			self.sender = Sender(client_id=self.client_id)# Thread(target=self.send_updates,daemon=True)
+			self.sender = Sender(client_id=self.client_id, s_type='player')# Thread(target=self.send_updates,daemon=True)
 		if dummy:
 			self.socket = None # socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.ready = False
@@ -49,7 +49,6 @@ class Player(BasicThing, Thread):
 		# counters
 		self.rcnt = 0
 		self.sendcnt = 0
-		self.recvcnt = 0
 		self.payloadcnt = 0
 		self.mapreqcnt = 0
 		self.cl_timer = 0
@@ -68,8 +67,9 @@ class Player(BasicThing, Thread):
 		while not self.kill:
 			try:
 				if self.connected:
-					self.handle_payloadq(receive_data(conn=self.socket))
-					self.recvcnt += 1
+					payloads = receive_data(conn=self.socket)
+					self.handle_payloadq(payloads)
+					self.payloadcnt += len(payloads)
 			except Exception as e:
 				logger.error(e)
 
@@ -81,7 +81,7 @@ class Player(BasicThing, Thread):
 		bx,by = self.gridpos
 		if self.bombs_left >= 0 and not self.gamemap.grid[bx][by].get('bomb'):
 			self.gamemap.grid[bx][by] = {'blktype':11, 'bomb':True}
-			payload = {'msgtype': 'cl_bombdrop', 'client_id':self.client_id, 'bombpos':bombpos,'bombgridpos':self.gridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower}
+			payload = {'msgtype': 'cl_bombdrop', 'client_id':self.client_id, 'bombpos':bombpos,'bombgridpos':self.gridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower, 'c_pktid': gen_randid()}
 			self.sender.queue.put((self.socket, payload))
 			logger.debug(f'send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos") } bombs_left={self.bombs_left} gridbomb={self.gamemap.grid[bx][by].get("bomb")}')
 		elif self.gamemap.grid[bx][by].get('bomb'):
@@ -89,7 +89,7 @@ class Player(BasicThing, Thread):
 
 	def send_requestpos(self):
 		# get initial position from server
-		payload = {'msgtype': 'cl_reqpos', 'client_id': self.client_id, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
+		payload = {'msgtype': 'cl_reqpos', 'client_id': self.client_id, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'c_pktid': gen_randid()}
 		self.sender.queue.put((self.socket, payload))
 		if not self.gotpos:
 			logger.debug(f'sending cl_reqpos payload={payload}')
@@ -106,19 +106,19 @@ class Player(BasicThing, Thread):
 			return
 
 		logger.debug(f'send_maprequest gridsize={gridsize} / p1gz={self.gamemap.gridsize}')
-		payload = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'gridsize':gridsize}
+		payload = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'gridsize':gridsize, 'c_pktid': gen_randid()}
 		self.sender.queue.put((self.socket, payload))
 
 	def send_refreshgrid(self):
 		# request map from server
-		payload = {'client_id':self.client_id, 'msgtype':'refreshsgrid', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos}
+		payload = {'client_id':self.client_id, 'msgtype':'refreshsgrid', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'c_pktid': gen_randid()}
 		self.sender.queue.put((self.socket, payload))
 
 	def send_gridupdate(self, gridpos=None, blktype=None, grid_data=None, bomb=False):
 		# inform server about grid update
 		# called after bomb explodes and kills block
 		self.gamemap.grid[gridpos[0]][gridpos[1]] = {'blktype':blktype, 'bomb':False}
-		payload = {'msgtype':'cl_gridupdate', 'client_id': self.client_id, 'blkgridpos': gridpos, 'blktype': blktype, 'pos': self.pos, 'griddata':grid_data, 'gridpos':self.gridpos}
+		payload = {'msgtype':'cl_gridupdate', 'client_id': self.client_id, 'blkgridpos': gridpos, 'blktype': blktype, 'pos': self.pos, 'griddata':grid_data, 'gridpos':self.gridpos, 'c_pktid': gen_randid()}
 		if self.ready:
 
 			self.sender.queue.put((self.socket, payload))
@@ -134,7 +134,7 @@ class Player(BasicThing, Thread):
 	def disconnect(self):
 		# send quitmsg to server
 
-		payload = {'msgtype': 'clientquit', 'client_id': self.client_id, 'payload': 'quit'}
+		payload = {'msgtype': 'clientquit', 'client_id': self.client_id, 'payload': 'quit', 'c_pktid': gen_randid()}
 		logger.info(f'sending quitmsg payload={payload}')
 
 		self.sender.queue.put((self.socket, payload))
@@ -204,8 +204,8 @@ class Player(BasicThing, Thread):
 		if not payloads:
 			return
 		for payload in payloads:
-			self.payloadcnt += 1
 			msgtype = payload.get('msgtype')
+			in_pktid = payload.get('pktid')
 			if msgtype == 'bcsetclid':
 				clid = payload.get('client_id')
 				self.set_clientid(clid)
@@ -217,11 +217,14 @@ class Player(BasicThing, Thread):
 			if msgtype == 's_ping':
 				#logger.debug(f'{self} s_ping payload={payload}')
 				bchtimer = payload.get('bchtimer')
+				pktid = payload.get('pktid')
 				#logger.debug(f's_ping payload={payload} bchtimer={bchtimer} cl_timer={self.cl_timer} sendq={self.sender.queue.qsize()}')
 				clpongpayload = {
 					'msgtype': 'cl_pong',
 					'client_id': self.client_id,
 					'cl_timer': self.cl_timer,
+					'in_pktid': pktid,
+					'c_pktid': gen_randid(),
 					}
 				if self.ready:
 					self.sender.queue.put((self.socket, clpongpayload))
@@ -252,6 +255,8 @@ class Player(BasicThing, Thread):
 			if msgtype == 's_pos':
 				# received playerpos from server
 				self.pos = payload.get('pos')
+				self.rect.x = self.pos[0]
+				self.rect.y = self.pos[1]
 				self.gridpos = payload.get('gridpos')
 				self.gamemap.grid = payload.get('grid')
 				self.gotpos = True
@@ -285,6 +290,7 @@ class Player(BasicThing, Thread):
 			'hearts':self.hearts,
 			'bombpower':self.bombpower,
 			'cl_timer': self.cl_timer,
+			'c_pktid': gen_randid(),
 			}
 		if self.ready:
 			self.sender.queue.put((self.socket, pospayload))
