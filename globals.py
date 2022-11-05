@@ -3,15 +3,17 @@ import math
 import os
 import random
 import time
+
 import pygame
-from pygame.sprite import Group, spritecollide, Sprite
 from loguru import logger
 from pygame.math import Vector2
+from pygame.sprite import Group, Sprite, spritecollide
 
-from constants import BLOCKTYPES, POWERUPSIZE, FLAMESIZE, BOMBSIZE, MAXPARTICLES, BLOCK, DEFAULTFONT
+from constants import (BLOCK, BLOCKTYPES, BOMBSIZE, DEFAULTFONT, FLAMESIZE,
+                       MAXPARTICLES, POWERUPSIZE)
 
 
-def random_velocity(direction=None):
+def random_velocity(direction=None) -> Vector2:
 	vel = Vector2((random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0)))
 	if direction == "left":
 		vel.x = random.uniform(-5.0, -2)
@@ -24,23 +26,7 @@ def random_velocity(direction=None):
 	return vel
 
 
-def rot_center(image, rect, angle):
-	"""rotate an image while keeping its center"""
-	rot_image = pygame.transform.rotate(image, angle)
-	rot_rect = rot_image.get_rect(center=rect.center)
-	return rot_image, rot_rect
-
-def get_entity_angle(e_1, e_2):
-	dif_x = e_2.x - e_1.x
-	dif_y = e_2.y - e_1.y
-	return math.atan2(dif_y, dif_x)
-
-def get_angle(pos_1, pos_2):
-	dif_x = pos_2[0] - pos_1[0]
-	dif_y = pos_2[1] - pos_1[1]
-	return math.atan2(dif_y, dif_x)
-
-def load_image(name, colorkey=None):
+def load_image(name, colorkey=None) -> tuple:
 	fullname = os.path.join("data", name)
 	image = pygame.image.load(fullname).convert()
 	# image = image.convert()
@@ -51,7 +37,7 @@ class ResourceHandler:
 		self.name = 'ResourceHandler'
 		self.__images = {}
 
-	def get_image(self, filename=None, force=False):
+	def get_image(self, filename=None, force=False) -> tuple:
 		if force or filename not in list(self.__images.keys()):
 			img = pygame.image.load(filename).convert()
 			rect = img.get_rect()
@@ -62,7 +48,7 @@ class ResourceHandler:
 			# logger.info(f'Image {filename} already loaded images={len(self.__images)}')
 			return self.__images[filename]
 
-def gen_randid():
+def gen_randid() -> str:
 	hashid = hashlib.sha1()
 	hashid.update(str(time.time()).encode("utf-8"))
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
