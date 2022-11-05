@@ -1,15 +1,17 @@
+import socket
+from threading import Thread
+
 import pygame
+from loguru import logger
 from pygame.event import Event
 from pygame.math import Vector2
 from pygame.sprite import spritecollide
-from globals import BasicThing
-from loguru import logger
-from globals import gen_randid
-from threading import Thread
-from constants import BLOCK, PLAYERSIZE, PLAYEREVENT
-import socket
+
+from constants import BLOCK, PLAYEREVENT, PLAYERSIZE
+from globals import BasicThing, gen_randid
 from map import Gamemap
-from network import send_data, receive_data, Sender
+from network import Sender, receive_data, send_data
+
 
 class Player(BasicThing, Thread):
 	def __init__(self, dummy=True, serverargs=None):
@@ -97,14 +99,7 @@ class Player(BasicThing, Thread):
 			logger.warning(f'cl_reqpos already gotpos={self.gotpos} pos={self.pos} {self.gridpos}')
 
 	def send_maprequest(self, gridsize):
-		if not self.connected:
-			logger.error(f'{self} not connected')
-			return
 		# request map from server
-		if not gridsize:
-			logger.error(f'gridsize not set')
-			return
-
 		logger.debug(f'send_maprequest gridsize={gridsize} / p1gz={self.gamemap.gridsize}')
 		payload = {'client_id':self.client_id, 'msgtype':'maprequest', 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'gridpos':self.gridpos, 'gridsize':gridsize, 'c_pktid': gen_randid()}
 		self.sender.queue.put((self.socket, payload))
@@ -145,7 +140,7 @@ class Player(BasicThing, Thread):
 		if self.socket:
 			self.socket.close()
 
-	def connect_to_server(self):
+	def connect_to_server(self) -> bool:
 		if self.connected:
 			logger.warning(f'{self} already connected')
 			return self.connected

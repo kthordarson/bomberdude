@@ -1,6 +1,10 @@
 import random
+
 from loguru import logger
-from constants import BLOCK, BLOCKTYPES, DEBUG, POWERUPSIZE, PARTICLESIZE, FLAMESIZE, BOMBSIZE, BLOCKSIZE
+
+from constants import (BLOCK, BLOCKSIZE, BLOCKTYPES, BOMBSIZE, DEBUG,
+                       FLAMESIZE, PARTICLESIZE, POWERUPSIZE)
+
 
 def inside_circle(radius, pos_x, pos_y):
 	x = round(radius)  # radius is the radius
@@ -16,7 +20,7 @@ class Gamemap:
 			self.grid = self.generate_custom(gridsize=10)
 		self.gridsize = (len(self.grid), len(self.grid))
 
-	def generate_custom(self, gridsize):
+	def generate_custom(self, gridsize) -> dict:
 		# generate a custom map, gridsize is max blocks x and y
 		# players = list of players, clear spot around each player
 		# grid = [[random.choice([1,1,2,3,4,5,11,11,11,10]) for k in range(gridsize)] for j in range(gridsize)]
@@ -38,6 +42,7 @@ class Gamemap:
 		#self.grid = grid
 		validpos = False
 		invcnt = 0
+		gpx, gpy = 0,0
 		while not validpos:
 			# find a random spot on the map to place the player
 			gpx = random.randint(1, len(grid)-1)
@@ -88,5 +93,5 @@ class Gamemap:
 		cnt = 0
 		return cnt
 	
-	def get_block(self, gridpos):
+	def get_block(self, gridpos) -> int:
 		return self.grid[gridpos[0]][gridpos[1]]

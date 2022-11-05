@@ -1,14 +1,20 @@
-from pygame.event import Event
-import pygame
-import struct
+#!/usr/bin/python
+import os
 import socket
-import sys,os
-from loguru import logger
+import struct
+import sys
 from threading import Thread
-from constants import FPS, DEFAULTFONT, BLOCK,SQUARESIZE, SERVEREVENT,SENDUPDATEEVENT
-from map import Gamemap
+
+import pygame
+from loguru import logger
+from pygame.event import Event
+
+from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT,
+                       SQUARESIZE)
 from globals import gen_randid
-from network import receive_data, send_data, Sender
+from map import Gamemap
+from network import Sender, receive_data, send_data
+
 
 class BombClientHandler(Thread):
 	def __init__(self, conn=None, addr=None,  npos=None, ngpos=None):
@@ -406,8 +412,7 @@ class ServerTUI(Thread):
 
 
 def main():
-	pygame.init()
-	pygame.event.set_allowed([pygame.QUIT, pygame.KEYDOWN, pygame.KEYUP])
+	
 	logger.debug(f'[bombserver] started')
 	clients = 0
 	server = BombServer()
@@ -443,7 +448,5 @@ def main():
 			break
 
 if __name__ == '__main__':
-	logger.info('start')
+	pygame.init()
 	main()
-	logger.info('done')
-	sys.exit(0)

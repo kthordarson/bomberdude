@@ -1,18 +1,23 @@
+#!/usr/bin/python
 # bomberdude
 # 07102022 todo fix mapsync, limit one bomb per grid on map,
 # todo check player movement while holding now keys
+import threading
 from argparse import ArgumentParser
-from pygame.sprite import Group, spritecollide
-from pygame.math import Vector2
-from pygame.event import Event
+from threading import Thread
+
 import pygame
 from loguru import logger
+from pygame.event import Event
+from pygame.math import Vector2
+from pygame.sprite import Group, spritecollide
+
+from constants import (BDUDEEVENT, BLOCK, DEBUG, DEFAULTFONT, FPS,
+                       NETPLAYERSIZE, PLAYEREVENT, SENDPOSEVENT)
 from globals import Block, Bomb, ResourceHandler
-from constants import BLOCK, DEBUG, DEFAULTFONT, NETPLAYERSIZE, FPS, BDUDEEVENT,SENDPOSEVENT,PLAYEREVENT
 from menus import Menu
 from player import Player
-from threading import Thread
-import threading
+
 
 class GameGUI:
 	def __init__(self, screen):
@@ -283,8 +288,6 @@ class Game(Thread):
 	
 	def update_bombs(self):
 		#self.bombs.update()
-		if len(self.bombs) == 0:
-			return
 		for bomb in self.bombs:
 			bomb.update()
 			if pygame.time.get_ticks() - bomb.start_time >= bomb.timer:
@@ -301,8 +304,6 @@ class Game(Thread):
 				bomb.kill()
 	
 	def update_flames(self):
-		if len(self.flames) == 0:
-			return
 		self.flames.update(surface=self.screen)
 		for flame in self.flames:			
 			# check if flame collides with blocks

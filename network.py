@@ -1,10 +1,13 @@
-import re
 import json
-from loguru import logger
+import re
 from queue import SimpleQueue as Queue
 from threading import Thread
 
+from loguru import logger
+
 from globals import gen_randid
+
+
 def send_data(conn=None, payload=None, pktid=None):
 	if conn:
 		if conn._closed:
