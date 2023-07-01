@@ -8,7 +8,7 @@ from pygame.math import Vector2
 from pygame.sprite import spritecollide
 
 from constants import BLOCK, PLAYEREVENT, PLAYERSIZE
-from globals import BasicThing, gen_randid
+from globals import BasicThing, gen_randid, BlockNotFoundError
 from map import Gamemap
 from network import Sender, receive_data, send_data
 
@@ -68,12 +68,18 @@ class Player(BasicThing, Thread):
 	def receive_data(self):
 		while not self.kill:
 			try:
+				payloads = None
 				if self.connected:
 					payloads = receive_data(conn=self.socket)
-					self.handle_payloadq(payloads)
-					self.payloadcnt += len(payloads)
+					if payloads:
+						self.handle_payloadq(payloads)
+						self.payloadcnt += len(payloads)
+					else:
+						logger.warning(f'[prd] nopayload payloadcnt:{self.payloadcnt}')
+			except (TypeError, AttributeError) as e:
+				logger.error(f'[prd] {e} {type(e)} payloadcnt:{self.payloadcnt} payloads:{len(payloads)}')
 			except Exception as e:
-				logger.error(e)
+				logger.error(f'[prd] unhandled {e} {type(e)}')
 
 
 	def send_bomb(self):
@@ -178,8 +184,12 @@ class Player(BasicThing, Thread):
 			newgridpos = [gpx-1, gpy]
 		elif direction == 'right':
 			newgridpos = [gpx+1, gpy]
-		if self.gamemap.get_block(gridpos=newgridpos).get('blktype', 0) > 10:
-			moved = True
+		try:
+			if self.gamemap.get_block(gridpos=newgridpos).get('blktype', 0) > 10:
+				moved = True
+		except BlockNotFoundError as e:
+			logger.warning(f'[move] {e}')
+			moved = False
 		if moved:
 			self.gridpos = newgridpos
 			self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
