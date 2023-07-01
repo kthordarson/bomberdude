@@ -5,6 +5,7 @@ from loguru import logger
 from constants import (BLOCK, BLOCKSIZE, BLOCKTYPES, BOMBSIZE, DEBUG,
                        FLAMESIZE, PARTICLESIZE, POWERUPSIZE)
 
+from globals import BlockNotFoundError
 
 def inside_circle(radius, pos_x, pos_y):
 	x = round(radius)  # radius is the radius
@@ -52,8 +53,8 @@ class Gamemap:
 					validpos = True
 					logger.info(f'valid {invcnt} pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
 					break
-			except (IndexError, ValueError) as e:
-				logger.error(f'Err: {e} gl={len(grid)} pos={pos} gpx={gpx} gpy={gpy} ')
+			except (IndexError, ValueError, AttributeError) as e:
+				logger.error(f'Err: {e} {type(e)} gl={len(grid)} pos={pos} gpx={gpx} gpy={gpy} ')
 
 		# clear spot aound player
 		nx = int(gpx * BLOCK)
@@ -94,4 +95,10 @@ class Gamemap:
 		return cnt
 	
 	def get_block(self, gridpos) -> int:
-		return self.grid[gridpos[0]][gridpos[1]]
+		blk = -1
+		try:
+			blk = self.grid[gridpos[0]][gridpos[1]]
+		except IndexError as e:
+			errmsg = f'[M] {e} gridpos:{gridpos}'
+			raise BlockNotFoundError(errmsg)
+		return blk
