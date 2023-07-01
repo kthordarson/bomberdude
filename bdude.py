@@ -216,7 +216,7 @@ class Game(Thread):
 			clientid = gamemsg.get('client_id')
 			nb = Block(pos=(x*BLOCK, y*BLOCK), gridpos=gridpos, block_type=blktype, client_id=bclid, rm=self.rm)
 			if self.playerone.gamemap.grid[x][y].get("blktype") != blktype:
-				logger.info(f'{msgtype} blockupdate from {clientid} blktype={blktype} p1gridblktype={self.playerone.gamemap.grid[x][y].get("blktype")} gamemsg={gamemsg}')
+				# logger.info(f'{msgtype} blockupdate from {clientid} blktype={blktype} p1gridblktype={self.playerone.gamemap.grid[x][y].get("blktype")} gamemsg={gamemsg}')
 				self.playerone.gamemap.grid[x][y] = {'blktype':blktype, 'bomb':False}
 				for b in self.blocks:
 					if b.gridpos == nb.gridpos:

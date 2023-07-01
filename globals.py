@@ -12,7 +12,8 @@ from pygame.sprite import Group, Sprite, spritecollide
 from constants import (BLOCK, BLOCKTYPES, BOMBSIZE, DEFAULTFONT, FLAMESIZE,
                        MAXPARTICLES, POWERUPSIZE)
 
-
+class BlockNotFoundError(Exception):
+	pass
 def random_velocity(direction=None) -> Vector2:
 	vel = Vector2((random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0)))
 	if direction == "left":
