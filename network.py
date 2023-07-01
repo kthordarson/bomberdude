@@ -62,7 +62,7 @@ def receive_data(conn):
 			try:
 				data.append(json.loads(rawdata))
 			except json.decoder.JSONDecodeError as e:
-				logger.error(f'[recv] JSONDecodeError:{e} rawcheck={rawcheck} data={data} rawlen={len(rawdata)} t:{type(rawdata)} rawdata={rawdata}')
+				logger.warning(f'[recv] JSONDecodeError:{e} rchk={rawcheck} data:{type(data)} len={len(data)} raw:{type(rawdata)} len={len(rawdata)}')
 			return data
 	elif parts > 1:
 		data = []
