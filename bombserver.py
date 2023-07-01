@@ -402,10 +402,12 @@ class ServerTUI(Thread):
 				cmd = input(':> ')
 				if cmd[:1] == 's':
 					self.get_serverinfo()
-				if cmd[:1] == 'q':
+				elif cmd[:1] == 'q':
 					self.kill = True
 					pygame.event.post(Event(pygame.QUIT))
 					break
+				else:
+					logger.info(f'[S] cmds: s serverinfo, q quit')
 			except KeyboardInterrupt:
 				self.kill = True
 				break
