@@ -44,10 +44,10 @@ class ResourceHandler:
 			rect = img.get_rect()
 			self.__images[filename] = (img, rect)
 			# logger.info(f'Image {filename} loaded images={len(self.__images)}')
-			return img, rect
+			return img
 		else:
 			# logger.info(f'Image {filename} already loaded images={len(self.__images)}')
-			return self.__images[filename]
+			return self.__images[filename][0]
 
 def gen_randid() -> str:
 	hashid = hashlib.sha1()
@@ -82,6 +82,23 @@ class BasicThing(Sprite):
 	def collide(self, items=None):
 		self.collisions = spritecollide(self, items, False)
 		return self.collisions
+
+class BasicBlock(Sprite):
+	def __init__(self, pos, image):
+		super().__init__()
+		self.pos = pos
+		self.image = image
+		self.rect = self.image.get_rect()
+		self.vel = Vector2()
+		self.start_time = pygame.time.get_ticks()
+		self.clock = pygame.time.Clock()
+		self.accel = Vector2(0, 0)
+
+	def __repr__(self):
+		return f'[basic] pos={self.pos}'
+
+	def draw(self, screen):
+		pass
 
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type, client_id, rm):

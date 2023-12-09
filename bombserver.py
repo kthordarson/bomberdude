@@ -9,10 +9,59 @@ import pygame
 from loguru import logger
 from pygame.event import Event
 
-from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE)
+from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE,NEWCLIENTEVENT)
 from globals import gen_randid
 from map import Gamemap
 from network import Sender, receive_data, send_data
+
+class NewBombSever(Thread):
+	# main server thread
+	# get new bomb clients from newconnectionhandler
+	def __init__(self, gui=None):
+		Thread.__init__(self, daemon=True)
+		self.kill = False
+		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.ch = NewConnectionHandler()
+
+	def run(self):
+		logger.debug(f'server run ch: {self.ch}')
+		self.ch.start()
+		while not self.kill:
+			if self.kill:
+				self.ch.kill = True
+				logger.debug(f'server killed')
+				break
+
+	def new_connection(self, event):
+		logger.info(f'new_connection from ch: {self.ch} payload:{event.payload}')
+
+class NewConnectionHandler(Thread):
+	# handles new connections
+	# create new client handler and passes to newbombserver
+	def __init__(self, gui=None):
+		Thread.__init__(self, daemon=True)
+		self.kill = False
+		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+	def run(self):
+		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.socket.bind(('192.168.1.160', 9696))
+		self.socket.listen()
+		logger.debug(f'ch run {self.socket}')
+		while not self.kill:
+			if self.kill:
+				logger.debug(f'ch killed')
+				self.socket.close()
+				break
+			try:
+				conn, addr = self.socket.accept()
+				ncmsg=Event(NEWCLIENTEVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
+				logger.info(f'ncmsg={ncmsg}')
+				pygame.event.post(ncmsg)
+			except Exception as e:
+				logger.error(f'[!] unhandled exception:{e} {type(e)}')
+				self.kill = True
+				break
 
 
 class BombClientHandler(Thread):
