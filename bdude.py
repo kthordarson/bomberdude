@@ -22,17 +22,6 @@ from bombserver import NewBombSever, NewConnectionHandler
 
 FPS = 60
 
-def crate_grid():
-	oneline = [0 for k in range(0, GRIDSIZE)]
-	grid = np.array([oneline for k in range(0, GRIDSIZE)])
-	# edges
-	for k in grid:
-		k[0] = 1
-		k[-1] = 1
-	for k in range(len(grid[0])):
-		grid[0][k] = 1
-		grid[-1][k] = 1
-	return grid
 
 def drawGrid(screen, grid, rh):
 	#draws the grid
@@ -77,13 +66,11 @@ class Game(Thread):
 		self.game_menu = GameMenu(self.screen)
 		self.show_mainmenu = True
 		self.clock = pygame.time.Clock()
-		self.grid = crate_grid()
 		self.game_started = False
-		self.blocks = Group()
 		self.rh = ResourceHandler()
 
 	def __repr__(self):
-		return f'[g] kill={self.kill} gs:{self.game_started} mm:{self.show_mainmenu}'
+		return f'[game] k={self.kill} gs:{self.game_started} mm:{self.show_mainmenu} server:{self.server}'
 
 	def run(self):
 		while True:
@@ -107,6 +94,10 @@ class Game(Thread):
 					# todo new client connected, create player and move on....
 					self.server.new_connection(event)
 				elif event.type == STARTGAMEEVENT:
+					# todo create new client
+					# connect to server
+					# get grid from server
+					# start game
 					self.start_game()
 				elif event.type == CONNECTTOSERVEREVENT:
 					self.connect_to_server()
@@ -126,14 +117,21 @@ class Game(Thread):
 			self.game_menu.draw_mainmenu()
 		else:
 			if self.game_started:
-				drawGrid(self.screen, self.grid, self.rh)
+				drawGrid(self.screen, self.server.grid, self.rh)
 		# pygame.display.flip()
 		# self.screen.fill((0,0,0))
 
 	def start_game(self):
+		if not self.server.started:
+			try:
+				self.server.start()
+				self.server.started = True
+			except RuntimeError as e:
+				logger.error(f'{self} server:{self.server} {e}')
+		else:
+			logger.warning(f'{self} server:{self.server} already started')
 		self.game_started = True
 		self.show_mainmenu = False
-		logger.info(f'{self} STARTGAMEEVENT ')
 		self.screen.fill((0,0,0))
 
 	def connect_to_server(self):
@@ -200,14 +198,11 @@ class Game(Thread):
 
 def main(args):
 	server = NewBombSever()
-	logger.debug(f'main server {server}')
 	game = Game(server)
-	logger.debug(f'main game {game}')
+	logger.debug(f'main game: {game} server: {server}')
 	game.daemon = True
 	game.running = True
-	server.start()
 	game.run()
-	logger.info(f'main run {game} {server}')
 	while game.running:
 		if game.kill:
 			game.running = False

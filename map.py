@@ -1,7 +1,20 @@
 import random
+import numpy as np
 from loguru import logger
-from constants import (BLOCK, BLOCKSIZE, BLOCKTYPES, BOMBSIZE, DEBUG, FLAMESIZE, PARTICLESIZE, POWERUPSIZE)
+from constants import (BLOCK,GRIDSIZE, BLOCKSIZE, BLOCKTYPES, BOMBSIZE, DEBUG, FLAMESIZE, PARTICLESIZE, POWERUPSIZE)
 from globals import BlockNotFoundError
+
+def generate_grid():
+	oneline = [0 for k in range(0, GRIDSIZE)]
+	grid = np.array([oneline for k in range(0, GRIDSIZE)])
+	# edges
+	for k in grid:
+		k[0] = 1
+		k[-1] = 1
+	for k in range(len(grid[0])):
+		grid[0][k] = 1
+		grid[-1][k] = 1
+	return grid
 
 class Gamemap:
 	def __init__(self, genmap=False):

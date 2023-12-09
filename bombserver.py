@@ -11,7 +11,7 @@ from pygame.event import Event
 
 from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE,NEWCLIENTEVENT)
 from globals import gen_randid
-from map import Gamemap
+from map import Gamemap,generate_grid
 from network import Sender, receive_data, send_data
 
 class NewBombSever(Thread):
@@ -22,18 +22,36 @@ class NewBombSever(Thread):
 		self.kill = False
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.ch = NewConnectionHandler()
+		self.clients = []
+		self.started = False
+		self.grid = generate_grid()
+
+	def __repr__(self) -> str:
+		return f'[server] s: {self.started} c:{len(self.clients)}'
 
 	def run(self):
-		logger.debug(f'server run ch: {self.ch}')
 		self.ch.start()
 		while not self.kill:
 			if self.kill:
 				self.ch.kill = True
-				logger.debug(f'server killed')
+				logger.debug(f'{self} killed')
 				break
 
 	def new_connection(self, event):
-		logger.info(f'new_connection from ch: {self.ch} payload:{event.payload}')
+		# new connection from newconnectionhandler
+		# create new client and send grid
+		logger.info(f'{self} new_connection from ch: {self.ch} payload:{event.payload}')
+		self.clients.append(f'newclient{len(self.clients)}')
+
+	def sendgrid(self):
+		pass
+		# jgrid = json.loads(str(grid.tolist()), parse_float=True)
+
+	def get_players(self):
+		pass
+
+	def get_player(self, playerid):
+		pass
 
 class NewConnectionHandler(Thread):
 	# handles new connections
@@ -42,15 +60,18 @@ class NewConnectionHandler(Thread):
 		Thread.__init__(self, daemon=True)
 		self.kill = False
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.connections = 0
+
+	def __repr__(self) -> str:
+		return f'[ch] c:{self.connections}'
 
 	def run(self):
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 		self.socket.bind(('192.168.1.160', 9696))
 		self.socket.listen()
-		logger.debug(f'ch run {self.socket}')
 		while not self.kill:
 			if self.kill:
-				logger.debug(f'ch killed')
+				logger.debug(f'{self} killed')
 				self.socket.close()
 				break
 			try:
@@ -58,8 +79,9 @@ class NewConnectionHandler(Thread):
 				ncmsg=Event(NEWCLIENTEVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
 				logger.info(f'ncmsg={ncmsg}')
 				pygame.event.post(ncmsg)
+				self.connections += 1
 			except Exception as e:
-				logger.error(f'[!] unhandled exception:{e} {type(e)}')
+				logger.error(f'{self} [!] unhandled exception:{e} {type(e)}')
 				self.kill = True
 				break
 
