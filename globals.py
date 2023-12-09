@@ -38,7 +38,7 @@ class ResourceHandler:
 		self.name = 'ResourceHandler'
 		self.__images = {}
 
-	def get_image(self, filename=None, force=False) -> tuple:
+	def get_image(self, filename:str, force=False) -> tuple:
 		if force or filename not in list(self.__images.keys()):
 			img = pygame.image.load(filename).convert()
 			rect = img.get_rect()
@@ -65,7 +65,7 @@ class BasicThing(Sprite):
 		self.clock = pygame.time.Clock()
 		self.accel = Vector2(0, 0)
 
-	def __str__(self):
+	def __repr__(self):
 		return f'[basic] pos={self.pos} gridpos={self.gridpos}'
 
 	def draw(self, screen):
@@ -103,7 +103,7 @@ class Block(BasicThing):
 		self.image.set_alpha(255)
 		self.image.set_colorkey((0, 0, 0))
 
-	def __str__(self):
+	def __repr__(self):
 		return f'[block] pos={self.pos} gp={self.gridpos} type={self.block_type} blkid={self.blkid} client_id={self.client_id}'
 
 	def debug_draw(self, screen=None, font=None):
@@ -124,11 +124,11 @@ class Block(BasicThing):
 		if self.powerup:
 			newblktype = random.choice([20,21,22])
 			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, rm=self.rm)
-			logger.info(f'blockhit by {flame} powerup newblock={newblock} pc={pcount} ')
+			# logger.info(f'blockhit by {flame} powerup newblock={newblock} pc={pcount} ')
 		else:
 			newblktype = 11
 			newblock = Block(self.rect.topleft, self.gridpos, block_type=newblktype, client_id=flame.client_id, rm=self.rm)
-			#logger.info(f'{self} pc={pcount} hit by {flame} block newblock={newblock}')
+			# logger.info(f'{self} pc={pcount} hit by {flame} block newblock={newblock}')
 
 		for k in range(1, pcount):
 			if flame.vel.x < 0:  # flame come from left
@@ -188,7 +188,7 @@ class Bomb(BasicThing):
 		self.flames = Group()
 		self.block_type = 11
 
-	def __str__(self):
+	def __repr__(self):
 		return f'[bomb] gridpos={self.gridpos} pos={self.pos} bomber={self.bomber_id} timer={self.timer}'
 
 	def exploder(self):
@@ -220,7 +220,7 @@ class Particle(BasicThing):
 		self.mass = 11
 		self.vel = Vector2(vel[0], vel[1])
 
-	def __str__(self) -> str:
+	def __repr__(self) -> str:
 		return f'[particle] pos={self.pos} vel={self.vel}'
 
 	def update(self, blocks):
@@ -272,7 +272,7 @@ class Flame(BasicThing):
 		self.timer = 4000
 		self.flame_length = flame_length
 
-	def __str__(self) -> str:
+	def __repr__(self) -> str:
 		return f'[flame] clid={self.client_id} pos={self.pos} vel={self.vel}'
 
 	def update(self, surface):

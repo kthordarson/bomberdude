@@ -1,22 +1,11 @@
 import random
-
 from loguru import logger
-
-from constants import (BLOCK, BLOCKSIZE, BLOCKTYPES, BOMBSIZE, DEBUG,
-                       FLAMESIZE, PARTICLESIZE, POWERUPSIZE)
-
+from constants import (BLOCK, BLOCKSIZE, BLOCKTYPES, BOMBSIZE, DEBUG, FLAMESIZE, PARTICLESIZE, POWERUPSIZE)
 from globals import BlockNotFoundError
-
-def inside_circle(radius, pos_x, pos_y):
-	x = round(radius)  # radius is the radius
-	for x in range(-x, x + 1):
-		y = round((radius * radius - x * x) ** 0.5)  # bound for y given x
-		for y in range(-y, y + 1):
-			yield x + pos_x, y + pos_y
 
 class Gamemap:
 	def __init__(self, genmap=False):
-		self.grid = []
+		self.grid = [[]]
 		if genmap:
 			self.grid = self.generate_custom(gridsize=10)
 		self.gridsize = (len(self.grid), len(self.grid))
@@ -36,10 +25,7 @@ class Gamemap:
 		# self.grid = grid
 		return grid
 
-		# self.grid = grid
-		# [f'gridpos=({k},{j}) blk={grid[k][j]}' for k in range(gridsize) for j in range(gridsize)]
-
-	def placeplayer(self, grid=None, pos=None):
+	def placeplayer(self, grid=[], pos=(0,0)):
 		#self.grid = grid
 		validpos = False
 		invcnt = 0
@@ -93,8 +79,8 @@ class Gamemap:
 	def get_bcount(self, cval=0):
 		cnt = 0
 		return cnt
-	
-	def get_block(self, gridpos) -> int:
+
+	def get_block(self, gridpos) -> dict[int, int]:
 		blk = -1
 		try:
 			blk = self.grid[gridpos[0]][gridpos[1]]

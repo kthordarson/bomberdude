@@ -9,15 +9,14 @@ import pygame
 from loguru import logger
 from pygame.event import Event
 
-from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT,
-                       SQUARESIZE)
+from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE)
 from globals import gen_randid
 from map import Gamemap
 from network import Sender, receive_data, send_data
 
 
 class BombClientHandler(Thread):
-	def __init__(self, conn=None, addr=None,  npos=None, ngpos=None):
+	def __init__(self, conn, addr,  npos, ngpos):
 		Thread.__init__(self, daemon=True)
 		self.client_id = gen_randid()
 		self.kill = False
@@ -37,11 +36,12 @@ class BombClientHandler(Thread):
 		self.sender = Sender(client_id=self.client_id, s_type='bch')
 		logger.debug(self)
 
-	def __str__(self):
-		return f'[BCH {self.client_id} ]'
+	def __repr__(self):
+		return f'BCH( id:{self.client_id} sender:{self.sender} )'
 
 	def send_event(self, serverevent):
 		self.sender.queue.put((self.conn, serverevent))
+		logger.debug(f'[bch] {self} senderqput {serverevent}')
 
 	def send_netupdate(self, netplayers, grid):
 		self.sender.queue.put((self.conn, {'msgtype':'s_netplayers', 'netplayers':netplayers}))
@@ -107,7 +107,7 @@ class BombClientHandler(Thread):
 				self.conn.close()
 				logger.debug(f'{self} killed sender={self.sender} {self.conn} closed')
 				break
-			
+
 			msgtype = None
 			incoming_data = None
 			try:
@@ -123,7 +123,7 @@ class BombClientHandler(Thread):
 					try:
 						msgtype = resp.get('msgtype')
 						in_pktid = resp.get('pktid')
-					except AttributeError as e: 
+					except AttributeError as e:
 						logger.error(f'AttributeError {e} resp={resp}')
 						break
 					if msgtype == 'cl_playerpos':
@@ -156,6 +156,7 @@ class BombClientHandler(Thread):
 
 					elif msgtype == 'cl_bombdrop':
 						pygame.event.post(Event(SERVEREVENT, payload={'msgtype':'bc_netbomb', 'client_id':self.client_id, 'bombpos':resp.get('bombpos'), 'bombgridpos':resp.get('bombgridpos'), 'bombpower':resp.get('bombpower'), 'bchtimer':self.bchtimer}))
+						logger.info(f'[bch] eventpost {msgtype} resp: {resp}')
 
 					elif msgtype == 'clientquit':
 						ev = Event(SERVEREVENT, payload={'msgtype':'clientquit', 'client_id':self.client_id, 'bchtimer':self.bchtimer})
@@ -213,7 +214,7 @@ class BombServer(Thread):
 		self.serverclock = pygame.time.Clock()
 		self.netplayers = {}
 
-	def __str__(self):
+	def __repr__(self):
 		return f'[S] k:{self.kill} bc:{len(self.bombclients)} '
 
 	def eventhandler(self, serverevent):
@@ -269,7 +270,7 @@ class BombServer(Thread):
 		elif event_type == 'bc_netbomb':
 			for bc in self.bombclients:
 				# inform all clients about bomb
-				logger.debug(f'{event_type} sending to {bc.client_id}')
+				logger.debug(f'[bs] Event: {event_type} sending to {bc.client_id}')
 				bc.send_event(serverevent)
 
 		elif event_type == 'netgrid':
@@ -347,10 +348,16 @@ class BombServer(Thread):
 			if np != bc.client_id:
 				new_np[np] = old_np.get(np)
 		self.netplayers = new_np
+	def kill_clients(self):
+		for bc in self.bombclients:
+			logger.info(f'{self} killing {bc} ')
+			bc.sender.kill = True
+			bc.kill = True
+			logger.info(f'{self} killing {bc} sender {bc.sender}')
 
 	def run(self):
 		logger.debug(f'{self} run')
-		
+
 		pygame.time.set_timer(SENDUPDATEEVENT, 50)
 		while not self.kill:
 			events = pygame.event.get()
@@ -360,11 +367,7 @@ class BombServer(Thread):
 				if event.type == pygame.QUIT:
 					self.kill = True
 					logger.info(f'{self} quitting')
-					for bc in self.bombclients:
-						logger.info(f'{self} killing {bc} ')
-						bc.sender.kill = True
-						bc.kill = True
-						logger.info(f'{self} killing {bc} sender {bc.sender}')
+					self.kill_clients()
 					self.conn.close()
 					logger.info(f'{self.conn} close')
 					os._exit(0)
@@ -376,7 +379,7 @@ class BombServer(Thread):
 					pass
 				else:
 					logger.warning(f'event={event}')
-			
+
 			self.serverclock.tick(FPS)
 
 class ServerTUI(Thread):
@@ -384,7 +387,7 @@ class ServerTUI(Thread):
 		Thread.__init__(self, daemon=False)
 		self.server = server
 		self.kill = False
-	
+
 	def get_serverinfo(self):
 		logger.info(f'clients={len(self.server.bombclients)} ')
 		logger.info(f'------netplayers------')
@@ -393,7 +396,7 @@ class ServerTUI(Thread):
 		logger.info(f'------bombclients------')
 		for bc in self.server.bombclients:
 			logger.info(f'\t[bc] {bc} sender queue = {bc.sender.queue.qsize()}')
-		
+
 	def run(self):
 		while not self.kill:
 			if self.kill:
@@ -414,7 +417,7 @@ class ServerTUI(Thread):
 
 
 def main():
-	
+
 	logger.debug(f'[bombserver] started')
 	clients = 0
 	server = BombServer()
@@ -439,10 +442,7 @@ def main():
 			server.conn.close()
 			tui.kill = True
 			logger.warning(f'KeyboardInterrupt:{e} server:{server}')
-			for bc in server.bombclients:
-				logger.warning(f'kill bc:{bc}')
-				bc.kill = True
-				bc.join()
+			server.kill_clients()
 			tui.join()
 			server.kill = True
 			server.join()

@@ -14,7 +14,7 @@ from network import Sender, receive_data, send_data
 
 
 class Player(BasicThing, Thread):
-	def __init__(self, dummy=True, serverargs=None):
+	def __init__(self, serverargs):
 		Thread.__init__(self, daemon=True)
 		self.pos = (0,0)
 		self.gridpos = [0,0]
@@ -26,15 +26,12 @@ class Player(BasicThing, Thread):
 		self.vel = Vector2(0, 0)
 		self.size = PLAYERSIZE
 		self.client_id = None #gen_randid()
-		if not dummy:
-			self.image = pygame.transform.scale(pygame.image.load('data/playerone.png').convert(), self.size)
-			self.rect = pygame.Surface.get_rect(self.image)
-			self.surface = pygame.display.get_surface() # pygame.Surface(PLAYERSIZE)
-			self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			self.receiver = Thread(target=self.receive_data, daemon=True)
-			self.sender = Sender(client_id=self.client_id, s_type='player')# Thread(target=self.send_updates,daemon=True)
-		if dummy:
-			self.socket = None # socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.image = pygame.transform.scale(pygame.image.load('data/playerone.png').convert(), self.size)
+		self.rect = pygame.Surface.get_rect(self.image)
+		self.surface = pygame.display.get_surface() # pygame.Surface(PLAYERSIZE)
+		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.receiver = Thread(target=self.receive_data, daemon=True)
+		self.sender = Sender(client_id=self.client_id, s_type='player')# Thread(target=self.send_updates,daemon=True)
 		self.ready = False
 		self.name = f'player{self.client_id}'
 		self.connected = False
@@ -56,7 +53,7 @@ class Player(BasicThing, Thread):
 		self.cl_timer = 0
 		self.status = 'idle'
 
-	def __str__(self):
+	def __repr__(self):
 		return f'playerone={self.client_id} pos={self.pos} {self.gridpos} hearts={self.hearts} gotmap ={self.gotmap} gotpos={self.gotpos} ready={self.ready} '
 
 	def draw(self, screen):
@@ -68,7 +65,6 @@ class Player(BasicThing, Thread):
 	def receive_data(self):
 		while not self.kill:
 			try:
-				payloads = None
 				if self.connected:
 					payloads = receive_data(conn=self.socket)
 					if payloads:
@@ -77,7 +73,7 @@ class Player(BasicThing, Thread):
 					else:
 						logger.warning(f'[prd] nopayload payloadcnt:{self.payloadcnt}')
 			except (TypeError, AttributeError) as e:
-				logger.error(f'[prd] {e} {type(e)} payloadcnt:{self.payloadcnt} payloads:{len(payloads)}')
+				logger.error(f'[prd] {e} {type(e)} payloadcnt:{self.payloadcnt} ')
 			except Exception as e:
 				logger.error(f'[prd] unhandled {e} {type(e)}')
 
@@ -91,7 +87,7 @@ class Player(BasicThing, Thread):
 			self.gamemap.grid[bx][by] = {'blktype':11, 'bomb':True}
 			payload = {'msgtype': 'cl_bombdrop', 'client_id':self.client_id, 'bombpos':bombpos,'bombgridpos':self.gridpos, 'bombs_left':self.bombs_left, 'bombpower':self.bombpower, 'c_pktid': gen_randid()}
 			self.sender.queue.put((self.socket, payload))
-			logger.debug(f'send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos") } bombs_left={self.bombs_left} gridbomb={self.gamemap.grid[bx][by].get("bomb")}')
+			logger.debug(f'{self} send_bomb bombgridpos={payload.get("bombgridpos")} pos={payload.get("bombpos") } bombs_left={self.bombs_left} gridbomb={self.gamemap.grid[bx][by].get("bomb")} sender: {self.sender}')
 		elif self.gamemap.grid[bx][by].get('bomb'):
 			logger.warning(f'bomb on gridspot {bx},{by} sgb={self.gamemap.grid[bx][by].get("bomb")}')
 
@@ -247,9 +243,9 @@ class Player(BasicThing, Thread):
 			if msgtype == 'bc_netbomb':
 				# received bomb from server
 				if payload.get('client_id') == self.client_id:
-					self.bombs_left -= 1	
+					self.bombs_left -= 1
 				pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'bc_netbomb', 'bombdata':payload}))
-				logger.info(f'bombfromserver bl={self.bombs_left} payload={payload}')
+				logger.info(f'{msgtype} eventpost bl={self.bombs_left} payload={payload}')
 
 			if msgtype == 's_posupdate':
 				# received posupdate from server

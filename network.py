@@ -80,7 +80,7 @@ def receive_data(conn):
 				try:
 					jsondata = json.loads(datapart)
 				except json.decoder.JSONDecodeError as e:
-					logger.error(f'[recv] idx={idx} d={data} rc:{rawcheck} dc:{datapartcheck} JSONDecodeError:{e} parts={parts} startpos={startpos} endpos={endpos} datapart={datapart} rawdata={rawdata}')				
+					logger.error(f'[recv] idx={idx} d={data} rc:{rawcheck} dc:{datapartcheck} JSONDecodeError:{e} parts={parts} startpos={startpos} endpos={endpos} datapart={datapart} rawdata={rawdata}')
 				if jsondata:
 					data.append(jsondata)
 					idx += 1
@@ -102,8 +102,8 @@ class Sender(Thread):
 		self.client_id = client_id
 		logger.info(f'{self} init')
 
-	def __str__(self):
-		return f'[sender {self.s_type} clid={self.client_id} count={self.sendcount} sq:{self.queue.qsize()}]'
+	def __repr__(self):
+		return f'Sender({self.s_type} clid={self.client_id} count={self.sendcount} sq:{self.queue.qsize()})'
 
 	def run(self):
 		logger.info(f'{self} run')
@@ -125,4 +125,4 @@ class Sender(Thread):
 				except (BrokenPipeError, ConnectionResetError) as e:
 					logger.error(f'{self} senderr {e}')
 					self.kill = True
-					break				
+					break
