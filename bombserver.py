@@ -3,31 +3,48 @@ import os
 import socket
 import struct
 import sys
+import json
 from threading import Thread
-
+from queue import SimpleQueue as Queue
 import pygame
 from loguru import logger
 from pygame.event import Event
 
-from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE,NEWCLIENTEVENT)
+from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE,NEWCLIENTEVENT,NEWCONNECTIONEVENT)
 from globals import gen_randid
 from map import Gamemap,generate_grid
-from network import Sender, receive_data, send_data
+from network import Sender, receive_data, send_data, Receiver
 
 class NewBombSever(Thread):
 	# main server thread
 	# get new bomb clients from newconnectionhandler
-	def __init__(self, gui=None):
+	def __init__(self, bindaddress):
 		Thread.__init__(self, daemon=True)
 		self.kill = False
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.ch = NewConnectionHandler()
+		self.bindaddress = bindaddress
 		self.clients = []
-		self.started = False
 		self.grid = generate_grid()
+		self.connectionq = Queue()
+		self.ch = NewConnectionHandler(bindaddress=self.bindaddress, connectionq=self.connectionq)
 
 	def __repr__(self) -> str:
-		return f'[server] s: {self.started} c:{len(self.clients)}'
+		return f'[server]  c:{len(self.clients)}'
+
+	def send_pings(self):
+		for client in self.clients:
+			payload = {
+				'msgtype' : 's_ping',
+				'client_id' : client.client_id,
+			}
+			if client.kill:
+				logger.warning(f'{self} client: {client} killed')
+				self.clients.pop(self.clients.index(client))
+			else:
+				try:
+					client.sender.queue.put((client.socket,payload))
+				except BrokenPipeError as e:
+					logger.error(f'{self} send_pings {e} ')
 
 	def run(self):
 		self.ch.start()
@@ -36,12 +53,21 @@ class NewBombSever(Thread):
 				self.ch.kill = True
 				logger.debug(f'{self} killed')
 				break
+			else:
+				self.send_pings()
+				while not self.ch.connectionq.empty():
+					payload = self.ch.connectionq.get()
+					self.new_connection(payload)
 
-	def new_connection(self, event):
+	def new_connection(self, payload):
 		# new connection from newconnectionhandler
 		# create new client and send grid
-		logger.info(f'{self} new_connection from ch: {self.ch} payload:{event.payload}')
-		self.clients.append(f'newclient{len(self.clients)}')
+		conn = payload.get('conn')
+		newclient = NewClientHandler(socket=conn)
+		logger.info(f'{self} new_connection: {newclient} payload: {type(payload)} {payload}')
+		newclient.start()
+		#.socket.connect((self.bindaddress, 9696))
+		self.clients.append(newclient)
 
 	def sendgrid(self):
 		pass
@@ -56,18 +82,20 @@ class NewBombSever(Thread):
 class NewConnectionHandler(Thread):
 	# handles new connections
 	# create new client handler and passes to newbombserver
-	def __init__(self, gui=None):
+	def __init__(self, bindaddress, connectionq):
 		Thread.__init__(self, daemon=True)
 		self.kill = False
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.bindaddress = bindaddress
 		self.connections = 0
+		self.connectionq = connectionq
 
 	def __repr__(self) -> str:
 		return f'[ch] c:{self.connections}'
 
 	def run(self):
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self.socket.bind(('192.168.1.160', 9696))
+		self.socket.bind((self.bindaddress, 9696))
 		self.socket.listen()
 		while not self.kill:
 			if self.kill:
@@ -76,15 +104,115 @@ class NewConnectionHandler(Thread):
 				break
 			try:
 				conn, addr = self.socket.accept()
-				ncmsg=Event(NEWCLIENTEVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
-				logger.info(f'ncmsg={ncmsg}')
-				pygame.event.post(ncmsg)
+				payload={'msgtype':'NEWCONNECTIONEVENT', 'conn':conn, 'addr':addr, 'bindaddress': self.bindaddress}
+				self.connectionq.put(payload)
+				# ncmsg=Event(NEWCONNECTIONEVENT, payload={'msgtype':'NEWCONNECTIONEVENT', 'conn':conn, 'addr':addr, 'bindaddress': self.bindaddress})
+				# logger.info(f'[nch] NEWCONNECTIONEVENT ncmsg={ncmsg}')
+				# pygame.event.post(ncmsg)
 				self.connections += 1
 			except Exception as e:
 				logger.error(f'{self} [!] unhandled exception:{e} {type(e)}')
 				self.kill = True
 				break
 
+class NewClientHandler(Thread):
+	# handles client and server communications
+	# server creates new clienthandler for each player
+	def __init__(self, socket):
+		Thread.__init__(self, daemon=True)
+		self.client_id = gen_randid()
+		self.kill = False
+		self.socket = socket
+		self.bchtimer = pygame.time.get_ticks()
+		self.sender = Sender(client_id=self.client_id, s_type=f'snch:{self.client_id}', socket=self.socket)
+		# sender thread, put data in client sender queue and sender thread sends data to client
+		self.receiver = Receiver(socket=self.socket, client_id=self.client_id, s_type=f'rnch:{self.client_id}')
+		# receiver thread, receives data from server and puts data in receiver queue
+
+	def __repr__(self):
+		return f'NBCH( id:{self.client_id} s:{self.sender} r:{self.receiver} )'
+
+	def handle_payloadq(self, payloads):
+		logger.debug(f'{self} handle_payloadq {payloads}')
+
+	def receive_data(self):
+		while not self.kill:
+			payloads = None
+			try:
+				payloads = receive_data(conn=self.socket)
+				if payloads:
+					self.handle_payloadq(payloads)
+			except (TypeError, AttributeError) as e:
+				logger.error(f'[r] {e} {type(e)} ')
+			except Exception as e:
+				logger.error(f'[r] unhandled {e} {type(e)}')
+
+	def send_payload(self, payload):
+		pass
+		# try:
+		# 	# self.socket.sendall(payload)
+		# 	self.sender.queue.put((self.socket, payload))
+		# except BrokenPipeError as e:
+		# 	logger.error(f'{self} send_payload {e} payload: {payload}')
+		# 	raise(e)
+
+	def run(self):
+		self.receiver.start()
+		self.sender.start()
+		# payload = {'msgtype':'bcsetclid', 'client_id':self.client_id}
+		# self.sender.queue.put((self.socket, payload))
+		logger.debug(f'{self} run')
+		while not self.kill:
+			if self.kill or self.sender.kill:
+				self.sender.kill = True
+				self.kill = True
+				self.socket.close()
+				logger.warning(f'{self} killed sender={self.sender} socket: {self.socket} closed')
+				break
+			msgtype = None
+			incoming_data = []
+			try:
+				# incoming_data = receive_data(self.conn)
+				while not self.receiver.queue.empty():
+					incoming_data = self.receiver.queue.get()
+					# logger.debug(f'{self} gotincomingdata: {incoming_data}')
+				# incoming_data = self.receiver.queue.get()
+				# logger.debug(f'{self} gotincomingdata: {incoming_data}')
+			except (ConnectionResetError, BrokenPipeError, struct.error, EOFError, OSError) as e:
+				logger.error(f'{self} receive_data error:{e}')
+				self.kill = True
+				break
+			if len(incoming_data) > 1:
+				msgtype = None
+				jmsg = None
+				try:
+					jmsg = json.loads(incoming_data)
+				except (json.decoder.JSONDecodeError) as e:
+					logger.error(f'incoming_data error:{e} {type(e)} type: {type(incoming_data)} len: {len(incoming_data)}')
+					logger.error(f'\nincoming_data: {incoming_data}\n')
+					continue
+				if jmsg:
+					msgtype = jmsg.get('msgtype')
+					if msgtype == 'cl_newplayer':
+						logger.info(f'{msgtype} jmsg: {jmsg}')
+						payload = {'msgtype':'bcsetclid', 'client_id':self.client_id}
+						send_data(self.socket, payload=payload, pktid=gen_randid())
+					elif msgtype == 's_ping':
+						logger.info(f'{msgtype} jmsg: {jmsg}')
+					elif msgtype == 'msgok':
+						logger.info(f'{msgtype} jmsg: {jmsg}')
+					elif msgtype == 'msgokack':
+						pass
+						# logger.info(f'{msgtype} jmsg: {jmsg}')
+					elif msgtype == 'cl_playerpos':
+						pass
+					elif msgtype == 'cl_playermove': # sent when player moves
+						pass
+						# logger.info(f'{msgtype} jmsg: {jmsg}')
+					elif msgtype == 'error1':
+						logger.warning(f'{msgtype} jmsg: {jmsg}')
+					else:
+						logger.warning(f'unhandledmsgtype {msgtype} data: {incoming_data} jmsg={jmsg}')
 
 class BombClientHandler(Thread):
 	def __init__(self, conn, addr,  npos, ngpos):
@@ -104,25 +232,25 @@ class BombClientHandler(Thread):
 		self.lastupdate = 0
 		self.maxtimeout = 100
 		self.bchtimer = pygame.time.get_ticks()
-		self.sender = Sender(client_id=self.client_id, s_type='bch')
+		self.oldsender = Sender(client_id=self.client_id, s_type='bch')
 		logger.debug(self)
 
 	def __repr__(self):
-		return f'BCH( id:{self.client_id} sender:{self.sender} )'
+		return f'BCH( id:{self.client_id} sender:{self.oldsender} )'
 
 	def send_event(self, serverevent):
-		self.sender.queue.put((self.conn, serverevent))
+		self.oldsender.queue.put((self.conn, serverevent))
 		logger.debug(f'[bch] {self} senderqput {serverevent}')
 
 	def send_netupdate(self, netplayers, grid):
-		self.sender.queue.put((self.conn, {'msgtype':'s_netplayers', 'netplayers':netplayers}))
+		self.oldsender.queue.put((self.conn, {'msgtype':'s_netplayers', 'netplayers':netplayers}))
 
 	def set_pos(self, pos=None, gridpos=None, grid=None):
 		# called when server generates new map and new player position
 		self.pos = pos
 		self.gridpos = gridpos
 		posmsg = {'msgtype':'s_pos', 'client_id':self.client_id, 'pos':self.pos, 'gridpos':self.gridpos, 'bchtimer':self.bchtimer, 'grid':grid}
-		self.sender.queue.put((self.conn, posmsg))
+		self.oldsender.queue.put((self.conn, posmsg))
 		logger.info(f'{self} set_pos {self.pos} g={self.gridpos}')
 
 
@@ -131,7 +259,7 @@ class BombClientHandler(Thread):
 		logger.info(f'{self} quitplayer quitter:{quitter}')
 		if quitter == self.client_id:
 			self.kill = True
-			self.sender.kill = True
+			self.oldsender.kill = True
 			self.conn.close()
 
 	def send_gridupdate(self, blkpos, blktype, bclid):
@@ -142,7 +270,7 @@ class BombClientHandler(Thread):
 		# 	pass
 		# 	#logger.warning(f'{self.client_id} bclid={bclid} sending gridupdate to self blkpos={blkpos} blktype={blktype}')
 		# logger.info(f'send_gridupdate {self.client_id} bclid={bclid} blkpos={blkpos} blktype={blktype}')
-		self.sender.queue.put((self.conn, payload))
+		self.oldsender.queue.put((self.conn, payload))
 
 	def send_map(self, grid):
 		# send mapgrid to player
@@ -152,13 +280,13 @@ class BombClientHandler(Thread):
 			logger.warning(f'already gotmap')
 		payload = {'msgtype':'s_grid', 'grid':grid, 'pos': self.pos, 'gridpos':self.gridpos, 'bchtimer':self.bchtimer}
 		# logger.debug(f'{self} send_map payload={len(payload)}')
-		self.sender.queue.put((self.conn, payload))
+		self.oldsender.queue.put((self.conn, payload))
 
 	def set_client_id(self):
 		# send client id to remote client
 		if not self.clidset:
-			payload = {'msgtype':'bcsetclid', 'client_id':self.client_id}
-			self.sender.queue.put((self.conn, payload))
+			payload = {'msgtype':'oldbcsetclid', 'client_id':self.client_id}
+			self.oldsender.queue.put((self.conn, payload))
 			logger.debug(f'{self} sent payload:{payload}')
 			self.clidset = True
 		else:
@@ -167,16 +295,16 @@ class BombClientHandler(Thread):
 	def run(self):
 		self.set_client_id()
 		logger.debug(f'{self}  run ')
-		# self.sender.start()
+		# self.oldsender.start()
 		while not self.kill:
-			if self.kill or self.sender.kill:
-				logger.debug(f'{self} killed sender={self.sender}')
-				self.sender.kill = True
-				self.sender.join(timeout=1)
-				logger.debug(f'{self} killed sender={self.sender} killed')
+			if self.kill or self.oldsender.kill:
+				logger.debug(f'{self} killed sender={self.oldsender}')
+				self.oldsender.kill = True
+				self.oldsender.join(timeout=1)
+				logger.debug(f'{self} killed sender={self.oldsender} killed')
 				self.kill = True
 				self.conn.close()
-				logger.debug(f'{self} killed sender={self.sender} {self.conn} closed')
+				logger.debug(f'{self} killed sender={self.oldsender} {self.conn} closed')
 				break
 
 			msgtype = None
@@ -193,7 +321,7 @@ class BombClientHandler(Thread):
 				for resp in incoming_data:
 					try:
 						msgtype = resp.get('msgtype')
-						in_pktid = resp.get('pktid')
+						in_pktid = resp.get('oldpktid')
 					except AttributeError as e:
 						logger.error(f'AttributeError {e} resp={resp}')
 						break
@@ -299,7 +427,7 @@ class BombServer(Thread):
 			self.kill = True
 			self.conn.close()
 			pygame.quit()
-		elif event_type == 'newclient':
+		elif event_type == 'oldnewclient':
 			# logger.debug(f'{self} q: {data}')
 			conn = serverevent.get('conn')
 			addr = serverevent.get('addr')
@@ -397,7 +525,7 @@ class BombServer(Thread):
 
 	def send_update_event(self):
 		for bc in self.bombclients:
-			bc.sender.queue.put((bc.conn, {'msgtype':'s_ping', 'client_id':bc.client_id, 'bchtimer':bc.bchtimer}))
+			bc.oldbc_sender.queue.put((bc.conn, {'msgtype':'olds_ping', 'client_id':bc.client_id, 'bchtimer':bc.bchtimer}))
 			if bc.client_id:
 				bc.lastupdate += 1
 				if bc.lastupdate > bc.maxtimeout:
@@ -487,7 +615,7 @@ class ServerTUI(Thread):
 				break
 
 
-def main():
+def oldmain():
 
 	logger.debug(f'[bombserver] started')
 	clients = 0
@@ -502,15 +630,15 @@ def main():
 		logger.debug(f'[bombserver] {server} waiting for connection clients:{clients}')
 		if server.kill or tui.kill:
 			logger.warning(f'[bombserver] {server} server killed')
-			server.conn.close()
+			server.socket.close()
 			return
 		try:
-			conn, addr = server.conn.accept()
-			ncmsg=Event(SERVEREVENT, payload={'msgtype':'newclient', 'conn':conn, 'addr':addr})
+			conn, addr = server.socket.accept()
+			ncmsg=Event(SERVEREVENT, payload={'msgtype':'oldnewclient', 'conn':conn, 'addr':addr})
 			logger.info(f'ncmsg={ncmsg}')
 			pygame.event.post(ncmsg)
 		except (KeyboardInterrupt, OSError) as e:
-			server.conn.close()
+			server.socket.close()
 			tui.kill = True
 			logger.warning(f'KeyboardInterrupt:{e} server:{server}')
 			server.kill_clients()
@@ -520,6 +648,16 @@ def main():
 			logger.warning(f'kill server:{server}')
 			break
 
+def newmain():
+	server = NewBombSever(bindaddress='127.0.0.1')
+	server.start()
+	logger.debug(f'[S] {server} started')
+	while not server.kill:
+		if server.kill:
+			logger.warning(f'[S] {server} server killed')
+			server.socket.close()
+			return
+
 if __name__ == '__main__':
 	pygame.init()
-	main()
+	newmain()

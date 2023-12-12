@@ -1,6 +1,7 @@
 import socket
 from threading import Thread
-
+from queue import SimpleQueue as Queue
+import json
 import pygame
 from loguru import logger
 from pygame.event import Event
@@ -10,8 +11,247 @@ from pygame.sprite import spritecollide
 from constants import BLOCK, PLAYEREVENT, PLAYERSIZE
 from globals import BasicThing, gen_randid, BlockNotFoundError
 from map import Gamemap
-from network import Sender, receive_data, send_data
+from network import Sender, receive_data, send_data, Receiver
 
+class NewPlayer(Thread):
+	def __init__(self, serveraddress='127.0.0.1'):
+		Thread.__init__(self, daemon=True)
+		self.client_id = 'newplayer1'
+		self.kill = False
+		self.connected = False
+		self.serveraddress = serveraddress
+		self.qm = Thread(target=self.queue_monitor, daemon=True)
+		self.queue = Queue()
+		self.pos = [0,0]
+		self.gridpos = [0,0]
+		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.sender = Sender(client_id=self.client_id, s_type=f'snp:{self.client_id}', socket=self.socket)
+		# sender thread, put data in client sender queue and sender thread sends data to client
+		# self.receiver = Thread(target=self.receive_data, daemon=True)
+		self.receiver = Receiver(socket=self.socket, client_id=self.client_id, s_type=f'rnp:{self.client_id}')
+		# receiver thread, receives data from server and puts data in receiver queue
+
+	def __repr__(self) -> str:
+		return f'NewPlayer(pos:{self.pos})'
+
+	def run(self):
+		while not self.kill:
+			payload = None
+			if self.kill:
+				logger.warning(f'{self} killed')
+				break
+			while not self.receiver.queue.empty():
+				payload = self.receiver.queue.get()
+				if payload:
+					# logger.debug(f'{self} payload:{payload}')
+					self.handle_payloadq(payload)
+
+
+	def handle_payloadq(self, payloads):
+		if not payloads:
+			return
+		for idx,payload in enumerate(payloads):
+			if len(payload) == 0:
+				# logger.warning(f'{idx}/{len(payloads)} payload empty {len(payload)} {type(payload)} : {payload}')
+				# logger.warning(f'payloads:\n\n{payloads}\n\n')
+				continue
+			if len(payload) == 1:
+				# logger.warning(f'{idx}/{len(payloads)} payload {len(payload)} {type(payload)} : {payload}')
+				# logger.warning(f'payloads:\n\n{payloads}\n\n')
+				continue
+			try:
+				msgtype = payload.get('msgtype')
+				in_pktid = payload.get('pktid')
+			except AttributeError as e:
+				logger.error(f'{idx}/{len(payloads)}  {e} payload: {type(payload)} {payload}')
+				logger.error(f'payloads:\n\n{payloads}\n\n')
+				break
+			if msgtype == 'bcsetclid':
+				logger.debug(f'{idx}/{len(payloads)}  bcsetclid payload={payload}')
+				# clid = payload.get('client_id')
+				# self.set_clientid(clid)
+			if msgtype == 's_netplayers':
+				# logger.debug(f'netplayers payload={payload}')
+				netplayers = payload.get('netplayers', None)
+				# if netplayers:
+				# 	self.netplayers = netplayers
+			if msgtype == 'olds_ping':
+				#logger.debug(f'{self} s_ping payload={payload}')
+				pass
+				# bchtimer = payload.get('bchtimer')
+				# pktid = payload.get('pktid')
+				# #logger.debug(f's_ping payload={payload} bchtimer={bchtimer} cl_timer={self.cl_timer} sendq={self.sender.queue.qsize()}')
+				# clpongpayload = {
+				# 	'msgtype': 'cl_pong',
+				# 	'client_id': self.client_id,
+				# 	'cl_timer': self.cl_timer,
+				# 	'in_pktid': pktid,
+				# 	'c_pktid': gen_randid(),
+				# 	}
+				# if self.ready:
+				# 	self.sender.queue.put((self.socket, clpongpayload))
+			if msgtype == 's_netgridupdate':
+				# received gridupdate from server
+				gridpos = payload.get('blkgridpos')
+				blktype = payload.get("blktype")
+				bclid = payload.get('bclid')
+				# update local grid
+				# self.gamemap.grid[gridpos[0]][gridpos[1]] = {'blktype':blktype, 'bomb':False}
+				# logger.debug(f'{msgtype} g={gridpos} b={blktype} bclid={bclid} client_id={self.client_id}')
+				# pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'c_ngu', 'client_id':self.client_id, 'blkgridpos':gridpos, 'blktype':blktype, 'bclid':bclid}))
+				# send grid update to bdude
+
+			if msgtype == 'bc_netbomb':
+				# received bomb from server
+				# if payload.get('client_id') == self.client_id:
+				# 	self.bombs_left -= 1
+				# pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'bc_netbomb', 'bombdata':payload}))
+				logger.info(f'{idx}/{len(payloads)}  {msgtype} payload={payload}')
+
+			if msgtype == 's_posupdate':
+				# received posupdate from server
+				logger.info(f'posupdate payload={payload}')
+				# pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos}))
+				#pygame.event.post(posmsg)
+
+			if msgtype == 's_pos':
+				# received playerpos from server
+				self.pos = payload.get('pos')
+				self.rect.x = self.pos[0]
+				self.rect.y = self.pos[1]
+				self.gridpos = payload.get('gridpos')
+				self.gamemap.grid = payload.get('grid')
+				self.gotpos = True
+				self.gotmap = True
+				# pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'newnetpos', 'posdata':payload, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'gridpos':self.gridpos, 'grid':self.gamemap.grid}))
+
+			if msgtype == 's_grid':
+				# complete grid from server
+				self.gamemap.grid = payload.get('grid')
+				self.gridpos = payload.get('gridpos')
+				self.pos = payload.get('pos')
+				self.rect.x = self.pos[0]
+				self.rect.y = self.pos[1]
+				self.gotmap = True
+				self.gotpos = True
+				self.ready = True
+				# pygame.event.post(Event(PLAYEREVENT, payload={'msgtype':'s_gamemapgrid', 'client_id':self.client_id, 'grid':self.gamemap.grid, 'pos':self.pos,'gotmap':self.gotmap,'gotpos':self.gotpos, 'newpos':self.pos, 'gridpos':self.gridpos}))
+				logger.debug(f'{idx}/{len(payloads)}  s_grid g={len(self.gamemap.grid)} newpos={self.pos} {self.gridpos} p1={self}')
+
+	def connect(self):
+		attemtps = 0
+		try:
+			self.socket.connect((self.serveraddress, 9696))
+		except ConnectionRefusedError as e:
+			logger.error(f'{self} {e}')
+			return False
+		while not self.connected:
+			attemtps += 1
+			logger.debug(f'attemtps: {attemtps}')
+			if attemtps >= 10:
+				logger.warning(f'attemtps: {attemtps}')
+				return False
+			payload = {'msgtype' : 'cl_newplayer', 'client_id': self.client_id, 'c_pktid': gen_randid(), 'attempts': attemtps}
+			data = json.dumps(payload).encode('utf-8')
+			self.socket.send(data)
+			rawdata_sock = None
+			logger.debug(f'sent: {payload}')
+			try:
+				rawdata_sock = self.socket.recv(256).decode('utf-8')
+			except Exception as e:
+				logger.error(f'{e} {type(e)}')
+				return False
+			if rawdata_sock:
+				# logger.debug(f'rawdata_sock: {rawdata_sock}')
+				try:
+					data = json.loads(rawdata_sock)
+					logger.debug(f'data: {data}')
+				except json.decoder.JSONDecodeError as e:
+					logger.error(f'{e}')
+					logger.error(f'rawdata: {rawdata_sock}')
+					data = {'msgtype': 'jsondecodeerror', 'rawdata': rawdata_sock}
+				if data.get('msgtype') == 's_ping':
+					logger.debug(f's_ping: {rawdata_sock}')
+				elif data.get('msgtype') == 'bcsetclid':
+					logger.debug(f'bcsetclid: data: {data} raw: {rawdata_sock}')
+					self.client_id = data.get('client_id')
+					self.sender.start()
+					self.receiver.start()
+					self.connected = True
+					logger.debug(f'bcsetclid connected s:{self.sender} r:{self.receiver} rawdata: {rawdata_sock}')
+					return True
+				elif data.get('msgtype') == 'jsondecodeerror':
+					pass
+				elif data.get('msgtype') == 'msgokack':
+					self.client_id = data.get('client_id')
+					self.sender.client_id = self.client_id
+					self.receiver.client_id = self.client_id
+					self.sender.start()
+					self.receiver.start()
+					self.connected = True
+					logger.debug(f'clidmsgokack: {self.client_id} s:{self.sender} r:{self.receiver} rawdata: {rawdata_sock}')
+					return True
+				else:
+					logger.warning(f'raw: {rawdata_sock} {type(rawdata_sock)}\n{data}')
+
+	def queue_monitor(self):
+		payload = None
+		while not self.kill:
+			try:
+				payload = self.queue.get()
+				if payload:
+					logger.debug(f'{self} payload: {payload}')
+			except (TypeError, AttributeError) as e:
+				logger.error(f'[prd] {e} {type(e)} ')
+			except Exception as e:
+				logger.error(f'[prd] unhandled {e} {type(e)}')
+
+	def move(self, action):
+		gpx, gpy = self.gridpos
+		newgridpos = [gpx, gpy]
+		if action == 'u':
+			newgridpos = [gpx, gpy-1]
+		elif action == 'd':
+			newgridpos = [gpx, gpy+1]
+		elif action == 'l':
+			newgridpos = [gpx-1, gpy]
+		elif action == 'r':
+			newgridpos = [gpx+1, gpy]
+		self.gridpos = newgridpos
+		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+		payload = {'msgtype' : 'cl_playermove', 'client_id': self.client_id, 'c_pktid': gen_randid(), 'pos': self.pos, 'gridpos': self.gridpos, 'action': action}
+		data = json.dumps(payload).encode('utf-8')
+		self.socket.send(data)
+
+	def send_cl_message(self, clmsgtype, payload):
+		if not self.connected:
+			logger.warning(f'{self} not conncted')
+			return
+		if self.client_id == 'newplayer1':
+			logger.warning(f'{self} need client_id from server!')
+			return
+		elif self.connected and self.client_id != 'newplayer1':
+			pospayload = {
+				'msgtype': clmsgtype,
+				'client_id': self.client_id,
+				'payload': payload,
+				}
+			self.sender.queue.put((self.socket, pospayload))
+
+	def sendpos(self):
+		if not self.connected:
+			logger.warning(f'{self} not conncted')
+			return
+		if self.client_id == 'newplayer1':
+			logger.warning(f'{self} need client_id from server!')
+			return
+		elif self.connected and self.client_id != 'newplayer1':
+			pospayload = {
+				'msgtype': 'cl_playerpos',
+				'client_id': self.client_id,
+				'pos': self.pos,
+				}
+			self.sender.queue.put((self.socket, pospayload))
 
 class Player(BasicThing, Thread):
 	def __init__(self, serverargs):
@@ -30,7 +270,7 @@ class Player(BasicThing, Thread):
 		self.rect = pygame.Surface.get_rect(self.image)
 		self.surface = pygame.display.get_surface() # pygame.Surface(PLAYERSIZE)
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.receiver = Thread(target=self.receive_data, daemon=True)
+		self.oldreceiver = Thread(target=self.oldreceive_data, daemon=True)
 		self.sender = Sender(client_id=self.client_id, s_type='player')# Thread(target=self.send_updates,daemon=True)
 		self.ready = False
 		self.name = f'player{self.client_id}'
@@ -62,13 +302,13 @@ class Player(BasicThing, Thread):
 	def flame_hit(self, flame):
 		self.hearts -= 1
 
-	def receive_data(self):
+	def oldreceive_data(self):
 		while not self.kill:
 			try:
 				if self.connected:
 					payloads = receive_data(conn=self.socket)
 					if payloads:
-						self.handle_payloadq(payloads)
+						self.oldhandle_payloadq(payloads)
 						self.payloadcnt += len(payloads)
 					else:
 						logger.warning(f'[prd] nopayload payloadcnt:{self.payloadcnt}')
@@ -157,8 +397,8 @@ class Player(BasicThing, Thread):
 				self.gotpos = False
 				return False
 		self.connected = True
-		self.receiver.start()
-		self.sender.start()
+		self.oldreceiver.start()
+		self.oldsender.start()
 		# if not self.gotmap:
 		self.send_maprequest(gridsize=15)
 		return self.connected
@@ -201,13 +441,13 @@ class Player(BasicThing, Thread):
 			# logger.warning(f'')
 
 
-	def handle_payloadq(self, payloads):
+	def oldhandle_payloadq(self, payloads):
 		if not payloads:
 			return
 		for payload in payloads:
 			msgtype = payload.get('msgtype')
 			in_pktid = payload.get('pktid')
-			if msgtype == 'bcsetclid':
+			if msgtype == 'oldbcsetclid':
 				clid = payload.get('client_id')
 				self.set_clientid(clid)
 			if msgtype == 's_netplayers':
@@ -215,7 +455,7 @@ class Player(BasicThing, Thread):
 				netplayers = payload.get('netplayers', None)
 				if netplayers:
 					self.netplayers = netplayers
-			if msgtype == 's_ping':
+			if msgtype == 'olds_ping':
 				#logger.debug(f'{self} s_ping payload={payload}')
 				bchtimer = payload.get('bchtimer')
 				pktid = payload.get('pktid')
@@ -295,4 +535,3 @@ class Player(BasicThing, Thread):
 			}
 		if self.ready:
 			self.sender.queue.put((self.socket, pospayload))
-			# logger.debug(f'sending {pospayload.get("msgtype")} sendq={self.sender.queue.qsize()} ')

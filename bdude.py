@@ -14,11 +14,13 @@ from pygame.math import Vector2
 from pygame.sprite import Group, spritecollide, Sprite
 
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
-from constants import (CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT)
+from constants import (CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT)
 from globals import Block, Bomb, ResourceHandler, BasicThing, BasicBlock
 from menus import GameMenu
-from player import Player
-from bombserver import NewBombSever, NewConnectionHandler
+from player import Player, NewPlayer
+# from bombserver import NewBombSever, NewConnectionHandler
+# from signal import signal, SIGPIPE, SIG_DFL
+# signal(SIGPIPE,SIG_DFL)
 
 FPS = 60
 
@@ -54,11 +56,10 @@ def drawGrid(screen, grid, rh):
 		y+=BLOCK
 
 class Game(Thread):
-	def __init__ (self, server):
+	def __init__ (self):
 		Thread.__init__(self, name='game')
 		self.kill = False
 		self.running = False
-		self.server = server
 		pygame.display.set_mode(size=(GRIDSIZE*BLOCK,GRIDSIZE*BLOCK), flags=pygame.DOUBLEBUF, vsync=1)
 		self.bgimage = pygame.transform.scale(pygame.image.load('data/blackfloor.png').convert(), (1000,900))
 		self.screen = pygame.display.get_surface()
@@ -68,9 +69,11 @@ class Game(Thread):
 		self.clock = pygame.time.Clock()
 		self.game_started = False
 		self.rh = ResourceHandler()
+		self.players = []
+		self.server_grid = []
 
 	def __repr__(self):
-		return f'[game] k={self.kill} gs:{self.game_started} mm:{self.show_mainmenu} server:{self.server}'
+		return f'[game] k={self.kill} gs:{self.game_started} mm:{self.show_mainmenu} '
 
 	def run(self):
 		while True:
@@ -78,27 +81,33 @@ class Game(Thread):
 			if self.kill:
 				logger.warning(f'{self} gamerun kill')
 				break
+			if self.game_started:
+				for p in self.players:
+					if p.connected and p.client_id != 'newplayer1':
+						p.sendpos()
 			events_ = pygame.event.get()
 			for event in events_:
 				self.handle_input_events([event for event in events_ if event.type in (pygame.KEYDOWN, pygame.KEYUP)])
 				self.handle_mouse_events([event for event in events_ if event.type == pygame.MOUSEBUTTONDOWN])
 				if event.type == pygame.QUIT:
 					self.kill = True
-					self.server.kill = True
-					self.server.ch.kill = True
 					logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
 					pygame.event.clear()
 					break
 				elif event.type == NEWCLIENTEVENT:
-					logger.debug(f'NEWCLIENTEVENT payload: {event.payload}')
 					# todo new client connected, create player and move on....
-					self.server.new_connection(event)
+					logger.debug(f'NEWCLIENTEVENT {event.payload}')
 				elif event.type == STARTGAMEEVENT:
 					# todo create new client
 					# connect to server
 					# get grid from server
 					# start game
-					self.start_game()
+					try:
+						self.start_game()
+					except ConnectionRefusedError as e:
+						logger.warning(f'{self} {e}')
+						self.game_started = False
+						self.show_mainmenu = True
 				elif event.type == CONNECTTOSERVEREVENT:
 					self.connect_to_server()
 				elif event.type == STARTSERVEREVENT:
@@ -117,28 +126,45 @@ class Game(Thread):
 			self.game_menu.draw_mainmenu()
 		else:
 			if self.game_started:
-				drawGrid(self.screen, self.server.grid, self.rh)
+				drawGrid(self.screen, self.server_grid, self.rh)
 		# pygame.display.flip()
 		# self.screen.fill((0,0,0))
 
 	def start_game(self):
-		if not self.server.started:
-			try:
-				self.server.start()
-				self.server.started = True
-			except RuntimeError as e:
-				logger.error(f'{self} server:{self.server} {e}')
+		if self.game_started:
+			logger.warning(f'game already started')
+			return
 		else:
-			logger.warning(f'{self} server:{self.server} already started')
-		self.game_started = True
-		self.show_mainmenu = False
+			logger.info(f'startgame')
 		self.screen.fill((0,0,0))
+		conn = False
+		np = NewPlayer()
+		# npevent = {'msgtype': 'newplayer0', 'conn' : np.socket, }
+		logger.debug(f'connectinnp: {np} players: {len(self.players)} ')
+		try:
+			conn = np.connect()
+		except ConnectionRefusedError as e:
+			logger.warning(f'connectnp: {np} {e}')
+			self.game_started = False
+			self.show_mainmenu = False
+			return
+		if conn:
+			self.game_started = True
+			self.show_mainmenu = False
+			np.start()
+			self.players.append(np)
+			logger.info(f'connectednp: {np} players: {len(self.players)} ')
+		else:
+			logger.warning(f'startgame failed to connect! np: {np} ')
+#			self.game_started = False
+#			self.show_mainmenu = True
+
 
 	def connect_to_server(self):
-		logger.info(f'{self} CONNECTTOSERVEREVENT')
+		logger.info(f'{self}')
 
 	def start_server(self):
-		logger.info(f'{self} STARTSERVEREVENT ')
+		logger.info(f'{self} ')
 
 	def handle_input_events(self, events):
 		menuselection = self.game_menu.menuitems[0]
@@ -153,40 +179,40 @@ class Game(Thread):
 						menuselection = self.game_menu.menu_down()
 						logger.debug(f'item: {self.game_menu.active_item} events: {len(events)}')
 					else:
-						pass
-						# self.playerone.move("down")
+						[p.move('d') for p in self.players]
 				elif keypressed in {pygame.K_UP, pygame.K_w, 'w',119}:
 					if self.show_mainmenu:
 						menuselection = self.game_menu.menu_up()
 						logger.debug(f'item: {self.game_menu.active_item} events: {len(events)}')
 					else:
-						pass
-						# self.playerone.move("up")
+						[p.move('u') for p in self.players]
 				elif keypressed in {pygame.K_RIGHT, pygame.K_d, 'd', 100}:
 					if not self.show_mainmenu:
-						pass
-						# self.playerone.move("right")
+						[p.move('r') for p in self.players]
 				elif keypressed in {pygame.K_LEFT, pygame.K_a, 'a', 97}:
 					if not self.show_mainmenu:
-						pass
-						# self.playerone.move("left")
+						[p.move('l') for p in self.players]
 				elif keypressed in {pygame.K_SPACE, 32}:
 					# handle menu selection
-					logger.debug(f'K_SPACE item: {self.game_menu.active_item}')
-					if self.game_menu.active_item == 'Start':
-						pygame.event.post(Event(STARTGAMEEVENT))
-					if self.game_menu.active_item == 'Connect to server':
-						pygame.event.post(Event(CONNECTTOSERVEREVENT))
-					if self.game_menu.active_item == 'Start server':
-						pygame.event.post(Event(STARTSERVEREVENT))
-					if self.game_menu.active_item == 'Quit':
-						pygame.event.post(Event(pygame.QUIT))
-
+					if not self.show_mainmenu:
+						[p.move('bomb') for p in self.players]
+					else:
+						logger.debug(f'K_SPACE item: {self.game_menu.active_item}')
+						if self.game_menu.active_item == 'Start':
+							if not self.game_started:
+								pygame.event.post(Event(STARTGAMEEVENT))
+							else:
+								logger.warning(f'game already started')
+						if self.game_menu.active_item == 'Connect to server':
+							pygame.event.post(Event(CONNECTTOSERVEREVENT))
+						if self.game_menu.active_item == 'Start server':
+							pygame.event.post(Event(STARTSERVEREVENT))
+						if self.game_menu.active_item == 'Quit':
+							pygame.event.post(Event(pygame.QUIT))
 				elif keypressed in {pygame.K_ESCAPE, 27}:
 					# escape show/hide menu
 					logger.debug(f'K_ESCAPE item: {self.game_menu.active_item} show: {self.show_mainmenu}')
 					self.show_mainmenu = not self.show_mainmenu
-
 				else:
 					logger.debug(f'keypressed {keypressed} events: {len(events)}')
 
@@ -197,16 +223,15 @@ class Game(Thread):
 				logger.debug(f'[mouse] {mx},{my} ')
 
 def main(args):
-	server = NewBombSever()
-	game = Game(server)
-	logger.debug(f'main game: {game} server: {server}')
+	game = Game()
+	logger.debug(f'main game: {game}')
 	game.daemon = True
 	game.running = True
 	game.run()
 	while game.running:
 		if game.kill:
 			game.running = False
-			logger.debug(f'main kill {game} {server}')
+			logger.debug(f'main kill {game} ')
 			break
 	pygame.quit()
 
