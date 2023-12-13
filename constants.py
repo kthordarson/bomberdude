@@ -1,6 +1,7 @@
 import pygame
 from pygame import Color
 from pygame import USEREVENT
+PKTLEN = 1024
 SERVEREVENT = USEREVENT + 99
 SENDUPDATEEVENT = SERVEREVENT + 11
 BDUDEEVENT = SERVEREVENT + 12

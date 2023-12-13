@@ -17,7 +17,7 @@ from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
 from constants import (CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT)
 from globals import Block, Bomb, ResourceHandler, BasicThing, BasicBlock
 from menus import GameMenu
-from player import Player, NewPlayer
+from player import  NewPlayer
 # from bombserver import NewBombSever, NewConnectionHandler
 # from signal import signal, SIGPIPE, SIG_DFL
 # signal(SIGPIPE,SIG_DFL)
@@ -84,7 +84,8 @@ class Game(Thread):
 			if self.game_started:
 				for p in self.players:
 					if p.connected and p.client_id != 'newplayer1':
-						p.sendpos()
+						# p.sendpos()
+						p.send_cl_message(clmsgtype='gamemsg', payload='foobar')
 			events_ = pygame.event.get()
 			for event in events_:
 				self.handle_input_events([event for event in events_ if event.type in (pygame.KEYDOWN, pygame.KEYUP)])
@@ -102,12 +103,7 @@ class Game(Thread):
 					# connect to server
 					# get grid from server
 					# start game
-					try:
-						self.start_game()
-					except ConnectionRefusedError as e:
-						logger.warning(f'{self} {e}')
-						self.game_started = False
-						self.show_mainmenu = True
+					self.start_game()
 				elif event.type == CONNECTTOSERVEREVENT:
 					self.connect_to_server()
 				elif event.type == STARTSERVEREVENT:
@@ -139,7 +135,13 @@ class Game(Thread):
 		self.screen.fill((0,0,0))
 		conn = False
 		np = NewPlayer()
+		np.start()
+		self.players.append(np)
+		self.game_started = True
+		self.show_mainmenu = False
 		# npevent = {'msgtype': 'newplayer0', 'conn' : np.socket, }
+
+	def oldstartgame(self):
 		logger.debug(f'connectinnp: {np} players: {len(self.players)} ')
 		try:
 			conn = np.connect()

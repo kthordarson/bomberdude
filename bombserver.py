@@ -5,7 +5,7 @@ import struct
 import sys
 import json
 from threading import Thread
-from queue import SimpleQueue as Queue
+from queue import Queue
 import pygame
 from loguru import logger
 from pygame.event import Event
@@ -13,7 +13,7 @@ from pygame.event import Event
 from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE,NEWCLIENTEVENT,NEWCONNECTIONEVENT)
 from globals import gen_randid
 from map import Gamemap,generate_grid
-from network import Sender, receive_data, send_data, Receiver
+from network import Sender, send_data, Receiver
 
 class NewBombSever(Thread):
 	# main server thread
@@ -54,10 +54,11 @@ class NewBombSever(Thread):
 				logger.debug(f'{self} killed')
 				break
 			else:
-				self.send_pings()
+				# self.send_pings()
 				while not self.ch.connectionq.empty():
 					payload = self.ch.connectionq.get()
 					self.new_connection(payload)
+					self.ch.connectionq.task_done()
 
 	def new_connection(self, payload):
 		# new connection from newconnectionhandler
@@ -104,11 +105,8 @@ class NewConnectionHandler(Thread):
 				break
 			try:
 				conn, addr = self.socket.accept()
-				payload={'msgtype':'NEWCONNECTIONEVENT', 'conn':conn, 'addr':addr, 'bindaddress': self.bindaddress}
+				payload={'conn':conn, 'addr':addr, 'bindaddress': self.bindaddress}
 				self.connectionq.put(payload)
-				# ncmsg=Event(NEWCONNECTIONEVENT, payload={'msgtype':'NEWCONNECTIONEVENT', 'conn':conn, 'addr':addr, 'bindaddress': self.bindaddress})
-				# logger.info(f'[nch] NEWCONNECTIONEVENT ncmsg={ncmsg}')
-				# pygame.event.post(ncmsg)
 				self.connections += 1
 			except Exception as e:
 				logger.error(f'{self} [!] unhandled exception:{e} {type(e)}')
@@ -135,18 +133,6 @@ class NewClientHandler(Thread):
 	def handle_payloadq(self, payloads):
 		logger.debug(f'{self} handle_payloadq {payloads}')
 
-	def receive_data(self):
-		while not self.kill:
-			payloads = None
-			try:
-				payloads = receive_data(conn=self.socket)
-				if payloads:
-					self.handle_payloadq(payloads)
-			except (TypeError, AttributeError) as e:
-				logger.error(f'[r] {e} {type(e)} ')
-			except Exception as e:
-				logger.error(f'[r] unhandled {e} {type(e)}')
-
 	def send_payload(self, payload):
 		pass
 		# try:
@@ -170,33 +156,49 @@ class NewClientHandler(Thread):
 				logger.warning(f'{self} killed sender={self.sender} socket: {self.socket} closed')
 				break
 			msgtype = None
-			incoming_data = []
+			rawsockd = []
 			try:
 				# incoming_data = receive_data(self.conn)
-				while not self.receiver.queue.empty():
-					incoming_data = self.receiver.queue.get()
+				if not self.receiver.queue.empty():
+					rawsockd = self.receiver.queue.get()
+					self.receiver.queue.task_done()
 					# logger.debug(f'{self} gotincomingdata: {incoming_data}')
-				# incoming_data = self.receiver.queue.get()
-				# logger.debug(f'{self} gotincomingdata: {incoming_data}')
 			except (ConnectionResetError, BrokenPipeError, struct.error, EOFError, OSError) as e:
 				logger.error(f'{self} receive_data error:{e}')
 				self.kill = True
 				break
-			if len(incoming_data) > 1:
+			if len(rawsockd) > 1:
 				msgtype = None
 				jmsg = None
-				try:
-					jmsg = json.loads(incoming_data)
-				except (json.decoder.JSONDecodeError) as e:
-					logger.error(f'incoming_data error:{e} {type(e)} type: {type(incoming_data)} len: {len(incoming_data)}')
-					logger.error(f'\nincoming_data: {incoming_data}\n')
-					continue
+				# if not isinstance(rawsockd, str) or not isinstance(rawsockd, dict):
+				# 	try:
+				# 		incoming_data = rawsockd[rawsockd.index('{'):]
+				# 	except AttributeError as ae:
+				# 		logger.error(f'{ae} {type(rawsockd)}\n{rawsockd}\n')
+				# else:
+				# 	incoming_data = rawsockd
+				incoming_data = rawsockd
+				if isinstance(incoming_data, str):
+					try:
+						jmsg = json.loads(incoming_data)
+						# logger.debug(f'{self} gotincomingdata:\n{incoming_data}\n\njmsg:{jmsg}')
+					except (json.decoder.JSONDecodeError) as e:
+						logger.error(f'incoming_data error:{e} {type(e)} type: {type(incoming_data)} len: {len(incoming_data)}')
+						logger.error(f'\nincoming_data: {incoming_data}\n')
+						continue
+					except TypeError as e:
+						logger.error(f'incoming_data error:{e} {type(e)} type: {type(incoming_data)} len: {len(incoming_data)}')
+						logger.error(f'\nincoming_data: {incoming_data}\n')
+						continue
+				elif isinstance(incoming_data, dict):
+					jmsg = incoming_data
 				if jmsg:
 					msgtype = jmsg.get('msgtype')
-					if msgtype == 'cl_newplayer':
+					if msgtype == 'cl_newplayer' or jmsg.get('client_id') == 'newplayer1':
 						logger.info(f'{msgtype} jmsg: {jmsg}')
 						payload = {'msgtype':'bcsetclid', 'client_id':self.client_id}
-						send_data(self.socket, payload=payload, pktid=gen_randid())
+						# send_data(self.socket, payload=payload, pktid=gen_randid())
+						self.sender.queue.put((self.socket, payload))
 					elif msgtype == 's_ping':
 						logger.info(f'{msgtype} jmsg: {jmsg}')
 					elif msgtype == 'msgok':
@@ -206,9 +208,12 @@ class NewClientHandler(Thread):
 						# logger.info(f'{msgtype} jmsg: {jmsg}')
 					elif msgtype == 'cl_playerpos':
 						pass
-					elif msgtype == 'cl_playermove': # sent when player moves
-						pass
 						# logger.info(f'{msgtype} jmsg: {jmsg}')
+					elif msgtype == 'gamemsg': # game ping
+						pass
+					elif msgtype == 'cl_playermove': # sent when player moves
+						#pass
+						logger.info(f'{msgtype} jmsg: {jmsg}')
 					elif msgtype == 'error1':
 						logger.warning(f'{msgtype} jmsg: {jmsg}')
 					else:
@@ -310,7 +315,7 @@ class BombClientHandler(Thread):
 			msgtype = None
 			incoming_data = None
 			try:
-				incoming_data = receive_data(self.conn)
+				incoming_data = old_receive_data(self.conn)
 				# logger.debug(f'{self} rid:{rid} resp:{resp}')
 			except (ConnectionResetError, BrokenPipeError, struct.error, EOFError, OSError) as e:
 				logger.error(f'{self} receive_data error:{e}')
@@ -559,7 +564,7 @@ class BombServer(Thread):
 
 		pygame.time.set_timer(SENDUPDATEEVENT, 50)
 		while not self.kill:
-			events = pygame.event.get()
+			events = [] #pygame.event.get()
 			for event in events:
 				if event.type == pygame.KEYDOWN:
 					logger.info(f'{len(events)} event={event}')

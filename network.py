@@ -1,55 +1,76 @@
 import json
 import re
-from queue import SimpleQueue as Queue
+from queue import Queue
 from threading import Thread
-
+import re
 from loguru import logger
 
 from globals import gen_randid
+from constants import PKTLEN
 
-def packet_parser(rawdata_sock):
+def packet_parser(rawdata):
 	results = []
+	rawdata_sock = re.sub('^0+','',rawdata)
+	# try:
+	# 	rawdata_sock = rawdata[rawdata.index('{'):]
+	# except (AttributeError, ValueError) as e:
+	# 	logger.error(f'[recv] {e} {type(e)} rawdata:\n\n{rawdata}\n{type(rawdata)}\n')
+	# 	results.append({'msgtype': 'parsererror', 'rawdata': rawdata})
+	# except TypeError as e:
+	# 	logger.error(f'[recv] {e} {type(e)} rawdata:\n\n{rawdata}\n{type(rawdata)}\n')
+	#	results.append({'msgtype': 'parsererror', 'rawdata': rawdata})
 	if rawdata_sock.count('{') + rawdata_sock.count('}') == 2:
-		return rawdata_sock
+		# logger.info(f'rawdatasock {len(rawdata_sock)} {type(rawdata_sock)}: {rawdata_sock}\nrawdata {len(rawdata)} {type(rawdata)}: {rawdata}\n')
+		results.append(rawdata_sock)
+		return results
 	if rawdata_sock.count('{') + rawdata_sock.count('}') < 2:
-		logger.warning(f'parsererror {rawdata_sock}')
-		return {'msgtype': 'parsererror0'}
+		logger.warning(f'parsererrorcnt\nrs: {rawdata_sock}\nraw: {rawdata}\n')
+		results.append({'msgtype': 'parsererror'})
+		return results
 	if rawdata_sock.count('{') + rawdata_sock.count('}') >= 2: #rawdata_sock.count('}{') >= 2:
 		rawsplit = rawdata_sock.split('}{') # .strip('}').strip('{')
 		for rawpart in rawsplit:
-			if isinstance(rawpart, dict):
-				logger.info(f'rawpart is dict {rawpart}')
-				results.append(rawpart)
-			elif isinstance(rawpart, list):
-				logger.warning(f'rawpart is list {len(rawpart)}\nrawpart: {rawpart}\n')
+			if len(rawpart) == 0:
 				break
-			elif isinstance(rawpart, str):
+			else:
 				msgtype = None
-				if rawpart[0] != '{':
-					rawpart = '{' + rawpart
-				if rawpart[-1] != '}':
-					rawpart = rawpart + '}'
+				try:
+					if rawpart[0] != '{':
+						rawpart = '{' + rawpart
+					if rawpart[-1] != '}':
+						rawpart = rawpart + '}'
+				except IndexError as e:
+					logger.error(f'{e} rawp:\n{rawpart}\nsplit:\n{rawsplit}\nrawdata_sock:\n{rawdata_sock}')
+					results.append({'msgtype': 'parserindexerror'})
 				if not 'msgtype' in rawpart:
 					# logger.error(f'NO msgtype rawp: {rawpart}\nsplit {len(rawsplit)} {type(rawsplit)}:\n{rawsplit[:100]}\nrawdata_sock {type(rawdata_sock)}:\n{rawdata_sock[:100]}\n\n')
-					break
-					# return {'msgtype': 'parsermissingmsg'}
-				if rawpart.count('"') % 2 != 0:
+					results.append({'msgtype': 'parsermissingmsg'})
 					break
 				if rawpart.count('msgtype') != 1:
-					logger.error(f'{e} rawp: {rawpart} split: {rawsplit} rawdata_sock: {rawdata_sock}')
+					logger.error(f'msgtypecount! rawp:\n{rawpart}\nsplit:\n{rawsplit}\nrawdata_sock:\n{rawdata_sock}')
+					results.append({'msgtype': 'parsertyperrormsgtypecount'})
 					break
-					# return {'msgtype': 'parsertomanymsgtype'}
+				if len(rawpart) < 10:
+					results.append({'msgtype': 'parserpartlen'})
+					break
 				try:
 					msgtype = json.loads(rawpart).get('msgtype')
 				except TypeError as e:
-					logger.error(f'{e} rawp: {rawpart} split: {rawsplit} rawdata_sock: {rawdata_sock}')
-					# return {'msgtype': 'parsertyperror'}
+					logger.error(f'TypeError {e} rawp: {rawpart}\nsplit: {rawsplit}\nrawdata_sock: {rawdata_sock}\n')
+					results.append({'msgtype': 'parsertyperror'})
 				except json.decoder.JSONDecodeError as e:
-					logger.error(f'{e} rawp: {rawpart} split: {rawsplit} rawdata_sock: {rawdata_sock}')
-					# return {'msgtype': 'parserjsonerror'}
+					if 'Expecting' in str(e) or 'Unterminated' in str(e):
+						logger.warning(f'JSONDecodeError {e} rawp {len(rawpart)} :\n{rawpart}\nsplit:\n{rawsplit} rawdata_sock:\n{rawdata_sock}')
+						results.append({'msgtype': 'parserjsonerror'})
+						break
+					else:
+						logger.error(f'JSONDecodeError {e} rawp:\n{rawpart}\nsplit:\n{rawsplit} rawdata_sock:\n{rawdata_sock}')
+						results.append({'msgtype': 'parserjsonerror'})
+						break
 				except Exception as e:
 					logger.error(f'unhandled {e} {type(e)} rawdata_sock: {rawdata_sock}')
-					# return {'msgtype': 'parserunhandlederror'}
+					results.append({'msgtype': 'parsererror', 'errorpayload' : 'unknown'})
+					break
 				if msgtype:
 					if msgtype == 's_ping':
 						# logger.info(f's_ping: {rawdata}')
@@ -57,8 +78,11 @@ def packet_parser(rawdata_sock):
 					elif msgtype == 'cl_newplayer':
 						logger.info(f'newplayer {rawpart}')
 						results.append(rawpart)
+					elif msgtype == 'bcsetclid':
+						logger.info(f'bcsetclid {rawpart}')
+						results.append(rawpart)
 					elif msgtype == 'msgokack':
-						pass
+						# pass
 						# logger.info(f'msgokack {rawdata}')
 						results.append(rawpart)
 					elif msgtype == 'cl_playerpos':
@@ -67,37 +91,42 @@ def packet_parser(rawdata_sock):
 					elif msgtype == 'cl_playermove':
 						# logger.info(f'cl_playerpos {rawpart}')
 						results.append(rawpart)
+					elif msgtype == 'gamemsg':
+						results.append(rawpart)
+						# logger.info(f'cl_playerpos {rawpart}')
 					else:
 						logger.warning(f'unknownmsgtype {msgtype} rawpart: {rawpart} rawsplit: {rawsplit} rawdata_sock: {rawdata_sock}')
+						results.append({'msgtype': 'unknownmsgtype'})
 						# return {'msgtype': 'parserunknownmsgtype', 'unknownpart': msgtype, 'rawpart': rawpart, 'rawsplit': rawsplit}
-			else:
-				logger.warning(f'unknownraw {type(rawpart)} part: {rawpart} rawsplit: {rawsplit} rawdata_sock: {rawdata_sock}')
 		return results
 
 
 def send_data(conn, payload, pktid):
-	if isinstance(payload, str):
-		payload = json.loads(payload)
-	try:
-		payload['pktid'] = pktid
-	except TypeError as e:
-		logger.error(f'senddata {e} {type(e)} payload={payload} {type(payload)}')
-		return
+	# if isinstance(payload, str):
+	# 	payload = json.loads(payload)
+	# try:
+	# 	payload['pktid'] = pktid
+	# except TypeError as e:
+	# 	logger.error(f'[sd] {e} {type(e)} payload={payload} {type(payload)}')
+	# 	return
 	try:
 		data = json.dumps(payload).encode('utf-8')
 	except TypeError as e:
-		logger.error(f'[send] TypeError:{e} payload:{payload} {type(payload)}')
+		logger.error(f'[sd] TypeError:{e} payload:{payload} {type(payload)}')
 		return
+	# logger.debug(f'[sd] c: {conn} dpl: {len(data)} {type(data)}\n{data}\n')
+	data = data.zfill(PKTLEN)
 	conn.sendall(data)
 
-def receive_data(conn):
+def old_receive_data(conn):
 	if not conn:
 		return None
 	rid = None
 	data = []
 	rawdata = None
 	try:
-		rawdata = conn.recv(9000).decode('utf-8')
+		rawdata = conn.recv(PKTLEN).decode('utf-8')
+		logger.debug(f'[r] {len(rawdata)} {type(rawdata)}\n{rawdata}\n')
 	except OSError as e:
 		#logger.error(f'[recv] OSError:{e} conn:{conn}')
 		return None
@@ -150,12 +179,12 @@ class Receiver(Thread):
 		self.s_type = s_type
 		self.kill = False
 		self.queue = Queue()
-		self.sendcount = 0
+		self.receivecount = 0
 		self.client_id = client_id
 		self.socket = socket
 
 	def __repr__(self):
-		return f'Receiver({self.s_type} clid={self.client_id} count={self.sendcount} sq:{self.queue.qsize()})'
+		return f'Receiver({self.s_type} clid={self.client_id} count={self.receivecount} sq:{self.queue.qsize()})'
 
 	def run(self):
 		logger.info(f'{self} run')
@@ -169,19 +198,24 @@ class Receiver(Thread):
 			rawdata = None
 			jsondata = None
 			try:
-				rawdata_sock = self.socket.recv(9000).decode('utf-8')
+				rawdata_sock = self.socket.recv(PKTLEN).decode('utf-8')
+				self.receivecount += 1
+				# logger.debug(f'rcnt: {self.receivecount} raw {len(rawdata_sock)} {type(rawdata_sock)}\nr:{rawdata_sock}\n\n')
 			except OSError as e:
-				logger.error(f'[recv] OSError:{e} ')
+				logger.error(f'[recv] {self} OSError:{e} ')
 			if rawdata_sock:
-				data = json.dumps({'msgtype':'msgokack', 'client_id':self.client_id}).encode('utf-8')
-				self.socket.sendall(data)
-				# logger.debug(f'raw {len(rawdata_sock)} r:{rawdata_sock[:100]}')
+				# logger.debug(f'raw {len(rawdata_sock)}\n\nr:{rawdata_sock}\n\n')
 				rawdata = packet_parser(rawdata_sock)
+				# logger.debug(f'rawparsed: {len(rawdata)}\n\n{rawdata}\n\n')
 				try:
 					for rawpart in rawdata:
-						self.queue.put(rawpart)
+						if len(rawpart) > 1:
+							# logger.debug(f'rawpart: {len(rawpart)}\n{rawpart}\n')
+							self.queue.put(rawpart)
+						# data = json.dumps({'msgtype':'msgokack', 'client_id':self.client_id}).encode('utf-8')
+						# self.socket.sendall(data)
 				except TypeError as e:
-					logger.error(f'[recv] TypeError:{e} rawdata:{rawdata} {type(rawdata)} rawdata_sock: {rawdata_sock}')
+					logger.error(f'[recv] {self} TypeError:{e} rawdata:{rawdata} {type(rawdata)} rawdata_sock: {rawdata_sock}')
 
 class Sender(Thread):
 	def __init__(self, client_id, s_type, socket):
@@ -207,20 +241,17 @@ class Sender(Thread):
 				conn, payload = None, None
 				try:
 					conn, payload = self.queue.get()
+					self.queue.task_done()
 				except (TypeError, ValueError) as e:
 					logger.error(f'senderrunqueue {e} {type(e)}')
-				#
 				try:
-					if payload.get('msgtype') != 's_ping':
-						pass
-						# logger.debug(f'{self} sending type:{type(payload)} payload:{payload} to {conn}')
-					send_data(conn, payload=payload, pktid=gen_randid())
-					# send_data(conn=conn, payload=payload, pktid=gen_randid())
+					# send_data(self.socket, payload=payload, pktid=gen_randid())
+					send_data(conn=conn, payload=payload, pktid=gen_randid())
 					self.sendcount += 1
 				except BrokenPipeError as e:
+					logger.warning(f'{self} {e} conn:{conn} payload:{payload} q: {self.queue.qsize()}')
 					self.queue = Queue()
-					return
-					# logger.warning(f'{self} {e} conn:{conn} payload:{payload} q: {self.queue.qsize()}')
+					# return
 					# raise(e)
 				# 	self.queue = Queue()
 				except ConnectionResetError as e:
