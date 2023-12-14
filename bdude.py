@@ -237,6 +237,11 @@ def main(args):
 			break
 	pygame.quit()
 
+def run_testclient(args):
+	logger.debug(f'testclient {args}')
+	np = NewPlayer(testmode=True)
+	np.do_testing()
+	np.run()
 
 if __name__ == "__main__":
 	pygame.init()
@@ -247,6 +252,7 @@ if __name__ == "__main__":
 	parser.add_argument('--port', action='store', dest='port', default=9696)
 	args = parser.parse_args()
 	if args.testclient:
-		pass
-	main(args)
+		run_testclient(args)
+	else:
+		main(args)
 

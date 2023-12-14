@@ -24,7 +24,7 @@ def packet_parser(rawdata):
 		results.append(rawdata_sock)
 		return results
 	if rawdata_sock.count('{') + rawdata_sock.count('}') < 2:
-		logger.warning(f'parsererrorcnt\nrs: {rawdata_sock}\nraw: {rawdata}\n')
+		# logger.warning(f'parsererrorcnt\nrs: {rawdata_sock}\nraw: {rawdata}\n')
 		results.append({'msgtype': 'parsererror'})
 		return results
 	if rawdata_sock.count('{') + rawdata_sock.count('}') >= 2: #rawdata_sock.count('}{') >= 2:
@@ -76,10 +76,13 @@ def packet_parser(rawdata):
 						# logger.info(f's_ping: {rawdata}')
 						results.append(rawpart)
 					elif msgtype == 'cl_newplayer':
-						logger.info(f'newplayer {rawpart}')
+						logger.info(f'{msgtype} {rawpart}')
+						results.append(rawpart)
+					elif msgtype == 'ch_ping':
+						logger.info(f'{msgtype} {rawpart}')
 						results.append(rawpart)
 					elif msgtype == 'bcsetclid':
-						logger.info(f'bcsetclid {rawpart}')
+						logger.info(f'{msgtype} {rawpart}')
 						results.append(rawpart)
 					elif msgtype == 'msgokack':
 						# pass
@@ -109,14 +112,17 @@ def send_data(conn, payload, pktid):
 	# except TypeError as e:
 	# 	logger.error(f'[sd] {e} {type(e)} payload={payload} {type(payload)}')
 	# 	return
-	try:
-		data = json.dumps(payload).encode('utf-8')
-	except TypeError as e:
-		logger.error(f'[sd] TypeError:{e} payload:{payload} {type(payload)}')
-		return
+	# try:
+	# 	data = json.dumps(payload).encode('utf-8')
+	# except TypeError as e:
+	# 	logger.error(f'[sd] TypeError:{e} payload:{payload} {type(payload)}')
+	# 	return
 	# logger.debug(f'[sd] c: {conn} dpl: {len(data)} {type(data)}\n{data}\n')
-	data = data.zfill(PKTLEN)
-	conn.sendall(data)
+	# data = data.zfill(PKTLEN)
+	if isinstance(payload, dict):
+		payload = json.dumps(payload).encode('utf-8')
+	payload = payload.zfill(PKTLEN)
+	conn.sendall(payload)
 
 def old_receive_data(conn):
 	if not conn:
@@ -184,7 +190,7 @@ class Receiver(Thread):
 		self.socket = socket
 
 	def __repr__(self):
-		return f'Receiver({self.s_type} clid={self.client_id} count={self.receivecount} sq:{self.queue.qsize()})'
+		return f'Receiver({self.s_type} clid={self.client_id} r={self.receivecount} rq:{self.queue.qsize()})'
 
 	def run(self):
 		logger.info(f'{self} run')
@@ -203,6 +209,7 @@ class Receiver(Thread):
 				# logger.debug(f'rcnt: {self.receivecount} raw {len(rawdata_sock)} {type(rawdata_sock)}\nr:{rawdata_sock}\n\n')
 			except OSError as e:
 				logger.error(f'[recv] {self} OSError:{e} ')
+				break
 			if rawdata_sock:
 				# logger.debug(f'raw {len(rawdata_sock)}\n\nr:{rawdata_sock}\n\n')
 				rawdata = packet_parser(rawdata_sock)
@@ -228,7 +235,7 @@ class Sender(Thread):
 		self.socket = socket
 
 	def __repr__(self):
-		return f'Sender({self.s_type} clid={self.client_id} count={self.sendcount} sq:{self.queue.qsize()})'
+		return f'Sender({self.s_type} clid={self.client_id} c={self.sendcount} sq:{self.queue.qsize()})'
 
 
 	def run(self):
@@ -237,7 +244,7 @@ class Sender(Thread):
 			if self.kill:
 				logger.warning(f'{self} killed')
 				break
-			while not self.queue.empty():
+			if not self.queue.empty():
 				conn, payload = None, None
 				try:
 					conn, payload = self.queue.get()
@@ -248,8 +255,13 @@ class Sender(Thread):
 					# send_data(self.socket, payload=payload, pktid=gen_randid())
 					send_data(conn=conn, payload=payload, pktid=gen_randid())
 					self.sendcount += 1
+				except OSError as e:
+					logger.warning(f'{self} {e} conn:{conn} payload:{payload} q: {self.queue.qsize()}')
+					self.socket.close()
+					self.queue = Queue()
 				except BrokenPipeError as e:
 					logger.warning(f'{self} {e} conn:{conn} payload:{payload} q: {self.queue.qsize()}')
+					self.socket.close()
 					self.queue = Queue()
 					# return
 					# raise(e)
