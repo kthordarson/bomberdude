@@ -36,7 +36,6 @@ class GameMenu:
 		else:
 			self.selected_item = len(self.menuitems) - 1
 		self.active_item = self.menuitems[self.selected_item]
-		return self.menuitems[self.selected_item]
 
 	def menu_down(self):
 		if self.selected_item < len(self.menuitems) - 1:
@@ -44,7 +43,6 @@ class GameMenu:
 		else:
 			self.selected_item = 0
 		self.active_item = self.menuitems[self.selected_item]
-		return self.menuitems[self.selected_item]
 
 class Menu:
 	def __init__(self, screen, font):

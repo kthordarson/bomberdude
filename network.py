@@ -92,8 +92,8 @@ def packet_parser(rawdata):
 						# logger.info(f'cl_playerpos {rawpart}')
 						results.append(rawpart)
 					elif msgtype == 'cl_playermove':
-						# logger.info(f'cl_playerpos {rawpart}')
-						results.append(rawpart)
+						logger.info(f'cl_playerpos {rawpart}')
+						# results.append(rawpart)
 					elif msgtype == 'gamemsg':
 						results.append(rawpart)
 						# logger.info(f'cl_playerpos {rawpart}')
