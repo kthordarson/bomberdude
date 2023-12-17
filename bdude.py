@@ -14,7 +14,7 @@ from pygame.math import Vector2
 from pygame.sprite import Group, spritecollide, Sprite
 
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
-from constants import (CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT)
+from constants import (NEWGRIDEVENT, CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT)
 from globals import Block, Bomb, ResourceHandler, BasicThing, BasicBlock
 from menus import GameMenu
 from player import  NewPlayer
@@ -67,11 +67,12 @@ class Game(Thread):
 		self.game_started = False
 		self.rh = ResourceHandler()
 		self.player = NewPlayer()
-		self.players = []
+		self.playerlist = []
 		self.server_grid = []
+		self.playerlist = {}
 
 	def __repr__(self):
-		return f'[game] k={self.kill} gs:{self.game_started} mm:{self.show_mainmenu} '
+		return f'[G] k={self.kill} gs:{self.game_started} p:{self.player} pl:{len(self.playerlist)} P: {self.playerlist}'
 
 	def run(self):
 		while True:
@@ -79,11 +80,6 @@ class Game(Thread):
 			if self.kill:
 				logger.warning(f'{self} gamerun kill')
 				break
-			if self.game_started:
-				for p in self.players:
-					if p.connected and p.client_id != 'newplayer1':
-						# p.sendpos()
-						p.send_cl_message(clmsgtype='gamemsg', payload='foobar')
 			events_ = pygame.event.get()
 			for event in events_:
 				if event.type == pygame.KEYDOWN:
@@ -98,6 +94,15 @@ class Game(Thread):
 				elif event.type == NEWCLIENTEVENT:
 					# todo new client connected, create player and move on....
 					logger.debug(f'NEWCLIENTEVENT {event.payload}')
+				elif event.type == NEWGRIDEVENT:
+					# todo new client connected, create player and move on....
+					newgrid = event.payload.get('grid', None)
+					if newgrid:
+						self.grid = newgrid
+						logger.debug(f'NEWGRIDEVENT {len(self.grid)} {self.player.gotgrid}')
+						self.player.gotgrid = True
+					else:
+						logger.error(f'NEWGRIDEVENT nogrid {self.player.gotgrid} : {event.payload} ')
 				elif event.type == STARTGAMEEVENT:
 					# todo create new client
 					# connect to server
@@ -136,7 +141,6 @@ class Game(Thread):
 		conn = False
 		#np = NewPlayer()
 		self.player.start()
-		# self.players.append(np)
 		self.game_started = True
 		self.show_mainmenu = False
 		# npevent = {'msgtype': 'newplayer0', 'conn' : np.socket, }
@@ -161,27 +165,29 @@ class Game(Thread):
 				logger.debug(f'item: {self.game_menu.active_item}')
 			else:
 				self.player.move('d')
-				# [p.move('d') for p in self.players]
+				# [p.move('d') for p in self.playerlist]
 		elif keypressed in {pygame.K_UP, pygame.K_w}:
 			if self.show_mainmenu:
 				self.game_menu.menu_up()
 				logger.debug(f'item: {self.game_menu.active_item}')
 			else:
 				self.player.move('u')
-				# [p.move('u') for p in self.players]
+				# [p.move('u') for p in self.playerlist]
 		elif keypressed in {pygame.K_RIGHT, pygame.K_d}:
 			if not self.show_mainmenu:
 				self.player.move('r')
-				# [p.move('r') for p in self.players]
+				# [p.move('r') for p in self.playerlist]
 		elif keypressed in {pygame.K_LEFT, pygame.K_a}:
 			if not self.show_mainmenu:
 				self.player.move('l')
-				# [p.move('l') for p in self.players]
+				# [p.move('l') for p in self.playerlist]
 		elif keypressed == pygame.K_SPACE:
 			# handle menu selection
 			if not self.show_mainmenu:
-				# [p.move('bomb') for p in self.players]
-				self.player.move('bomb')
+				# [p.move('bomb') for p in self.playerlist]
+				# self.player.move('bomb')
+				self.player.sendbomb()
+				# logger.debug(f'{self} {self.player} players: {len(self.playerlist)} {self.playerlist}')
 			else:
 				logger.debug(f'e:{event} k:{keypressed} K_SPACE item: {self.game_menu.active_item}')
 				if self.game_menu.active_item == 'Start':

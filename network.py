@@ -8,6 +8,25 @@ from loguru import logger
 from globals import gen_randid
 from constants import PKTLEN
 
+def do_send(socket, serveraddress, payload):
+	# logger.debug(f'do_send {socket} {serveraddress} {payload}')
+	if isinstance(payload, str):
+		payload = payload.encode('utf8')
+	if isinstance(payload, dict):
+		payload = json.dumps(payload).encode('utf8')
+	payload = payload.zfill(PKTLEN)
+	msglen = str(len(payload)).encode('utf8')
+	msglen = msglen.zfill(PKTLEN)
+	try:
+		socket.sendto(msglen,serveraddress )
+	except TypeError as e:
+		logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
+	try:
+		socket.sendto(payload,serveraddress)
+	except TypeError as e:
+		logger.error(f'{e} payloaderror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
+
+
 def packet_parser(rawdata):
 	results = []
 	rawdata_sock = re.sub('^0+','',rawdata)
@@ -91,8 +110,8 @@ def packet_parser(rawdata):
 					elif msgtype == 'cl_playerpos':
 						# logger.info(f'cl_playerpos {rawpart}')
 						results.append(rawpart)
-					elif msgtype == 'cl_playermove':
-						logger.info(f'cl_playerpos {rawpart}')
+					elif msgtype == 'xcl_playermove':
+						logger.info(f'xcl_playerpos {rawpart}')
 						# results.append(rawpart)
 					elif msgtype == 'gamemsg':
 						results.append(rawpart)
