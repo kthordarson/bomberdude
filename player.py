@@ -7,7 +7,7 @@ import pygame
 from loguru import logger
 from pygame.event import Event
 from pygame.math import Vector2
-from pygame.sprite import spritecollide
+from pygame.sprite import spritecollide, Sprite, Group
 from time import sleep
 from constants import BLOCK, PLAYEREVENT, PLAYERSIZE, PKTLEN, NEWGRIDEVENT,NETPLAYEREVENT, PKTHEADER
 from globals import BasicThing, gen_randid, BlockNotFoundError, RepeatedTimer
@@ -20,9 +20,14 @@ DISCONNECT_MESSAGE = 'disconnect'
 class ReceiverError(Exception):
 	pass
 
-class NewPlayer(Thread):
-	def __init__(self, serveraddress='127.0.0.1', testmode=False):
+class NewPlayer(Thread, Sprite):
+	def __init__(self, gridpos, image, serveraddress='127.0.0.1', testmode=False):
 		Thread.__init__(self, daemon=True)
+		Sprite.__init__(self)
+		self.gridpos = gridpos
+		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+		self.image = image # self.rh.get_image('data/playerone.png')
+		self.rect = self.image.get_rect()
 		self.client_id = f'np:{gen_randid()}'
 		self.kill = False
 		self.connected = False
@@ -31,8 +36,6 @@ class NewPlayer(Thread):
 		self.receiverq = Queue()
 		self.send_queue = Queue()
 		self.msg_queue = Queue()
-		self.pos = [0,0]
-		self.gridpos = [0,0]
 		self.grid = []
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.attempts = 0
@@ -47,6 +50,8 @@ class NewPlayer(Thread):
 		self.updatetimer = RepeatedTimer(interval=1, function=self.playertimer)
 		self.updcntr = 0
 		self.gotplayerlist = False
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
 
 	def __repr__(self) -> str:
 		return f'NP({self.client_id} pos:{self.pos} upc: {self.updcntr} sq:{self.send_queue.qsize()} s:{self.sendcounter} r:{self.recvcounter}) pl:{len(self.playerlist)}'
@@ -73,6 +78,7 @@ class NewPlayer(Thread):
 		payload['updcntr'] = self.updcntr
 		payload['client_id'] = self.client_id
 		payload['pos'] = self.pos
+		payload['gridpos'] = self.gridpos
 		payload['gotgrid'] = self.gotgrid
 		payload['gotplayerlist'] = self.gotplayerlist
 		payload['sendqsize'] = self.send_queue.qsize()
@@ -177,10 +183,12 @@ class NewPlayer(Thread):
 		match msgtype:
 			case 'ackplrbmb':
 				bomb_clid = jresp.get('data').get('client_id')
+				clbombpos = jresp.get('data').get('clbombpos')
+				pygame.event.post(pygame.event.Event(PLAYEREVENT, payload={'msgtype': 'ackplrbmb', 'client_id': bomb_clid, 'clbombpos': clbombpos}))
 				if bomb_clid != self.client_id:
-					logger.info(f'{self} otherplayerbomb {msgtype} from bomb_clid')
+					logger.info(f'{self} otherplayerbomb {msgtype} from {bomb_clid} bombpos: {clbombpos}')
 				elif bomb_clid == self.client_id:
-					# logger.info(f'{self} ownbomb {msgtype} jresp: {jresp}')
+					# logger.info(f'{self} ownbomb {msgtype} bombpos: {clbombpos}')
 					pass
 				else:
 					logger.warning(f'{self} bomberclientid! {msgtype} jresp: {jresp}')
@@ -209,7 +217,8 @@ class NewPlayer(Thread):
 					grid = jresp.get('grid')
 					self.gotgrid = True
 					self.grid = grid
-					logger.info(f'{self} gotgrid {self.gotgrid} {msgtype} ')
+					# logger.info(f'{self} gotgrid {self.gotgrid} {msgtype} ')
+					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
 			case _:
 				logger.warning(f'missingmsgtype jresp: {jresp} ')
 				# data = {'msgtype' : 'missingmsgtype', 'client_id': self.client_id, 'runcounter': self.runcounter}
@@ -217,9 +226,17 @@ class NewPlayer(Thread):
 		# logger.info(f'sendqput {self.send_queue.qsize()} msgtype={msgtype} payloadmsgt:={payload.get("msgtype")}') # \nmsgtype={msgtype}\njresp:\n{jresp}\n')
 		# self.send_queue.put(payload)
 				# self.send_queue.put(data)
+	def update(self):
+		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+		# logger.info(f'{self}')
+
+	def draw(self, screen):
+		screen.blit(self.image, self.rect)
+		# screen.blit(self.image, self.rect)
+
 
 	def sendbomb(self):
-		payload = {'msgtype' : 'cl_playerbomb','action': 'playerbomb'}
+		payload = {'msgtype' : 'cl_playerbomb','action': 'playerbomb', 'clbombpos': self.gridpos}
 		self.send_queue.put(payload)
 
 	def move(self, action):
@@ -238,5 +255,8 @@ class NewPlayer(Thread):
 		self.gridpos = newgridpos
 		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 		payload = {'msgtype' : 'cl_playermove', 'action': action}
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
 		self.send_queue.put(payload)
+		logger.info(f'{self} move {action} gridpos: {self.gridpos} pos: {self.pos}')
 

@@ -14,6 +14,10 @@ def generate_grid():
 	for k in range(len(grid[0])):
 		grid[0][k] = 1
 		grid[-1][k] = 1
+	# random blocks
+	for x in range(1, len(grid)-1):
+		for y in range(1, len(grid)-1):
+			grid[x][y] = random.choice([2,2,2,2,2,2,7,8,9])
 	return grid
 
 class Gamemap:

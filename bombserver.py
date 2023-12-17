@@ -177,7 +177,7 @@ class Gameserver(Thread):
 					logger.warning(f'data: {data}')
 				for client in self.clients:
 					msg = {'msgtype': 'ackplrbmb', 'client': client.name, 'data': data}
-					logger.info(f'{msgtype} to {client.name} dclid: {data.get("client_id")}')
+					logger.info(f'{msgtype} to {client.name} dclid: {data.get("client_id")} clbombpos: {data.get("clbombpos")}')
 					try:
 						self.do_send(client._args[0], client._args[1], msg)
 					except Exception as e:

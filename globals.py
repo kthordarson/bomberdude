@@ -109,22 +109,30 @@ class BasicThing(Sprite):
 		self.collisions = spritecollide(self, items, False)
 		return self.collisions
 
-class BasicBlock(Sprite):
-	def __init__(self, pos, image):
+class NewBlock(Sprite):
+	def __init__(self, gridpos, image):
 		super().__init__()
-		self.pos = pos
+		self.gridpos = gridpos
+		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 		self.image = image
 		self.rect = self.image.get_rect()
 		self.vel = Vector2()
 		self.start_time = pygame.time.get_ticks()
 		self.clock = pygame.time.Clock()
 		self.accel = Vector2(0, 0)
+		self.rect = self.image.get_rect(center=self.pos)
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
 
 	def __repr__(self):
-		return f'[basic] pos={self.pos}'
+		return f'(BB pos={self.pos} {self.gridpos})'
 
 	def draw(self, screen):
-		pass
+		screen.blit(self.image, self.rect)
+
+	def update(self):
+		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+		# logger.debug(f'{self}')
 
 class Block(BasicThing):
 	def __init__(self, pos, gridpos, block_type, client_id, rm):
@@ -203,6 +211,28 @@ class Block(BasicThing):
 				particles.add(Particle(pos=flame.rect.midbottom, vel=random_velocity(direction="down"))) # flame.vel.y+random.uniform(-1.31,1.85))))  #for k in range(1,2)]
 		return particles
 
+class NewBomb(Sprite):
+	def __init__(self, bombimg ,bomberid, gridpos, bombtimer=1000):
+		super().__init__()
+		self.start_time = pygame.time.get_ticks()
+		self.image = bombimg
+		self.gridpos = gridpos
+		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+		self.rect = self.image.get_rect(center=self.pos)
+		self.bomberid = bomberid
+		self.bombtimer = bombtimer
+		self.rect = self.image.get_rect(center=self.pos)
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
+
+	def __repr__(self):
+		return f'(Nb pos={self.pos} {self.gridpos} bt:{self.bombtimer} {pygame.time.get_ticks() - self.start_time})'
+
+	def update(self):
+		# logger.info(f'{self}')
+		if pygame.time.get_ticks() - self.start_time >= self.bombtimer:
+			logger.warning(f'{self}')
+			self.kill()
 
 class Bomb(BasicThing):
 	def __init__(self, pos, bomber_id, bombpower, gridpos, rm):
