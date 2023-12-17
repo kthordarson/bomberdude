@@ -17,6 +17,9 @@ HEADER = 64
 FORMAT = 'utf8'
 DISCONNECT_MESSAGE = 'disconnect'
 
+class ReceiverError(Exception):
+	pass
+
 class NewPlayer(Thread):
 	def __init__(self, serveraddress='127.0.0.1', testmode=False):
 		Thread.__init__(self, daemon=True)
@@ -30,6 +33,7 @@ class NewPlayer(Thread):
 		self.msg_queue = Queue()
 		self.pos = [0,0]
 		self.gridpos = [0,0]
+		self.grid = []
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.attempts = 0
 		self.testmode = testmode
@@ -78,23 +82,49 @@ class NewPlayer(Thread):
 		# msglen += b' ' * (PKTLEN - len(payload))
 		msglen = str(len(payload)).encode('utf8').zfill(PKTHEADER)
 		msglenx = str(len(payload)).encode('utf8')
-		logger.debug(f'playerdosendmsglen lenx:{msglenx} c_pktid: {self.lastpktid}')
+		# logger.debug(f'playerdosendmsglen lenx:{msglenx} c_pktid: {self.lastpktid}')
 		self.socket.sendto(msglen,(self.serveraddress, 9696))
-		logger.debug(f'playerdosendpayload {outmsgtype} lenx:{msglenx} {len(payload)} c_pktid: {self.lastpktid}')
+		# logger.debug(f'playerdosendpayload {outmsgtype} lenx:{msglenx} {len(payload)} c_pktid: {self.lastpktid}')
 		self.socket.sendto(payload,(self.serveraddress, 9696))
 
 	def receiver(self):
 		logger.debug(f'[r] rqs:{self.receiverq.qsize()} waiting for packet on socket: {self.socket}')
 		while True:
-			replen = self.socket.recv(PKTHEADER).decode('utf8')
-			datalen = int(re.sub('^0+','',replen))
+			if self.kill:
+				logger.warning(f'{self} receiver kill')
+				break
+			try:
+				replen = self.socket.recv(PKTHEADER).decode('utf8')
+			except Exception as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.kill = True
+				raise ReceiverError(e)
+			try:
+				datalen = int(re.sub('^0+','',replen))
+			except ValueError as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.kill = True
+				raise ReceiverError(e)
+			except Exception as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.kill = True
+				raise ReceiverError(e)
 			# logger.debug(f'[r] datalen: {datalen}')
-			jresp = None
-			response = self.socket.recv(datalen).decode('utf8')
-			response = re.sub('^0+','', response)
-			jresp = json.loads(response)
-			logger.debug(f'[r] rqs:{self.receiverq.qsize()} datalen: {datalen} response: {len(response)} jresp:{len(jresp)}')
-			self.receiverq.put(jresp)
+			try:
+				response = self.socket.recv(datalen).decode('utf8')
+			except Exception as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.kill = True
+				raise ReceiverError(e)
+			try:
+				response = re.sub('^0+','', response)
+				jresp = json.loads(response)
+				# logger.debug(f'[r] {jresp.get("msgtype")} rqs:{self.receiverq.qsize()} dl: {datalen} r: {len(response)} jr:{len(jresp)}')
+				self.receiverq.put(jresp)
+			except Exception as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.kill = True
+				raise ReceiverError(e)
 			# self.msg_handler(jresp)
 		# try:
 		# 	jresp = json.loads(response)
@@ -117,9 +147,7 @@ class NewPlayer(Thread):
 		except OSError as e:
 			raise e
 		self.receiver_t.start()
-		logger.info(f'{self} connected to {self.serveraddress} ')
 		self.connected = True
-		logger.info(f'{self} self.receiver_t: {self.receiver_t}')
 		while not self.kill:
 			if not self.receiverq.empty():
 				jresp = self.receiverq.get()
@@ -147,7 +175,16 @@ class NewPlayer(Thread):
 		# 	raise Exception(f'{self} msgtype not found in jresp: {jresp}')
 		# # logger.debug(f'{msgtype} jresp:\n {jresp}\n')
 		match msgtype:
-			case 'serveracktimer' | 'ackclplrmv' | 'ackplrbmb':
+			case 'ackplrbmb':
+				bomb_clid = jresp.get('data').get('client_id')
+				if bomb_clid != self.client_id:
+					logger.info(f'{self} otherplayerbomb {msgtype} from bomb_clid')
+				elif bomb_clid == self.client_id:
+					# logger.info(f'{self} ownbomb {msgtype} jresp: {jresp}')
+					pass
+				else:
+					logger.warning(f'{self} bomberclientid! {msgtype} jresp: {jresp}')
+			case 'serveracktimer' | 'ackclplrmv' | 'trigger_newplayer':
 				# logger.debug(f'{self} {msgtype} {jresp}')
 				# playerlist = None
 				# data = jresp.get('data')
@@ -155,17 +192,19 @@ class NewPlayer(Thread):
 				if len(playerlist) > 0 and not self.gotplayerlist:
 					self.playerlist = playerlist
 					self.gotplayerlist = True
-					logger.info(f'firstsetplayerlistok {self.playerlist}')
+					logger.info(f'{msgtype} firstsetplayerlistok {self.playerlist}')
 				if len(playerlist) > 0 and self.gotplayerlist:
 					self.playerlist = playerlist
 					self.gotplayerlist = True
 					# logger.info(f'playerlistupdate {self.playerlist}')
 				elif len(playerlist) == 0:
 					self.gotplayerlist = False
-					logger.warning(f'{self} empty playerlist in jresp\n{jresp}')
+					if msgtype != 'trigger_newplayer':
+						logger.warning(f'{self} empty playerlist in jresp\n{jresp}')
 				if not playerlist:
-					self.gotplayerlist = False
-					logger.warning(f'{self} no playerlist in jresp\n{jresp}')
+					if msgtype != 'trigger_newplayer':
+						self.gotplayerlist = False
+						logger.warning(f'{self} no playerlist in jresp\n{jresp}')
 				if not self.gotgrid:
 					grid = jresp.get('grid')
 					self.gotgrid = True

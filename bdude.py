@@ -2,6 +2,7 @@
 # bomberdude
 # 07102022 todo fix mapsync, limit one bomb per grid on map,
 # todo check player movement while holding now keys
+import os, sys
 import threading
 from argparse import ArgumentParser
 from threading import Thread
@@ -22,35 +23,6 @@ from player import  NewPlayer
 FPS = 60
 
 
-def drawGrid(screen, grid, rh):
-	#draws the grid
-	# block=BLOCK
-	x = 0
-	y = 0
-	for i in grid:
-		x=0
-		for k in i:
-			#convert k into int type instead of class numpy int32
-			if int(k)==0:
-				blk = BasicBlock(pos=(x,y), image=rh.get_image('data/blocksprite0.png'))
-				screen.blit(blk.image, blk.pos)
-				# pygame.draw.rect(screen, (50, 150, 200), pygame.Rect((x, y), Vector2(BLOCKSIZE)))
-			elif int(k)==1:
-				blk = BasicBlock(pos=(x,y), image=rh.get_image('data/blocksprite1.png'))
-				screen.blit(blk.image, blk.pos)
-				# pygame.draw.rect(screen, (123, 50, 200), pygame.Rect((x, y), Vector2(BLOCKSIZE)))
-			elif int(k)==2:
-				blk = BasicBlock(pos=(x,y), image=rh.get_image('data/blocksprite2.png'))
-				# pygame.draw.rect(screen, (200, 50, 50), pygame.Rect((x, y), Vector2(BLOCKSIZE)))
-			elif int(k)==5:
-				blk = BasicBlock(pos=(x,y), image=rh.get_image('data/blocksprite5.png'))
-				# pygame.draw.rect(screen, (0, 0, 0), pygame.Rect((x, y), Vector2(BLOCKSIZE)))
-			else:
-				blk = BasicBlock(pos=(x,y), image=rh.get_image('data/blocksprite3.png'))
-				screen.blit(blk.image, blk.pos)
-				# pygame.draw.rect(screen, (200, 200, 200), pygame.Rect((x, y), Vector2(BLOCKSIZE)))
-			x+=BLOCK
-		y+=BLOCK
 
 class Game(Thread):
 	def __init__ (self):
@@ -67,18 +39,62 @@ class Game(Thread):
 		self.game_started = False
 		self.rh = ResourceHandler()
 		self.player = NewPlayer()
-		self.playerlist = []
-		self.server_grid = []
-		self.playerlist = {}
 
 	def __repr__(self):
-		return f'[G] k={self.kill} gs:{self.game_started} p:{self.player} pl:{len(self.playerlist)} P: {self.playerlist}'
+		return f'[G] k={self.kill} gs:{self.game_started} p:{self.player} pl:{len(self.player.playerlist)} '
+
+	def drawplayers(self):
+		if len(self.player.playerlist) > 1:
+			logger.debug(f'{self} drawgrid {len(self.player.playerlist)}\nplayerlist: {self.player.playerlist}\n')
+		for player in self.player.playerlist:
+			plid = self.player.playerlist.get(player).get('client_id')
+			pos = self.player.playerlist.get(player).get('pos')
+			if self.player.client_id != plid:
+				blk = BasicBlock(pos=pos, image=self.rh.get_image('data/netplayer.png'))
+			elif self.player.client_id == plid:
+				blk = BasicBlock(pos=pos, image=self.rh.get_image('data/playerone.png'))
+			else:
+				logger.warning(f'{self} pliderror!')
+				blk = BasicBlock(pos=pos, image=self.rh.get_image('data/dummyplayer.png'))
+			self.screen.blit(blk.image, blk.pos)
+
+	def drawGrid(self):
+		#draws the grid
+		# block=BLOCK
+		x = 0
+		y = 0
+		for i in self.player.grid:
+			x=0
+			for k in i:
+				#convert k into int type instead of class numpy int32
+				if int(k)==0:
+					blk = BasicBlock(pos=(x,y), image=self.rh.get_image('data/blocksprite0.png'))
+					self.screen.blit(blk.image, blk.pos)
+					# pygame.draw.rect(screen, (50, 150, 200), pygame.Rect((x, y), Vector2(BLOCKSIZE)))
+				elif int(k)==1:
+					blk = BasicBlock(pos=(x,y), image=self.rh.get_image('data/blocksprite1.png'))
+					self.screen.blit(blk.image, blk.pos)
+					# pygame.draw.rect(screen, (123, 50, 200), pygame.Rect((x, y), Vector2(BLOCKSIZE)))
+				elif int(k)==2:
+					blk = BasicBlock(pos=(x,y), image=self.rh.get_image('data/blocksprite2.png'))
+					# pygame.draw.rect(screen, (200, 50, 50), pygame.Rect((x, y), Vector2(BLOCKSIZE)))
+				elif int(k)==5:
+					blk = BasicBlock(pos=(x,y), image=self.rh.get_image('data/blocksprite5.png'))
+					# pygame.draw.rect(screen, (0, 0, 0), pygame.Rect((x, y), Vector2(BLOCKSIZE)))
+				else:
+					blk = BasicBlock(pos=(x,y), image=self.rh.get_image('data/blocksprite3.png'))
+					self.screen.blit(blk.image, blk.pos)
+					# pygame.draw.rect(screen, (200, 200, 200), pygame.Rect((x, y), Vector2(BLOCKSIZE)))
+				x+=BLOCK
+			y+=BLOCK
 
 	def run(self):
 		while True:
 			self.clock.tick(FPS)
 			if self.kill:
 				logger.warning(f'{self} gamerun kill')
+				self.player.kill = True
+				self.player.socket.close()
 				break
 			events_ = pygame.event.get()
 			for event in events_:
@@ -87,6 +103,7 @@ class Game(Thread):
 				elif event.type == pygame.MOUSEBUTTONDOWN:
 					self.handle_mouse_event(event)
 				if event.type == pygame.QUIT:
+					self.player.kill = True
 					self.kill = True
 					logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
 					pygame.event.clear()
@@ -127,7 +144,8 @@ class Game(Thread):
 			self.game_menu.draw_mainmenu()
 		else:
 			if self.game_started:
-				drawGrid(self.screen, self.server_grid, self.rh)
+				self.drawGrid()
+				self.drawplayers()
 		# pygame.display.flip()
 		# self.screen.fill((0,0,0))
 
@@ -165,29 +183,22 @@ class Game(Thread):
 				logger.debug(f'item: {self.game_menu.active_item}')
 			else:
 				self.player.move('d')
-				# [p.move('d') for p in self.playerlist]
 		elif keypressed in {pygame.K_UP, pygame.K_w}:
 			if self.show_mainmenu:
 				self.game_menu.menu_up()
 				logger.debug(f'item: {self.game_menu.active_item}')
 			else:
 				self.player.move('u')
-				# [p.move('u') for p in self.playerlist]
 		elif keypressed in {pygame.K_RIGHT, pygame.K_d}:
 			if not self.show_mainmenu:
 				self.player.move('r')
-				# [p.move('r') for p in self.playerlist]
 		elif keypressed in {pygame.K_LEFT, pygame.K_a}:
 			if not self.show_mainmenu:
 				self.player.move('l')
-				# [p.move('l') for p in self.playerlist]
 		elif keypressed == pygame.K_SPACE:
 			# handle menu selection
 			if not self.show_mainmenu:
-				# [p.move('bomb') for p in self.playerlist]
-				# self.player.move('bomb')
 				self.player.sendbomb()
-				# logger.debug(f'{self} {self.player} players: {len(self.playerlist)} {self.playerlist}')
 			else:
 				logger.debug(f'e:{event} k:{keypressed} K_SPACE item: {self.game_menu.active_item}')
 				if self.game_menu.active_item == 'Start':
@@ -222,9 +233,13 @@ def main(args):
 	while game.running:
 		if game.kill:
 			game.running = False
+			game.player.kill = True
+			game.player.socket.close()
+			pygame.quit()
 			logger.debug(f'main kill {game} ')
+			os._exit(0)
 			break
-	pygame.quit()
+
 
 def run_testclient(args):
 	logger.debug(f'testclient {args}')

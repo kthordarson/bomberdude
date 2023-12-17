@@ -41,6 +41,17 @@ class Gameserver(Thread):
 	def __repr__(self):
 		return f'[gs] c:{len(self.clients)}'
 
+	def trigger_newplayer(self):
+		self.updcntr += 1
+		for client in self.clients:
+			logger.debug(f'{self} {self.updcntr} {client.name}')
+			msg = {'msgtype': 'trigger_newplayer', 'client': client.name} #, 'data': {'msg': 'servertimer', 'updcntr': self.updcntr}}
+			try:
+				self.do_send(client._args[0], client._args[1], msg)
+			except Exception as e:
+				logger.error(f'[!] {e} in {self} {client}')
+				self.clients.pop(self.clients.index(client))
+
 	def servertimer(self):
 		self.updcntr += 1
 		for client in self.clients:
@@ -150,6 +161,8 @@ class Gameserver(Thread):
 				msg = {'msgtype': 'serveracktimer'}
 				if not data.get('gotgrid'):
 					logger.warning(f'need grid data: {data}')
+				if not data.get('gotplayerlist'):
+					logger.warning(f'need gotplayerlist data: {data}')
 				for client in self.clients:
 					msg['clientname'] = client.name
 					# logger.debug(f'{self} {msgtype} from {data.get("client_id")} sendingto: {client.name} ')
@@ -225,4 +238,5 @@ if __name__ == '__main__':
 		server.clients.append(thread)
 		thread.start()
 		conncounter += 1
-		logger.info(f'started {thread} {conncounter}')
+		logger.info(f'{server} started {thread} {conncounter}')
+		server.trigger_newplayer()
