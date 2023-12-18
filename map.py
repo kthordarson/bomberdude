@@ -43,7 +43,7 @@ def oldgenerate_grid():
 	return TESTGRID
 
 def generate_grid():
-	grid = [[random.choice([2,2,2,2,2,5]) for k in range(GRIDSIZE)] for j in range(GRIDSIZE)]
+	grid = [[random.choice([2,2,2,2,2,3,5]) for k in range(GRIDSIZE)] for j in range(GRIDSIZE)]
 	gridsize = len(grid)
 	for x in range(gridsize):
 		grid[x][0] = 1

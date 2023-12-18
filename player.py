@@ -190,6 +190,10 @@ class NewPlayer(Thread, Sprite):
 		# 	raise Exception(f'{self} msgtype not found in jresp: {jresp}')
 		# # logger.debug(f'{msgtype} jresp:\n {jresp}\n')
 		match msgtype:
+			case 'sv_gridupdate':
+				logger.debug(f'{self} {msgtype}')
+				self.grid = jresp.get('grid')
+				pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
 			case 'ackplrbmb':
 				bomb_clid = jresp.get('data').get('client_id')
 				clbombpos = jresp.get('data').get('clbombpos')
@@ -291,7 +295,7 @@ class NewPlayer(Thread, Sprite):
 				newgridpos = [gpx, gpy]
 				return
 		elif action == 'd':
-			if self.grid[gpx][gpy+1] == 2:			 
+			if self.grid[gpx][gpy+1] == 2:
 				newgridpos = [gpx, gpy+1]
 			else:
 				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx, gpy+1]} gridval: {self.grid[gpx][gpy+1]}')
@@ -306,7 +310,7 @@ class NewPlayer(Thread, Sprite):
 				return
 		elif action == 'r':
 			if self.grid[gpx+1][gpy] == 2: # else [gpx, gpy]
-				newgridpos = [gpx+1, gpy] 
+				newgridpos = [gpx+1, gpy]
 			else:
 				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx+1, gpy]} gridval: {self.grid[gpx+1][gpy]}')
 				newgridpos = [gpx, gpy]

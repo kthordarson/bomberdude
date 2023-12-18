@@ -16,7 +16,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from pygame import USEREVENT
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
 from constants import (DEFAULTFONT, PLAYEREVENT, NEWGRIDEVENT, CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT,BOMBXPLODE)
-from globals import ResourceHandler, NewBlock, NewBomb,get_bomb_flames
+from globals import ResourceHandler, NewBlock, NewBomb, NewFlame, get_bomb_flames
 from menus import GameMenu
 from player import  NewPlayer
 
@@ -77,6 +77,7 @@ class Game(Thread):
 				image = self.rh.get_image(f'data/flame0.png')
 				newflames = get_bomb_flames(payload.get("gridpos"), payload.get("bomberid"), image)
 				self.sprites.add(newflames)
+				# flames = [k for k in self.sprites if isinstance(k, NewFlame)]
 			case 'newgridfromserver':
 				newgrid = payload.get('grid', None)
 				if newgrid:
@@ -103,6 +104,24 @@ class Game(Thread):
 			case _ :
 				logger.warning(f'unknown event {payload}')
 
+	def check_coll(self):
+		flames = Group([k for k in self.sprites if isinstance(k, NewFlame)])
+		blocks = Group([k for k in self.sprites if isinstance(k, NewBlock)])
+		for f in flames:
+			colls = spritecollide(f, blocks, dokill=False)
+			for c in colls:
+				if c.blocktype == 3:
+					x = c.gridpos[0]
+					y = c.gridpos[1]
+					c.kill()
+					self.player.grid[y][x] = 2
+					self.player.grid[x][y] = 2
+					image = self.rh.get_image(f'data/blocksprite2.png')
+					self.sprites.add(NewBlock(gridpos=(y,x), image=image, blocktype=2))
+					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
+					self.player.send_queue.put(payload)
+
+
 	def run(self):
 		while True:
 			self.clock.tick(FPS)
@@ -113,6 +132,7 @@ class Game(Thread):
 				self.game_menu.draw_mainmenu()
 			else:
 				self.draw()
+				self.check_coll()
 			if self.kill:
 				logger.warning(f'{self} gamerun kill')
 				self.player.kill = True

@@ -110,7 +110,7 @@ class NewBlock(Sprite):
 		self.rect.y = self.pos[1]
 
 	def __repr__(self):
-		return f'(BB pos={self.pos} {self.gridpos})'
+		return f'(BB t:{self.blocktype} pos={self.pos} {self.gridpos})'
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect)

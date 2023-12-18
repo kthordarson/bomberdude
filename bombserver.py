@@ -221,6 +221,21 @@ class Gameserver(Thread):
 					except Exception as e:
 						logger.error(f'[!] {e} in {self} {client}')
 						self.clients.pop(self.clients.index(client))
+			case 'cl_gridupdate':
+				# gridupdate from client....
+				self.grid = data.get('grid')
+				for client in self.clients:
+					msg = {'msgtype': 'sv_gridupdate', 'grid': self.grid,}
+					logger.info(f'{msgtype} to {client.name} dclid: {data.get("client_id")} ')
+					try:
+						# self.do_send(client._args[0], client._args[1], msg)
+						self.do_send(client.conn, client.addr, msg)
+					except ServerSendException as e:
+						logger.warning(f'[!] {e} in {self} {client}')
+						self.clients.pop(self.clients.index(client))
+					except Exception as e:
+						logger.error(f'[!] {e} in {self} {client}')
+						self.clients.pop(self.clients.index(client))
 			case _:
 				logger.warning(f'unknown msgtype {msgtype} from {data.get("client_id")}\ndata: {data}')
 				for client in self.clients:
