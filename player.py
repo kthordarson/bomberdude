@@ -191,9 +191,17 @@ class NewPlayer(Thread, Sprite):
 		# # logger.debug(f'{msgtype} jresp:\n {jresp}\n')
 		match msgtype:
 			case 'sv_gridupdate':
-				logger.debug(f'{self} {msgtype}')
-				self.grid = jresp.get('grid')
-				pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
+				newgrid = jresp.get('grid')
+				owngridchk = sum([sum(k) for k in self.grid])
+				newgridchk = sum([sum(k) for k in newgrid])
+				if newgridchk != owngridchk:
+					logger.warning(f'{self} {msgtype} {owngridchk} {newgridchk}')
+					self.grid = newgrid
+					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
+				else:
+					self.grid = newgrid
+					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
+					logger.debug(f'{self} {msgtype} {owngridchk} {newgridchk}')
 			case 'ackplrbmb':
 				bomb_clid = jresp.get('data').get('client_id')
 				clbombpos = jresp.get('data').get('clbombpos')
@@ -323,5 +331,5 @@ class NewPlayer(Thread, Sprite):
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
 		self.send_queue.put(payload)
-		logger.info(f'{self} move {action} gridpos: {self.gridpos} pos: {self.pos}')
+		# logger.info(f'{self} move {action} gridpos: {self.gridpos} pos: {self.pos}')
 

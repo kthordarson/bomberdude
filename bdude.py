@@ -41,9 +41,13 @@ class Game(Thread):
 		self.rh = ResourceHandler()
 		self.player = NewPlayer(gridpos=[10,10], image=self.rh.get_image('data/playerone.png'), rh=self.rh)
 		self.bombs = Group()
+		self.flames = Group()
 		self.blocks = Group()
+		# self.sprites = Group()
+		# self.sprites.add(self.bombs)
+		# self.sprites.add(self.flames)
+		# self.sprites.add(self.blocks)
 		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 8)
-		self.sprites = Group()
 		self.debugmode = debugmode
 
 	def __repr__(self):
@@ -55,13 +59,13 @@ class Game(Thread):
 		x = 0
 		y = 0
 		# blks = Group()
-		self.sprites.empty()
+		self.blocks.empty()
 		for row in self.player.grid:
 			x=0
 			for k in row:
 				k = int(k)
 				image = self.rh.get_image(f'data/blocksprite{k}.png')
-				self.sprites.add(NewBlock(gridpos=(y,x), image=image, blocktype=k)) # swap x,y for gridpos
+				self.blocks.add(NewBlock(gridpos=(y,x), image=image, blocktype=k)) # swap x,y for gridpos
 				x += 1 # BLOCK
 			y += 1 # BLOCK
 
@@ -76,18 +80,21 @@ class Game(Thread):
 				logger.debug(f'{msgtype} {payload}')
 				image = self.rh.get_image(f'data/flame0.png')
 				newflames = get_bomb_flames(payload.get("gridpos"), payload.get("bomberid"), image)
-				self.sprites.add(newflames)
+				self.flames.add(newflames)
 				# flames = [k for k in self.sprites if isinstance(k, NewFlame)]
+			case 'sv_gridupdate':
+				logger.debug(f'{msgtype} {len(payload)}')
+				self.create_blocks_from_grid()
 			case 'newgridfromserver':
 				newgrid = payload.get('grid', None)
 				if newgrid:
-					logger.debug(f'NEWGRIDEVENT {self.player.gotgrid} {self.sprites}')
+					logger.debug(f'{msgtype} gotgrid: {self.player.gotgrid} ')
 					self.player.grid = newgrid
 					self.player.gotgrid = True
 					self.create_blocks_from_grid()
-					logger.debug(f'NEWGRIDEVENT {self.player.gotgrid} {self.sprites}')
+					logger.debug(f'{msgtype} {self.player.gotgrid} ')
 				else:
-					logger.error(f'NEWGRIDEVENT nogrid {self.player.gotgrid} : {payload} ')
+					logger.error(f'{msgtype} gotgrid: {self.player.gotgrid} : {payload} ')
 			case 'ackplrbmb':
 				# create bomb with timer and add to server objects....
 				bombimg = self.rh.get_image(filename='data/bomb.png', force=False)
@@ -98,35 +105,42 @@ class Game(Thread):
 				logger.info(f'{msgtype} PLAYEREVENT {bid} {bpos} {gpos} {clbombpos}')
 				try:
 					newbomb = NewBomb(bombimg, bomberid=bid, gridpos=clbombpos,  bombtimer=2000)
-					self.sprites.add(newbomb)
+					self.bombs.add(newbomb)
 				except Exception as e:
 					logger.error(f'{e} {type(e)} msgtype:{msgtype} payload: {payload}')
 			case _ :
 				logger.warning(f'unknown event {payload}')
 
 	def check_coll(self):
-		flames = Group([k for k in self.sprites if isinstance(k, NewFlame)])
-		blocks = Group([k for k in self.sprites if isinstance(k, NewBlock)])
-		for f in flames:
-			colls = spritecollide(f, blocks, dokill=False)
+		# flames = Group([k for k in self.sprites if isinstance(k, NewFlame)])
+		# blocks = Group([k for k in self.sprites if isinstance(k, NewBlock)])
+		for f in self.flames:
+			colls = spritecollide(f, self.blocks, dokill=False)
 			for c in colls:
+				if c.blocktype == 5:
+					f.kill()
 				if c.blocktype == 3:
 					x = c.gridpos[0]
 					y = c.gridpos[1]
-					c.kill()
-					self.player.grid[y][x] = 2
+					# self.player.grid[y][x] = 2
 					self.player.grid[x][y] = 2
 					image = self.rh.get_image(f'data/blocksprite2.png')
-					self.sprites.add(NewBlock(gridpos=(y,x), image=image, blocktype=2))
+					self.blocks.add(NewBlock(gridpos=(y,x), image=image, blocktype=2))
 					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
 					self.player.send_queue.put(payload)
+					# logger.info(f'c {c} kill\npayload: {payload}')
+					c.kill()
+					f.kill()
 
 
 	def run(self):
 		while True:
 			self.clock.tick(FPS)
 			pygame.display.update()
-			self.sprites.update()
+			# self.sprites.update()
+			self.bombs.update()
+			self.flames.update()
+			self.blocks.update()
 			self.player.update()
 			if self.show_mainmenu:
 				self.game_menu.draw_mainmenu()
@@ -164,10 +178,12 @@ class Game(Thread):
 
 
 	def draw(self):
-		self.sprites.draw(self.screen)
+		self.blocks.draw(self.screen)
+		self.flames.draw(self.screen)
+		self.bombs.draw(self.screen)
 		self.player.draw(self.screen)
 		if self.debugmode:
-			for sprite in self.sprites:
+			for sprite in self.blocks:
 				try:
 					blktxt = f'g:{self.player.grid[sprite.gridpos[0]][sprite.gridpos[1]]}'
 					self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+3),f'{sprite.gridpos}', (255,255,255))
