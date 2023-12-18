@@ -16,7 +16,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
 from constants import (DEFAULTFONT, PLAYEREVENT, NEWGRIDEVENT, CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT)
-from globals import Block, Bomb, ResourceHandler, BasicThing, NewBlock, NewBomb
+from globals import ResourceHandler, NewBlock, NewBomb
 from menus import GameMenu
 from player import  NewPlayer
 
@@ -27,7 +27,7 @@ FPS = 60
 
 
 class Game(Thread):
-	def __init__ (self):
+	def __init__ (self, debugmode=False):
 		Thread.__init__(self, name='game')
 		self.kill = False
 		self.running = False
@@ -44,6 +44,7 @@ class Game(Thread):
 		self.blocks = Group()
 		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 8)
 		self.sprites = Group()
+		self.debugmode = debugmode
 
 	def __repr__(self):
 		return f'[G] k={self.kill} gs:{self.game_started} p:{self.player} pl:{len(self.player.playerlist)} '
@@ -55,30 +56,14 @@ class Game(Thread):
 		y = 0
 		# blks = Group()
 		self.sprites.empty()
-		for i in self.player.grid:
+		for row in self.player.grid:
 			x=0
-			for k in i:
+			for k in row:
 				k = int(k)
-				match k:
-					case 0:
-						self.sprites.add(NewBlock(gridpos=(x,y), image=self.rh.get_image('data/blocksprite0.png')))
-					case 1:
-						self.sprites.add(NewBlock(gridpos=(x,y), image=self.rh.get_image('data/blocksprite1.png')))
-					case 2:
-						self.sprites.add(NewBlock(gridpos=(x,y), image=self.rh.get_image('data/blocksprite2.png')))
-					case 5:
-						self.sprites.add(NewBlock(gridpos=(x,y), image=self.rh.get_image('data/blocksprite5.png')))
-					case 7:
-						self.sprites.add(NewBlock(gridpos=(x,y), image=self.rh.get_image('data/blocksprite7.png')))
-					case 8:
-						self.sprites.add(NewBlock(gridpos=(x,y), image=self.rh.get_image('data/blocksprite8.png')))
-					case 9:
-						self.sprites.add(NewBlock(gridpos=(x,y), image=self.rh.get_image('data/blocksprite9.png')))
-					case _:
-						logger.warning(f'k:{k} {type(k)} x:{x} y:{y}')
-						self.sprites.add(NewBlock(gridpos=(x,y), image=self.rh.get_image('data/blocksprite3.png')))
-				x+= 1 # BLOCK
-			y+= 1 # BLOCK
+				image = self.rh.get_image(f'data/blocksprite{k}.png')
+				self.sprites.add(NewBlock(gridpos=(x,y), image=image, blocktype=k))
+				x += 1 # BLOCK
+			y += 1 # BLOCK
 
 	def olddrawplayers(self):
 		# if len(self.player.playerlist) > 1:
@@ -187,6 +172,14 @@ class Game(Thread):
 	def draw(self):
 		self.sprites.draw(self.screen)
 		self.player.draw(self.screen)
+		if self.debugmode:
+			for sprite in self.sprites:
+				try:
+					blktxt = f'g:{self.player.grid[sprite.gridpos[0]][sprite.gridpos[1]]}'
+					self.debugfont.render_to(self.screen, (sprite.rect.x, sprite.rect.y),f'{sprite.gridpos}', (255,255,255))
+					self.debugfont.render_to(self.screen, (sprite.rect.x, sprite.rect.y+10),blktxt, (255,255,255))
+				except IndexError as e:
+					logger.error(f'{e} {type(e)} {sprite.gridpos} {self.player.grid}')
 
 	def start_game(self):
 		if self.game_started:
@@ -262,7 +255,7 @@ class Game(Thread):
 			logger.debug(f'[mouse] {mx},{my} ')
 
 def main(args):
-	game = Game()
+	game = Game(debugmode=True)
 	logger.debug(f'main game: {game}')
 	game.daemon = True
 	game.running = True

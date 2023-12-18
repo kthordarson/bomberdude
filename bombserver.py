@@ -33,7 +33,7 @@ class Gameserver(Thread):
 		self.clients = []
 		self.connq = connq
 		self.dataq = Queue()
-		self.grid = json.loads(str(generate_grid().tolist()), parse_float=True)
+		self.grid = generate_grid()
 		self.playerlist = {}
 		# self.updatetimer = RepeatedTimer(interval=0.5, function=self.servertimer)
 		self.updcntr = 0

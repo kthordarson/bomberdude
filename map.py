@@ -4,7 +4,29 @@ from loguru import logger
 from constants import (BLOCK,GRIDSIZE, BLOCKSIZE, BLOCKTYPES, BOMBSIZE, DEBUG, FLAMESIZE, PARTICLESIZE, POWERUPSIZE)
 from globals import BlockNotFoundError
 
-def generate_grid():
+TESTGRID = np.array(		[
+	   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 5, 2, 2, 2, 5, 2, 5, 2, 5, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
+       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
+
+def oldgenerate_grid():
 	oneline = [0 for k in range(0, GRIDSIZE)]
 	grid = np.array([oneline for k in range(0, GRIDSIZE)])
 	# edges
@@ -15,9 +37,20 @@ def generate_grid():
 		grid[0][k] = 1
 		grid[-1][k] = 1
 	# random blocks
-	for x in range(1, len(grid)-1):
-		for y in range(1, len(grid)-1):
-			grid[x][y] = random.choice([2,2,2,2,2,2,7,8,9])
+	for y in range(1, len(grid)-1):
+		for x in range(1, len(grid)-1):
+			grid[x][y] = random.choice([2,2,2,2,2,5])
+	return TESTGRID
+
+def generate_grid():
+	grid = [[random.choice([2,5]) for k in range(GRIDSIZE)] for j in range(GRIDSIZE)]
+	gridsize = len(grid)
+	for x in range(gridsize):
+		grid[x][0] = 1
+		grid[0][x] = 1
+		grid[-1][x] = 1
+		grid[x][-1] = 1
+	# self.grid = grid
 	return grid
 
 class Gamemap:

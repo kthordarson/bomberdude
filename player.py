@@ -10,7 +10,7 @@ from pygame.math import Vector2
 from pygame.sprite import spritecollide, Sprite, Group
 from time import sleep
 from constants import BLOCK, PLAYEREVENT, PLAYERSIZE, PKTLEN, NEWGRIDEVENT,NETPLAYEREVENT, PKTHEADER
-from globals import BasicThing, gen_randid, BlockNotFoundError, RepeatedTimer
+from globals import gen_randid, BlockNotFoundError, RepeatedTimer
 from map import Gamemap
 from network import Sender,  send_data, Receiver
 HEADER = 64
@@ -262,13 +262,33 @@ class NewPlayer(Thread, Sprite):
 		gpx, gpy = self.gridpos
 		newgridpos = [gpx, gpy]
 		if action == 'u':
-			newgridpos = [gpx, gpy-1] if self.grid[gpx][gpy-1] == 2 else [gpx, gpy]
+			if self.grid[gpx][gpy-1] == 2:
+				newgridpos = [gpx, gpy-1]
+			else:
+				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx, gpy-1]} gridval: {self.grid[gpx][gpy-1]}')
+				newgridpos = [gpx, gpy]
+				return
 		elif action == 'd':
-			newgridpos = [gpx, gpy+1] if self.grid[gpx][gpy+1] == 2 else [gpx, gpy]
+			if self.grid[gpx][gpy+1] == 2:			 
+				newgridpos = [gpx, gpy+1]
+			else:
+				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx, gpy+1]} gridval: {self.grid[gpx][gpy+1]}')
+				newgridpos = [gpx, gpy]
+				return
 		elif action == 'l':
-			newgridpos = [gpx-1, gpy] if self.grid[gpx-1][gpy] == 2 else [gpx, gpy]
+			if self.grid[gpx-1][gpy] == 2:
+				newgridpos = [gpx-1, gpy]
+			else:
+				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx-1, gpy]} gridval: {self.grid[gpx-1][gpy]}')
+				newgridpos = [gpx, gpy]
+				return
 		elif action == 'r':
-			newgridpos = [gpx+1, gpy] if self.grid[gpx+1][gpy] == 2 else [gpx, gpy]
+			if self.grid[gpx+1][gpy] == 2: # else [gpx, gpy]
+				newgridpos = [gpx+1, gpy] 
+			else:
+				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx+1, gpy]} gridval: {self.grid[gpx+1][gpy]}')
+				newgridpos = [gpx, gpy]
+				return
 		else:
 			logger.warning(f'{self} move {action} not implemented')
 		self.gridpos = newgridpos
