@@ -242,24 +242,35 @@ class NewPlayer(Thread, Sprite):
 	def draw(self, screen):
 		screen.blit(self.image, self.rect)
 		for player in self.playerlist:
-			# logger.debug(f'{player} {self.player.playerlist.get(player)}')
-			plid = self.playerlist.get(player).get('client_id')
-			pos = self.playerlist.get(player).get('pos')
-			gridpos = self.playerlist.get(player).get('gridpos')
-			# gridpos = (pos[0] * BLOCK, pos[1] * BLOCK)
-			if self.client_id != plid:
-				npimg = self.rh.get_image('data/netplayer.png')
-				screen.blit(npimg, pos)
-				# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/netplayer.png'))
-			elif self.client_id == plid:
-				pass
-				# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/playerone.png'))
-				# blks.add(BasicBlock(gridpos=gridpos, image=self.rh.get_image('data/playerone.png'))
+			plconn = self.playerlist.get(player).get('connected')
+			if player == 'null':
+				logger.warning(f'player: {player} plconn: {plconn} \nplayerlist: {self.playerlist}')
+				# break
 			else:
-				logger.warning(f'{self} pliderror!')
-				npimg = self.rh.get_image('data/dummyplayer.png')
-				screen.blit(npimg, pos)
-				# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/dummyplayer.png'))
+				plid = self.playerlist.get(player).get('client_id')
+				pos = self.playerlist.get(player).get('pos')
+				gridpos = self.playerlist.get(player).get('gridpos')
+				# gridpos = (pos[0] * BLOCK, pos[1] * BLOCK)
+				if not pos:
+					logger.warning(f'player: {player} plconn: {plconn}  playerlist: {self.playerlist}')
+					break
+				if pos:
+					if self.client_id != plid:
+						npimg = self.rh.get_image('data/netplayer.png')
+						try:
+							screen.blit(npimg, pos)
+						except Exception as e:
+							logger.error(f'{self} {e} {type(e)} pos: {pos} plconn: {plconn}  playerlist: {self.playerlist} player: {type(player)} {player}')
+						# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/netplayer.png'))
+					elif self.client_id == plid:
+						pass
+						# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/playerone.png'))
+						# blks.add(BasicBlock(gridpos=gridpos, image=self.rh.get_image('data/playerone.png'))
+					else:
+						logger.warning(f'{self} pliderror! plconn: {plconn} ')
+						npimg = self.rh.get_image('data/dummyplayer.png')
+						screen.blit(npimg, pos)
+						# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/dummyplayer.png'))
 
 
 	def sendbomb(self):

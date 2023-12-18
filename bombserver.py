@@ -34,9 +34,10 @@ class NewHandler(Thread):
 		self.connected = True
 		self.dataq = dataq
 		self.name = name
+		self.client_id = None
 
 	def __repr__(self) -> str:
-		return f'[h] {self.name} {self.connected} {self.dataq.qsize()}'
+		return f'[h] {self.client_id} {self.name} {self.connected} {self.dataq.qsize()}'
 	
 	def run(self):		
 		while self.connected:
@@ -66,7 +67,11 @@ class NewHandler(Thread):
 					self.conn.close()
 					break
 				msgdata = re.sub('^0+','', rawmsg)
-				self.dataq.put(msgdata)
+				data = json.loads(msgdata)
+				if not self.client_id:
+					self.client_id = data.get('client_id', None)
+					logger.info(f'{self} client_id: {self.client_id}')
+				self.dataq.put(data)
 				if self.dataq.qsize() > 5:
 					logger.info(f"{self} dataq: {self.dataq.qsize()}")
 
@@ -99,6 +104,28 @@ class Gameserver(Thread):
 				logger.error(f'[!] {e} in {self} {client}')
 				self.clients.pop(self.clients.index(client))
 
+	def refresh_clients(self):
+		# logger.info(f'playerlist {self.playerlist}\nclients: {self.clients}\n' )
+		for cl in self.clients:
+			# logger.info(f'cl: {cl} ')
+			if not cl.client_id:
+				pass
+				# logger.warning(f'needclientid {cl} {self.clients}')
+				# continue
+			else:
+				try:
+					if not cl.connected:
+						self.playerlist[cl.client_id]['connected'] = False
+						logger.warning(f'{self} {cl} disconnected playerlist: {self.playerlist}')
+						self.clients.pop(self.clients.index(cl))
+						# self.playerlist.pop(self.playerlist.index(cl))
+					elif cl.connected:
+						self.playerlist[cl.client_id]['connected'] = True
+				except KeyError as e:
+					logger.error(f'{e} {type(e)} {cl} {self.playerlist} {self.clients}')
+					continue
+
+
 	def refresh_playerlist(self, data):
 		# logger.debug(f'refresh_playerlist {data}')
 		clid = data.get('client_id')
@@ -114,7 +141,7 @@ class Gameserver(Thread):
 		payload['playerlist'] = self.playerlist
 		payload['grid'] = self.grid
 		payload['updcntr'] = self.updcntr
-		pmsgtype = payload.get("msgtype")
+		# pmsgtype = payload.get("msgtype")
 		# logger.debug(f'do_send pmsgtype: {pmsgtype} {type(payload)}')
 		try:
 			# logger.debug(f'do_send {socket} {serveraddress} {payload}')
@@ -207,12 +234,16 @@ class Gameserver(Thread):
 			if self.kill:
 				logger.warning(f'{self} killed')
 				break
+			try:
+				self.refresh_clients()
+			except Exception as e:
+				logger.error(f'{self} {e} {type(e)}')
 			if not self.dataq.empty():
 				datafromq = self.dataq.get()
 				self.dataq.task_done()
 				try:
-					data = json.loads(datafromq)
-					self.msg_handler(data)
+					# data = json.loads(datafromq)
+					self.msg_handler(datafromq)
 				except json.decoder.JSONDecodeError as e:
 					logger.error(f'{e} {type(e)} {type(datafromq)} {datafromq}')
 					continue

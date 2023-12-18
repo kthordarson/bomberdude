@@ -67,7 +67,7 @@ class Game(Thread):
 
 	def handle_events(self, payload):
 		msgtype = payload.get('msgtype')
-		logger.debug(f'{msgtype}')
+		# logger.debug(f'{msgtype}')
 		match msgtype:
 			case 'startgame':
 				self.start_game()
