@@ -259,6 +259,9 @@ class NewPlayer(Thread, Sprite):
 		self.send_queue.put(payload)
 
 	def move(self, action):
+		if not self.gotgrid:
+			logger.warning(f'{self} move {action} nogrid')
+			return
 		gpx, gpy = self.gridpos
 		newgridpos = [gpx, gpy]
 		if action == 'u':

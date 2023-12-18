@@ -13,9 +13,9 @@ from loguru import logger
 from pygame.event import Event
 from pygame.math import Vector2
 from pygame.sprite import Group, spritecollide, Sprite
-
+from pygame import USEREVENT
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
-from constants import (DEFAULTFONT, PLAYEREVENT, NEWGRIDEVENT, CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT)
+from constants import (DEFAULTFONT, PLAYEREVENT, NEWGRIDEVENT, CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT,BOMBXPLODE)
 from globals import ResourceHandler, NewBlock, NewBomb
 from menus import GameMenu
 from player import  NewPlayer
@@ -61,36 +61,19 @@ class Game(Thread):
 			for k in row:
 				k = int(k)
 				image = self.rh.get_image(f'data/blocksprite{k}.png')
-				self.sprites.add(NewBlock(gridpos=(x,y), image=image, blocktype=k))
+				self.sprites.add(NewBlock(gridpos=(y,x), image=image, blocktype=k)) # swap x,y for gridpos
 				x += 1 # BLOCK
 			y += 1 # BLOCK
 
-	def olddrawplayers(self):
-		# if len(self.player.playerlist) > 1:
-		#	logger.debug(f'{self} drawgrid {len(self.player.playerlist)}\nplayerlist: {self.player.playerlist}\n')
-		textypos = 22
-		self.debugfont.render_to(self.screen, (12 ,textypos), f'{self.player}', (255,255,255))
-		for player in self.player.playerlist:
-			# logger.debug(f'{player} {self.player.playerlist.get(player)}')
-			plid = self.player.playerlist.get(player).get('client_id')
-			pos = self.player.playerlist.get(player).get('pos')
-			gridpos = self.player.playerlist.get(player).get('gridpos')
-			# gridpos = (pos[0] * BLOCK, pos[1] * BLOCK)
-			if self.player.client_id != plid:
-				blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/netplayer.png'))
-			elif self.player.client_id == plid:
-				blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/playerone.png'))
-				# blks.add(BasicBlock(gridpos=gridpos, image=self.rh.get_image('data/playerone.png'))
-			else:
-				logger.warning(f'{self} pliderror!')
-				blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/dummyplayer.png'))
-			# blk.draw(self.screen)
-
-
 	def handle_events(self, payload):
 		msgtype = payload.get('msgtype')
-		# logger.debug(f'{msgtype} PLAYEREVENT {event.payload}')
+		logger.debug(f'{msgtype}')
 		match msgtype:
+			case 'startgame':
+				self.start_game()
+			case 'bombxplode':
+				# create flames from bomb
+				logger.debug(f'{msgtype} {payload}')
 			case 'newgridfromserver':
 				newgrid = payload.get('grid', None)
 				if newgrid:
@@ -100,8 +83,7 @@ class Game(Thread):
 					self.create_blocks_from_grid()
 					logger.debug(f'NEWGRIDEVENT {self.player.gotgrid} {self.sprites}')
 				else:
-					logger.error(f'NEWGRIDEVENT nogrid {self.player.gotgrid} : {event.payload} ')
-
+					logger.error(f'NEWGRIDEVENT nogrid {self.player.gotgrid} : {payload} ')
 			case 'ackplrbmb':
 				# create bomb with timer and add to server objects....
 				bombimg = self.rh.get_image(filename='data/bomb.png', force=False)
@@ -116,7 +98,7 @@ class Game(Thread):
 				except Exception as e:
 					logger.error(f'{e} {type(e)} msgtype:{msgtype} payload: {payload}')
 			case _ :
-				logger.warning(f'unknownmsgtypePLAYEREVENT {event.payload}')
+				logger.warning(f'unknown event {payload}')
 
 	def run(self):
 		while True:
@@ -135,36 +117,25 @@ class Game(Thread):
 				break
 			events_ = pygame.event.get()
 			for event in events_:
-				if event.type == pygame.KEYDOWN:
-					self.handle_input_events(event)
-				elif event.type == pygame.MOUSEBUTTONDOWN:
-					self.handle_mouse_event(event)
-				if event.type == pygame.QUIT:
-					self.player.kill = True
-					self.kill = True
-					logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
-					pygame.event.clear()
-					break
-				elif event.type == NEWCLIENTEVENT:
-					# todo new client connected, create player and move on....
-					logger.debug(f'NEWCLIENTEVENT {event.payload}')
-				elif event.type == PLAYEREVENT:
-					# todo new PLAYEREVENT, parse and move on....
-					# logger.debug(f'PLAYEREVENT {event.payload}')
-					self.handle_events(event.payload)
-				elif event.type == NEWGRIDEVENT:
-					# todo new client connected, create player and move on....
-					self.handle_events(event.payload)
-				elif event.type == STARTGAMEEVENT:
-					# todo create new client
-					# connect to server
-					# get grid from server
-					# start game
-					self.start_game()
-				elif event.type == CONNECTTOSERVEREVENT:
-					self.connect_to_server()
-				elif event.type == STARTSERVEREVENT:
-					self.start_server()
+				# BOMBXPLODE
+				e_type = int(event.type)
+				maxe = pygame.USEREVENT+1000
+				match e_type:
+					case int(e_type) if maxe > e_type > pygame.USEREVENT:
+						# todo new PLAYEREVENT, parse and move on....
+						# logger.debug(f'PLAYEREVENT {event.payload}')
+						self.handle_events(event.payload)
+					case pygame.KEYDOWN:
+						try:
+							self.handle_input_events(event)
+						except IndexError as e:
+							logger.error(f'{e} {type(e)}')
+					case pygame.MOUSEBUTTONDOWN:
+						self.handle_mouse_event(event)
+					case pygame.QUIT:
+						self.player.kill = True
+						self.kill = True
+						logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
 			# self.handle_input_events(input_events)
 			# self.handle_mouse_events(mouse_events)
 
@@ -176,8 +147,8 @@ class Game(Thread):
 			for sprite in self.sprites:
 				try:
 					blktxt = f'g:{self.player.grid[sprite.gridpos[0]][sprite.gridpos[1]]}'
-					self.debugfont.render_to(self.screen, (sprite.rect.x, sprite.rect.y),f'{sprite.gridpos}', (255,255,255))
-					self.debugfont.render_to(self.screen, (sprite.rect.x, sprite.rect.y+10),blktxt, (255,255,255))
+					self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+3),f'{sprite.gridpos}', (255,255,255))
+					self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+13),blktxt, (255,255,255))
 				except IndexError as e:
 					logger.error(f'{e} {type(e)} {sprite.gridpos} {self.player.grid}')
 
@@ -230,10 +201,11 @@ class Game(Thread):
 			if not self.show_mainmenu:
 				self.player.sendbomb()
 			else:
-				logger.debug(f'e:{event} k:{keypressed} K_SPACE item: {self.game_menu.active_item}')
 				if self.game_menu.active_item == 'Start':
 					if not self.game_started:
-						pygame.event.post(Event(STARTGAMEEVENT))
+						ev = Event(STARTGAMEEVENT, payload={'msgtype': 'startgame',})
+						pygame.event.post(ev)
+						logger.debug(f'e:{event} k:{keypressed} K_SPACE item: {self.game_menu.active_item} ev: {ev}')
 					else:
 						logger.warning(f'game already started')
 				if self.game_menu.active_item == 'Connect to server':
