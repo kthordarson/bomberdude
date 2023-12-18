@@ -26,6 +26,50 @@ DISCONNECT_MESSAGE = 'disconnect'
 class ServerSendException(Exception):
 	pass
 
+class NewHandler(Thread):
+	def __init__(self, conn, addr, dataq, name):
+		Thread.__init__(self,  daemon=True, name=name)
+		self.conn = conn
+		self.addr = addr
+		self.connected = True
+		self.dataq = dataq
+		self.name = name
+
+	def __repr__(self) -> str:
+		return f'[h] {self.name} {self.connected} {self.dataq.qsize()}'
+	
+	def run(self):		
+		while self.connected:
+			try:
+				rawmsglen = self.conn.recv(PKTHEADER).decode(FORMAT)
+			except ConnectionResetError as e:
+				logger.warning(f'{e}')
+				self.connected = False
+				break
+			try:
+				msglen = int(re.sub('^0+','',rawmsglen))
+			except ValueError as e:
+				logger.error(f'{e} {type(e)}\nrawmsglen: {type(rawmsglen)}\nrawm: {rawmsglen}')
+				# connected = False
+				# conn.close()
+				break
+				#connected = False
+				#conn.close()
+			# logger.debug(f"raw: {type(rawmsglen)} {rawmsglen}  {msglen} ")
+			if msglen:
+				# logger.debug(f"datalen: {type(datalen)} {datalen}")
+				try:
+					rawmsg = self.conn.recv(msglen).decode(FORMAT)
+				except OSError as e:
+					logger.error(f'{e} {type(e)} m:{msglen} rawmsglen: {type(rawmsglen)}\raw: {rawmsglen}')
+					self.connected = False
+					self.conn.close()
+					break
+				msgdata = re.sub('^0+','', rawmsg)
+				self.dataq.put(msgdata)
+				if self.dataq.qsize() > 5:
+					logger.info(f"{self} dataq: {self.dataq.qsize()}")
+
 class Gameserver(Thread):
 	def __init__(self, connq):
 		Thread.__init__(self,  daemon=True, name='gameserverthread')
@@ -47,7 +91,8 @@ class Gameserver(Thread):
 			logger.debug(f'{self} {self.updcntr} {client.name}')
 			msg = {'msgtype': 'trigger_newplayer', 'client': client.name} #, 'data': {'msg': 'servertimer', 'updcntr': self.updcntr}}
 			try:
-				self.do_send(client._args[0], client._args[1], msg)
+				# self.do_send(client._args[0], client._args[1], msg)
+				self.do_send(client.conn, client.addr, msg)
 			except Exception as e:
 				logger.error(f'[!] {e} in {self} {client}')
 				self.clients.pop(self.clients.index(client))
@@ -58,7 +103,8 @@ class Gameserver(Thread):
 			logger.debug(f'{self} servertimer {self.updcntr} {client}')
 			msg = {'msgtype': 'servertimer', 'client': client.name} #, 'data': {'msg': 'servertimer', 'updcntr': self.updcntr}}
 			try:
-				self.do_send(client._args[0], client._args[1], msg)
+				# self.do_send(client._args[0], client._args[1], msg)
+				self.do_send(client.conn, client.addr, msg)
 			except Exception as e:
 				logger.error(f'[!] {e} in {self} {client}')
 				self.clients.pop(self.clients.index(client))
@@ -128,13 +174,18 @@ class Gameserver(Thread):
 			except TypeError as e:
 				logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
 				raise ServerSendException(e)
+			except OSError as e:
+				logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
+				raise ServerSendException(e)
 			try:
 				socket.sendto(payload,serveraddress)
 				# logger.debug(f'do_send payload: {pmsgtype} {type(payload)}')
+			except OSError as e:
+				logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
+				raise ServerSendException(e)
 			except TypeError as e:
 				logger.error(f'{e} payloaderror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
 				raise ServerSendException(e)
-
 		except Exception as e:
 			logger.error(f'[!] {e} {type(e)} {type(payload)} {payload}')
 			raise ServerSendException(e)
@@ -167,7 +218,8 @@ class Gameserver(Thread):
 					msg['clientname'] = client.name
 					# logger.debug(f'{self} {msgtype} from {data.get("client_id")} sendingto: {client.name} ')
 					try:
-						self.do_send(client._args[0], client._args[1], msg)
+						# self.do_send(client._args[0], client._args[1], msg)
+						self.do_send(client.conn, client.addr, msg)
 					except Exception as e:
 						logger.error(f'[!] {e} {type(e)} in {self} {client}\ndata: {type(data)} {data}\nmsg: {type(msg)} {msg}\n')
 						self.clients.pop(self.clients.index(client))
@@ -179,7 +231,8 @@ class Gameserver(Thread):
 					msg = {'msgtype': 'ackplrbmb', 'client': client.name, 'data': data}
 					logger.info(f'{msgtype} to {client.name} dclid: {data.get("client_id")} clbombpos: {data.get("clbombpos")}')
 					try:
-						self.do_send(client._args[0], client._args[1], msg)
+						# self.do_send(client._args[0], client._args[1], msg)
+						self.do_send(client.conn, client.addr, msg)
 					except Exception as e:
 						logger.error(f'[!] {e} in {self} {client}')
 						self.clients.pop(self.clients.index(client))
@@ -188,7 +241,8 @@ class Gameserver(Thread):
 				for client in self.clients:
 					msg = {'msgtype': 'serveracktimer', 'client': client.name, 'data': data}
 					try:
-						self.do_send(client._args[0], client._args[1], msg)
+						# self.do_send(client._args[0], client._args[1], msg)
+						self.do_send(client.conn, client.addr, msg)
 					except Exception as e:
 						logger.error(f'[!] {e} in {self} {client}')
 						self.clients.pop(self.clients.index(client))
@@ -234,7 +288,8 @@ if __name__ == '__main__':
 		except Exception as e:
 			logger.warning(f'{e} {type(e)}')
 			break
-		thread = Thread(target=server.newhandler, args=(conn,addr), name=f'clthrd{conncounter}')
+		# thread = Thread(target=server.newhandler, args=(conn,addr), name=f'clthrd{conncounter}')
+		thread = NewHandler(conn,addr, server.dataq, name=f'clthrd{conncounter}')
 		server.clients.append(thread)
 		thread.start()
 		conncounter += 1

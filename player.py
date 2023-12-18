@@ -102,6 +102,10 @@ class NewPlayer(Thread, Sprite):
 				break
 			try:
 				replen = self.socket.recv(PKTHEADER).decode('utf8')
+			except ConnectionAbortedError as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.kill = True
+				break
 			except Exception as e:
 				logger.error(f'[r] {e} {type(e)}')
 				self.kill = True
@@ -119,6 +123,10 @@ class NewPlayer(Thread, Sprite):
 			# logger.debug(f'[r] datalen: {datalen}')
 			try:
 				response = self.socket.recv(datalen).decode('utf8')
+			except ConnectionAbortedError as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.kill = True
+				break
 			except Exception as e:
 				logger.error(f'[r] {e} {type(e)}')
 				self.kill = True
