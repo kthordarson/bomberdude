@@ -16,7 +16,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from pygame import USEREVENT
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
 from constants import (DEFAULTFONT, PLAYEREVENT, NEWGRIDEVENT, CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT,BOMBXPLODE)
-from globals import ResourceHandler, NewBlock, NewBomb
+from globals import ResourceHandler, NewBlock, NewBomb,get_bomb_flames
 from menus import GameMenu
 from player import  NewPlayer
 
@@ -74,6 +74,9 @@ class Game(Thread):
 			case 'bombxplode':
 				# create flames from bomb
 				logger.debug(f'{msgtype} {payload}')
+				image = self.rh.get_image(f'data/flame0.png')
+				newflames = get_bomb_flames(payload.get("gridpos"), payload.get("bomberid"), image)
+				self.sprites.add(newflames)
 			case 'newgridfromserver':
 				newgrid = payload.get('grid', None)
 				if newgrid:

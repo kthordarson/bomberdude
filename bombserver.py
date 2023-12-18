@@ -26,6 +26,9 @@ DISCONNECT_MESSAGE = 'disconnect'
 class ServerSendException(Exception):
 	pass
 
+class HandlerException(Exception):
+	pass
+
 class NewHandler(Thread):
 	def __init__(self, conn, addr, dataq, name):
 		Thread.__init__(self,  daemon=True, name=name)
@@ -38,42 +41,44 @@ class NewHandler(Thread):
 
 	def __repr__(self) -> str:
 		return f'[h] {self.client_id} {self.name} {self.connected} {self.dataq.qsize()}'
-	
-	def run(self):		
+
+	def run(self):
 		while self.connected:
 			try:
 				rawmsglen = self.conn.recv(PKTHEADER).decode(FORMAT)
 			except ConnectionResetError as e:
 				logger.warning(f'{self} {e}')
 				self.connected = False
+				self.conn.close()
 				break
 			try:
 				msglen = int(re.sub('^0+','',rawmsglen))
 			except ValueError as e:
 				logger.error(f'{self} {e} {type(e)}\nrawmsglen: {type(rawmsglen)}\nrawm: {rawmsglen}')
-				# connected = False
-				# conn.close()
+				self.connected = False
+				self.conn.close()
 				break
+
 				#connected = False
 				#conn.close()
 			# logger.debug(f"raw: {type(rawmsglen)} {rawmsglen}  {msglen} ")
-			if msglen:
+			#if msglen:
 				# logger.debug(f"datalen: {type(datalen)} {datalen}")
-				try:
-					rawmsg = self.conn.recv(msglen).decode(FORMAT)
-				except OSError as e:
-					logger.error(f'{self} {e} {type(e)} m:{msglen} rawmsglen: {type(rawmsglen)}\raw: {rawmsglen}')
-					self.connected = False
-					self.conn.close()
-					break
-				msgdata = re.sub('^0+','', rawmsg)
-				data = json.loads(msgdata)
-				if not self.client_id:
-					self.client_id = data.get('client_id', None)
-					logger.info(f'{self} client_id: {self.client_id}')
-				self.dataq.put(data)
-				if self.dataq.qsize() > 5:
-					logger.info(f"{self} dataq: {self.dataq.qsize()}")
+			try:
+				rawmsg = self.conn.recv(msglen).decode(FORMAT)
+			except OSError as e:
+				logger.error(f'{self} {e} {type(e)} m:{msglen} rawmsglen: {type(rawmsglen)}\raw: {rawmsglen}')
+				self.connected = False
+				self.conn.close()
+				break
+			msgdata = re.sub('^0+','', rawmsg)
+			data = json.loads(msgdata)
+			if not self.client_id:
+				self.client_id = data.get('client_id', None)
+				logger.info(f'{self} client_id: {self.client_id}')
+			self.dataq.put(data)
+			if self.dataq.qsize() > 5:
+				logger.info(f"{self} dataq: {self.dataq.qsize()}")
 
 class Gameserver(Thread):
 	def __init__(self, connq):
@@ -93,15 +98,17 @@ class Gameserver(Thread):
 		self.updcntr += 1
 		for client in self.clients:
 			logger.debug(f'{self} {self.updcntr} {client.name}')
-			msg = {'msgtype': 'trigger_newplayer', 'client': client.name} 
+			msg = {'msgtype': 'trigger_newplayer', 'client': client.name}
 			try:
 				# self.do_send(client._args[0], client._args[1], msg)
 				self.do_send(client.conn, client.addr, msg)
 			except ServerSendException as e:
 				logger.warning(f'[!] {e} in {self} {client}')
+				self.playerlist.pop(clients.client_id)
 				self.clients.pop(self.clients.index(client))
 			except Exception as e:
 				logger.error(f'[!] {e} in {self} {client}')
+				self.playerlist.pop(clients.client_id)
 				self.clients.pop(self.clients.index(client))
 
 	def refresh_clients(self):
@@ -115,7 +122,7 @@ class Gameserver(Thread):
 			else:
 				try:
 					if not cl.connected:
-						self.playerlist[cl.client_id]['connected'] = False
+						self.playerlist.pop(cl.client_id) # ]['connected'] = False
 						logger.warning(f'{self} {cl} disconnected playerlist: {self.playerlist}')
 						self.clients.pop(self.clients.index(cl))
 						# self.playerlist.pop(self.playerlist.index(cl))
