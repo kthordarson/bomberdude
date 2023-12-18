@@ -21,9 +21,10 @@ class ReceiverError(Exception):
 	pass
 
 class NewPlayer(Thread, Sprite):
-	def __init__(self, gridpos, image, serveraddress='127.0.0.1', testmode=False):
+	def __init__(self, gridpos, image, serveraddress='127.0.0.1', testmode=False, rh=None):
 		Thread.__init__(self, daemon=True)
 		Sprite.__init__(self)
+		self.rh = rh
 		self.gridpos = gridpos
 		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 		self.image = image # self.rh.get_image('data/playerone.png')
@@ -232,7 +233,25 @@ class NewPlayer(Thread, Sprite):
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect)
-		# screen.blit(self.image, self.rect)
+		for player in self.playerlist:
+			# logger.debug(f'{player} {self.player.playerlist.get(player)}')
+			plid = self.playerlist.get(player).get('client_id')
+			pos = self.playerlist.get(player).get('pos')
+			gridpos = self.playerlist.get(player).get('gridpos')
+			# gridpos = (pos[0] * BLOCK, pos[1] * BLOCK)
+			if self.client_id != plid:
+				npimg = self.rh.get_image('data/netplayer.png')
+				screen.blit(npimg, pos)
+				# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/netplayer.png'))
+			elif self.client_id == plid:
+				pass
+				# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/playerone.png'))
+				# blks.add(BasicBlock(gridpos=gridpos, image=self.rh.get_image('data/playerone.png'))
+			else:
+				logger.warning(f'{self} pliderror!')
+				npimg = self.rh.get_image('data/dummyplayer.png')
+				screen.blit(npimg, pos)
+				# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/dummyplayer.png'))
 
 
 	def sendbomb(self):
@@ -243,13 +262,13 @@ class NewPlayer(Thread, Sprite):
 		gpx, gpy = self.gridpos
 		newgridpos = [gpx, gpy]
 		if action == 'u':
-			newgridpos = [gpx, gpy-1]
+			newgridpos = [gpx, gpy-1] if self.grid[gpx][gpy-1] == 2 else [gpx, gpy]
 		elif action == 'd':
-			newgridpos = [gpx, gpy+1]
+			newgridpos = [gpx, gpy+1] if self.grid[gpx][gpy+1] == 2 else [gpx, gpy]
 		elif action == 'l':
-			newgridpos = [gpx-1, gpy]
+			newgridpos = [gpx-1, gpy] if self.grid[gpx-1][gpy] == 2 else [gpx, gpy]
 		elif action == 'r':
-			newgridpos = [gpx+1, gpy]
+			newgridpos = [gpx+1, gpy] if self.grid[gpx+1][gpy] == 2 else [gpx, gpy]
 		else:
 			logger.warning(f'{self} move {action} not implemented')
 		self.gridpos = newgridpos

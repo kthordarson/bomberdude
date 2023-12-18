@@ -39,7 +39,7 @@ class Game(Thread):
 		self.clock = pygame.time.Clock()
 		self.game_started = False
 		self.rh = ResourceHandler()
-		self.player = NewPlayer(gridpos=[10,10], image=self.rh.get_image('data/playerone.png'))
+		self.player = NewPlayer(gridpos=[10,10], image=self.rh.get_image('data/playerone.png'), rh=self.rh)
 		self.bombs = Group()
 		self.blocks = Group()
 		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 8)
