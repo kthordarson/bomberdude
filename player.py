@@ -27,7 +27,7 @@ class NewPlayer(Thread, Sprite):
 		self.rh = rh
 		self.gridpos = gridpos
 		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
-		self.image = image # self.rh.get_image('data/playerone.png')
+		self.image = image
 		self.rect = self.image.get_rect()
 		self.client_id = f'np:{gen_randid()}'
 		self.kill = False
@@ -124,6 +124,10 @@ class NewPlayer(Thread, Sprite):
 			try:
 				response = self.socket.recv(datalen).decode('utf8')
 			except ConnectionAbortedError as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.kill = True
+				break
+			except OSError as e:
 				logger.error(f'[r] {e} {type(e)}')
 				self.kill = True
 				break
@@ -273,16 +277,12 @@ class NewPlayer(Thread, Sprite):
 							screen.blit(npimg, pos)
 						except Exception as e:
 							logger.error(f'{self} {e} {type(e)} pos: {pos} plconn: {plconn}  playerlist: {self.playerlist} player: {type(player)} {player}')
-						# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/netplayer.png'))
 					elif self.client_id == plid:
 						pass
-						# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/playerone.png'))
-						# blks.add(BasicBlock(gridpos=gridpos, image=self.rh.get_image('data/playerone.png'))
 					else:
 						logger.warning(f'{self} pliderror! plconn: {plconn} ')
 						npimg = self.rh.get_image('data/dummyplayer.png')
 						screen.blit(npimg, pos)
-						# blk = NewBlock(gridpos=gridpos, image=self.rh.get_image('data/dummyplayer.png'))
 
 
 	def sendbomb(self):

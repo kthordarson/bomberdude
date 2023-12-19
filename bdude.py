@@ -78,7 +78,7 @@ class Game(Thread):
 			case 'bombxplode':
 				# create flames from bomb
 				logger.debug(f'{msgtype} {payload}')
-				image = self.rh.get_image(f'data/flame0.png')
+				image = self.rh.get_image(f'data/flame1.png')
 				newflames = get_bomb_flames(payload.get("gridpos"), payload.get("bomberid"), image)
 				self.flames.add(newflames)
 				# flames = [k for k in self.sprites if isinstance(k, NewFlame)]
@@ -97,7 +97,7 @@ class Game(Thread):
 					logger.error(f'{msgtype} gotgrid: {self.player.gotgrid} : {payload} ')
 			case 'ackplrbmb':
 				# create bomb with timer and add to server objects....
-				bombimg = self.rh.get_image(filename='data/bomb.png', force=False)
+				bombimg = self.rh.get_image(filename='data/bomb1.png', force=False)
 				bid = payload.get('client_id')
 				bpos = payload.get('pos')
 				gpos = payload.get('gridpos')
@@ -117,6 +117,8 @@ class Game(Thread):
 		for f in self.flames:
 			colls = spritecollide(f, self.blocks, dokill=False)
 			for c in colls:
+				if c.blocktype == 1:
+					f.kill()
 				if c.blocktype == 5:
 					f.kill()
 				if c.blocktype == 3:
@@ -183,13 +185,14 @@ class Game(Thread):
 		self.bombs.draw(self.screen)
 		self.player.draw(self.screen)
 		if self.debugmode:
-			for sprite in self.blocks:
-				try:
-					blktxt = f'g:{self.player.grid[sprite.gridpos[0]][sprite.gridpos[1]]}'
-					self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+3),f'{sprite.gridpos}', (255,255,255))
-					self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+13),blktxt, (255,255,255))
-				except IndexError as e:
-					logger.error(f'{e} {type(e)} {sprite.gridpos} {self.player.grid}')
+			pass
+			# for sprite in self.blocks:
+			# 	try:
+			# 		blktxt = f'{self.player.grid[sprite.gridpos[0]][sprite.gridpos[1]]}'
+			# 		# self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+3),f'{sprite.gridpos}', (255,255,255))
+			# 		self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+13),blktxt, (255,255,255))
+			# 	except IndexError as e:
+			# 		logger.error(f'{e} {type(e)} {sprite.gridpos} {self.player.grid}')
 
 	def start_game(self):
 		if self.game_started:

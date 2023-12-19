@@ -126,11 +126,10 @@ class NewBomb(Sprite):
 		self.start_time = pygame.time.get_ticks()
 		self.image = bombimg
 		self.gridpos = gridpos
-		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+		self.pos = (self.gridpos[0] * BLOCK+4, self.gridpos[1] * BLOCK+4)
 		self.rect = self.image.get_rect(center=self.pos)
 		self.bomberid = bomberid
 		self.bombtimer = bombtimer
-		self.rect = self.image.get_rect(center=self.pos)
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
 
@@ -140,18 +139,17 @@ class NewBomb(Sprite):
 	def update(self):
 		# logger.info(f'{self}')
 		if pygame.time.get_ticks() - self.start_time >= self.bombtimer:
-			logger.warning(f'{self}')
+			logger.debug(f'{self} xplode')
 			pygame.event.post(Event(BOMBXPLODE, payload={'msgtype': 'bombxplode', 'gridpos': self.gridpos, 'bomberid': self.bomberid}))
 			self.kill()
 
 class NewFlame(Sprite): # todo
-	def __init__(self, bombpos=None, image=None, bomberid=None, flametimer=4000, vel=(1,1)):
+	def __init__(self, bombpos=None, image=None, bomberid=None, flametimer=2000, vel=(1,1)):
 		super().__init__()
 		self.start_time = pygame.time.get_ticks()
 		self.image = image
 		self.gridpos = bombpos
-		self.pos = [self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK]
-		self.rect = self.image.get_rect(center=self.pos)
+		self.pos = [self.gridpos[0] * BLOCK+8, self.gridpos[1] * BLOCK+8]
 		self.bomberid = bomberid
 		self.flametimer = flametimer
 		self.rect = self.image.get_rect(center=self.pos)
@@ -170,5 +168,5 @@ class NewFlame(Sprite): # todo
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
 		if pygame.time.get_ticks() - self.start_time >= self.flametimer:
-			logger.warning(f'{self}')
+			# logger.warning(f'{self}')
 			self.kill()

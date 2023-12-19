@@ -54,9 +54,9 @@ class NewHandler(Thread):
 			try:
 				msglen = int(re.sub('^0+','',rawmsglen))
 			except ValueError as e:
-				logger.error(f'{self} {e} {type(e)}\nrawmsglen: {type(rawmsglen)}\nrawm: {rawmsglen}')
+				logger.error(f'{self.client_id} disconnected {e} {type(e)}') # \nrawmsglen: {type(rawmsglen)}\nrawm: {rawmsglen}')
 				self.connected = False
-				self.conn.close()
+				# self.conn.close()
 				break
 
 				#connected = False
@@ -123,11 +123,12 @@ class Gameserver(Thread):
 				try:
 					if not cl.connected:
 						self.playerlist.pop(cl.client_id) # ]['connected'] = False
-						logger.warning(f'{self} {cl} disconnected playerlist: {self.playerlist}')
 						self.clients.pop(self.clients.index(cl))
+						logger.warning(f'{self} {cl.client_id} disconnected playerlist: {len(self.playerlist)}')
 						# self.playerlist.pop(self.playerlist.index(cl))
 					elif cl.connected:
-						self.playerlist[cl.client_id]['connected'] = True
+						pass
+						# self.playerlist[cl.client_id]['connected'] = True
 				except KeyError as e:
 					logger.error(f'{e} {type(e)} {cl} {self.playerlist} {self.clients}')
 					continue
@@ -190,9 +191,9 @@ class Gameserver(Thread):
 			case 'playertimer' | 'ackserveracktimer' | 'cl_playermove':
 				msg = {'msgtype': 'serveracktimer'}
 				if not data.get('gotgrid'):
-					logger.warning(f'need grid data: {data}')
+					logger.warning(f'need grid data from {data.get("client_id")}')
 				if not data.get('gotplayerlist'):
-					logger.warning(f'need gotplayerlist data: {data}')
+					logger.info(f'need gotplayerlist from {data.get("client_id")}')
 				for client in self.clients:
 					msg['clientname'] = client.name
 					# logger.debug(f'{self} {msgtype} from {data.get("client_id")} sendingto: {client.name} ')
@@ -226,7 +227,7 @@ class Gameserver(Thread):
 				self.grid = data.get('grid')
 				for client in self.clients:
 					msg = {'msgtype': 'sv_gridupdate', 'grid': self.grid,}
-					logger.info(f'sv_gridupdate to {client.name} dclid: {data.get("client_id")} ')
+					# logger.info(f'sv_gridupdate to {client.name} dclid: {data.get("client_id")} ')
 					try:
 						# self.do_send(client._args[0], client._args[1], msg)
 						self.do_send(client.conn, client.addr, msg)
