@@ -139,7 +139,7 @@ class NewBomb(Sprite):
 	def update(self):
 		# logger.info(f'{self}')
 		if pygame.time.get_ticks() - self.start_time >= self.bombtimer:
-			logger.debug(f'{self} xplode')
+			# logger.debug(f'{self} xplode')
 			pygame.event.post(Event(BOMBXPLODE, payload={'msgtype': 'bombxplode', 'gridpos': self.gridpos, 'bomberid': self.bomberid}))
 			self.kill()
 
@@ -172,7 +172,7 @@ class NewFlame(Sprite):
 			self.kill()
 
 
-class Particle(Sprite):
+class Particle(Sprite): # todo fix initial position
 	def __init__(self, gridpos=None, ptimer=2000, vel=(1,1)):
 		super().__init__()
 		self.start_time = pygame.time.get_ticks()

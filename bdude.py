@@ -3,28 +3,21 @@
 # 07102022 todo fix mapsync, limit one bomb per grid on map,
 # todo check player movement while holding now keys
 import os, sys
-import threading
 from argparse import ArgumentParser
 from threading import Thread
-import numpy as np
 
 import pygame
 from loguru import logger
 from pygame.event import Event
-from pygame.math import Vector2
 from pygame.sprite import Group, spritecollide, Sprite
 from pygame import USEREVENT
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
-from constants import (DEFAULTFONT, PLAYEREVENT, NEWGRIDEVENT, CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT,BOMBXPLODE)
+from constants import (DEFAULTFONT, CONNECTTOSERVEREVENT, STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT,BOMBXPLODE)
 from globals import ResourceHandler, NewBlock, NewBomb, NewFlame, get_bomb_flames, Particle
 from menus import GameMenu
 from player import  NewPlayer
 
 FPS = 60
-
-
-
-
 
 class Game(Thread):
 	def __init__ (self, debugmode=False):
@@ -78,11 +71,10 @@ class Game(Thread):
 				self.start_game()
 			case 'bombxplode':
 				# create flames from bomb
-				logger.debug(f'{msgtype} {payload}')
+				# logger.debug(f'{msgtype} {payload}')
 				image = self.rh.get_image(f'data/flame1.png')
 				newflames = get_bomb_flames(payload.get("gridpos"), payload.get("bomberid"), image)
 				self.flames.add(newflames)
-				# flames = [k for k in self.sprites if isinstance(k, NewFlame)]
 			case 'sv_gridupdate':
 				# logger.debug(f'{msgtype} {len(payload)}')
 				self.create_blocks_from_grid()
@@ -97,13 +89,13 @@ class Game(Thread):
 				else:
 					logger.error(f'{msgtype} gotgrid: {self.player.gotgrid} : {payload} ')
 			case 'ackplrbmb':
-				# create bomb with timer and add to server objects....
+				# create bomb with timer and add to sprites
 				bombimg = self.rh.get_image(filename='data/bomb1.png', force=False)
 				bid = payload.get('client_id')
 				bpos = payload.get('pos')
 				gpos = payload.get('gridpos')
 				clbombpos = payload.get('clbombpos')
-				logger.info(f'{msgtype} PLAYEREVENT {bid} {bpos} {gpos} {clbombpos}')
+				# logger.info(f'{msgtype} {bid} {bpos} {gpos} {clbombpos}')
 				try:
 					newbomb = NewBomb(bombimg, bomberid=bid, gridpos=clbombpos,  bombtimer=2000)
 					self.bombs.add(newbomb)
@@ -170,8 +162,7 @@ class Game(Thread):
 				maxe = pygame.USEREVENT+1000
 				match e_type:
 					case int(e_type) if maxe > e_type > pygame.USEREVENT:
-						# todo new PLAYEREVENT, parse and move on....
-						# logger.debug(f'PLAYEREVENT {event.payload}')
+						# logger.debug(f'{event.payload}')
 						self.handle_events(event.payload)
 					case pygame.KEYDOWN:
 						try:
@@ -184,8 +175,6 @@ class Game(Thread):
 						self.player.kill = True
 						self.kill = True
 						logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
-			# self.handle_input_events(input_events)
-			# self.handle_mouse_events(mouse_events)
 
 
 	def draw(self):
@@ -214,7 +203,6 @@ class Game(Thread):
 		self.player.start()
 		self.game_started = True
 		self.show_mainmenu = False
-		# npevent = {'msgtype': 'newplayer0', 'conn' : np.socket, }
 
 	def connect_to_server(self):
 		logger.info(f'{self}')
@@ -223,9 +211,6 @@ class Game(Thread):
 		logger.info(f'{self} ')
 
 	def handle_input_events(self, event):
-		#for idx,event in enumerate(events):
-		#	if event.type == pygame.KEYDOWN:
-		# event = events
 		keypressed = event.key
 		if keypressed in(pygame.K_q, 113,'q','Q'):
 			logger.info(f'keyquit {keypressed} ')
@@ -296,13 +281,7 @@ def main(args):
 
 
 def run_testclient(args):
-	logger.debug(f'testclient {args}')
-	np = NewPlayer(testmode=True)
-	logger.debug(f'testclient {np}')
-	np.run()
-	logger.debug(f'testclient run {np}')
-	np.do_testing()
-	logger.debug(f'testclient test {np}')
+	pass
 
 if __name__ == "__main__":
 	pygame.init()

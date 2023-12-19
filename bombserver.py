@@ -8,16 +8,10 @@ import sys
 import json
 from threading import Thread, current_thread, Timer
 from queue import Queue
-import pygame
 from loguru import logger
-from pygame.event import Event
 import re
-from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE,NEWCLIENTEVENT,NEWCONNECTIONEVENT,PKTLEN,PKTHEADER)
-from globals import gen_randid, RepeatedTimer
-from map import Gamemap,generate_grid
-from network import Sender, send_data, Receiver# , do_send
-
-from socketserver import ThreadingMixIn, TCPServer, BaseRequestHandler, StreamRequestHandler
+from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE, NEWCONNECTIONEVENT,PKTLEN,PKTHEADER)
+from map import generate_grid
 
 HEADER = 64
 FORMAT = 'utf8'
@@ -58,12 +52,6 @@ class NewHandler(Thread):
 				self.connected = False
 				# self.conn.close()
 				break
-
-				#connected = False
-				#conn.close()
-			# logger.debug(f"raw: {type(rawmsglen)} {rawmsglen}  {msglen} ")
-			#if msglen:
-				# logger.debug(f"datalen: {type(datalen)} {datalen}")
 			try:
 				rawmsg = self.conn.recv(msglen).decode(FORMAT)
 			except OSError as e:
@@ -214,7 +202,6 @@ class Gameserver(Thread):
 					msg = {'msgtype': 'ackplrbmb', 'client': client.name, 'data': data}
 					logger.info(f'{msgtype} to {client.name} dclid: {data.get("client_id")} clbombpos: {data.get("clbombpos")}')
 					try:
-						# self.do_send(client._args[0], client._args[1], msg)
 						self.do_send(client.conn, client.addr, msg)
 					except ServerSendException as e:
 						logger.warning(f'[!] {e} in {self} {client}')
@@ -229,7 +216,6 @@ class Gameserver(Thread):
 					msg = {'msgtype': 'sv_gridupdate', 'grid': self.grid,}
 					# logger.info(f'sv_gridupdate to {client.name} dclid: {data.get("client_id")} ')
 					try:
-						# self.do_send(client._args[0], client._args[1], msg)
 						self.do_send(client.conn, client.addr, msg)
 					except ServerSendException as e:
 						logger.warning(f'[!] {e} in {self} {client}')
@@ -273,7 +259,6 @@ class Gameserver(Thread):
 				# logger.debug(f'{self} msghanlder {data}')
 
 
-
 if __name__ == '__main__':
 	mainsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	mainsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -296,7 +281,6 @@ if __name__ == '__main__':
 		except Exception as e:
 			logger.warning(f'{e} {type(e)}')
 			break
-		# thread = Thread(target=server.newhandler, args=(conn,addr), name=f'clthrd{conncounter}')
 		thread = NewHandler(conn,addr, server.dataq, name=f'clthrd{conncounter}')
 		server.clients.append(thread)
 		thread.start()
