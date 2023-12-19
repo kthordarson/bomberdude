@@ -205,7 +205,7 @@ class NewPlayer(Thread, Sprite):
 				else:
 					self.grid = newgrid
 					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
-					logger.debug(f'{self} {msgtype} {owngridchk} {newgridchk}')
+					# logger.debug(f'{self} {msgtype} {owngridchk} {newgridchk}')
 			case 'ackplrbmb':
 				bomb_clid = jresp.get('data').get('client_id')
 				clbombpos = jresp.get('data').get('clbombpos')

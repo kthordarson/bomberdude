@@ -180,7 +180,7 @@ class Particle(Sprite):
 		self.pos = [self.gridpos[0] * BLOCK+8, self.gridpos[1] * BLOCK+8]
 		self.ptimer = ptimer
 		self.vel = random.choice(([1+random.random(),1-random.random()], [1-random.random(),1+random.random()], [random.random(),1+random.random()], [random.random(),1-random.random()], [random.random()-1,random.random()-1], [1-random.random(),1-random.random()], [1+random.random(),1+random.random()], [1+random.random(),random.random()-1]))
-		self.image = pygame.surface.Surface((8,8))
+		self.image = pygame.surface.Surface( random.choice([ (8,8), (4,4), (2,2) ]))
 		self.rect = self.image.get_rect()
 		self.image.fill((255,0,255))
 

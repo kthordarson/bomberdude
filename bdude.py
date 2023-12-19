@@ -84,7 +84,7 @@ class Game(Thread):
 				self.flames.add(newflames)
 				# flames = [k for k in self.sprites if isinstance(k, NewFlame)]
 			case 'sv_gridupdate':
-				logger.debug(f'{msgtype} {len(payload)}')
+				# logger.debug(f'{msgtype} {len(payload)}')
 				self.create_blocks_from_grid()
 			case 'newgridfromserver':
 				newgrid = payload.get('grid', None)
@@ -122,10 +122,12 @@ class Game(Thread):
 			colls = spritecollide(f, self.blocks, dokill=False)
 			for c in colls:
 				if c.blocktype == 1:
-					particles = [Particle(gridpos=f.gridpos) for k in range(3)]
+					particles = [Particle(gridpos=f.gridpos) for k in range(5)]
 					self.particles.add(particles)
 					f.kill()
 				if c.blocktype == 5:
+					particles = [Particle(gridpos=f.gridpos) for k in range(15)]
+					self.particles.add(particles)
 					f.kill()
 				if c.blocktype == 3:
 					x = c.gridpos[0]
