@@ -143,7 +143,7 @@ class NewBomb(Sprite):
 			pygame.event.post(Event(BOMBXPLODE, payload={'msgtype': 'bombxplode', 'gridpos': self.gridpos, 'bomberid': self.bomberid}))
 			self.kill()
 
-class NewFlame(Sprite): # todo
+class NewFlame(Sprite):
 	def __init__(self, bombpos=None, image=None, bomberid=None, flametimer=2000, vel=(1,1)):
 		super().__init__()
 		self.start_time = pygame.time.get_ticks()
@@ -170,3 +170,31 @@ class NewFlame(Sprite): # todo
 		if pygame.time.get_ticks() - self.start_time >= self.flametimer:
 			# logger.warning(f'{self}')
 			self.kill()
+
+
+class Particle(Sprite):
+	def __init__(self, gridpos=None, ptimer=2000, vel=(1,1)):
+		super().__init__()
+		self.start_time = pygame.time.get_ticks()
+		self.gridpos = gridpos
+		self.pos = [self.gridpos[0] * BLOCK+8, self.gridpos[1] * BLOCK+8]
+		self.ptimer = ptimer
+		self.vel = random.choice(([1+random.random(),1-random.random()], [1-random.random(),1+random.random()], [random.random(),1+random.random()], [random.random(),1-random.random()], [random.random()-1,random.random()-1], [1-random.random(),1-random.random()], [1+random.random(),1+random.random()], [1+random.random(),random.random()-1]))
+		self.image = pygame.surface.Surface((8,8))
+		self.rect = self.image.get_rect()
+		self.image.fill((255,0,255))
+
+	def __repr__(self):
+		return f'(particle pos={self.pos} {self.gridpos} )'
+
+	def update(self):
+		# logger.info(f'{self}')
+		self.pos[0] += self.vel[0]
+		self.pos[1] += self.vel[1]
+		self.rect = self.image.get_rect(center=self.pos)
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
+		if pygame.time.get_ticks() - self.start_time >= self.ptimer:
+			# logger.warning(f'{self}')
+			self.kill()
+

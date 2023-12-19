@@ -16,7 +16,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from pygame import USEREVENT
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
 from constants import (DEFAULTFONT, PLAYEREVENT, NEWGRIDEVENT, CONNECTTOSERVEREVENT,NEWCLIENTEVENT,STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT,BOMBXPLODE)
-from globals import ResourceHandler, NewBlock, NewBomb, NewFlame, get_bomb_flames
+from globals import ResourceHandler, NewBlock, NewBomb, NewFlame, get_bomb_flames, Particle
 from menus import GameMenu
 from player import  NewPlayer
 
@@ -42,6 +42,7 @@ class Game(Thread):
 		self.player = NewPlayer(gridpos=[10,10], image=self.rh.get_image('data/playerone.png'), rh=self.rh)
 		self.bombs = Group()
 		self.flames = Group()
+		self.particles = Group()
 		self.blocks = Group()
 		# self.sprites = Group()
 		# self.sprites.add(self.bombs)
@@ -114,10 +115,15 @@ class Game(Thread):
 	def check_coll(self):
 		# flames = Group([k for k in self.sprites if isinstance(k, NewFlame)])
 		# blocks = Group([k for k in self.sprites if isinstance(k, NewBlock)])
+		for p in self.particles:
+			colls = spritecollide(p, self.blocks, dokill=False)
+			[p.kill() for c in colls if c.blocktype != 2]
 		for f in self.flames:
 			colls = spritecollide(f, self.blocks, dokill=False)
 			for c in colls:
 				if c.blocktype == 1:
+					particles = [Particle(gridpos=f.gridpos) for k in range(3)]
+					self.particles.add(particles)
 					f.kill()
 				if c.blocktype == 5:
 					f.kill()
@@ -142,6 +148,7 @@ class Game(Thread):
 			# self.sprites.update()
 			self.bombs.update()
 			self.flames.update()
+			self.particles.update()
 			self.blocks.update()
 			self.player.update()
 			if self.show_mainmenu:
@@ -182,6 +189,7 @@ class Game(Thread):
 	def draw(self):
 		self.blocks.draw(self.screen)
 		self.flames.draw(self.screen)
+		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
 		self.player.draw(self.screen)
 		if self.debugmode:
