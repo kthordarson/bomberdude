@@ -41,6 +41,18 @@ class RepeatedTimer():
 class BlockNotFoundError(Exception):
 	pass
 
+def randvel(dir):
+	vel = Vector2((0,0))
+	if dir == 'u':
+		vel.y = random.uniform(-1.0, -1.7)
+	if dir == 'd':
+		vel.y = random.uniform(1.1, 1.9)
+	if dir == 'r':
+		vel.x = random.uniform(1.1, 1.85)
+	if dir == 'l':
+		vel.x = random.uniform(-1.0, -1.9)
+	return vel
+
 def random_velocity(direction=None) -> Vector2:
 	vel = Vector2((random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0)))
 	if direction == "left":
@@ -179,8 +191,8 @@ class Particle(Sprite): # todo fix initial position
 		self.gridpos = gridpos
 		self.pos = [self.gridpos[0] * BLOCK+8, self.gridpos[1] * BLOCK+8]
 		self.ptimer = ptimer
-		self.vel = random.choice(([1+random.random(),1-random.random()], [1-random.random(),1+random.random()], [random.random(),1+random.random()], [random.random(),1-random.random()], [random.random()-1,random.random()-1], [1-random.random(),1-random.random()], [1+random.random(),1+random.random()], [1+random.random(),random.random()-1]))
-		self.image = pygame.surface.Surface( random.choice([ (8,8), (4,4), (2,2) ]))
+		self.vel = vel # random.choice(([1+random.random(),1-random.random()], [1-random.random(),1+random.random()], [random.random(),1+random.random()], [random.random(),1-random.random()], [random.random()-1,random.random()-1], [1-random.random(),1-random.random()], [1+random.random(),1+random.random()], [1+random.random(),random.random()-1]))
+		self.image = pygame.surface.Surface( random.choice([ (8,8), (6,6), (4,4), (2,2) ]))
 		self.rect = self.image.get_rect()
 		self.image.fill((255,0,255))
 

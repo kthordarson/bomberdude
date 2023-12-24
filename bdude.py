@@ -2,7 +2,8 @@
 # bomberdude
 # 07102022 todo fix mapsync, limit one bomb per grid on map,
 # todo check player movement while holding now keys
-import os, sys
+import os
+import random
 from argparse import ArgumentParser
 from threading import Thread
 
@@ -13,7 +14,7 @@ from pygame.sprite import Group, spritecollide, Sprite
 from pygame import USEREVENT
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
 from constants import (DEFAULTFONT, CONNECTTOSERVEREVENT, STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT,BOMBXPLODE)
-from globals import ResourceHandler, NewBlock, NewBomb, NewFlame, get_bomb_flames, Particle
+from globals import ResourceHandler, NewBlock, NewBomb, NewFlame, get_bomb_flames, Particle, randvel
 from menus import GameMenu
 from player import  NewPlayer
 
@@ -45,7 +46,7 @@ class Game(Thread):
 		self.debugmode = debugmode
 
 	def __repr__(self):
-		return f'[G] k={self.kill} gs:{self.game_started} p:{self.player} pl:{len(self.player.playerlist)} '
+		return f'[G] p:{self.player} pl:{len(self.player.playerlist)} '
 
 	def create_blocks_from_grid(self):
 		#draws the grid
@@ -114,11 +115,17 @@ class Game(Thread):
 			colls = spritecollide(f, self.blocks, dokill=False)
 			for c in colls:
 				if c.blocktype == 1:
-					particles = [Particle(gridpos=f.gridpos) for k in range(5)]
+					fgpos = (f.pos[0] // BLOCK, f.pos[1] // BLOCK)
+					newvel = [k * -1 for k in f.vel]
+					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(7)]
 					self.particles.add(particles)
 					f.kill()
 				if c.blocktype == 5:
-					particles = [Particle(gridpos=f.gridpos) for k in range(15)]
+					fpos = (f.pos[0] // BLOCK, f.pos[1] // BLOCK)
+					fgpos = (f.pos[0] // BLOCK, f.pos[1] // BLOCK)
+					newvel = [k * -1 for k in f.vel]
+					# particles = [Particle(gridpos=fpos) for k in range(3)]
+					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(5)]
 					self.particles.add(particles)
 					f.kill()
 				if c.blocktype == 3:
