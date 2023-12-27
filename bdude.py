@@ -202,10 +202,10 @@ class Game(Thread):
 
 	def start_game(self):
 		if self.game_started:
-			logger.warning(f'game already started')
+			logger.warning(f'{self} game already started')
 			return
 		else:
-			logger.info(f'startgame')
+			logger.info(f'{self} startgame')
 		self.screen.fill((0,0,0))
 		self.player.start()
 		self.game_started = True
