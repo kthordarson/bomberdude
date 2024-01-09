@@ -273,28 +273,28 @@ class NewPlayer(Thread, Sprite):
 		gpx, gpy = self.gridpos
 		newgridpos = [gpx, gpy]
 		if action == 'u':
-			if self.grid[gpx][gpy-1] == 2:
+			if self.grid[gpx][gpy-1] in (2,44):
 				newgridpos = [gpx, gpy-1]
 			else:
 				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx, gpy-1]} gridval: {self.grid[gpx][gpy-1]}')
 				newgridpos = [gpx, gpy]
 				return
 		elif action == 'd':
-			if self.grid[gpx][gpy+1] == 2:
+			if self.grid[gpx][gpy+1] in (2,44):
 				newgridpos = [gpx, gpy+1]
 			else:
 				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx, gpy+1]} gridval: {self.grid[gpx][gpy+1]}')
 				newgridpos = [gpx, gpy]
 				return
 		elif action == 'l':
-			if self.grid[gpx-1][gpy] == 2:
+			if self.grid[gpx-1][gpy] in (2,44):
 				newgridpos = [gpx-1, gpy]
 			else:
 				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx-1, gpy]} gridval: {self.grid[gpx-1][gpy]}')
 				newgridpos = [gpx, gpy]
 				return
 		elif action == 'r':
-			if self.grid[gpx+1][gpy] == 2: # else [gpx, gpy]
+			if self.grid[gpx+1][gpy] in (2,44): # else [gpx, gpy]
 				newgridpos = [gpx+1, gpy]
 			else:
 				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx+1, gpy]} gridval: {self.grid[gpx+1][gpy]}')

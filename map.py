@@ -87,9 +87,14 @@ def oldgenerate_grid():
 	return TESTGRID
 
 def generate_grid():
-	grid = [[random.choice([2,2,2,2,2,3,5]) for k in range(GRIDSIZE)] for j in range(GRIDSIZE)]
+	# types
+	# 1 = edges
+	# 2 = background
+	# 3 = block
+	# 5 = unkillable block
+	grid = [[random.choice([2,2,2,2,2,3,4,5]) for k in range(GRIDSIZE)] for j in range(GRIDSIZE)]
 	gridsize = len(grid)
-	for x in range(gridsize):
+	for x in range(gridsize): # set grid edges to solid blocks type 1
 		grid[x][0] = 1
 		grid[0][x] = 1
 		grid[-1][x] = 1
