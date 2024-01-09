@@ -266,7 +266,7 @@ class NewPlayer(Thread, Sprite):
 		payload = {'msgtype' : 'cl_playerbomb','action': 'playerbomb', 'clbombpos': self.gridpos}
 		self.send_queue.put(payload)
 
-	def move(self, action):
+	def move(self, action): # todo decide on to check grid or use spritecollide....
 		if not self.gotgrid:
 			logger.warning(f'{self} move {action} nogrid')
 			return

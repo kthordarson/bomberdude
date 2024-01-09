@@ -243,7 +243,6 @@ class Gameserver(Thread):
 						logger.error(f'[!] {e} {type(e)} in {self} {client}\ndata: {type(data)} {data}\nmsg: {type(msg)} {msg}\n')
 						self.clients.pop(self.clients.index(client))
 			case 'cl_playerbomb':
-				# todo place bomb on grid
 				if not data.get('gotgrid'):
 					logger.warning(f'data: {data}')
 				for client in self.clients:

@@ -1,7 +1,5 @@
 #!/usr/bin/python
 # bomberdude
-# 07102022 todo fix mapsync, limit one bomb per grid on map,
-# todo check player movement while holding now keys
 import os
 import random
 from argparse import ArgumentParser
@@ -121,9 +119,10 @@ class Game(Thread):
 					logger.info(f'healthup {block} player: {self.player}')
 					x = block.gridpos[0]
 					y = block.gridpos[1]
+					fgpos = (block.pos[0] // BLOCK, block.pos[1] // BLOCK)
 					self.player.grid[x][y] = 2
 					image = self.rh.get_image(f'data/blocksprite2.png')
-					self.blocks.add(NewBlock(gridpos=(y,x), image=image, blocktype=2))
+					self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
 					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': block.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
 					self.player.send_queue.put(payload)
 					block.kill()
@@ -152,7 +151,7 @@ class Game(Thread):
 					# self.player.grid[y][x] = 2
 					self.player.grid[x][y] = 2
 					image = self.rh.get_image(f'data/blocksprite2.png')
-					self.blocks.add(NewBlock(gridpos=(y,x), image=image, blocktype=2)) # todo add upgrade blocks.....
+					self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
 					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
 					self.player.send_queue.put(payload)
 					# logger.info(f'c {c} kill\npayload: {payload}')
@@ -167,7 +166,7 @@ class Game(Thread):
 					self.player.grid[x][y] = 44
 					image = self.rh.get_image(f'data/heart.png')
 					# image = self.rh.get_image(f'data/blocksprite2.png')
-					self.blocks.add(NewBlock(gridpos=(y,x), image=image, blocktype=44)) # type 44 = heart
+					self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=44)) # type 44 = heart
 					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':44, 'client_id': self.player.client_id, 'grid' :self.player.grid }
 					self.player.send_queue.put(payload)
 					# logger.info(f'c {c} kill\npayload: {payload}')
@@ -239,6 +238,9 @@ class Game(Thread):
 				try:
 					blktxt = f'{self.player.grid[sprite.gridpos[0]][sprite.gridpos[1]]}'
 					# self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+3),f'{sprite.gridpos}', (255,255,255))
+					self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+3),blktxt, (255,255,255))
+					blktxt = f'{sprite.gridpos}'
+					# self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+3),f'{sprite.gridpos}', (255,255,255))
 					self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+13),blktxt, (255,255,255))
 				except IndexError as e:
 					logger.error(f'{e} {type(e)} {sprite.gridpos} {self.player.grid}')
@@ -304,6 +306,11 @@ class Game(Thread):
 					pygame.event.post(Event(STARTSERVEREVENT))
 				if self.game_menu.active_item == 'Quit':
 					pygame.event.post(Event(pygame.QUIT))
+		elif keypressed == pygame.K_F1:
+			# toggle debug
+			logger.debug(f'toggledebug {self.debugmode}')
+			self.debugmode = not self.debugmode
+			logger.debug(f'toggledebug {self.debugmode}')
 		elif keypressed == pygame.K_ESCAPE:
 			# escape show/hide menu
 			logger.debug(f'K_ESCAPE item: {self.game_menu.active_item} show: {self.show_mainmenu}')
