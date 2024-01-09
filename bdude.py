@@ -76,6 +76,8 @@ class Game(Thread):
 				image = self.rh.get_image(f'data/flame1.png')
 				newflames = get_bomb_flames(payload.get("gridpos"), payload.get("bomberid"), image)
 				self.flames.add(newflames)
+				if payload.get("bomberid") == self.player.client_id:
+					self.player.bombsleft += 1
 			case 'sv_gridupdate':
 				# logger.debug(f'{msgtype} {len(payload)}')
 				self.create_blocks_from_grid()
@@ -243,7 +245,10 @@ class Game(Thread):
 		elif keypressed == pygame.K_SPACE:
 			# handle menu selection
 			if not self.show_mainmenu:
-				self.player.sendbomb()
+				if self.player.bombsleft > 0:
+					self.player.sendbomb()
+				else:
+					logger.warning(f'no bombs left player: {self.player}')
 			else:
 				if self.game_menu.active_item == 'Start':
 					if not self.game_started:

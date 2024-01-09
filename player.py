@@ -48,11 +48,13 @@ class NewPlayer(Thread, Sprite):
 		self.gotgrid = False
 		self.playerlist = {}
 		self.cl_needgridcounter = 0
+		self.bombsleft = 3
 		self.updatetimer = RepeatedTimer(interval=1, function=self.playertimer)
 		self.updcntr = 0
 		self.gotplayerlist = False
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
+
 
 	def __repr__(self) -> str:
 		return f'NP({self.client_id} pos:{self.pos} upc: {self.updcntr} sq:{self.send_queue.qsize()} s:{self.sendcounter} r:{self.recvcounter}) pl:{len(self.playerlist)}'
@@ -78,6 +80,7 @@ class NewPlayer(Thread, Sprite):
 		payload['updcntr'] = self.updcntr
 		payload['client_id'] = self.client_id
 		payload['pos'] = self.pos
+		payload['bombsleft'] = self.bombsleft
 		payload['gridpos'] = self.gridpos
 		payload['gotgrid'] = self.gotgrid
 		payload['gotplayerlist'] = self.gotplayerlist
@@ -184,15 +187,16 @@ class NewPlayer(Thread, Sprite):
 			case 'ackplrbmb':
 				bomb_clid = jresp.get('data').get('client_id')
 				clbombpos = jresp.get('data').get('clbombpos')
-				pygame.event.post(pygame.event.Event(PLAYEREVENT, payload={'msgtype': 'ackplrbmb', 'client_id': bomb_clid, 'clbombpos': clbombpos}))
 				if bomb_clid != self.client_id:
 					pass
 					# logger.info(f'{self} otherplayerbomb {msgtype} from {bomb_clid} bombpos: {clbombpos}')
 				elif bomb_clid == self.client_id:
 					# logger.info(f'{self} ownbomb {msgtype} bombpos: {clbombpos}')
-					pass
+					self.bombsleft -= 1
 				else:
 					logger.warning(f'{self} bomberclientid! {msgtype} jresp: {jresp}')
+				pygame.event.post(pygame.event.Event(PLAYEREVENT, payload={'msgtype': 'ackplrbmb', 'client_id': bomb_clid, 'clbombpos': clbombpos}))
+
 			case 'serveracktimer' | 'ackclplrmv' | 'trigger_newplayer':
 				# logger.debug(f'{self} {msgtype} {jresp}')
 				# playerlist = None
