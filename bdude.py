@@ -69,6 +69,19 @@ class Game(Thread):
 		match msgtype:
 			case 'startgame':
 				self.start_game()
+			case 'blktimeout':
+				# logger.debug(f'{msgtype} {payload}')
+				gridpos = payload.get('gridpos')
+				pos = payload.get('pos')
+				x = gridpos[0]
+				y = gridpos[1]
+				fgpos = (pos[0] // BLOCK, pos[1] // BLOCK)
+				self.player.grid[x][y] = 2
+				image = self.rh.get_image(f'data/blocksprite2.png')
+				self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
+				payload = {'msgtype' : 'cl_gridupdate', 'gridpos': gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
+				self.player.send_queue.put(payload)
+				# block.kill()
 			case 'bombxplode':
 				# create flames from bomb
 				# logger.debug(f'{msgtype} {payload}')
@@ -235,15 +248,10 @@ class Game(Thread):
 		self.draw_game_info(self.screen)
 		if self.debugmode:
 			for sprite in self.blocks:
-				try:
-					blktxt = f'{self.player.grid[sprite.gridpos[0]][sprite.gridpos[1]]}'
-					# self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+3),f'{sprite.gridpos}', (255,255,255))
-					self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+3),blktxt, (255,255,255))
-					blktxt = f'{sprite.gridpos}'
-					# self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+3),f'{sprite.gridpos}', (255,255,255))
-					self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+13),blktxt, (255,255,255))
-				except IndexError as e:
-					logger.error(f'{e} {type(e)} {sprite.gridpos} {self.player.grid}')
+				blktxt = f'{self.player.grid[sprite.gridpos[0]][sprite.gridpos[1]]}'
+				self.debugfont.render_to(self.screen, (sprite.rect.x+1, sprite.rect.y+3),blktxt, (55,255,255))
+				blktxt = f'{sprite.gridpos}'
+				self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+13),blktxt, (255,22,255))
 
 	def start_game(self):
 		if self.game_started:

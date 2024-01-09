@@ -10,7 +10,7 @@ from pygame.math import Vector2
 from pygame.sprite import Group, Sprite, spritecollide
 from pygame.event import Event
 from constants import (BLOCK, BLOCKTYPES, BOMBSIZE, DEFAULTFONT, FLAMESIZE, MAXPARTICLES, POWERUPSIZE)
-from constants import BOMBXPLODE
+from constants import BOMBXPLODE, BLOCKTIMEOUT
 
 class RepeatedTimer():
 	def __init__(self, interval, function, *args, **kwargs):
@@ -109,6 +109,10 @@ class NewBlock(Sprite):
 	def __init__(self, gridpos, image, blocktype):
 		super().__init__()
 		self.blocktype = blocktype
+		if self.blocktype == 44:
+			self.blocktimer = 1000
+		else:
+			self.blocktimer = 0
 		self.gridpos = gridpos
 		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 		self.image = image
@@ -122,14 +126,19 @@ class NewBlock(Sprite):
 		self.rect.y = self.pos[1]
 
 	def __repr__(self):
-		return f'(BB t:{self.blocktype} pos={self.pos} {self.gridpos})'
+		return f'(BB t:{self.blocktype} pos={self.pos} {self.gridpos} bt:{self.blocktimer} {pygame.time.get_ticks() - self.start_time} )'
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect)
 
 	def update(self):
 		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
-		# logger.debug(f'{self}')
+		if self.blocktype == 44:
+			if pygame.time.get_ticks() - self.start_time >= self.blocktimer:
+				logger.debug(f'{self} kill')
+				pygame.event.post(Event(BLOCKTIMEOUT, payload={'msgtype': 'blktimeout', 'gridpos': self.gridpos,'pos': self.pos,}))
+				self.kill()
+
 
 
 class NewBomb(Sprite):
