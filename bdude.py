@@ -10,7 +10,7 @@ from threading import Thread
 import pygame
 from loguru import logger
 from pygame.event import Event
-from pygame.sprite import Group, spritecollide, Sprite
+from pygame.sprite import Group, spritecollide, Sprite, collide_rect
 from pygame import USEREVENT
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
 from constants import (DEFAULTFONT, CONNECTTOSERVEREVENT, STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT,BOMBXPLODE)
@@ -115,6 +115,16 @@ class Game(Thread):
 			colls = spritecollide(p, self.blocks, dokill=False)
 			[p.kill() for c in colls if c.blocktype != 2]
 		for f in self.flames:
+			if collide_rect(f, self.player):
+				self.player.health -= 10
+				if self.player.health <= 0:
+					logger.warning(f'{self} playerkilled {self.player}')
+				else:
+					logger.info(f'playerflamedamage f: {f} player: {self.player}')
+				f.kill()
+			#for pc in playercolls:
+			#	self.player.health -= 1
+			#	logger.info(f'{self} playercoll {pc} health: {self.player.health}')
 			colls = spritecollide(f, self.blocks, dokill=False)
 			for c in colls:
 				if c.blocktype == 1:
@@ -187,7 +197,7 @@ class Game(Thread):
 						logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
 
 	def draw_game_info(self, screen):
-		self.font.render_to(screen, (10,10), f'bombsleft: {self.player.bombsleft}', (255,255,255))
+		self.font.render_to(screen, (10,10), f'h: {self.player.health} bombs: {self.player.bombsleft}', (255,255,255))
 
 	def draw(self):
 		self.blocks.draw(self.screen)

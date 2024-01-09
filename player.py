@@ -49,6 +49,7 @@ class NewPlayer(Thread, Sprite):
 		self.playerlist = {}
 		self.cl_needgridcounter = 0
 		self.bombsleft = 3
+		self.health = 100
 		self.updatetimer = RepeatedTimer(interval=1, function=self.playertimer)
 		self.updcntr = 0
 		self.gotplayerlist = False
@@ -57,7 +58,7 @@ class NewPlayer(Thread, Sprite):
 
 
 	def __repr__(self) -> str:
-		return f'NP({self.client_id} pos:{self.pos} upc: {self.updcntr} sq:{self.send_queue.qsize()} s:{self.sendcounter} r:{self.recvcounter}) pl:{len(self.playerlist)}'
+		return f'NP({self.client_id} pos:{self.pos} b:{self.bombsleft} h:{self.health} upc: {self.updcntr} sq:{self.send_queue.qsize()} s:{self.sendcounter} r:{self.recvcounter} pl:{len(self.playerlist)}'
 
 	def do_testing(self):
 		pass
@@ -81,6 +82,7 @@ class NewPlayer(Thread, Sprite):
 		payload['client_id'] = self.client_id
 		payload['pos'] = self.pos
 		payload['bombsleft'] = self.bombsleft
+		payload['health'] = self.health
 		payload['gridpos'] = self.gridpos
 		payload['gotgrid'] = self.gotgrid
 		payload['gotplayerlist'] = self.gotplayerlist
