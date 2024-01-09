@@ -43,6 +43,7 @@ class Game(Thread):
 		# self.sprites.add(self.flames)
 		# self.sprites.add(self.blocks)
 		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 8)
+		self.font = pygame.freetype.Font(DEFAULTFONT, 10)
 		self.debugmode = debugmode
 
 	def __repr__(self):
@@ -185,6 +186,8 @@ class Game(Thread):
 						self.kill = True
 						logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
 
+	def draw_game_info(self, screen):
+		self.font.render_to(screen, (10,10), f'bombsleft: {self.player.bombsleft}', (255,255,255))
 
 	def draw(self):
 		self.blocks.draw(self.screen)
@@ -192,6 +195,7 @@ class Game(Thread):
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
 		self.player.draw(self.screen)
+		self.draw_game_info(self.screen)
 		if self.debugmode:
 			pass
 			# for sprite in self.blocks:
