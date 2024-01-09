@@ -41,6 +41,18 @@ class RepeatedTimer():
 class BlockNotFoundError(Exception):
 	pass
 
+def randvel(dir):
+	vel = Vector2((0,0))
+	if dir == 'u':
+		vel.y = random.uniform(-1.0, -1.7)
+	if dir == 'd':
+		vel.y = random.uniform(1.1, 1.9)
+	if dir == 'r':
+		vel.x = random.uniform(1.1, 1.85)
+	if dir == 'l':
+		vel.x = random.uniform(-1.0, -1.9)
+	return vel
+
 def random_velocity(direction=None) -> Vector2:
 	vel = Vector2((random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0)))
 	if direction == "left":
@@ -139,11 +151,11 @@ class NewBomb(Sprite):
 	def update(self):
 		# logger.info(f'{self}')
 		if pygame.time.get_ticks() - self.start_time >= self.bombtimer:
-			logger.debug(f'{self} xplode')
+			# logger.debug(f'{self} xplode')
 			pygame.event.post(Event(BOMBXPLODE, payload={'msgtype': 'bombxplode', 'gridpos': self.gridpos, 'bomberid': self.bomberid}))
 			self.kill()
 
-class NewFlame(Sprite): # todo
+class NewFlame(Sprite):
 	def __init__(self, bombpos=None, image=None, bomberid=None, flametimer=2000, vel=(1,1)):
 		super().__init__()
 		self.start_time = pygame.time.get_ticks()
@@ -170,3 +182,31 @@ class NewFlame(Sprite): # todo
 		if pygame.time.get_ticks() - self.start_time >= self.flametimer:
 			# logger.warning(f'{self}')
 			self.kill()
+
+
+class Particle(Sprite): # todo fix initial position
+	def __init__(self, gridpos=None, ptimer=2000, vel=(1,1)):
+		super().__init__()
+		self.start_time = pygame.time.get_ticks()
+		self.gridpos = gridpos
+		self.pos = [self.gridpos[0] * BLOCK+8, self.gridpos[1] * BLOCK+8]
+		self.ptimer = ptimer
+		self.vel = vel # random.choice(([1+random.random(),1-random.random()], [1-random.random(),1+random.random()], [random.random(),1+random.random()], [random.random(),1-random.random()], [random.random()-1,random.random()-1], [1-random.random(),1-random.random()], [1+random.random(),1+random.random()], [1+random.random(),random.random()-1]))
+		self.image = pygame.surface.Surface( random.choice([ (8,8), (6,6), (4,4), (2,2) ]))
+		self.rect = self.image.get_rect()
+		self.image.fill((255,0,255))
+
+	def __repr__(self):
+		return f'(particle pos={self.pos} {self.gridpos} )'
+
+	def update(self):
+		# logger.info(f'{self}')
+		self.pos[0] += self.vel[0]
+		self.pos[1] += self.vel[1]
+		self.rect = self.image.get_rect(center=self.pos)
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
+		if pygame.time.get_ticks() - self.start_time >= self.ptimer:
+			# logger.warning(f'{self}')
+			self.kill()
+

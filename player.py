@@ -9,7 +9,7 @@ from pygame.event import Event
 from pygame.math import Vector2
 from pygame.sprite import spritecollide, Sprite, Group
 from time import sleep
-from constants import BLOCK, PLAYEREVENT, PLAYERSIZE, PKTLEN, NEWGRIDEVENT,NETPLAYEREVENT, PKTHEADER
+from constants import BLOCK, PLAYEREVENT, NEWGRIDEVENT,NETPLAYEREVENT, PKTHEADER
 from globals import gen_randid, BlockNotFoundError, RepeatedTimer
 from map import Gamemap
 from network import Sender,  send_data, Receiver
@@ -75,7 +75,6 @@ class NewPlayer(Thread, Sprite):
 				logger.warning(f'{self.client_id} playertimer needplayerlist ')
 
 	def do_send(self, payload):
-		outmsgtype = payload.get('msgtype')
 		payload['updcntr'] = self.updcntr
 		payload['client_id'] = self.client_id
 		payload['pos'] = self.pos
@@ -85,11 +84,8 @@ class NewPlayer(Thread, Sprite):
 		payload['sendqsize'] = self.send_queue.qsize()
 		self.lastpktid = gen_randid()
 		payload['c_pktid'] = self.lastpktid
-		payload = json.dumps(payload).encode('utf8')# .zfill(PKTLEN)
-		# msglen += b' ' * (PKTLEN - len(payload))
+		payload = json.dumps(payload).encode('utf8')
 		msglen = str(len(payload)).encode('utf8').zfill(PKTHEADER)
-		msglenx = str(len(payload)).encode('utf8')
-		# logger.debug(f'playerdosendmsglen lenx:{msglenx} c_pktid: {self.lastpktid}')
 		self.socket.sendto(msglen,(self.serveraddress, 9696))
 		# logger.debug(f'playerdosendpayload {outmsgtype} lenx:{msglenx} {len(payload)} c_pktid: {self.lastpktid}')
 		self.socket.sendto(payload,(self.serveraddress, 9696))
@@ -140,25 +136,14 @@ class NewPlayer(Thread, Sprite):
 				jresp = json.loads(response)
 				# logger.debug(f'[r] {jresp.get("msgtype")} rqs:{self.receiverq.qsize()} dl: {datalen} r: {len(response)} jr:{len(jresp)}')
 				self.receiverq.put(jresp)
+			except json.decoder.JSONDecodeError as e:
+				logger.error(f'[r] {e} {type(e)} response: {response}')
+				# self.kill = True
+				# raise ReceiverError(e)
 			except Exception as e:
 				logger.error(f'[r] {e} {type(e)}')
 				self.kill = True
 				raise ReceiverError(e)
-			# self.msg_handler(jresp)
-		# try:
-		# 	jresp = json.loads(response)
-		# except json.decoder.JSONDecodeError as e:
-		# 	logger.warning(f'{e} {type(e)} {type(response)}\nresp: {response}')
-		# except TypeError as e:
-		# 	logger.warning(f'{e} {type(e)} {type(response)}\nresp: {response}')
-		# except Exception as e:
-		# 	logger.error(f'{e} {type(e)} {type(response)}\nresp: {response}')
-		# if jresp:
-		# 	self.msg_handler(jresp)
-		# 	# logger.debug(f'\n{self} resp:\n{response}\n')
-		# 	# logger.debug(f'\n{self} jresp:\n{jresp}\n')
-		# else:
-		# 	logger.error(f'no jresp from {response}')
 
 	def run(self):
 		try:
@@ -173,7 +158,7 @@ class NewPlayer(Thread, Sprite):
 				self.receiverq.task_done()
 				self.msg_handler(jresp)
 			if not self.send_queue.empty():
-				data = self.send_queue.get()# .zfill(PKTLEN)
+				data = self.send_queue.get()
 				self.send_queue.task_done()
 				# self.socket.sendto(data,(self.serveraddress, 9696))
 				self.do_send(data)
@@ -183,16 +168,6 @@ class NewPlayer(Thread, Sprite):
 	def msg_handler(self, jresp):
 		# logger.debug(f'jresp:\n {jresp}\n')
 		msgtype = jresp.get('msgtype')
-		payload = {'msgtype' : 'ackserveracktimer', 'msgacktype': msgtype}
-		# try:
-		# 	msgtype = jresp.get('msgtype')
-		# except AttributeError as e:
-		# 	logger.error(f'{e} jr: {jresp}')
-		# 	#break
-		# if not msgtype:
-		# 	logger.warning(f'{self} msgtype not found in jresp: {jresp}')
-		# 	raise Exception(f'{self} msgtype not found in jresp: {jresp}')
-		# # logger.debug(f'{msgtype} jresp:\n {jresp}\n')
 		match msgtype:
 			case 'sv_gridupdate':
 				newgrid = jresp.get('grid')
@@ -205,13 +180,14 @@ class NewPlayer(Thread, Sprite):
 				else:
 					self.grid = newgrid
 					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
-					logger.debug(f'{self} {msgtype} {owngridchk} {newgridchk}')
+					# logger.debug(f'{self} {msgtype} {owngridchk} {newgridchk}')
 			case 'ackplrbmb':
 				bomb_clid = jresp.get('data').get('client_id')
 				clbombpos = jresp.get('data').get('clbombpos')
 				pygame.event.post(pygame.event.Event(PLAYEREVENT, payload={'msgtype': 'ackplrbmb', 'client_id': bomb_clid, 'clbombpos': clbombpos}))
 				if bomb_clid != self.client_id:
-					logger.info(f'{self} otherplayerbomb {msgtype} from {bomb_clid} bombpos: {clbombpos}')
+					pass
+					# logger.info(f'{self} otherplayerbomb {msgtype} from {bomb_clid} bombpos: {clbombpos}')
 				elif bomb_clid == self.client_id:
 					# logger.info(f'{self} ownbomb {msgtype} bombpos: {clbombpos}')
 					pass
@@ -246,14 +222,9 @@ class NewPlayer(Thread, Sprite):
 					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
 			case _:
 				logger.warning(f'missingmsgtype jresp: {jresp} ')
-				# data = {'msgtype' : 'missingmsgtype', 'client_id': self.client_id, 'runcounter': self.runcounter}
-				payload = {'msgtype' : 'missingmsgtype'}
-		# logger.info(f'sendqput {self.send_queue.qsize()} msgtype={msgtype} payloadmsgt:={payload.get("msgtype")}') # \nmsgtype={msgtype}\njresp:\n{jresp}\n')
-		# self.send_queue.put(payload)
-				# self.send_queue.put(data)
+
 	def update(self):
-		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
-		# logger.info(f'{self}')
+		pass
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect)

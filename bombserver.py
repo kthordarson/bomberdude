@@ -8,16 +8,10 @@ import sys
 import json
 from threading import Thread, current_thread, Timer
 from queue import Queue
-import pygame
 from loguru import logger
-from pygame.event import Event
 import re
-from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE,NEWCLIENTEVENT,NEWCONNECTIONEVENT,PKTLEN,PKTHEADER)
-from globals import gen_randid, RepeatedTimer
-from map import Gamemap,generate_grid
-from network import Sender, send_data, Receiver# , do_send
-
-from socketserver import ThreadingMixIn, TCPServer, BaseRequestHandler, StreamRequestHandler
+from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE, NEWCONNECTIONEVENT,PKTLEN,PKTHEADER)
+from map import generate_grid
 
 HEADER = 64
 FORMAT = 'utf8'
@@ -28,6 +22,47 @@ class ServerSendException(Exception):
 
 class HandlerException(Exception):
 	pass
+
+class TuiException(Exception):
+	pass
+
+class ServerTUI(Thread):
+	def __init__(self, server):
+		Thread.__init__(self, daemon=True)
+		self.server = server
+		self.kill = False
+
+	def get_serverinfo(self):
+		logger.info(f'playerlist={len(self.server.playerlist)} ')
+
+	def dump_playerlist(self):
+		logger.info(f'playerlist={len(self.server.playerlist)} ')
+		for p in self.server.playerlist:
+			logger.info(f'{p} {self.server.playerlist[p]}')
+
+	def run(self):
+		while True:
+			if self.kill:
+				break
+			try:
+				cmd = input(':> ')
+				if cmd[:1] == 's':
+					self.get_serverinfo()
+				if cmd[:2] == 'pl':
+					self.dump_playerlist()
+				elif cmd[:1] == 'q':
+					self.kill = True
+					self.server.kill = True
+					logger.warning(f'{self} {self.server} tuikilled')
+					# raise TuiException('tui killed')
+					break
+				else:
+					logger.info(f'[S] cmds: s serverinfo, pl playerlist, q quit')
+			except KeyboardInterrupt:
+				self.kill = True
+				self.server.kill = True
+				break
+
 
 class NewHandler(Thread):
 	def __init__(self, conn, addr, dataq, name):
@@ -58,12 +93,6 @@ class NewHandler(Thread):
 				self.connected = False
 				# self.conn.close()
 				break
-
-				#connected = False
-				#conn.close()
-			# logger.debug(f"raw: {type(rawmsglen)} {rawmsglen}  {msglen} ")
-			#if msglen:
-				# logger.debug(f"datalen: {type(datalen)} {datalen}")
 			try:
 				rawmsg = self.conn.recv(msglen).decode(FORMAT)
 			except OSError as e:
@@ -81,8 +110,9 @@ class NewHandler(Thread):
 				logger.info(f"{self} dataq: {self.dataq.qsize()}")
 
 class Gameserver(Thread):
-	def __init__(self, connq):
+	def __init__(self, connq, mainsocket):
 		Thread.__init__(self,  daemon=True, name='gameserverthread')
+		self.mainsocket = mainsocket
 		self.kill = False
 		self.clients = []
 		self.connq = connq
@@ -90,6 +120,7 @@ class Gameserver(Thread):
 		self.grid = generate_grid()
 		self.playerlist = {}
 		self.updcntr = 0
+		self.tui = ServerTUI(server=self)
 
 	def __repr__(self):
 		return f'[gs] c:{len(self.clients)}'
@@ -214,7 +245,6 @@ class Gameserver(Thread):
 					msg = {'msgtype': 'ackplrbmb', 'client': client.name, 'data': data}
 					logger.info(f'{msgtype} to {client.name} dclid: {data.get("client_id")} clbombpos: {data.get("clbombpos")}')
 					try:
-						# self.do_send(client._args[0], client._args[1], msg)
 						self.do_send(client.conn, client.addr, msg)
 					except ServerSendException as e:
 						logger.warning(f'[!] {e} in {self} {client}')
@@ -229,7 +259,6 @@ class Gameserver(Thread):
 					msg = {'msgtype': 'sv_gridupdate', 'grid': self.grid,}
 					# logger.info(f'sv_gridupdate to {client.name} dclid: {data.get("client_id")} ')
 					try:
-						# self.do_send(client._args[0], client._args[1], msg)
 						self.do_send(client.conn, client.addr, msg)
 					except ServerSendException as e:
 						logger.warning(f'[!] {e} in {self} {client}')
@@ -252,8 +281,16 @@ class Gameserver(Thread):
 						self.clients.pop(self.clients.index(client))
 
 	def run(self):
+		logger.info(f'{self} starting tui')
+		self.tui.start()
 		logger.info(f'{self} started')
 		while True:
+			if self.tui.kill: # todo fix tuiquit
+				logger.warning(f'{self} tui {self.tui} killed')
+				self.kill = True
+				# self.mainsocket.close()
+				break
+				# sys.exit(1)
 			if self.kill:
 				logger.warning(f'{self} killed')
 				break
@@ -273,12 +310,11 @@ class Gameserver(Thread):
 				# logger.debug(f'{self} msghanlder {data}')
 
 
-
 if __name__ == '__main__':
 	mainsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	mainsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	connq = Queue()
-	server = Gameserver(connq)
+	server = Gameserver(connq, mainsocket)
 	server.start()
 	try:
 		mainsocket.bind(('127.0.0.1',9696))
@@ -296,7 +332,6 @@ if __name__ == '__main__':
 		except Exception as e:
 			logger.warning(f'{e} {type(e)}')
 			break
-		# thread = Thread(target=server.newhandler, args=(conn,addr), name=f'clthrd{conncounter}')
 		thread = NewHandler(conn,addr, server.dataq, name=f'clthrd{conncounter}')
 		server.clients.append(thread)
 		thread.start()
