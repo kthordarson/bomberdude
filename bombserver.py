@@ -23,6 +23,47 @@ class ServerSendException(Exception):
 class HandlerException(Exception):
 	pass
 
+class TuiException(Exception):
+	pass
+
+class ServerTUI(Thread):
+	def __init__(self, server):
+		Thread.__init__(self, daemon=True)
+		self.server = server
+		self.kill = False
+
+	def get_serverinfo(self):
+		logger.info(f'playerlist={len(self.server.playerlist)} ')
+
+	def dump_playerlist(self):
+		logger.info(f'playerlist={len(self.server.playerlist)} ')
+		for p in self.server.playerlist:
+			logger.info(f'{p} {self.server.playerlist[p]}')
+
+	def run(self):
+		while True:
+			if self.kill:
+				break
+			try:
+				cmd = input(':> ')
+				if cmd[:1] == 's':
+					self.get_serverinfo()
+				if cmd[:2] == 'pl':
+					self.dump_playerlist()
+				elif cmd[:1] == 'q':
+					self.kill = True
+					self.server.kill = True
+					logger.warning(f'{self} {self.server} tuikilled')
+					# raise TuiException('tui killed')
+					break
+				else:
+					logger.info(f'[S] cmds: s serverinfo, pl playerlist, q quit')
+			except KeyboardInterrupt:
+				self.kill = True
+				self.server.kill = True
+				break
+
+
 class NewHandler(Thread):
 	def __init__(self, conn, addr, dataq, name):
 		Thread.__init__(self,  daemon=True, name=name)
@@ -69,8 +110,9 @@ class NewHandler(Thread):
 				logger.info(f"{self} dataq: {self.dataq.qsize()}")
 
 class Gameserver(Thread):
-	def __init__(self, connq):
+	def __init__(self, connq, mainsocket):
 		Thread.__init__(self,  daemon=True, name='gameserverthread')
+		self.mainsocket = mainsocket
 		self.kill = False
 		self.clients = []
 		self.connq = connq
@@ -78,6 +120,7 @@ class Gameserver(Thread):
 		self.grid = generate_grid()
 		self.playerlist = {}
 		self.updcntr = 0
+		self.tui = ServerTUI(server=self)
 
 	def __repr__(self):
 		return f'[gs] c:{len(self.clients)}'
@@ -238,8 +281,16 @@ class Gameserver(Thread):
 						self.clients.pop(self.clients.index(client))
 
 	def run(self):
+		logger.info(f'{self} starting tui')
+		self.tui.start()
 		logger.info(f'{self} started')
 		while True:
+			if self.tui.kill: # todo fix tuiquit
+				logger.warning(f'{self} tui {self.tui} killed')
+				self.kill = True
+				# self.mainsocket.close()
+				break
+				# sys.exit(1)
 			if self.kill:
 				logger.warning(f'{self} killed')
 				break
@@ -263,7 +314,7 @@ if __name__ == '__main__':
 	mainsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	mainsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	connq = Queue()
-	server = Gameserver(connq)
+	server = Gameserver(connq, mainsocket)
 	server.start()
 	try:
 		mainsocket.bind(('127.0.0.1',9696))
