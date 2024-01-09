@@ -116,9 +116,9 @@ class Game(Thread):
 			[p.kill() for c in colls if c.blocktype != 2]
 		for f in self.flames:
 			if collide_rect(f, self.player):
-				self.player.health -= 10
+				self.player.health -= f.damage
 				if self.player.health <= 0:
-					logger.warning(f'{self} playerkilled {self.player}')
+					logger.warning(f'{self} playerkilled {self.player} by {f}')
 				else:
 					logger.info(f'playerflamedamage f: {f} player: {self.player}')
 				f.kill()

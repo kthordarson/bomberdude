@@ -6,7 +6,7 @@ import select
 import struct
 import sys
 import json
-from threading import Thread, current_thread, Timer
+from threading import Thread, current_thread, Timer, active_count, _enumerate
 from queue import Queue
 from loguru import logger
 import re
@@ -28,17 +28,22 @@ class TuiException(Exception):
 
 class ServerTUI(Thread):
 	def __init__(self, server):
-		Thread.__init__(self, daemon=True)
+		Thread.__init__(self, daemon=True, name='tui')
 		self.server = server
 		self.kill = False
 
+	def __repr__(self):
+		return f'ServerTUI (k:{self.kill} server: {self.server})'
+
 	def get_serverinfo(self):
-		logger.info(f'playerlist={len(self.server.playerlist)} ')
+		logger.info(f'playerlist={len(self.server.playerlist)} t:{active_count()}')
+		for t in _enumerate():
+			print(f'{t} {t.name} {t.is_alive()}')
 
 	def dump_playerlist(self):
 		logger.info(f'playerlist={len(self.server.playerlist)} ')
 		for p in self.server.playerlist:
-			logger.info(f'{p} {self.server.playerlist[p]}')
+			logger.info(f'{p} {self.server.playerlist[p].get("client_id")} pos: {self.server.playerlist[p].get("pos")} {self.server.playerlist[p].get("gridpos")} b: {self.server.playerlist[p].get("bombsleft")} h: {self.server.playerlist[p].get("health")} {self.server.playerlist[p].get("updcntr")} ')
 
 	def run(self):
 		while True:
@@ -48,7 +53,7 @@ class ServerTUI(Thread):
 				cmd = input(':> ')
 				if cmd[:1] == 's':
 					self.get_serverinfo()
-				if cmd[:2] == 'pl':
+				if cmd[:1] == 'p':
 					self.dump_playerlist()
 				elif cmd[:1] == 'q':
 					self.kill = True
@@ -57,7 +62,7 @@ class ServerTUI(Thread):
 					# raise TuiException('tui killed')
 					break
 				else:
-					logger.info(f'[S] cmds: s serverinfo, pl playerlist, q quit')
+					logger.info(f'[S] cmds: s serverinfo, p playerlist, q quit')
 			except KeyboardInterrupt:
 				self.kill = True
 				self.server.kill = True
@@ -75,7 +80,7 @@ class NewHandler(Thread):
 		self.client_id = None
 
 	def __repr__(self) -> str:
-		return f'[h] {self.client_id} {self.name} {self.connected} {self.dataq.qsize()}'
+		return f'Handler ({self.client_id} {self.name} {self.connected} {self.dataq.qsize()})'
 
 	def run(self):
 		while self.connected:
@@ -123,7 +128,7 @@ class Gameserver(Thread):
 		self.tui = ServerTUI(server=self)
 
 	def __repr__(self):
-		return f'[gs] c:{len(self.clients)}'
+		return f'Gameserver (c:{len(self.clients)})'
 
 	def trigger_newplayer(self):
 		self.updcntr += 1

@@ -22,7 +22,7 @@ class ReceiverError(Exception):
 
 class NewPlayer(Thread, Sprite):
 	def __init__(self, gridpos, image, serveraddress='127.0.0.1', testmode=False, rh=None):
-		Thread.__init__(self, daemon=True)
+		Thread.__init__(self, daemon=True, name='NewPlayerThread')
 		Sprite.__init__(self)
 		self.rh = rh
 		self.gridpos = gridpos
