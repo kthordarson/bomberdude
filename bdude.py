@@ -156,14 +156,16 @@ class Game(Thread):
 			if collide_rect(f, self.player):
 				self.player.health -= f.damage
 				if self.player.health <= 0:
-					self.player.playerlist[f.bomberid]['score'] += 1
+					self.player.playerlist[f.bomberid]['score'] += 1 # increase score of bomber
 					logger.warning(f'{self} playerkilled {self.player} by f: {f} pl:{self.player.playerlist[f.bomberid]}')
+					# todo reset player
 					self.player.playerlist[self.player.client_id]['health'] = 100
 					self.player.health = 100
 					self.player.playerlist[self.player.client_id]['score'] = 0
 					self.player.score = 0
 					self.player.playerlist[self.player.client_id]['bombsleft'] = 3
 					self.player.bombsleft = 3
+					# update server
 					payload = {'msgtype' : 'cl_playerkilled', 'client_id': self.player.client_id, 'playerlist' :self.player.playerlist }
 					self.player.send_queue.put(payload)
 				else:

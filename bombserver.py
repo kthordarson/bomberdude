@@ -231,8 +231,6 @@ class Gameserver(Thread):
 					newpos = get_grid_pos(self.grid)
 					msg['setpos'] = newpos
 					logger.warning(f'needpos {data.get("client_id")} newpos: {newpos}')
-				if not data.get('gotplayerlist'):
-					logger.info(f'need gotplayerlist from {data.get("client_id")}')
 				for client in self.clients:
 					msg['clientname'] = client.name
 					# logger.debug(f'{self} {msgtype} from {data.get("client_id")} sendingto: {client.name} ')
@@ -245,12 +243,12 @@ class Gameserver(Thread):
 					except Exception as e:
 						logger.error(f'[!] {e} {type(e)} in {self} {client}\ndata: {type(data)} {data}\nmsg: {type(msg)} {msg}\n')
 						self.clients.pop(self.clients.index(client))
-			case 'cl_playerbomb':
+			case 'cl_playerbomb': # player sent bomb, update others
 				if not data.get('gotgrid'):
 					logger.warning(f'data: {data}')
+				logger.info(f'{msgtype} dclid: {data.get("client_id")} clbombpos: {data.get("clbombpos")}')
 				for client in self.clients:
 					msg = {'msgtype': 'ackplrbmb', 'client': client.name, 'data': data}
-					logger.info(f'{msgtype} to {client.name} dclid: {data.get("client_id")} clbombpos: {data.get("clbombpos")}')
 					try:
 						self.do_send(client.conn, client.addr, msg)
 					except ServerSendException as e:
@@ -274,7 +272,7 @@ class Gameserver(Thread):
 						logger.error(f'[!] {e} in {self} {client}')
 						self.clients.pop(self.clients.index(client))
 			case 'cl_playerkilled':
-				# cl_playerkilled from client....
+				# cl_playerkilled from client, send update to others....
 				self.playerlist = data.get('playerlist')
 				logger.info(f'{msgtype} dclid: {data.get("client_id")} playerlist: {self.playerlist}')
 				for client in self.clients:
