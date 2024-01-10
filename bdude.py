@@ -156,18 +156,20 @@ class Game(Thread):
 			if collide_rect(f, self.player):
 				self.player.health -= f.damage
 				if self.player.health <= 0:
-					self.player.playerlist[f.bomberid]['score'] += 1
-					logger.warning(f'{self} playerkilled {self.player} by f: {f} pl:{self.player.playerlist[f.bomberid]}')
+					self.player.playerlist[f.bomberid]['score'] += 1 # increase score of bomber
+					logger.warning(f'playerkilled {self.player.client_id} by f: {f.bomberid} ') # pl:{self.player.playerlist[f.bomberid]}
+					# todo reset player
 					self.player.playerlist[self.player.client_id]['health'] = 100
 					self.player.health = 100
 					self.player.playerlist[self.player.client_id]['score'] = 0
 					self.player.score = 0
 					self.player.playerlist[self.player.client_id]['bombsleft'] = 3
 					self.player.bombsleft = 3
+					# update server
 					payload = {'msgtype' : 'cl_playerkilled', 'client_id': self.player.client_id, 'playerlist' :self.player.playerlist }
 					self.player.send_queue.put(payload)
 				else:
-					logger.info(f'playerflamedamage f: {f} player: {self.player}')
+					logger.info(f'playerflamedamage f: {f.bomberid} ph: {self.player.health}')
 				f.kill()
 		for f in self.flames: # check flame collisions with blocks
 			colls = spritecollide(f, self.blocks, dokill=False)

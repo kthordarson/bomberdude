@@ -52,7 +52,6 @@ class NewPlayer(Thread, Sprite):
 		self.health = 100
 		self.updatetimer = RepeatedTimer(interval=1, function=self.playertimer)
 		self.updcntr = 0
-		self.gotplayerlist = False
 		self.score = 0
 		# self.rect.x = self.pos[0]
 		# self.rect.y = self.pos[1]
@@ -77,8 +76,6 @@ class NewPlayer(Thread, Sprite):
 				logger.warning(f'{self.client_id} playertimer needgrid ')
 			if not self.gotpos:
 				logger.warning(f'{self.client_id} playertimer needpos ')
-			if not self.gotplayerlist:
-				logger.warning(f'{self.client_id} playertimer needplayerlist ')
 
 	def do_send(self, payload):
 		payload['updcntr'] = self.updcntr
@@ -89,7 +86,6 @@ class NewPlayer(Thread, Sprite):
 		payload['gridpos'] = self.gridpos
 		payload['gotgrid'] = self.gotgrid
 		payload['gotpos'] = self.gotpos
-		payload['gotplayerlist'] = self.gotplayerlist
 		payload['sendqsize'] = self.send_queue.qsize()
 		self.lastpktid = gen_randid()
 		payload['c_pktid'] = self.lastpktid
@@ -179,32 +175,28 @@ class NewPlayer(Thread, Sprite):
 		# logger.debug(f'jresp:\n {jresp}\n')
 		msgtype = jresp.get('msgtype')
 		match msgtype:
-			case 'sv_playerlist':
+			case 'sv_playerlist': # server sent playerlist
 				self.playerlist = jresp.get('playerlist')
-				newscore = self.playerlist[self.client_id].get('score')
+				newscore = self.playerlist[self.client_id].get('score') # get our score
 				if self.score != newscore:
 					self.score = newscore
-					logger.info(f'{msgtype} playerlist: {self.playerlist} self:{self}')
+					logger.info(f'{msgtype} score:{self.score}')
 
-			case 'sv_gridupdate':
+			case 'sv_gridupdate': # todo do some checking here
 				newgrid = jresp.get('grid')
 				owngridchk = sum([sum(k) for k in self.grid])
 				newgridchk = sum([sum(k) for k in newgrid])
-				if newgridchk != owngridchk:
+				self.grid = newgrid
+				pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
+				if newgridchk != owngridchk: # todo
 					logger.warning(f'{msgtype} {owngridchk} {newgridchk}')
-					self.grid = newgrid
-					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
-				else:
-					self.grid = newgrid
-					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
-					# logger.debug(f'{self} {msgtype} {owngridchk} {newgridchk}')
 			case 'ackplrbmb':
 				bomb_clid = jresp.get('data').get('client_id')
 				clbombpos = jresp.get('data').get('clbombpos')
-				if bomb_clid != self.client_id:
+				if bomb_clid != self.client_id: # not a bomb from me...
 					pass
 					# logger.info(f'{self} otherplayerbomb {msgtype} from {bomb_clid} bombpos: {clbombpos}')
-				elif bomb_clid == self.client_id:
+				elif bomb_clid == self.client_id: # my bomb
 					# logger.info(f'{self} ownbomb {msgtype} bombpos: {clbombpos}')
 					self.bombsleft -= 1
 				else:
@@ -216,14 +208,7 @@ class NewPlayer(Thread, Sprite):
 				# playerlist = None
 				# data = jresp.get('data')
 				playerlist = jresp.get('playerlist', None)
-				if not self.gotplayerlist:
-					self.playerlist = playerlist
-					self.gotplayerlist = True
-					logger.info(f'{msgtype} firstsetplayerlistok {self.playerlist}')
-				if self.gotplayerlist:
-					self.playerlist = playerlist
-					self.gotplayerlist = True
-					# logger.info(f'playerlistupdate {self.playerlist}')
+				self.playerlist = playerlist
 				if not self.gotgrid:
 					grid = jresp.get('grid')
 					if grid:
