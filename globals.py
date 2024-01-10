@@ -41,29 +41,6 @@ class RepeatedTimer():
 class BlockNotFoundError(Exception):
 	pass
 
-def randvel(dir):
-	vel = Vector2((0,0))
-	if dir == 'u':
-		vel.y = random.uniform(-1.0, -1.7)
-	if dir == 'd':
-		vel.y = random.uniform(1.1, 1.9)
-	if dir == 'r':
-		vel.x = random.uniform(1.1, 1.85)
-	if dir == 'l':
-		vel.x = random.uniform(-1.0, -1.9)
-	return vel
-
-def random_velocity(direction=None) -> Vector2:
-	vel = Vector2((random.uniform(-2.0, 2.0), random.uniform(-2.0, 2.0)))
-	if direction == "left":
-		vel.x = random.uniform(-5.0, -2)
-	if direction == "right":
-		vel.x = random.uniform(2, 5.0)
-	if direction == "down":
-		vel.y = random.uniform(2, 5.0)
-	if direction == "up":
-		vel.y = random.uniform(-5.0, -2)
-	return vel
 
 def load_image(name, colorkey=None) -> tuple:
 	fullname = os.path.join("data", name)
@@ -126,7 +103,7 @@ class NewBlock(Sprite):
 		self.rect.y = self.pos[1]
 
 	def __repr__(self):
-		return f'(BB t:{self.blocktype} pos={self.pos} {self.gridpos} bt:{self.blocktimer} {pygame.time.get_ticks() - self.start_time} )'
+		return f'NewBlock (t:{self.blocktype} pos={self.pos} {self.gridpos} bt:{self.blocktimer} {pygame.time.get_ticks() - self.start_time} )'
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect)
@@ -155,7 +132,7 @@ class NewBomb(Sprite):
 		self.rect.y = self.pos[1]
 
 	def __repr__(self):
-		return f'(Nb pos={self.pos} {self.gridpos} bt:{self.bombtimer} {pygame.time.get_ticks() - self.start_time})'
+		return f'NewBomb (pos={self.pos} {self.gridpos} bt:{self.bombtimer} {pygame.time.get_ticks() - self.start_time})'
 
 	def update(self):
 		# logger.info(f'{self}')
@@ -207,7 +184,7 @@ class Particle(Sprite): # todo fix initial position
 		self.image.fill((255,0,255))
 
 	def __repr__(self):
-		return f'(particle pos={self.pos} {self.gridpos} )'
+		return f'Particle ( pos={self.pos} {self.gridpos} )'
 
 	def update(self):
 		# logger.info(f'{self}')

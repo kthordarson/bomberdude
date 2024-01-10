@@ -1,16 +1,14 @@
 #!/usr/bin/python
-from time import sleep
 import os
+import random
 import socket
-import select
-import struct
 import sys
 import json
 from threading import Thread, current_thread, Timer, active_count, _enumerate
 from queue import Queue
 from loguru import logger
 import re
-from constants import (BLOCK, DEFAULTFONT, FPS, SENDUPDATEEVENT, SERVEREVENT, SQUARESIZE, NEWCONNECTIONEVENT,PKTLEN,PKTHEADER)
+from constants import PKTHEADER
 from map import generate_grid
 
 HEADER = 64
@@ -109,10 +107,10 @@ class NewHandler(Thread):
 			data = json.loads(msgdata)
 			if not self.client_id:
 				self.client_id = data.get('client_id', None)
-				logger.info(f'{self} client_id: {self.client_id}')
+				logger.info(f'{self} setclid client_id: {self.client_id} data:{data}')
 			self.dataq.put(data)
 			if self.dataq.qsize() > 5:
-				logger.info(f"{self} dataq: {self.dataq.qsize()}")
+				logger.warning(f"{self} dataq: {self.dataq.qsize()}")
 
 class Gameserver(Thread):
 	def __init__(self, connq, mainsocket):
@@ -133,8 +131,9 @@ class Gameserver(Thread):
 	def trigger_newplayer(self):
 		self.updcntr += 1
 		for client in self.clients:
-			logger.debug(f'{self} {self.updcntr} {client.name}')
-			msg = {'msgtype': 'trigger_newplayer', 'client': client.name}
+			logger.debug(f'trigger_newplayer c:{self.updcntr} client: {client}')
+			newpos = get_grid_pos(self.grid)
+			msg = {'msgtype': 'trigger_newplayer', 'clientname': client.name, 'setpos': newpos, 'client_id': client.client_id}
 			try:
 				# self.do_send(client._args[0], client._args[1], msg)
 				self.do_send(client.conn, client.addr, msg)
@@ -193,7 +192,6 @@ class Gameserver(Thread):
 			# 	payload = payload.encode('utf8')
 			# if isinstance(payload, dict):
 			payload = json.dumps(payload).encode('utf8')
-			# payload = payload # .zfill(PKTLEN)
 			msglenx = str(len(payload)).encode('utf8')
 			msglen = msglenx.zfill(PKTHEADER)
 			try:
@@ -228,6 +226,11 @@ class Gameserver(Thread):
 				msg = {'msgtype': 'serveracktimer'}
 				if not data.get('gotgrid'):
 					logger.warning(f'need grid data from {data.get("client_id")}')
+				if not data.get('gotpos'):
+					# find a random spot on the map to place the player
+					newpos = get_grid_pos(self.grid)
+					msg['setpos'] = newpos
+					logger.warning(f'needpos {data.get("client_id")} newpos: {newpos}')
 				if not data.get('gotplayerlist'):
 					logger.info(f'need gotplayerlist from {data.get("client_id")}')
 				for client in self.clients:
@@ -313,6 +316,23 @@ class Gameserver(Thread):
 					continue
 				# logger.debug(f'{self} msghanlder {data}')
 
+def get_grid_pos(grid):
+	# find a random spot on the map to place the player
+	validpos = False
+	invcntr = 0
+	gpx, gpy = 0,0
+	while not validpos:
+		# find a random spot on the map to place the player
+		gpx = random.randint(1, len(grid)-1)
+		gpy = random.randint(1, len(grid)-1)
+		try:
+			if grid[gpx][gpy] == 2:
+				validpos = True
+				logger.info(f'valid {invcntr} pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
+				break
+		except (IndexError, ValueError, AttributeError) as e:
+			logger.error(f'Err: {e} {type(e)} gl={len(grid)} pos={pos} gpx={gpx} gpy={gpy} ')
+	return (gpx, gpy)
 
 if __name__ == '__main__':
 	mainsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

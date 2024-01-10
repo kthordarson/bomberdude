@@ -11,8 +11,8 @@ from pygame.event import Event
 from pygame.sprite import Group, spritecollide, Sprite, collide_rect
 from pygame import USEREVENT
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
-from constants import (DEFAULTFONT, CONNECTTOSERVEREVENT, STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT,NETPLAYEREVENT,BOMBXPLODE)
-from globals import ResourceHandler, NewBlock, NewBomb, NewFlame, get_bomb_flames, Particle, randvel
+from constants import (DEFAULTFONT, CONNECTTOSERVEREVENT, STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT, BOMBXPLODE)
+from globals import ResourceHandler, NewBlock, NewBomb, NewFlame, get_bomb_flames, Particle
 from menus import GameMenu
 from player import  NewPlayer
 
@@ -31,7 +31,7 @@ class Game(Thread):
 		self.clock = pygame.time.Clock()
 		self.game_started = False
 		self.rh = ResourceHandler()
-		self.player = NewPlayer(gridpos=[10,10], image=self.rh.get_image('data/playerone.png'), rh=self.rh)
+		self.player = NewPlayer(image=self.rh.get_image('data/playerone.png'), rh=self.rh)
 		self.bombs = Group()
 		self.flames = Group()
 		self.particles = Group()
@@ -96,7 +96,6 @@ class Game(Thread):
 			case 'newgridfromserver':
 				newgrid = payload.get('grid', None)
 				if newgrid:
-					logger.debug(f'{msgtype} gotgrid: {self.player.gotgrid} ')
 					self.player.grid = newgrid
 					self.player.gotgrid = True
 					self.create_blocks_from_grid()
@@ -244,7 +243,8 @@ class Game(Thread):
 		self.flames.draw(self.screen)
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
-		self.player.draw(self.screen)
+		if self.player.gotpos:
+			self.player.draw(self.screen)
 		self.draw_game_info(self.screen)
 		if self.debugmode:
 			for sprite in self.blocks:

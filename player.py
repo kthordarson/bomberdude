@@ -8,8 +8,7 @@ from loguru import logger
 from pygame.event import Event
 from pygame.math import Vector2
 from pygame.sprite import spritecollide, Sprite, Group
-from time import sleep
-from constants import BLOCK, PLAYEREVENT, NEWGRIDEVENT,NETPLAYEREVENT, PKTHEADER
+from constants import BLOCK, PLAYEREVENT, NEWGRIDEVENT, PKTHEADER
 from globals import gen_randid, BlockNotFoundError, RepeatedTimer
 from map import Gamemap
 from network import Sender,  send_data, Receiver
@@ -21,12 +20,12 @@ class ReceiverError(Exception):
 	pass
 
 class NewPlayer(Thread, Sprite):
-	def __init__(self, gridpos, image, serveraddress='127.0.0.1', testmode=False, rh=None):
+	def __init__(self, image, serveraddress='127.0.0.1', testmode=False, rh=None):
 		Thread.__init__(self, daemon=True, name='NewPlayerThread')
 		Sprite.__init__(self)
 		self.rh = rh
-		self.gridpos = gridpos
-		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+		self.gridpos = None # (0,0) #gridpos
+		self.pos = None # (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 		self.image = image
 		self.rect = self.image.get_rect()
 		self.client_id = f'np:{gen_randid()}'
@@ -46,6 +45,7 @@ class NewPlayer(Thread, Sprite):
 		self.runcounter = 0
 		self.lastpktid = ''
 		self.gotgrid = False
+		self.gotpos = False # todo imkplement, get gridpos from server
 		self.playerlist = {}
 		self.cl_needgridcounter = 0
 		self.bombsleft = 3
@@ -53,12 +53,12 @@ class NewPlayer(Thread, Sprite):
 		self.updatetimer = RepeatedTimer(interval=1, function=self.playertimer)
 		self.updcntr = 0
 		self.gotplayerlist = False
-		self.rect.x = self.pos[0]
-		self.rect.y = self.pos[1]
+		# self.rect.x = self.pos[0]
+		# self.rect.y = self.pos[1]
 
 
 	def __repr__(self) -> str:
-		return f'NP({self.client_id} pos:{self.pos} b:{self.bombsleft} h:{self.health} upc: {self.updcntr} sq:{self.send_queue.qsize()} s:{self.sendcounter} r:{self.recvcounter} pl:{len(self.playerlist)}'
+		return f'NewPlayer ({self.client_id} pos:{self.pos} b:{self.bombsleft} h:{self.health} upc: {self.updcntr} sq:{self.send_queue.qsize()} s:{self.sendcounter} r:{self.recvcounter} pl:{len(self.playerlist)}'
 
 	def do_testing(self):
 		pass
@@ -74,6 +74,8 @@ class NewPlayer(Thread, Sprite):
 			self.send_queue.put(payload)
 			if not self.gotgrid:
 				logger.warning(f'{self.client_id} playertimer needgrid ')
+			if not self.gotpos:
+				logger.warning(f'{self.client_id} playertimer needpos ')
 			if not self.gotplayerlist:
 				logger.warning(f'{self.client_id} playertimer needplayerlist ')
 
@@ -85,6 +87,7 @@ class NewPlayer(Thread, Sprite):
 		payload['health'] = self.health
 		payload['gridpos'] = self.gridpos
 		payload['gotgrid'] = self.gotgrid
+		payload['gotpos'] = self.gotpos
 		payload['gotplayerlist'] = self.gotplayerlist
 		payload['sendqsize'] = self.send_queue.qsize()
 		self.lastpktid = gen_randid()
@@ -199,33 +202,39 @@ class NewPlayer(Thread, Sprite):
 					logger.warning(f'{self} bomberclientid! {msgtype} jresp: {jresp}')
 				pygame.event.post(pygame.event.Event(PLAYEREVENT, payload={'msgtype': 'ackplrbmb', 'client_id': bomb_clid, 'clbombpos': clbombpos}))
 
-			case 'serveracktimer' | 'ackclplrmv' | 'trigger_newplayer':
+			case 'serveracktimer' |  'trigger_newplayer':
 				# logger.debug(f'{self} {msgtype} {jresp}')
 				# playerlist = None
 				# data = jresp.get('data')
 				playerlist = jresp.get('playerlist', None)
-				if len(playerlist) > 0 and not self.gotplayerlist:
+				if not self.gotplayerlist:
 					self.playerlist = playerlist
 					self.gotplayerlist = True
 					logger.info(f'{msgtype} firstsetplayerlistok {self.playerlist}')
-				if len(playerlist) > 0 and self.gotplayerlist:
+				if self.gotplayerlist:
 					self.playerlist = playerlist
 					self.gotplayerlist = True
 					# logger.info(f'playerlistupdate {self.playerlist}')
-				elif len(playerlist) == 0:
-					self.gotplayerlist = False
-					if msgtype != 'trigger_newplayer':
-						logger.warning(f'{self} empty playerlist in jresp\n{jresp}')
-				if not playerlist:
-					if msgtype != 'trigger_newplayer':
-						self.gotplayerlist = False
-						logger.warning(f'{self} no playerlist in jresp\n{jresp}')
 				if not self.gotgrid:
 					grid = jresp.get('grid')
-					self.gotgrid = True
-					self.grid = grid
-					# logger.info(f'{self} gotgrid {self.gotgrid} {msgtype} ')
-					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
+					if grid:
+						self.gotgrid = True
+						self.grid = grid
+						logger.info(f'gotgrid {self.gotgrid} {msgtype} ')
+						pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
+					else:
+						logger.warning(f'nogrid in {jresp}')
+				if not self.gotpos:
+					newpos = jresp.get('setpos')
+					if newpos:
+						self.gotpos = True
+						self.gridpos = newpos
+						self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+						self.rect.x = self.pos[0]
+						self.rect.y = self.pos[1]
+						logger.info(f'gotpos {msgtype} newpos: {newpos} {self.gridpos} {self.pos}')
+					else:
+						logger.warning(f'missing setpos from {jresp}')
 			case _:
 				logger.warning(f'missingmsgtype jresp: {jresp} ')
 
@@ -233,6 +242,12 @@ class NewPlayer(Thread, Sprite):
 		pass
 
 	def draw(self, screen):
+		if not self.gotpos:
+			logger.warning(f'needposfromserver')
+			return
+		if not self.gotgrid:
+			logger.warning(f'needgridfromserver')
+			return
 		screen.blit(self.image, self.rect)
 		for player in self.playerlist:
 			plconn = self.playerlist.get(player).get('connected')
@@ -269,6 +284,9 @@ class NewPlayer(Thread, Sprite):
 	def move(self, action): # todo decide on to check grid or use spritecollide....
 		if not self.gotgrid:
 			logger.warning(f'{self} move {action} nogrid')
+			return
+		if not self.gotpos:
+			logger.warning(f'{self} move {action} nopos')
 			return
 		gpx, gpy = self.gridpos
 		newgridpos = [gpx, gpy]
