@@ -274,7 +274,7 @@ class Gameserver(Thread):
 			case 'cl_playerkilled':
 				# cl_playerkilled from client, send update to others....
 				self.playerlist = data.get('playerlist')
-				logger.info(f'{msgtype} dclid: {data.get("client_id")} playerlist: {self.playerlist}')
+				logger.info(f'{msgtype} dclid: {data.get("client_id")} ') # playerlist: {self.playerlist}
 				for client in self.clients:
 					msg = {'msgtype': 'sv_playerlist', 'playerlist': self.playerlist,}
 					try:

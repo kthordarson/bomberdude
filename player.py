@@ -180,7 +180,7 @@ class NewPlayer(Thread, Sprite):
 				newscore = self.playerlist[self.client_id].get('score') # get our score
 				if self.score != newscore:
 					self.score = newscore
-					logger.info(f'{msgtype} playerlist: {self.playerlist} self:{self}')
+					logger.info(f'{msgtype} score:{self.score}')
 
 			case 'sv_gridupdate': # todo do some checking here
 				newgrid = jresp.get('grid')
