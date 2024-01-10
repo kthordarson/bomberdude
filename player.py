@@ -53,6 +53,7 @@ class NewPlayer(Thread, Sprite):
 		self.updatetimer = RepeatedTimer(interval=1, function=self.playertimer)
 		self.updcntr = 0
 		self.gotplayerlist = False
+		self.score = 0
 		# self.rect.x = self.pos[0]
 		# self.rect.y = self.pos[1]
 
@@ -92,6 +93,7 @@ class NewPlayer(Thread, Sprite):
 		payload['sendqsize'] = self.send_queue.qsize()
 		self.lastpktid = gen_randid()
 		payload['c_pktid'] = self.lastpktid
+		payload['score'] = self.score
 		payload = json.dumps(payload).encode('utf8')
 		msglen = str(len(payload)).encode('utf8').zfill(PKTHEADER)
 		self.socket.sendto(msglen,(self.serveraddress, 9696))
@@ -177,12 +179,19 @@ class NewPlayer(Thread, Sprite):
 		# logger.debug(f'jresp:\n {jresp}\n')
 		msgtype = jresp.get('msgtype')
 		match msgtype:
+			case 'sv_playerlist':
+				self.playerlist = jresp.get('playerlist')
+				newscore = self.playerlist[self.client_id].get('score')
+				if self.score != newscore:
+					self.score = newscore
+					logger.info(f'{msgtype} playerlist: {self.playerlist} self:{self}')
+
 			case 'sv_gridupdate':
 				newgrid = jresp.get('grid')
 				owngridchk = sum([sum(k) for k in self.grid])
 				newgridchk = sum([sum(k) for k in newgrid])
 				if newgridchk != owngridchk:
-					logger.warning(f'{self} {msgtype} {owngridchk} {newgridchk}')
+					logger.warning(f'{msgtype} {owngridchk} {newgridchk}')
 					self.grid = newgrid
 					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
 				else:
@@ -291,31 +300,31 @@ class NewPlayer(Thread, Sprite):
 		gpx, gpy = self.gridpos
 		newgridpos = [gpx, gpy]
 		if action == 'u':
-			if self.grid[gpx][gpy-1] in (2,44):
+			if self.grid[gpx][gpy-1] in [2,40,44]:
 				newgridpos = [gpx, gpy-1]
 			else:
-				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx, gpy-1]} gridval: {self.grid[gpx][gpy-1]}')
+				logger.warning(f'cannot move {action} from {self.gridpos} to {[gpx, gpy-1]} gridval: {self.grid[gpx][gpy-1]}')
 				newgridpos = [gpx, gpy]
 				return
 		elif action == 'd':
-			if self.grid[gpx][gpy+1] in (2,44):
+			if self.grid[gpx][gpy+1] in [2,40,44]:
 				newgridpos = [gpx, gpy+1]
 			else:
-				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx, gpy+1]} gridval: {self.grid[gpx][gpy+1]}')
+				logger.warning(f'cannot move {action} from {self.gridpos} to {[gpx, gpy+1]} gridval: {self.grid[gpx][gpy+1]}')
 				newgridpos = [gpx, gpy]
 				return
 		elif action == 'l':
-			if self.grid[gpx-1][gpy] in (2,44):
+			if self.grid[gpx-1][gpy] in [2,40,44]:
 				newgridpos = [gpx-1, gpy]
 			else:
-				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx-1, gpy]} gridval: {self.grid[gpx-1][gpy]}')
+				logger.warning(f'cannot move {action} from {self.gridpos} to {[gpx-1, gpy]} gridval: {self.grid[gpx-1][gpy]}')
 				newgridpos = [gpx, gpy]
 				return
 		elif action == 'r':
-			if self.grid[gpx+1][gpy] in (2,44): # else [gpx, gpy]
+			if self.grid[gpx+1][gpy] in [2,40,44]: # else [gpx, gpy]
 				newgridpos = [gpx+1, gpy]
 			else:
-				logger.warning(f'{self} cannot move {action} from {self.gridpos} to {[gpx+1, gpy]} gridval: {self.grid[gpx+1][gpy]}')
+				logger.warning(f'cannot move {action} from {self.gridpos} to {[gpx+1, gpy]} gridval: {self.grid[gpx+1][gpy]}')
 				newgridpos = [gpx, gpy]
 				return
 		else:

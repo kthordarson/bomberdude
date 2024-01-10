@@ -94,6 +94,7 @@ def generate_grid():
 	# 4 = creates upgrades
 	# 5 = unkillable block
 	# 44 = heart
+	# 40 = extrabomb
 	grid = [[random.choice([2,2,2,2,2,3,4,5]) for k in range(GRIDSIZE)] for j in range(GRIDSIZE)]
 	gridsize = len(grid)
 	for x in range(gridsize): # set grid edges to solid blocks type 1
