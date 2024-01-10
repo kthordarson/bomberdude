@@ -42,7 +42,7 @@ class Game(Thread):
 		# self.sprites.add(self.flames)
 		# self.sprites.add(self.blocks)
 		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 8)
-		self.font = pygame.freetype.Font(DEFAULTFONT, 10)
+		self.font = pygame.freetype.Font(DEFAULTFONT, 22)
 		self.debugmode = debugmode
 
 	def __repr__(self):
@@ -156,7 +156,16 @@ class Game(Thread):
 			if collide_rect(f, self.player):
 				self.player.health -= f.damage
 				if self.player.health <= 0:
-					logger.warning(f'{self} playerkilled {self.player} by {f}')
+					self.player.playerlist[f.bomberid]['score'] += 1
+					logger.warning(f'{self} playerkilled {self.player} by f: {f} pl:{self.player.playerlist[f.bomberid]}')
+					self.player.playerlist[self.player.client_id]['health'] = 100
+					self.player.health = 100
+					self.player.playerlist[self.player.client_id]['score'] = 0
+					self.player.score = 0
+					self.player.playerlist[self.player.client_id]['bombsleft'] = 3
+					self.player.bombsleft = 3
+					payload = {'msgtype' : 'cl_playerkilled', 'client_id': self.player.client_id, 'playerlist' :self.player.playerlist }
+					self.player.send_queue.put(payload)
 				else:
 					logger.info(f'playerflamedamage f: {f} player: {self.player}')
 				f.kill()
@@ -190,7 +199,7 @@ class Game(Thread):
 					x = c.gridpos[0]
 					y = c.gridpos[1]
 					self.player.grid[x][y] = 2
-					upgrade_type = 40 # random.choice([40,44])
+					upgrade_type = random.choice([40,44])
 					# self.player.grid[x][y] = upgrade_type
 					if upgrade_type == 40:
 						image = self.rh.get_image(f'data/newbomb.png')
@@ -256,7 +265,7 @@ class Game(Thread):
 						logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
 
 	def draw_game_info(self, screen):
-		self.font.render_to(screen, (10,10), f'h: {self.player.health} bombs: {self.player.bombsleft}', (255,255,255))
+		self.font.render_to(screen, (10,10), f'h: {self.player.health} bombs: {self.player.bombsleft} score: {self.player.score}', (255,255,255))
 
 	def draw(self):
 		self.blocks.draw(self.screen)

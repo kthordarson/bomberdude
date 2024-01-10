@@ -53,6 +53,7 @@ class NewPlayer(Thread, Sprite):
 		self.updatetimer = RepeatedTimer(interval=1, function=self.playertimer)
 		self.updcntr = 0
 		self.gotplayerlist = False
+		self.score = 0
 		# self.rect.x = self.pos[0]
 		# self.rect.y = self.pos[1]
 
@@ -92,6 +93,7 @@ class NewPlayer(Thread, Sprite):
 		payload['sendqsize'] = self.send_queue.qsize()
 		self.lastpktid = gen_randid()
 		payload['c_pktid'] = self.lastpktid
+		payload['score'] = self.score
 		payload = json.dumps(payload).encode('utf8')
 		msglen = str(len(payload)).encode('utf8').zfill(PKTHEADER)
 		self.socket.sendto(msglen,(self.serveraddress, 9696))
@@ -177,6 +179,13 @@ class NewPlayer(Thread, Sprite):
 		# logger.debug(f'jresp:\n {jresp}\n')
 		msgtype = jresp.get('msgtype')
 		match msgtype:
+			case 'sv_playerlist':
+				self.playerlist = jresp.get('playerlist')
+				newscore = self.playerlist[self.client_id].get('score')
+				if self.score != newscore:
+					self.score = newscore
+					logger.info(f'{msgtype} playerlist: {self.playerlist} self:{self}')
+
 			case 'sv_gridupdate':
 				newgrid = jresp.get('grid')
 				owngridchk = sum([sum(k) for k in self.grid])

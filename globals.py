@@ -159,7 +159,7 @@ class NewFlame(Sprite):
 		self.damage = 40
 
 	def __repr__(self):
-		return f'Newflame ( d:{self.damage} pos={self.pos} {self.gridpos} t:{self.flametimer} tt: {pygame.time.get_ticks() - self.start_time})'
+		return f'Newflame ( b:{self.bomberid} d:{self.damage} pos={self.pos} {self.gridpos} t:{self.flametimer} tt: {pygame.time.get_ticks() - self.start_time})'
 
 	def update(self):
 		# logger.info(f'{self}')

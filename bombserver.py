@@ -273,6 +273,20 @@ class Gameserver(Thread):
 					except Exception as e:
 						logger.error(f'[!] {e} in {self} {client}')
 						self.clients.pop(self.clients.index(client))
+			case 'cl_playerkilled':
+				# cl_playerkilled from client....
+				self.playerlist = data.get('playerlist')
+				logger.info(f'{msgtype} dclid: {data.get("client_id")} playerlist: {self.playerlist}')
+				for client in self.clients:
+					msg = {'msgtype': 'sv_playerlist', 'playerlist': self.playerlist,}
+					try:
+						self.do_send(client.conn, client.addr, msg)
+					except ServerSendException as e:
+						logger.warning(f'[!] {e} in {self} {client}')
+						self.clients.pop(self.clients.index(client))
+					except Exception as e:
+						logger.error(f'[!] {e} in {self} {client}')
+						self.clients.pop(self.clients.index(client))
 			case _:
 				logger.warning(f'unknown msgtype {msgtype} from {data.get("client_id")}\ndata: {data}')
 				for client in self.clients:
