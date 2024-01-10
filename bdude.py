@@ -36,6 +36,7 @@ class Game(Thread):
 		self.flames = Group()
 		self.particles = Group()
 		self.blocks = Group()
+		self.upgradeblocks = Group()
 		# self.sprites = Group()
 		# self.sprites.add(self.bombs)
 		# self.sprites.add(self.flames)
@@ -124,7 +125,20 @@ class Game(Thread):
 		for p in self.particles:
 			colls = spritecollide(p, self.blocks, dokill=False)
 			[p.kill() for c in colls if c.blocktype != 2]
-		for block in self.blocks: # check block collisions with player
+		for block in self.upgradeblocks: # check block collisions with player
+			if block.blocktype == 40:
+				if collide_rect(block, self.player):
+					self.player.bombsleft += 1
+					logger.info(f'extrabomb {block} player: {self.player}')
+					x = block.gridpos[0]
+					y = block.gridpos[1]
+					fgpos = (block.pos[0] // BLOCK, block.pos[1] // BLOCK)
+					self.player.grid[x][y] = 2
+					image = self.rh.get_image(f'data/blocksprite2.png')
+					self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
+					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': block.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
+					self.player.send_queue.put(payload)
+					block.kill()
 			if block.blocktype == 44:
 				if collide_rect(block, self.player):
 					self.player.health += 1
@@ -157,7 +171,7 @@ class Game(Thread):
 					f.kill()
 				if c.blocktype == 2: # backgroundblock
 					pass
-				if c.blocktype in (3,44): # solid killables
+				if c.blocktype == 3: # solid killables and upgradeblocks
 					x = c.gridpos[0]
 					y = c.gridpos[1]
 					# self.player.grid[y][x] = 2
@@ -171,15 +185,20 @@ class Game(Thread):
 					self.particles.add(particles)
 					c.kill()
 					f.kill()
-				if c.blocktype == 4: # solid killable creates upgradeblock type 44
+				if c.blocktype == 4: # solid killable creates upgradeblock type 40/44
+					# todo make server decide on upgrades....
 					x = c.gridpos[0]
 					y = c.gridpos[1]
-					# self.player.grid[y][x] = 2
-					self.player.grid[x][y] = 44
-					image = self.rh.get_image(f'data/heart.png')
+					self.player.grid[x][y] = 2
+					upgrade_type = 40 # random.choice([40,44])
+					# self.player.grid[x][y] = upgrade_type
+					if upgrade_type == 40:
+						image = self.rh.get_image(f'data/newbomb.png')
+					if upgrade_type == 44:
+						image = self.rh.get_image(f'data/heart.png')
 					# image = self.rh.get_image(f'data/blocksprite2.png')
-					self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=44)) # type 44 = heart
-					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':44, 'client_id': self.player.client_id, 'grid' :self.player.grid }
+					self.upgradeblocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=upgrade_type)) # type 44 = heart
+					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':upgrade_type, 'client_id': self.player.client_id, 'grid' :self.player.grid }
 					self.player.send_queue.put(payload)
 					# logger.info(f'c {c} kill\npayload: {payload}')
 					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(5)]
@@ -203,6 +222,7 @@ class Game(Thread):
 			self.flames.update()
 			self.particles.update()
 			self.blocks.update()
+			self.upgradeblocks.update()
 			self.player.update()
 			if self.show_mainmenu:
 				self.game_menu.draw_mainmenu()
@@ -243,15 +263,21 @@ class Game(Thread):
 		self.flames.draw(self.screen)
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
+		self.draw_game_info(self.screen)
 		if self.player.gotpos:
 			self.player.draw(self.screen)
-		self.draw_game_info(self.screen)
+		self.upgradeblocks.draw(self.screen)
 		if self.debugmode:
-			for sprite in self.blocks:
-				blktxt = f'{self.player.grid[sprite.gridpos[0]][sprite.gridpos[1]]}'
-				self.debugfont.render_to(self.screen, (sprite.rect.x+1, sprite.rect.y+3),blktxt, (55,255,255))
-				blktxt = f'{sprite.gridpos}'
-				self.debugfont.render_to(self.screen, (sprite.rect.x+5, sprite.rect.y+13),blktxt, (255,22,255))
+			for b in self.blocks:
+				blktxt = f'{self.player.grid[b.gridpos[0]][b.gridpos[1]]}'
+				self.debugfont.render_to(self.screen, (b.rect.x+1, b.rect.y+3),blktxt, (55,255,55))
+				blktxt = f'{b.gridpos}'
+				self.debugfont.render_to(self.screen, (b.rect.x+5, b.rect.y+13),blktxt, (155,22,55))
+			for b in self.upgradeblocks:
+				blktxt = f'{self.player.grid[b.gridpos[0]][b.gridpos[1]]}'
+				self.debugfont.render_to(self.screen, (b.rect.x+1, b.rect.y+3),blktxt, (255,255,255))
+				blktxt = f'{b.gridpos}'
+				self.debugfont.render_to(self.screen, (b.rect.x+5, b.rect.y+13),blktxt, (255,255,255))
 
 	def start_game(self):
 		if self.game_started:

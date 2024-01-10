@@ -86,8 +86,10 @@ class NewBlock(Sprite):
 	def __init__(self, gridpos, image, blocktype):
 		super().__init__()
 		self.blocktype = blocktype
-		if self.blocktype == 44:
-			self.blocktimer = 1000
+		if self.blocktype == 40:
+			self.blocktimer = 4000
+		elif self.blocktype == 44:
+			self.blocktimer = 4000
 		else:
 			self.blocktimer = 0
 		self.gridpos = gridpos
@@ -110,9 +112,9 @@ class NewBlock(Sprite):
 
 	def update(self):
 		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
-		if self.blocktype == 44:
+		if self.blocktype in [40,44]:
 			if pygame.time.get_ticks() - self.start_time >= self.blocktimer:
-				logger.debug(f'{self} kill')
+				logger.debug(f'timeoutkill {self} tchk:{pygame.time.get_ticks() - self.start_time >= self.blocktimer} start {self.start_time} {self.blocktimer} ticks: {pygame.time.get_ticks()}')
 				pygame.event.post(Event(BLOCKTIMEOUT, payload={'msgtype': 'blktimeout', 'gridpos': self.gridpos,'pos': self.pos,}))
 				self.kill()
 
