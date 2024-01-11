@@ -186,26 +186,17 @@ class Particle(Sprite): # todo fix initial position
 		self.fill_col = [255,0,255]
 		self.image.fill(self.fill_col)
 		self.uc = 0
-		self.angle = 0
-		self.cosangle = 0
-		self.sinangle = 0
-		self.theta = 0.2
 
 	def __repr__(self):
 		return f'Particle ( uc:{self.uc} pos={self.pos} {self.gridpos} )'
 
 	def update(self):
-		noise = 1 * random.random() - 0.5
-		x = self.pos[0] + math.cos(self.theta + noise)
-		y = self.pos[1] + math.sin(self.theta + noise)
+		# noise = 1 * random.random() - 4.5
+		# self.pos[0] += math.cos(self.theta + noise)
+		# self.pos[1] += math.sin(self.theta + noise)
+		self.pos[0]  += self.vel[0]
+		self.pos[1]  += self.vel[1]
 
-		self.pos[0] += self.vel[0]
-		self.pos[1] += self.vel[1]
-		try:
-			self.rect = self.image.get_rect(center=self.pos)
-		except TypeError as e:
-			logger.error(f'{e} x:{x} y:{y} pos:{self.pos}')
-			self.pos = (0,0)
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
 		self.uc += 1
