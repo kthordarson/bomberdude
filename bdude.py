@@ -129,7 +129,7 @@ class Game(Thread):
 			if block.blocktype == 40:
 				if collide_rect(block, self.player):
 					self.player.bombsleft += 1
-					logger.info(f'extrabomb {block} player: {self.player}')
+					logger.info(f'extrabomb t:{block.blocktype} player: {self.player}')
 					x = block.gridpos[0]
 					y = block.gridpos[1]
 					fgpos = (block.pos[0] // BLOCK, block.pos[1] // BLOCK)
@@ -142,7 +142,7 @@ class Game(Thread):
 			if block.blocktype == 44:
 				if collide_rect(block, self.player):
 					self.player.health += 1
-					logger.info(f'healthup {block} player: {self.player}')
+					logger.info(f'healthup t:{block.blocktype} player: {self.player}')
 					x = block.gridpos[0]
 					y = block.gridpos[1]
 					fgpos = (block.pos[0] // BLOCK, block.pos[1] // BLOCK)
@@ -192,7 +192,7 @@ class Game(Thread):
 					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
 					self.player.send_queue.put(payload)
 					# logger.info(f'c {c} kill\npayload: {payload}')
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(5)]
+					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-2.5,2.5),random.uniform(-2.5,2.5)) )for k in range(15)]
 					self.particles.add(particles)
 					c.kill()
 					f.kill()
@@ -212,14 +212,14 @@ class Game(Thread):
 					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':upgrade_type, 'client_id': self.player.client_id, 'grid' :self.player.grid }
 					self.player.send_queue.put(payload)
 					# logger.info(f'c {c} kill\npayload: {payload}')
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(5)]
+					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-1.5,1.5),random.uniform(-1.5,1.5)) )for k in range(15)]
 					self.particles.add(particles)
 					c.kill()
 					f.kill()
 				if c.blocktype == 5: # solid unkillable
 					# newvel = [k * -1 for k in f.vel]
 					# particles = [Particle(gridpos=fpos) for k in range(3)]
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(5)]
+					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(15)]
 					self.particles.add(particles)
 					f.kill()
 
@@ -281,14 +281,14 @@ class Game(Thread):
 		if self.debugmode:
 			for b in self.blocks:
 				blktxt = f'{self.player.grid[b.gridpos[0]][b.gridpos[1]]}'
-				self.debugfont.render_to(self.screen, (b.rect.x+1, b.rect.y+3),blktxt, (55,255,55))
+				self.debugfont.render_to(self.screen, (b.rect.x+5, b.rect.y+3),blktxt, (55,155,55))
 				blktxt = f'{b.gridpos}'
 				self.debugfont.render_to(self.screen, (b.rect.x+5, b.rect.y+13),blktxt, (155,22,55))
-			for b in self.upgradeblocks:
-				blktxt = f'{self.player.grid[b.gridpos[0]][b.gridpos[1]]}'
-				self.debugfont.render_to(self.screen, (b.rect.x+1, b.rect.y+3),blktxt, (255,255,255))
-				blktxt = f'{b.gridpos}'
-				self.debugfont.render_to(self.screen, (b.rect.x+5, b.rect.y+13),blktxt, (255,255,255))
+			# for b in self.upgradeblocks:
+			# 	blktxt = f'{self.player.grid[b.gridpos[0]][b.gridpos[1]]}'
+			# 	self.debugfont.render_to(self.screen, (b.rect.x+7, b.rect.y+7),blktxt, (255,255,255))
+			# 	blktxt = f'{b.gridpos}'
+			# 	self.debugfont.render_to(self.screen, (b.rect.x+15, b.rect.y+13),blktxt, (255,255,255))
 
 	def start_game(self):
 		if self.game_started:
@@ -342,7 +342,7 @@ class Game(Thread):
 					if not self.game_started:
 						ev = Event(STARTGAMEEVENT, payload={'msgtype': 'startgame',})
 						pygame.event.post(ev)
-						logger.debug(f'e:{event} k:{keypressed} K_SPACE item: {self.game_menu.active_item} ev: {ev}')
+						# logger.debug(f'e:{event} k:{keypressed} K_SPACE item: {self.game_menu.active_item} ev: {ev}')
 					else:
 						logger.warning(f'game already started')
 				if self.game_menu.active_item == 'Connect to server':
