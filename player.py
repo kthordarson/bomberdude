@@ -9,7 +9,7 @@ from loguru import logger
 from pygame.event import Event
 from pygame.math import Vector2
 from pygame.sprite import spritecollide, Sprite, Group
-from constants import BLOCK, PLAYEREVENT, NEWGRIDEVENT, PKTHEADER
+from constants import BLOCK, USEREVENT, USEREVENT, PKTHEADER
 from globals import gen_randid, BlockNotFoundError, RepeatedTimer
 from map import Gamemap
 from network import Sender,  send_data, Receiver
@@ -125,7 +125,7 @@ class NewPlayer(Thread, Sprite):
 				except ValueError as e:
 					logger.error(f'[r] {e} {type(e)}')
 					self.kill = True
-					raise ReceiverError(e)
+					# raise ReceiverError(e)
 				except Exception as e:
 					logger.error(f'[r] {e} {type(e)}')
 					self.kill = True
@@ -152,6 +152,8 @@ class NewPlayer(Thread, Sprite):
 					self.receiverq.put(jresp)
 				except json.decoder.JSONDecodeError as e:
 					logger.error(f'[r] {e} {type(e)} response: {response}')
+					self.gotgrid = False
+					self.gotpos = False
 					# self.kill = True
 					# raise ReceiverError(e)
 				except Exception as e:
@@ -221,7 +223,7 @@ class NewPlayer(Thread, Sprite):
 				owngridchk = sum([sum(k) for k in self.grid])
 				newgridchk = sum([sum(k) for k in newgrid])
 				self.grid = newgrid
-				pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
+				pygame.event.post(pygame.event.Event(USEREVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
 				if newgridchk != owngridchk: # todo
 					logger.warning(f'{msgtype} {owngridchk} {newgridchk}')
 			case 'ackplrbmb':
@@ -235,14 +237,14 @@ class NewPlayer(Thread, Sprite):
 					self.bombsleft -= 1
 				else:
 					logger.warning(f'{self} bomberclientid! {msgtype} jresp: {jresp}')
-				pygame.event.post(pygame.event.Event(PLAYEREVENT, payload={'msgtype': 'ackplrbmb', 'client_id': bomb_clid, 'clbombpos': clbombpos}))
+				pygame.event.post(pygame.event.Event(USEREVENT, payload={'msgtype': 'ackplrbmb', 'client_id': bomb_clid, 'clbombpos': clbombpos}))
 			case 'newgridresponse':
 				grid = jresp.get('grid')
 				if grid:
 					self.gotgrid = True
 					self.grid = grid
 					logger.info(f'gotgrid {self.gotgrid} {msgtype} ')
-					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
+					pygame.event.post(pygame.event.Event(USEREVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
 				else:
 					logger.warning(f'nogrid in {jresp}')
 				newpos = jresp.get('setpos')
@@ -268,7 +270,7 @@ class NewPlayer(Thread, Sprite):
 						self.gotgrid = True
 						self.grid = grid
 						logger.info(f'gotgrid {self.gotgrid} {msgtype} ')
-						pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
+						pygame.event.post(pygame.event.Event(USEREVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
 					else:
 						logger.warning(f'nogrid in {jresp}')
 				if not self.gotpos:

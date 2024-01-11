@@ -12,7 +12,7 @@ from pygame.event import Event
 from pygame.sprite import Group, spritecollide, Sprite, collide_rect
 from pygame import USEREVENT
 from constants import (BLOCK, FPS,  BLOCK, BLOCKSIZE, GRIDSIZE)
-from constants import (DEFAULTFONT, CONNECTTOSERVEREVENT, STARTGAMEEVENT,STARTSERVEREVENT,NEWCONNECTIONEVENT, BOMBXPLODE)
+from constants import (DEFAULTFONT, )
 from globals import ResourceHandler, NewBlock, NewBomb, NewFlame, get_bomb_flames, Particle
 from menus import GameMenu
 from player import  NewPlayer
@@ -71,6 +71,10 @@ class Game(Thread):
 		match msgtype:
 			case 'startgame':
 				self.start_game()
+			case 'start_server':
+				self.start_server()
+			case 'connect_to_server':
+				self.connect_to_server()
 			case 'blktimeout':
 				# logger.debug(f'{msgtype} {payload}')
 				gridpos = payload.get('gridpos')
@@ -96,6 +100,8 @@ class Game(Thread):
 				# logger.debug(f'{msgtype} {len(payload)}')
 				self.create_blocks_from_grid()
 			case 'newgridfromserver':
+				if self.show_mainmenu:
+					self.show_mainmenu = False
 				newgrid = payload.get('grid', None)
 				if newgrid:
 					self.player.grid = newgrid
@@ -115,6 +121,8 @@ class Game(Thread):
 				try:
 					newbomb = NewBomb(bombimg, bomberid=bid, gridpos=clbombpos,  bombtimer=2000)
 					self.bombs.add(newbomb)
+				except TypeError as e:
+					logger.warning(f'{e} {type(e)} msgtype:{msgtype} payload: {payload}')
 				except Exception as e:
 					logger.error(f'{e} {type(e)} msgtype:{msgtype} payload: {payload}')
 			case _ :
@@ -248,11 +256,11 @@ class Game(Thread):
 				break
 			events_ = pygame.event.get()
 			for event in events_:
-				# BOMBXPLODE
+				# USEREVENT
 				e_type = int(event.type)
 				maxe = pygame.USEREVENT+1000
 				match e_type:
-					case int(e_type) if maxe > e_type > pygame.USEREVENT:
+					case int(e_type) if maxe >= e_type >= pygame.USEREVENT:
 						# logger.debug(f'{event.payload}')
 						self.handle_events(event.payload)
 					case pygame.KEYDOWN:
@@ -294,7 +302,7 @@ class Game(Thread):
 	def start_game(self):
 		if self.game_started:
 			logger.warning(f'{self} game already started')
-			return
+			# return
 		logger.info(f'{self} startgame')
 		self.screen.fill((0,0,0))
 		self.player.start()
@@ -317,6 +325,7 @@ class Game(Thread):
 			logger.error(e)
 			sys.exit(1)
 		conncounter = 0
+		self.show_mainmenu = False
 		while True:
 			mainsocket.listen()
 			try:
@@ -334,11 +343,10 @@ class Game(Thread):
 			logger.info(f'NewHandler started {thread} {conncounter}')
 			server.trigger_newplayer()
 
-
 	def connect_to_server(self):
 		logger.info(f'{self}')
 
-	def start_server(self):
+	def start_server(self): # start a local server thread ....
 		logger.info(f'{self} ')
 		ts = Thread(target=self.server_thread, name='serverthread', daemon=True)
 		logger.debug(f'starting {ts}')
@@ -378,15 +386,17 @@ class Game(Thread):
 			else:
 				if self.game_menu.active_item == 'Start':
 					if not self.game_started:
-						ev = Event(STARTGAMEEVENT, payload={'msgtype': 'startgame',})
+						ev = Event(USEREVENT, payload={'msgtype': 'startgame',})
 						pygame.event.post(ev)
 						# logger.debug(f'e:{event} k:{keypressed} K_SPACE item: {self.game_menu.active_item} ev: {ev}')
 					else:
-						logger.warning(f'game already started')
+						logger.warning(f'game already started') # todo handle this
+						ev = Event(USEREVENT, payload={'msgtype': 'startgame',})
+						pygame.event.post(ev)
 				if self.game_menu.active_item == 'Connect to server':
-					pygame.event.post(Event(CONNECTTOSERVEREVENT, payload={'msgtype': 'connecttoserver',}))
+					pygame.event.post(Event(USEREVENT, payload={'msgtype': 'connect_to_server',}))
 				if self.game_menu.active_item == 'Start server':
-					pygame.event.post(Event(STARTSERVEREVENT, payload={'msgtype': 'startserver',}))
+					pygame.event.post(Event(USEREVENT, payload={'msgtype': 'start_server',}))
 				if self.game_menu.active_item == 'Quit':
 					pygame.event.post(Event(pygame.QUIT))
 		elif keypressed == pygame.K_F1:
