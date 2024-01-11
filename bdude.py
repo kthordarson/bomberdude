@@ -276,21 +276,34 @@ class Game(Thread):
 						logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
 
 	def draw_game_info(self):
-		surf, rect = self.font.render(f'h: {self.player.health} bombs: {self.player.bombsleft} score: {self.player.score}', (255,255,255))
+		surf, rect1 = self.font.render(f'h: {self.player.health} bombs: {self.player.bombsleft} score: {self.player.score}', (255,255,255))
 		self.screen.blit(surf, (10,10))
+		surf, rect = self.font.render(f'{self.player.health} ', (5,255,55)) # {self.player.playerlist[self.player.client_id]["health"]}
+		self.screen.blit(surf, (self.player.pos))
 		for np in self.player.playerlist:
 			if np != self.player.client_id:
 				surf, rect = self.font.render(f'h: {self.player.playerlist[np]["health"]} bombs: {self.player.playerlist[np]["bombsleft"]} score: {self.player.playerlist[np]["score"]}', (155,255,255))
-				self.screen.blit(surf, (rect.width+30,10))
+				self.screen.blit(surf, (rect1.width+30,10))
+				surf, rect = self.font.render(f'{self.player.playerlist[np]["health"]} ', (255,5,55))
+				self.screen.blit(surf, (self.player.playerlist[np]["pos"]))
+			else:
+				surf, rect = self.font.render(f'{self.player.playerlist[np]["health"]} ', (255,115,55))
+				self.screen.blit(surf, (self.player.playerlist[np]["pos"]))
+				surf, rect = self.font.render(f'{self.player.health} ', (25,115,255))
+				self.screen.blit(surf, (self.player.pos))
+
 
 	def draw(self):
 		self.blocks.draw(self.screen)
 		self.flames.draw(self.screen)
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
-		self.draw_game_info()
-		if self.player.gotpos:
+		if self.player.gotpos and self.player.gotgrid:
 			self.player.draw(self.screen)
+			try:
+				self.draw_game_info()
+			except TypeError as e:
+				logger.error(e)
 		self.upgradeblocks.draw(self.screen)
 		if self.debugmode:
 			for b in self.blocks:

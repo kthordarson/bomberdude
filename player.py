@@ -92,6 +92,7 @@ class NewPlayer(Thread, Sprite):
 		self.lastpktid = gen_randid()
 		payload['c_pktid'] = self.lastpktid
 		payload['score'] = self.score
+		payload['connected'] = self.connected
 		payload = json.dumps(payload).encode('utf8')
 		msglen = str(len(payload)).encode('utf8').zfill(PKTHEADER)
 		self.socket.sendto(msglen,(self.serveraddress, 9696))
@@ -114,9 +115,14 @@ class NewPlayer(Thread, Sprite):
 					logger.error(f'[r] {e} {type(e)}')
 					self.kill = True
 					break
+				except OSError as e:
+					logger.error(f'[r] {e} {type(e)}')
+					self.kill = True
+					break
 				except Exception as e:
 					logger.error(f'[r] {e} {type(e)}')
 					self.kill = True
+					#break
 					raise ReceiverError(e)
 				try:
 					datalen = int(re.sub('^0+','',replen))
@@ -298,6 +304,9 @@ class NewPlayer(Thread, Sprite):
 		screen.blit(self.image, self.rect)
 		for player in self.playerlist:
 			plconn = self.playerlist.get(player).get('connected')
+			if not plconn:
+				logger.warning(f'player: {player} plconn: {plconn} \nplayerlist: {self.playerlist}')
+				break
 			if player == 'null':
 				logger.warning(f'player: {player} plconn: {plconn} \nplayerlist: {self.playerlist}')
 				# break
@@ -308,7 +317,7 @@ class NewPlayer(Thread, Sprite):
 				# gridpos = (pos[0] * BLOCK, pos[1] * BLOCK)
 				if not pos:
 					logger.warning(f'player: {player} plconn: {plconn}  playerlist: {self.playerlist}')
-					break
+					# qbreak
 				if pos:
 					if self.client_id != plid:
 						npimg = self.rh.get_image('data/netplayer.png')
