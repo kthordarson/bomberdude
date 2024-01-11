@@ -3,6 +3,7 @@ import math
 import os
 import random
 import time
+import copy
 from threading import Thread, Timer
 import pygame
 from loguru import logger
@@ -196,7 +197,8 @@ class Particle(Sprite): # todo fix initial position
 		# self.pos[1] += math.sin(self.theta + noise)
 		self.pos[0]  += self.vel[0]
 		self.pos[1]  += self.vel[1]
-
+		#self.vel[0]  -= random.random()
+		self.vel[1]  += random.random() / 10
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
 		self.uc += 1

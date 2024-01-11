@@ -187,7 +187,7 @@ class Game(Thread):
 				fgpos = (f.pos[0] // BLOCK, f.pos[1] // BLOCK)
 				if c.blocktype == 1: # edge solid unkillable
 					# newvel = [k * -1 for k in f.vel]
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(7)]
+					particles = [Particle(gridpos=fgpos, vel=[random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)] )for k in range(7)]
 					self.particles.add(particles)
 					f.kill()
 				if c.blocktype == 2: # backgroundblock
@@ -202,7 +202,7 @@ class Game(Thread):
 					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
 					self.player.send_queue.put(payload)
 					# logger.info(f'c {c} kill\npayload: {payload}')
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-2.5,2.5),random.uniform(-2.5,2.5)) )for k in range(15)]
+					particles = [Particle(gridpos=fgpos, vel=[random.uniform(-2.5,2.5),random.uniform(-2.5,2.5)] )for k in range(15)]
 					self.particles.add(particles)
 					c.kill()
 					f.kill()
@@ -222,14 +222,14 @@ class Game(Thread):
 					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':upgrade_type, 'client_id': self.player.client_id, 'grid' :self.player.grid }
 					self.player.send_queue.put(payload)
 					# logger.info(f'c {c} kill\npayload: {payload}')
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-1.5,1.5),random.uniform(-1.5,1.5)) )for k in range(15)]
+					particles = [Particle(gridpos=fgpos, vel=[random.uniform(-1.5,1.5),random.uniform(-1.5,1.5)] )for k in range(15)]
 					self.particles.add(particles)
 					c.kill()
 					f.kill()
 				if c.blocktype == 5: # solid unkillable
 					# newvel = [k * -1 for k in f.vel]
 					# particles = [Particle(gridpos=fpos) for k in range(3)]
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(15)]
+					particles = [Particle(gridpos=fgpos, vel=[random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)] )for k in range(15)]
 					self.particles.add(particles)
 					f.kill()
 
@@ -287,11 +287,6 @@ class Game(Thread):
 				self.screen.blit(surf, (rect1.width+30,10))
 				surf, rect = self.font.render(f'{self.player.playerlist[np]["health"]} ', (255,5,55))
 				self.screen.blit(surf, (self.player.playerlist[np]["pos"]))
-			else:
-				surf, rect = self.font.render(f'{self.player.playerlist[np]["health"]} ', (255,115,55))
-				self.screen.blit(surf, (self.player.playerlist[np]["pos"]))
-				surf, rect = self.font.render(f'{self.player.health} ', (25,115,255))
-				self.screen.blit(surf, (self.player.pos))
 
 
 	def draw(self):
