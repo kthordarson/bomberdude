@@ -4,7 +4,8 @@ import os
 import random
 from argparse import ArgumentParser
 from threading import Thread
-
+import socket
+from queue import Queue
 import pygame
 from loguru import logger
 from pygame.event import Event
@@ -15,7 +16,7 @@ from constants import (DEFAULTFONT, CONNECTTOSERVEREVENT, STARTGAMEEVENT,STARTSE
 from globals import ResourceHandler, NewBlock, NewBomb, NewFlame, get_bomb_flames, Particle
 from menus import GameMenu
 from player import  NewPlayer
-
+from bombserver import Gameserver, NewHandler
 FPS = 60
 
 class Game(Thread):
@@ -294,18 +295,55 @@ class Game(Thread):
 		if self.game_started:
 			logger.warning(f'{self} game already started')
 			return
-		else:
-			logger.info(f'{self} startgame')
+		logger.info(f'{self} startgame')
 		self.screen.fill((0,0,0))
 		self.player.start()
+		logger.debug(f'{self.player} started')
 		self.game_started = True
 		self.show_mainmenu = False
+
+	def server_thread(self):
+		mainsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		mainsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		connq = Queue()
+		server = Gameserver(connq, mainsocket)
+		server.start()
+		logger.info(f'server: {server}')
+		server.tui.start()
+		logger.info(f'server: {server} {server.tui}')
+		try:
+			mainsocket.bind(('127.0.0.1',9696))
+		except OSError as e:
+			logger.error(e)
+			sys.exit(1)
+		conncounter = 0
+		while True:
+			mainsocket.listen()
+			try:
+				conn, addr = mainsocket.accept()
+			except KeyboardInterrupt as e:
+				logger.warning(f'{e}')
+				break
+			except Exception as e:
+				logger.warning(f'{e} {type(e)}')
+				break
+			thread = NewHandler(conn,addr, server.dataq, name=f'clthrd{conncounter}')
+			server.clients.append(thread)
+			thread.start()
+			conncounter += 1
+			logger.info(f'NewHandler started {thread} {conncounter}')
+			server.trigger_newplayer()
+
 
 	def connect_to_server(self):
 		logger.info(f'{self}')
 
 	def start_server(self):
 		logger.info(f'{self} ')
+		ts = Thread(target=self.server_thread, name='serverthread', daemon=True)
+		logger.debug(f'starting {ts}')
+		ts.start()
+		logger.debug(f'{ts} started')
 
 	def handle_input_events(self, event):
 		keypressed = event.key
@@ -346,9 +384,9 @@ class Game(Thread):
 					else:
 						logger.warning(f'game already started')
 				if self.game_menu.active_item == 'Connect to server':
-					pygame.event.post(Event(CONNECTTOSERVEREVENT))
+					pygame.event.post(Event(CONNECTTOSERVEREVENT, payload={'msgtype': 'connecttoserver',}))
 				if self.game_menu.active_item == 'Start server':
-					pygame.event.post(Event(STARTSERVEREVENT))
+					pygame.event.post(Event(STARTSERVEREVENT, payload={'msgtype': 'startserver',}))
 				if self.game_menu.active_item == 'Quit':
 					pygame.event.post(Event(pygame.QUIT))
 		elif keypressed == pygame.K_F1:
