@@ -114,7 +114,7 @@ class NewBlock(Sprite):
 		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 		if self.blocktype in [40,44]:
 			if pygame.time.get_ticks() - self.start_time >= self.blocktimer:
-				logger.debug(f'timeoutkill {self} tchk:{pygame.time.get_ticks() - self.start_time >= self.blocktimer} start {self.start_time} {self.blocktimer} ticks: {pygame.time.get_ticks()}')
+				logger.debug(f'timeoutkill tchk:{pygame.time.get_ticks() - self.start_time >= self.blocktimer} start {self.start_time} {self.blocktimer} ticks: {pygame.time.get_ticks()}')
 				pygame.event.post(Event(BLOCKTIMEOUT, payload={'msgtype': 'blktimeout', 'gridpos': self.gridpos,'pos': self.pos,}))
 				self.kill()
 
@@ -183,19 +183,27 @@ class Particle(Sprite): # todo fix initial position
 		self.vel = vel # random.choice(([1+random.random(),1-random.random()], [1-random.random(),1+random.random()], [random.random(),1+random.random()], [random.random(),1-random.random()], [random.random()-1,random.random()-1], [1-random.random(),1-random.random()], [1+random.random(),1+random.random()], [1+random.random(),random.random()-1]))
 		self.image = pygame.surface.Surface( random.choice([ (8,8), (6,6), (4,4), (2,2) ]))
 		self.rect = self.image.get_rect()
-		self.image.fill((255,0,255))
+		self.fill_col = [255,0,255]
+		self.image.fill(self.fill_col)
+		self.uc = 0
 
 	def __repr__(self):
-		return f'Particle ( pos={self.pos} {self.gridpos} )'
+		return f'Particle ( uc:{self.uc} pos={self.pos} {self.gridpos} )'
 
 	def update(self):
-		# logger.info(f'{self}')
-		self.pos[0] += self.vel[0]
-		self.pos[1] += self.vel[1]
-		self.rect = self.image.get_rect(center=self.pos)
+		# noise = 1 * random.random() - 4.5
+		# self.pos[0] += math.cos(self.theta + noise)
+		# self.pos[1] += math.sin(self.theta + noise)
+		self.pos[0]  += self.vel[0]
+		self.pos[1]  += self.vel[1]
+
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
+		self.uc += 1
+		self.fill_col[0] -= 1
+		self.fill_col[2] -= 1
+		self.image.fill(self.fill_col)
 		if pygame.time.get_ticks() - self.start_time >= self.ptimer:
-			# logger.warning(f'{self}')
+			logger.info(f'{self} timeoutkill')
 			self.kill()
 
