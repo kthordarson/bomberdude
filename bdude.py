@@ -20,8 +20,9 @@ from bombserver import Gameserver, NewHandler
 FPS = 60
 
 class Game(Thread):
-	def __init__ (self, debugmode=False):
+	def __init__ (self, args=None):
 		Thread.__init__(self, name='game')
+		self.args = args
 		self.kill = False
 		self.running = False
 		pygame.display.set_mode(size=(GRIDSIZE*BLOCK,GRIDSIZE*BLOCK), flags=pygame.DOUBLEBUF, vsync=1)
@@ -32,7 +33,7 @@ class Game(Thread):
 		self.clock = pygame.time.Clock()
 		self.game_started = False
 		self.rh = ResourceHandler()
-		self.player = NewPlayer(image=self.rh.get_image('data/playerone.png'), rh=self.rh)
+		self.player = NewPlayer(image=self.rh.get_image('data/playerone.png'), rh=self.rh, serveraddress=(self.args.server, self.args.port))
 		self.bombs = Group()
 		self.flames = Group()
 		self.particles = Group()
@@ -44,7 +45,7 @@ class Game(Thread):
 		# self.sprites.add(self.blocks)
 		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 8)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 22)
-		self.debugmode = debugmode
+		self.debugmode = self.args.debug
 
 	def __repr__(self):
 		return f'bdude ( p:{self.player} pl:{len(self.player.playerlist)} )'
@@ -341,7 +342,7 @@ class Game(Thread):
 		server.tui.start()
 		logger.info(f'server: {server} {server.tui}')
 		try:
-			mainsocket.bind(('127.0.0.1',9696))
+			mainsocket.bind((self.args.listen,self.args.port))
 		except OSError as e:
 			logger.error(e)
 			sys.exit(1)
@@ -441,7 +442,7 @@ class Game(Thread):
 			logger.debug(f'[mouse] {mx},{my} ')
 
 def main(args):
-	game = Game(debugmode=True)
+	game = Game(args=args)
 	logger.debug(f'main game: {game}')
 	game.daemon = True
 	game.running = True
@@ -465,8 +466,10 @@ if __name__ == "__main__":
 	# pygame.key.set_repeat(1000,3000)
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
+	parser.add_argument('--listen', action='store', dest='listen', default='localhost')
 	parser.add_argument('--server', action='store', dest='server', default='localhost')
 	parser.add_argument('--port', action='store', dest='port', default=9696)
+	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()
 	if args.testclient:
 		run_testclient(args)

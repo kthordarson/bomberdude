@@ -4,6 +4,7 @@ import random
 import socket
 import sys
 import json
+from argparse import ArgumentParser
 from threading import Thread, current_thread, Timer, active_count, _enumerate
 from queue import Queue
 from loguru import logger
@@ -178,21 +179,13 @@ class Gameserver(Thread):
 			self.playerlist[clid] = data
 		else:
 			logger.error(f'clid not found in {data}')
-		# if len(self.playerlist) >= 2:
-		#	logger.debug(f'playerlist:\n{self.playerlist}\n')
-		# logger.debug(f'playerlist: {self.playerlist}')
 
 	def do_send(self, socket, serveraddress, payload):
 		payload['playerlist'] = self.playerlist
 		payload['grid'] = self.grid
 		payload['updcntr'] = self.updcntr
-		# pmsgtype = payload.get("msgtype")
-		# logger.debug(f'do_send pmsgtype: {pmsgtype} {type(payload)}')
 		try:
 			# logger.debug(f'do_send {socket} {serveraddress} {payload}')
-			# if isinstance(payload, str):
-			# 	payload = payload.encode('utf8')
-			# if isinstance(payload, dict):
 			payload = json.dumps(payload).encode('utf8')
 			msglenx = str(len(payload)).encode('utf8')
 			msglen = msglenx.zfill(PKTHEADER)
@@ -362,6 +355,11 @@ def get_grid_pos(grid):
 	return (gpx, gpy)
 
 if __name__ == '__main__':
+	parser = ArgumentParser(description='server')
+	parser.add_argument('--listen', action='store', dest='listen', default='localhost')
+	parser.add_argument('--port', action='store', dest='port', default=9696, type=int)
+	args = parser.parse_args()
+
 	mainsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	mainsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 	connq = Queue()
@@ -369,7 +367,7 @@ if __name__ == '__main__':
 	server.start()
 	server.tui.start()
 	try:
-		mainsocket.bind(('127.0.0.1',9696))
+		mainsocket.bind((args.listen,args.port))
 	except OSError as e:
 		logger.error(e)
 		sys.exit(1)
