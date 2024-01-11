@@ -3,7 +3,7 @@ from pygame import Color
 from pygame import USEREVENT
 PKTHEADER = 64
 PKTLEN = 1024*2
-
+FORMAT = 'utf8'
 DEBUG = True
 DEFAULTFONT = "data/DejaVuSans.ttf"
 COLOR_INACTIVE = Color('lightskyblue3')

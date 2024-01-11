@@ -275,24 +275,32 @@ class Game(Thread):
 						self.kill = True
 						logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
 
-	def draw_game_info(self, screen):
-		self.font.render_to(screen, (10,10), f'h: {self.player.health} bombs: {self.player.bombsleft} score: {self.player.score}', (255,255,255))
+	def draw_game_info(self):
+		surf, rect = self.font.render(f'h: {self.player.health} bombs: {self.player.bombsleft} score: {self.player.score}', (255,255,255))
+		self.screen.blit(surf, (10,10))
+		for np in self.player.playerlist:
+			if np != self.player.client_id:
+				surf, rect = self.font.render(f'h: {self.player.playerlist[np]["health"]} bombs: {self.player.playerlist[np]["bombsleft"]} score: {self.player.playerlist[np]["score"]}', (155,255,255))
+				self.screen.blit(surf, (rect.width+30,10))
 
 	def draw(self):
 		self.blocks.draw(self.screen)
 		self.flames.draw(self.screen)
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
-		self.draw_game_info(self.screen)
+		self.draw_game_info()
 		if self.player.gotpos:
 			self.player.draw(self.screen)
 		self.upgradeblocks.draw(self.screen)
 		if self.debugmode:
 			for b in self.blocks:
-				blktxt = f'{self.player.grid[b.gridpos[0]][b.gridpos[1]]}'
-				self.debugfont.render_to(self.screen, (b.rect.x+5, b.rect.y+3),blktxt, (55,155,55))
-				blktxt = f'{b.gridpos}'
-				self.debugfont.render_to(self.screen, (b.rect.x+5, b.rect.y+13),blktxt, (155,22,55))
+				blktxt = self.debugfont.render(f'{self.player.grid[b.gridpos[0]][b.gridpos[1]]}', (55,155,55))
+				self.screen.blit(blktxt[0], (b.rect.x+5, b.rect.y+3))
+				blktxt = self.debugfont.render(f'{b.gridpos}', (75,165,155))
+				self.screen.blit(blktxt[0], (b.rect.x+5, b.rect.y+13))
+				#self.debugfont.render_to(self.screen, (b.rect.x+5, b.rect.y+3),blktxt, (55,155,55))
+				#blktxt = f'{b.gridpos}'
+				#self.debugfont.render_to(self.screen, (b.rect.x+5, b.rect.y+13),blktxt, (155,22,55))
 			# for b in self.upgradeblocks:
 			# 	blktxt = f'{self.player.grid[b.gridpos[0]][b.gridpos[1]]}'
 			# 	self.debugfont.render_to(self.screen, (b.rect.x+7, b.rect.y+7),blktxt, (255,255,255))

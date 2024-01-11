@@ -8,12 +8,10 @@ from threading import Thread, current_thread, Timer, active_count, _enumerate
 from queue import Queue
 from loguru import logger
 import re
-from constants import PKTHEADER
+from constants import PKTHEADER, FORMAT
 from map import generate_grid
 
-HEADER = 64
-FORMAT = 'utf8'
-DISCONNECT_MESSAGE = 'disconnect'
+
 
 class ServerSendException(Exception):
 	pass
@@ -226,7 +224,7 @@ class Gameserver(Thread):
 			logger.error(f'[!] msgtype not found in {data}')
 		self.refresh_playerlist(data) # todo check disconnected clients
 		match msgtype:
-			case 'requestnewgrid':
+			case 'requestnewgrid': # client requests new grid, send to all clients
 				self.grid = generate_grid()
 				for client in self.clients:
 					newpos = get_grid_pos(self.grid)
@@ -276,8 +274,7 @@ class Gameserver(Thread):
 					except Exception as e:
 						logger.error(f'[!] {e} in {self} {client}')
 						self.clients.pop(self.clients.index(client))
-			case 'cl_gridupdate':
-				# gridupdate from client....
+			case 'cl_gridupdate': # gridupdate from client....
 				self.grid = data.get('grid')
 				for client in self.clients:
 					msg = {'msgtype': 'sv_gridupdate', 'grid': self.grid,}
@@ -290,8 +287,7 @@ class Gameserver(Thread):
 					except Exception as e:
 						logger.error(f'[!] {e} in {self} {client}')
 						self.clients.pop(self.clients.index(client))
-			case 'cl_playerkilled':
-				# cl_playerkilled from client, send update to others....
+			case 'cl_playerkilled': # cl_playerkilled from client, send update to others....
 				self.playerlist = data.get('playerlist')
 				logger.info(f'{msgtype} dclid: {data.get("client_id")} ') # playerlist: {self.playerlist}
 				for client in self.clients:
@@ -321,7 +317,7 @@ class Gameserver(Thread):
 	def run(self):
 		# logger.info(f'{self} starting tui')
 		# self.tui.start()
-		# logger.info(f'{self} started')
+		logger.info(f'{self} started')
 		while True:
 			if self.tui.kill: # todo fix tuiquit
 				logger.warning(f'{self} tui {self.tui} killed')

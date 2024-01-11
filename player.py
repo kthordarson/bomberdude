@@ -9,13 +9,11 @@ from loguru import logger
 from pygame.event import Event
 from pygame.math import Vector2
 from pygame.sprite import spritecollide, Sprite, Group
-from constants import BLOCK, USEREVENT, USEREVENT, PKTHEADER
+from constants import BLOCK, USEREVENT, USEREVENT, PKTHEADER, FORMAT
 from globals import gen_randid, BlockNotFoundError, RepeatedTimer
 from map import Gamemap
 from network import Sender,  send_data, Receiver
-HEADER = 64
-FORMAT = 'utf8'
-DISCONNECT_MESSAGE = 'disconnect'
+
 
 class ReceiverError(Exception):
 	pass
