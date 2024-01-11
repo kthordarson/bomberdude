@@ -1,4 +1,5 @@
 import socket
+import time
 from threading import Thread
 from queue import Queue
 import re
@@ -8,13 +9,11 @@ from loguru import logger
 from pygame.event import Event
 from pygame.math import Vector2
 from pygame.sprite import spritecollide, Sprite, Group
-from constants import BLOCK, PLAYEREVENT, NEWGRIDEVENT, PKTHEADER
+from constants import BLOCK, USEREVENT, USEREVENT, PKTHEADER, FORMAT
 from globals import gen_randid, BlockNotFoundError, RepeatedTimer
 from map import Gamemap
 from network import Sender,  send_data, Receiver
-HEADER = 64
-FORMAT = 'utf8'
-DISCONNECT_MESSAGE = 'disconnect'
+
 
 class ReceiverError(Exception):
 	pass
@@ -78,6 +77,9 @@ class NewPlayer(Thread, Sprite):
 				logger.warning(f'{self.client_id} playertimer needpos ')
 
 	def do_send(self, payload):
+		if not self.connected:
+			logger.error(f'{self} notconnected p: {payload}')
+			return
 		payload['updcntr'] = self.updcntr
 		payload['client_id'] = self.client_id
 		payload['pos'] = self.pos
@@ -97,67 +99,96 @@ class NewPlayer(Thread, Sprite):
 		self.socket.sendto(payload,(self.serveraddress, 9696))
 
 	def receiver(self):
+		if not self.connected:
+			logger.warning(f'{self} not connected')
+			# return
 		logger.debug(f'[r] rqs:{self.receiverq.qsize()} waiting for packet on socket: {self.socket}')
 		while True:
 			if self.kill:
 				logger.warning(f'{self} receiver kill')
 				break
-			try:
-				replen = self.socket.recv(PKTHEADER).decode('utf8')
-			except ConnectionAbortedError as e:
-				logger.error(f'[r] {e} {type(e)}')
+			while self.connected:
+				try:
+					replen = self.socket.recv(PKTHEADER).decode('utf8')
+				except ConnectionAbortedError as e:
+					logger.error(f'[r] {e} {type(e)}')
+					self.kill = True
+					break
+				except Exception as e:
+					logger.error(f'[r] {e} {type(e)}')
+					self.kill = True
+					raise ReceiverError(e)
+				try:
+					datalen = int(re.sub('^0+','',replen))
+				except ValueError as e:
+					logger.error(f'[r] {e} {type(e)}')
+					self.kill = True
+					# raise ReceiverError(e)
+				except Exception as e:
+					logger.error(f'[r] {e} {type(e)}')
+					self.kill = True
+					raise ReceiverError(e)
+				# logger.debug(f'[r] datalen: {datalen}')
+				try:
+					response = self.socket.recv(datalen).decode('utf8')
+				except ConnectionAbortedError as e:
+					logger.error(f'[r] {e} {type(e)}')
+					self.kill = True
+					break
+				except OSError as e:
+					logger.error(f'[r] {e} {type(e)}')
+					self.kill = True
+					break
+				except Exception as e:
+					logger.error(f'[r] {e} {type(e)}')
+					self.kill = True
+					raise ReceiverError(e)
+				try:
+					response = re.sub('^0+','', response)
+					jresp = json.loads(response)
+					# logger.debug(f'[r] {jresp.get("msgtype")} rqs:{self.receiverq.qsize()} dl: {datalen} r: {len(response)} jr:{len(jresp)}')
+					self.receiverq.put(jresp)
+				except json.decoder.JSONDecodeError as e:
+					logger.error(f'[r] {e} {type(e)} response: {response}')
+					self.gotgrid = False
+					self.gotpos = False
+					# self.kill = True
+					# raise ReceiverError(e)
+				except Exception as e:
+					logger.error(f'[r] {e} {type(e)}')
+					self.kill = True
+					raise ReceiverError(e)
+	def doconnect(self):
+		logger.info(f'doconnect ')
+		c_cnt = 0
+		while not self.connected:
+			logger.info(f'doconnect c_cnt: {c_cnt}')
+			if c_cnt >= 10:
+				logger.error(f'{self} doconnect {c_cnt}')
 				self.kill = True
 				break
-			except Exception as e:
-				logger.error(f'[r] {e} {type(e)}')
-				self.kill = True
-				raise ReceiverError(e)
 			try:
-				datalen = int(re.sub('^0+','',replen))
-			except ValueError as e:
-				logger.error(f'[r] {e} {type(e)}')
-				self.kill = True
-				raise ReceiverError(e)
-			except Exception as e:
-				logger.error(f'[r] {e} {type(e)}')
-				self.kill = True
-				raise ReceiverError(e)
-			# logger.debug(f'[r] datalen: {datalen}')
-			try:
-				response = self.socket.recv(datalen).decode('utf8')
-			except ConnectionAbortedError as e:
-				logger.error(f'[r] {e} {type(e)}')
-				self.kill = True
-				break
-			except OSError as e:
-				logger.error(f'[r] {e} {type(e)}')
-				self.kill = True
+				self.socket.connect((self.serveraddress, 9696))
+				self.connected = True
+				logger.info(f'{self} connected c_cnt: {c_cnt}')
 				break
 			except Exception as e:
-				logger.error(f'[r] {e} {type(e)}')
-				self.kill = True
-				raise ReceiverError(e)
-			try:
-				response = re.sub('^0+','', response)
-				jresp = json.loads(response)
-				# logger.debug(f'[r] {jresp.get("msgtype")} rqs:{self.receiverq.qsize()} dl: {datalen} r: {len(response)} jr:{len(jresp)}')
-				self.receiverq.put(jresp)
-			except json.decoder.JSONDecodeError as e:
-				logger.error(f'[r] {e} {type(e)} response: {response}')
-				# self.kill = True
-				# raise ReceiverError(e)
-			except Exception as e:
-				logger.error(f'[r] {e} {type(e)}')
-				self.kill = True
-				raise ReceiverError(e)
+				logger.error(f'{self} doconnect {e} {type(e)} {c_cnt}')
+				time.sleep(1)
 
 	def run(self):
-		try:
-			self.socket.connect((self.serveraddress, 9696))
-		except OSError as e:
-			raise e
+		logger.info(f'{self} run ')
+		self.doconnect()
+		# try:
+		# 	self.socket.connect((self.serveraddress, 9696))
+		# 	self.connected = True
+		# 	logger.info(f'{self} connected maxretries: {maxretries}')
+		# except Exception as e:
+		# 	logger.error(f'{e} {type(e)} {maxretries}')
+		# 	time.sleep(1)
+		# 	self.connected = False
 		self.receiver_t.start()
-		self.connected = True
+		logger.info(f'{self} receiver_t start ')
 		while not self.kill:
 			if not self.receiverq.empty():
 				jresp = self.receiverq.get()
@@ -167,7 +198,10 @@ class NewPlayer(Thread, Sprite):
 				data = self.send_queue.get()
 				self.send_queue.task_done()
 				# self.socket.sendto(data,(self.serveraddress, 9696))
-				self.do_send(data)
+				try:
+					self.do_send(data)
+				except BrokenPipeError as e:
+					logger.error(f'{self} senderror {e} data: {data}')
 				self.runcounter += 1
 				# logger.debug(f'sendqdata: {data}')
 
@@ -187,7 +221,7 @@ class NewPlayer(Thread, Sprite):
 				owngridchk = sum([sum(k) for k in self.grid])
 				newgridchk = sum([sum(k) for k in newgrid])
 				self.grid = newgrid
-				pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
+				pygame.event.post(pygame.event.Event(USEREVENT, payload={'msgtype': 'sv_gridupdate', 'grid':self.grid}))
 				if newgridchk != owngridchk: # todo
 					logger.warning(f'{msgtype} {owngridchk} {newgridchk}')
 			case 'ackplrbmb':
@@ -201,7 +235,26 @@ class NewPlayer(Thread, Sprite):
 					self.bombsleft -= 1
 				else:
 					logger.warning(f'{self} bomberclientid! {msgtype} jresp: {jresp}')
-				pygame.event.post(pygame.event.Event(PLAYEREVENT, payload={'msgtype': 'ackplrbmb', 'client_id': bomb_clid, 'clbombpos': clbombpos}))
+				pygame.event.post(pygame.event.Event(USEREVENT, payload={'msgtype': 'ackplrbmb', 'client_id': bomb_clid, 'clbombpos': clbombpos}))
+			case 'newgridresponse':
+				grid = jresp.get('grid')
+				if grid:
+					self.gotgrid = True
+					self.grid = grid
+					logger.info(f'gotgrid {self.gotgrid} {msgtype} ')
+					pygame.event.post(pygame.event.Event(USEREVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
+				else:
+					logger.warning(f'nogrid in {jresp}')
+				newpos = jresp.get('setpos')
+				if newpos:
+					self.gotpos = True
+					self.gridpos = newpos
+					self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+					self.rect.x = self.pos[0]
+					self.rect.y = self.pos[1]
+					logger.info(f'gotpos {msgtype} newpos: {newpos} {self.gridpos} {self.pos}')
+				else:
+					logger.warning(f'missing setpos from {jresp}')
 
 			case 'serveracktimer' |  'trigger_newplayer':
 				# logger.debug(f'{self} {msgtype} {jresp}')
@@ -215,7 +268,7 @@ class NewPlayer(Thread, Sprite):
 						self.gotgrid = True
 						self.grid = grid
 						logger.info(f'gotgrid {self.gotgrid} {msgtype} ')
-						pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
+						pygame.event.post(pygame.event.Event(USEREVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
 					else:
 						logger.warning(f'nogrid in {jresp}')
 				if not self.gotpos:

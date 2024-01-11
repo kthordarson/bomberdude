@@ -8,12 +8,10 @@ from threading import Thread, current_thread, Timer, active_count, _enumerate
 from queue import Queue
 from loguru import logger
 import re
-from constants import PKTHEADER
+from constants import PKTHEADER, FORMAT
 from map import generate_grid
 
-HEADER = 64
-FORMAT = 'utf8'
-DISCONNECT_MESSAGE = 'disconnect'
+
 
 class ServerSendException(Exception):
 	pass
@@ -104,10 +102,14 @@ class NewHandler(Thread):
 				self.conn.close()
 				break
 			msgdata = re.sub('^0+','', rawmsg)
-			data = json.loads(msgdata)
+			try:
+				data = json.loads(msgdata)
+			except JSONDecodeError as e:
+				logger.error(f'{e} msgdata: {msgdata}')
+				data = {'msgtype': 'JSONDecodeError', 'error': e, 'msgdatabuffer' : msgdata, 'client_id': self.client_id}
 			if not self.client_id:
 				self.client_id = data.get('client_id', None)
-				logger.info(f'{self} setclid client_id: {self.client_id} data:{data}')
+				logger.info(f'{self} setclid client_id: {self.client_id} ')
 			self.dataq.put(data)
 			if self.dataq.qsize() > 5:
 				logger.warning(f"{self} dataq: {self.dataq.qsize()}")
@@ -222,6 +224,21 @@ class Gameserver(Thread):
 			logger.error(f'[!] msgtype not found in {data}')
 		self.refresh_playerlist(data) # todo check disconnected clients
 		match msgtype:
+			case 'requestnewgrid': # client requests new grid, send to all clients
+				self.grid = generate_grid()
+				for client in self.clients:
+					newpos = get_grid_pos(self.grid)
+					msg = {'msgtype': 'newgridresponse', 'clientname': client.name, 'setpos': newpos, 'client_id': client.client_id}
+					# logger.debug(f'{self} {msgtype} from {data.get("client_id")} sendingto: {client.name} ')
+					try:
+						# self.do_send(client._args[0], client._args[1], msg)
+						self.do_send(client.conn, client.addr, msg)
+					except ServerSendException as e:
+						logger.warning(f'[!] {e} in {self} {client}')
+						self.clients.pop(self.clients.index(client))
+					except Exception as e:
+						logger.error(f'[!] {e} {type(e)} in {self} {client}\ndata: {type(data)} {data}\nmsg: {type(msg)} {msg}\n')
+						self.clients.pop(self.clients.index(client))
 			case 'playertimer' | 'ackserveracktimer' | 'cl_playermove':
 				msg = {'msgtype': 'serveracktimer'}
 				if not data.get('gotgrid'):
@@ -257,8 +274,7 @@ class Gameserver(Thread):
 					except Exception as e:
 						logger.error(f'[!] {e} in {self} {client}')
 						self.clients.pop(self.clients.index(client))
-			case 'cl_gridupdate':
-				# gridupdate from client....
+			case 'cl_gridupdate': # gridupdate from client....
 				self.grid = data.get('grid')
 				for client in self.clients:
 					msg = {'msgtype': 'sv_gridupdate', 'grid': self.grid,}
@@ -271,8 +287,7 @@ class Gameserver(Thread):
 					except Exception as e:
 						logger.error(f'[!] {e} in {self} {client}')
 						self.clients.pop(self.clients.index(client))
-			case 'cl_playerkilled':
-				# cl_playerkilled from client, send update to others....
+			case 'cl_playerkilled': # cl_playerkilled from client, send update to others....
 				self.playerlist = data.get('playerlist')
 				logger.info(f'{msgtype} dclid: {data.get("client_id")} ') # playerlist: {self.playerlist}
 				for client in self.clients:
@@ -300,8 +315,8 @@ class Gameserver(Thread):
 						self.clients.pop(self.clients.index(client))
 
 	def run(self):
-		logger.info(f'{self} starting tui')
-		self.tui.start()
+		# logger.info(f'{self} starting tui')
+		# self.tui.start()
 		logger.info(f'{self} started')
 		while True:
 			if self.tui.kill: # todo fix tuiquit
@@ -340,7 +355,7 @@ def get_grid_pos(grid):
 		try:
 			if grid[gpx][gpy] == 2:
 				validpos = True
-				logger.info(f'valid {invcntr} pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
+				# logger.info(f'valid {invcntr} pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
 				break
 		except (IndexError, ValueError, AttributeError) as e:
 			logger.error(f'Err: {e} {type(e)} gl={len(grid)} pos={pos} gpx={gpx} gpy={gpy} ')
@@ -352,6 +367,7 @@ if __name__ == '__main__':
 	connq = Queue()
 	server = Gameserver(connq, mainsocket)
 	server.start()
+	server.tui.start()
 	try:
 		mainsocket.bind(('127.0.0.1',9696))
 	except OSError as e:

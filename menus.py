@@ -24,8 +24,12 @@ class GameMenu:
 				self.menufont.fgcolor = self.selected_color
 			else:
 				self.menufont.fgcolor = self.inactive_color
-			self.menufont.render_to(self.screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
-			pos_y += 25
+			#self.menufont.render_to(self.screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
+			m = self.menufont.render(item[1], self.menufont.fgcolor)
+			mh, mw = m[1].size
+			self.screen.blit(m[0], (self.pos.x, pos_y))
+			pos_y += mw+15
+			# pos_y += 25
 
 	def get_selection(self):
 		return self.menuitems[self.selected_item]

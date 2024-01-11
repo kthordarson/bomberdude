@@ -10,7 +10,7 @@ from pygame.math import Vector2
 from pygame.sprite import Group, Sprite, spritecollide
 from pygame.event import Event
 from constants import (BLOCK, BLOCKTYPES, BOMBSIZE, DEFAULTFONT, FLAMESIZE, MAXPARTICLES, POWERUPSIZE)
-from constants import BOMBXPLODE, BLOCKTIMEOUT
+from constants import USEREVENT, USEREVENT
 
 class RepeatedTimer():
 	def __init__(self, interval, function, *args, **kwargs):
@@ -114,8 +114,8 @@ class NewBlock(Sprite):
 		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 		if self.blocktype in [40,44]:
 			if pygame.time.get_ticks() - self.start_time >= self.blocktimer:
-				logger.debug(f'timeoutkill tchk:{pygame.time.get_ticks() - self.start_time >= self.blocktimer} start {self.start_time} {self.blocktimer} ticks: {pygame.time.get_ticks()}')
-				pygame.event.post(Event(BLOCKTIMEOUT, payload={'msgtype': 'blktimeout', 'gridpos': self.gridpos,'pos': self.pos,}))
+				# logger.debug(f'timeoutkill tchk:{pygame.time.get_ticks() - self.start_time >= self.blocktimer} start {self.start_time} {self.blocktimer} ticks: {pygame.time.get_ticks()}')
+				pygame.event.post(Event(USEREVENT, payload={'msgtype': 'blktimeout', 'gridpos': self.gridpos,'pos': self.pos,}))
 				self.kill()
 
 
@@ -140,7 +140,7 @@ class NewBomb(Sprite):
 		# logger.info(f'{self}')
 		if pygame.time.get_ticks() - self.start_time >= self.bombtimer:
 			# logger.debug(f'{self} xplode')
-			pygame.event.post(Event(BOMBXPLODE, payload={'msgtype': 'bombxplode', 'gridpos': self.gridpos, 'bomberid': self.bomberid}))
+			pygame.event.post(Event(USEREVENT, payload={'msgtype': 'bombxplode', 'gridpos': self.gridpos, 'bomberid': self.bomberid}))
 			self.kill()
 
 class NewFlame(Sprite):
@@ -204,6 +204,6 @@ class Particle(Sprite): # todo fix initial position
 		self.fill_col[2] -= 1
 		self.image.fill(self.fill_col)
 		if pygame.time.get_ticks() - self.start_time >= self.ptimer:
-			logger.info(f'{self} timeoutkill')
+			# logger.info(f'{self} timeoutkill')
 			self.kill()
 
