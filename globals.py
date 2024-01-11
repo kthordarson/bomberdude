@@ -114,7 +114,7 @@ class NewBlock(Sprite):
 		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 		if self.blocktype in [40,44]:
 			if pygame.time.get_ticks() - self.start_time >= self.blocktimer:
-				logger.debug(f'timeoutkill tchk:{pygame.time.get_ticks() - self.start_time >= self.blocktimer} start {self.start_time} {self.blocktimer} ticks: {pygame.time.get_ticks()}')
+				# logger.debug(f'timeoutkill tchk:{pygame.time.get_ticks() - self.start_time >= self.blocktimer} start {self.start_time} {self.blocktimer} ticks: {pygame.time.get_ticks()}')
 				pygame.event.post(Event(BLOCKTIMEOUT, payload={'msgtype': 'blktimeout', 'gridpos': self.gridpos,'pos': self.pos,}))
 				self.kill()
 
@@ -204,6 +204,6 @@ class Particle(Sprite): # todo fix initial position
 		self.fill_col[2] -= 1
 		self.image.fill(self.fill_col)
 		if pygame.time.get_ticks() - self.start_time >= self.ptimer:
-			logger.info(f'{self} timeoutkill')
+			# logger.info(f'{self} timeoutkill')
 			self.kill()
 

@@ -353,9 +353,12 @@ class Game(Thread):
 					pygame.event.post(Event(pygame.QUIT))
 		elif keypressed == pygame.K_F1:
 			# toggle debug
-			logger.debug(f'toggledebug {self.debugmode}')
 			self.debugmode = not self.debugmode
-			logger.debug(f'toggledebug {self.debugmode}')
+			logger.debug(f'toggledebug')
+		elif keypressed == pygame.K_F2:
+			# send newgrid request
+			logger.debug(f'requestnewgrid')
+			self.player.do_send({'msgtype': 'requestnewgrid'})
 		elif keypressed == pygame.K_ESCAPE:
 			# escape show/hide menu
 			logger.debug(f'K_ESCAPE item: {self.game_menu.active_item} show: {self.show_mainmenu}')

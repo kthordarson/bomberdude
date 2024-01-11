@@ -202,6 +202,15 @@ class NewPlayer(Thread, Sprite):
 				else:
 					logger.warning(f'{self} bomberclientid! {msgtype} jresp: {jresp}')
 				pygame.event.post(pygame.event.Event(PLAYEREVENT, payload={'msgtype': 'ackplrbmb', 'client_id': bomb_clid, 'clbombpos': clbombpos}))
+			case 'newgridresponse':
+				grid = jresp.get('grid')
+				if grid:
+					self.gotgrid = True
+					self.grid = grid
+					logger.info(f'gotgrid {self.gotgrid} {msgtype} ')
+					pygame.event.post(pygame.event.Event(NEWGRIDEVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
+				else:
+					logger.warning(f'nogrid in {jresp}')
 
 			case 'serveracktimer' |  'trigger_newplayer':
 				# logger.debug(f'{self} {msgtype} {jresp}')

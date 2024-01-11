@@ -107,7 +107,7 @@ class NewHandler(Thread):
 			data = json.loads(msgdata)
 			if not self.client_id:
 				self.client_id = data.get('client_id', None)
-				logger.info(f'{self} setclid client_id: {self.client_id} data:{data}')
+				logger.info(f'{self} setclid client_id: {self.client_id} ')
 			self.dataq.put(data)
 			if self.dataq.qsize() > 5:
 				logger.warning(f"{self} dataq: {self.dataq.qsize()}")
@@ -222,6 +222,21 @@ class Gameserver(Thread):
 			logger.error(f'[!] msgtype not found in {data}')
 		self.refresh_playerlist(data) # todo check disconnected clients
 		match msgtype:
+			case 'requestnewgrid':
+				self.grid = generate_grid()
+				msg = {'msgtype': 'newgridresponse'}
+				for client in self.clients:
+					msg['clientname'] = client.name
+					# logger.debug(f'{self} {msgtype} from {data.get("client_id")} sendingto: {client.name} ')
+					try:
+						# self.do_send(client._args[0], client._args[1], msg)
+						self.do_send(client.conn, client.addr, msg)
+					except ServerSendException as e:
+						logger.warning(f'[!] {e} in {self} {client}')
+						self.clients.pop(self.clients.index(client))
+					except Exception as e:
+						logger.error(f'[!] {e} {type(e)} in {self} {client}\ndata: {type(data)} {data}\nmsg: {type(msg)} {msg}\n')
+						self.clients.pop(self.clients.index(client))
 			case 'playertimer' | 'ackserveracktimer' | 'cl_playermove':
 				msg = {'msgtype': 'serveracktimer'}
 				if not data.get('gotgrid'):
