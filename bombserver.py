@@ -1,10 +1,12 @@
 #!/usr/bin/python
+import time
 import os
 import random
 import socket
 import sys
 import json
 from argparse import ArgumentParser
+import threading
 from threading import Thread, current_thread, Timer, active_count, _enumerate
 from queue import Queue
 from loguru import logger
@@ -27,10 +29,10 @@ class ServerTUI(Thread):
 	def __init__(self, server):
 		Thread.__init__(self, daemon=True, name='tui')
 		self.server = server
-		self.kill = False
+		self.killed = False
 
 	def __repr__(self):
-		return f'ServerTUI (k:{self.kill} server: {self.server})'
+		return f'ServerTUI (k:{self.killed} server: {self.server})'
 
 	def get_serverinfo(self):
 		logger.info(f'playerlist={len(self.server.playerlist)} t:{active_count()}')
@@ -44,7 +46,7 @@ class ServerTUI(Thread):
 
 	def run(self):
 		while True:
-			if self.kill:
+			if self.killed:
 				break
 			try:
 				cmd = input(':> ')
@@ -53,16 +55,16 @@ class ServerTUI(Thread):
 				if cmd[:1] == 'p':
 					self.dump_playerlist()
 				elif cmd[:1] == 'q':
-					self.kill = True
-					self.server.kill = True
+					self.killed = True
+					self.server.killed = True
 					logger.warning(f'{self} {self.server} tuikilled')
 					# raise TuiException('tui killed')
 					break
 				else:
 					logger.info(f'[S] cmds: s serverinfo, p playerlist, q quit')
 			except KeyboardInterrupt:
-				self.kill = True
-				self.server.kill = True
+				self.killed = True
+				self.server.killed = True
 				break
 
 
@@ -116,10 +118,11 @@ class NewHandler(Thread):
 				logger.warning(f"{self} dataq: {self.dataq.qsize()}")
 
 class Gameserver(Thread):
-	def __init__(self, connq, mainsocket):
+	def __init__(self, connq, mainsocket, lock):
 		Thread.__init__(self,  daemon=True, name='gameserverthread')
+		self.lock = lock
 		self.mainsocket = mainsocket
-		self.kill = False
+		self.killed = False
 		self.clients = []
 		self.connq = connq
 		self.dataq = Queue()
@@ -312,13 +315,13 @@ class Gameserver(Thread):
 		# self.tui.start()
 		logger.info(f'{self} started')
 		while True:
-			if self.tui.kill: # todo fix tuiquit
+			if self.tui.killed: # todo fix tuiquit
 				logger.warning(f'{self} tui {self.tui} killed')
-				self.kill = True
+				self.killed = True
 				# self.mainsocket.close()
 				break
 				# sys.exit(1)
-			if self.kill:
+			if self.killed:
 				logger.warning(f'{self} killed')
 				break
 			try:
@@ -352,7 +355,65 @@ def get_grid_pos(grid):
 				return (gpx, gpy)
 		except (IndexError, ValueError, AttributeError) as e:
 			logger.error(f'Err: {e} {type(e)} gl={len(grid)} gpx={gpx} gpy={gpy} ')
-	
+
+def bind_thread(server):
+	pass
+
+class BindThread(Thread):
+	def __init__(self, server, lock):
+		Thread.__init__(self, daemon=True, name='bindthread')
+		self.lock = lock
+		self.server = server
+		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self._stop = threading.Event()
+
+	def stop(self):
+		self._stop.set()
+
+	def stopped(self):
+		return self._stop.is_set()
+
+
+	def run(self):
+		try:
+			self.socket.bind((args.listen,args.port))
+		except OSError as e:
+			logger.error(e)
+			sys.exit(1)
+		except Exception as e:
+			logger.error(e)
+			sys.exit(1)
+		conncounter = 0
+		while True:
+			self.socket.listen()
+			try:
+				conn, addr = self.socket.accept()
+			except KeyboardInterrupt as e:
+				logger.warning(f'{e}')
+				break
+			except Exception as e:
+				logger.warning(f'{e} {type(e)}')
+				break
+			thread = NewHandler(conn,addr, self.server.dataq, name=f'clthrd{conncounter}')
+			self.server.clients.append(thread)
+			thread.start()
+			conncounter += 1
+			logger.info(f'{self.server} started {thread} {conncounter}')
+			self.server.trigger_newplayer()
+
+def locker_thread(lock):
+    logger.debug('locker_thread Starting')
+    while True:
+        lock.acquire()
+        try:
+            # logger.debug('locker_thread Locking')
+            time.sleep(0.1)
+        finally:
+            # logger.debug('locker_thread Not locking')
+            lock.release()
+        time.sleep(0.1)
+    return
 
 if __name__ == '__main__':
 	parser = ArgumentParser(description='server')
@@ -362,29 +423,50 @@ if __name__ == '__main__':
 
 	mainsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	mainsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+	threads = []
 	connq = Queue()
-	server = Gameserver(connq, mainsocket)
-	server.start()
-	server.tui.start()
-	try:
-		mainsocket.bind((args.listen,args.port))
-	except OSError as e:
-		logger.error(e)
-		sys.exit(1)
-	conncounter = 0
-	while True:
-		mainsocket.listen()
-		try:
-			conn, addr = mainsocket.accept()
-		except KeyboardInterrupt as e:
-			logger.warning(f'{e}')
-			break
-		except Exception as e:
-			logger.warning(f'{e} {type(e)}')
-			break
-		thread = NewHandler(conn,addr, server.dataq, name=f'clthrd{conncounter}')
-		server.clients.append(thread)
-		thread.start()
-		conncounter += 1
-		logger.info(f'{server} started {thread} {conncounter}')
-		server.trigger_newplayer()
+
+	lock = threading.Lock()
+	lt = Thread(target=locker_thread, args=(lock,), daemon=True)
+	threads.append(lt)
+
+	gt = Gameserver(connq, mainsocket, lock)
+	tui = ServerTUI(server=gt)
+	threads.append(tui)
+	# tui.run()
+	threads.append(gt)
+	bt = BindThread(gt, lock)
+	threads.append(bt)
+	for t in threads:
+		logger.info(f'starting {t}')
+		t.start()
+	killserver = False
+	while not killserver:
+		for t in threads:
+			if not t.is_alive():
+				logger.warning(f'{t} killed')
+				killserver = True
+				break
+	# try:
+	# 	mainsocket.bind((args.listen,args.port))
+	# except OSError as e:
+	# 	logger.error(e)
+	# 	sys.exit(1)
+	# conncounter = 0
+	# while True:
+	# 	mainsocket.listen()
+	# 	try:
+	# 		conn, addr = mainsocket.accept()
+	# 	except KeyboardInterrupt as e:
+	# 		logger.warning(f'{e}')
+	# 		break
+	# 	except Exception as e:
+	# 		logger.warning(f'{e} {type(e)}')
+	# 		break
+	# 	thread = NewHandler(conn,addr, server.dataq, name=f'clthrd{conncounter}')
+	# 	server.clients.append(thread)
+	# 	thread.start()
+	# 	conncounter += 1
+	# 	logger.info(f'{server} started {thread} {conncounter}')
+	# 	server.trigger_newplayer()

@@ -1,6 +1,7 @@
 import socket
 import time
 from threading import Thread
+from threading import Event as TEvent
 from queue import Queue
 import re
 import json
@@ -22,13 +23,14 @@ class NewPlayer(Thread, Sprite):
 	def __init__(self, image, serveraddress=None, testmode=False, rh=None):
 		Thread.__init__(self, daemon=True, name='NewPlayerThread')
 		Sprite.__init__(self)
+		self._stop = TEvent()
 		self.rh = rh
 		self.gridpos = None # (0,0) #gridpos
 		self.pos = None # (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
 		self.image = image
 		self.rect = self.image.get_rect()
 		self.client_id = f'np:{gen_randid()}'
-		self.kill = False
+		self.killed = False
 		self.connected = False
 		self.serveraddress = serveraddress
 		self.receiver_t = Thread(target=self.receiver, daemon=True)
@@ -49,7 +51,7 @@ class NewPlayer(Thread, Sprite):
 		self.cl_needgridcounter = 0
 		self.bombsleft = 3
 		self.health = 100
-		self.updatetimer = RepeatedTimer(interval=1, function=self.playertimer)
+		# self.updatetimer = RepeatedTimer(interval=1, function=self.playertimer)
 		self.updcntr = 0
 		self.score = 0
 		# self.rect.x = self.pos[0]
@@ -58,6 +60,12 @@ class NewPlayer(Thread, Sprite):
 
 	def __repr__(self) -> str:
 		return f'NewPlayer ({self.client_id} pos:{self.pos} b:{self.bombsleft} h:{self.health} upc: {self.updcntr} sq:{self.send_queue.qsize()} s:{self.sendcounter} r:{self.recvcounter} pl:{len(self.playerlist)}'
+
+	def stop(self):
+		self._stop.set()
+
+	def stopped(self):
+		return self._stop.is_set()
 
 	def do_testing(self):
 		pass
@@ -104,66 +112,65 @@ class NewPlayer(Thread, Sprite):
 			logger.warning(f'{self} not connected')
 			# return
 		logger.debug(f'[r] rqs:{self.receiverq.qsize()} waiting for packet on socket: {self.socket}')
-		while True:
-			if self.kill:
-				logger.warning(f'{self} receiver kill')
+		while self.connected:
+			try:
+				replen = self.socket.recv(PKTHEADER).decode('utf8')
+			except ConnectionAbortedError as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.killed = True
 				break
-			while self.connected:
-				try:
-					replen = self.socket.recv(PKTHEADER).decode('utf8')
-				except ConnectionAbortedError as e:
-					logger.error(f'[r] {e} {type(e)}')
-					self.kill = True
-					break
-				except OSError as e:
-					logger.error(f'[r] {e} {type(e)}')
-					self.kill = True
-					break
-				except Exception as e:
-					logger.error(f'[r] {e} {type(e)}')
-					self.kill = True
-					#break
-					raise ReceiverError(e)
-				try:
-					datalen = int(re.sub('^0+','',replen))
-				except ValueError as e:
-					logger.error(f'[r] {e} {type(e)}')
-					self.kill = True
-					# raise ReceiverError(e)
-				except Exception as e:
-					logger.error(f'[r] {e} {type(e)}')
-					self.kill = True
-					raise ReceiverError(e)
-				# logger.debug(f'[r] datalen: {datalen}')
-				try:
-					response = self.socket.recv(datalen).decode('utf8')
-				except ConnectionAbortedError as e:
-					logger.error(f'[r] {e} {type(e)}')
-					self.kill = True
-					break
-				except OSError as e:
-					logger.error(f'[r] {e} {type(e)}')
-					self.kill = True
-					break
-				except Exception as e:
-					logger.error(f'[r] {e} {type(e)}')
-					self.kill = True
-					raise ReceiverError(e)
-				try:
-					response = re.sub('^0+','', response)
-					jresp = json.loads(response)
-					# logger.debug(f'[r] {jresp.get("msgtype")} rqs:{self.receiverq.qsize()} dl: {datalen} r: {len(response)} jr:{len(jresp)}')
-					self.receiverq.put(jresp)
-				except json.decoder.JSONDecodeError as e:
-					logger.error(f'[r] {e} {type(e)} response: {response}')
-					self.gotgrid = False
-					self.gotpos = False
-					# self.kill = True
-					# raise ReceiverError(e)
-				except Exception as e:
-					logger.error(f'[r] {e} {type(e)}')
-					self.kill = True
-					raise ReceiverError(e)
+			except OSError as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.killed = True
+				break
+			except Exception as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.killed = True
+				#break
+				raise ReceiverError(e)
+			try:
+				datalen = int(re.sub('^0+','',replen))
+			except ValueError as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.killed = True
+				self.connected = False
+				break
+				# raise ReceiverError(e)
+			except Exception as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.killed = True
+				raise ReceiverError(e)
+			# logger.debug(f'[r] datalen: {datalen}')
+			try:
+				response = self.socket.recv(datalen).decode('utf8')
+			except ConnectionAbortedError as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.killed = True
+				break
+			except OSError as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.killed = True
+				break
+			except Exception as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.killed = True
+				raise ReceiverError(e)
+			try:
+				response = re.sub('^0+','', response)
+				jresp = json.loads(response)
+				# logger.debug(f'[r] {jresp.get("msgtype")} rqs:{self.receiverq.qsize()} dl: {datalen} r: {len(response)} jr:{len(jresp)}')
+				self.receiverq.put(jresp)
+			except json.decoder.JSONDecodeError as e:
+				logger.error(f'[r] {e} {type(e)} response: {response}')
+				self.gotgrid = False
+				self.gotpos = False
+				# self.killed = True
+				# raise ReceiverError(e)
+			except Exception as e:
+				logger.error(f'[r] {e} {type(e)}')
+				self.killed = True
+				raise ReceiverError(e)
+
 	def doconnect(self):
 		logger.info(f'doconnect ')
 		c_cnt = 0
@@ -171,7 +178,7 @@ class NewPlayer(Thread, Sprite):
 			logger.info(f'doconnect c_cnt: {c_cnt}')
 			if c_cnt >= 10:
 				logger.error(f'{self} doconnect {c_cnt}')
-				self.kill = True
+				self.killed = True
 				break
 			try:
 				self.socket.connect(self.serveraddress)
@@ -195,7 +202,11 @@ class NewPlayer(Thread, Sprite):
 		# 	self.connected = False
 		self.receiver_t.start()
 		logger.info(f'{self} receiver_t start ')
-		while not self.kill:
+		while True:
+			if self.stopped():
+				logger.info(f'{self} stopped')
+				self.killed = True
+				break
 			if not self.receiverq.empty():
 				jresp = self.receiverq.get()
 				self.receiverq.task_done()

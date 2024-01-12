@@ -4,7 +4,9 @@ import os
 import sys
 import random
 from argparse import ArgumentParser
+import threading
 from threading import Thread
+from threading import Event as TEvent
 import socket
 from queue import Queue
 import pygame
@@ -23,8 +25,9 @@ FPS = 60
 class Game(Thread):
 	def __init__ (self, args=None):
 		Thread.__init__(self, name='game')
+		self._stop = TEvent()
 		self.args = args
-		self.kill = False
+		self.killed = False
 		self.running = False
 		pygame.display.set_mode(size=(GRIDSIZE*BLOCK,GRIDSIZE*BLOCK), flags=pygame.DOUBLEBUF, vsync=1)
 		self.screen = pygame.display.get_surface()
@@ -50,6 +53,12 @@ class Game(Thread):
 
 	def __repr__(self):
 		return f'bdude ( p:{self.player} pl:{len(self.player.playerlist)} )'
+
+	def stop(self):
+		self._stop.set()
+
+	def stopped(self):
+		return self._stop.is_set()
 
 	def create_blocks_from_grid(self):
 		#draws the grid
@@ -240,6 +249,9 @@ class Game(Thread):
 
 	def run(self):
 		while True:
+			if self.stopped():
+				logger.debug(f'{self} stopped')
+				return
 			self.clock.tick(FPS)
 			pygame.display.update()
 			# self.sprites.update()
@@ -254,11 +266,6 @@ class Game(Thread):
 			else:
 				self.draw()
 				self.check_coll()
-			if self.kill:
-				logger.warning(f'{self} gamerun kill')
-				self.player.kill = True
-				self.player.socket.close()
-				break
 			events_ = pygame.event.get()
 			for event in events_:
 				# USEREVENT
@@ -276,9 +283,16 @@ class Game(Thread):
 					case pygame.MOUSEBUTTONDOWN:
 						self.handle_mouse_event(event)
 					case pygame.QUIT:
+						self.stop()
+						self.player.stop()
+						self.player.receiver_t.kill = True
+						self.running = False
+						self.killed = True
 						self.player.kill = True
-						self.kill = True
+						self.player.connected = False
+						self.killed = True
 						logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
+						return
 
 	def draw_game_info(self):
 		surf, rect1 = self.font.render(f'h: {self.player.health} bombs: {self.player.bombsleft} score: {self.player.score}', (255,255,255))
@@ -448,15 +462,17 @@ def main(args):
 	game.daemon = True
 	game.running = True
 	game.run()
-	while game.running:
-		if game.kill:
-			game.running = False
-			game.player.kill = True
-			game.player.socket.close()
-			pygame.quit()
-			logger.debug(f'main kill {game} ')
-			os._exit(0)
-			break
+	logger.info(f'g:{game} killed')
+	for t in threading.enumerate():
+		try:
+			logger.debug(f'killing {t}')
+			t.join(timeout=0)
+		except RuntimeError as e:
+			logger.error(f'{t} error: {e} {type(e)}')
+	logger.debug(f'threadskilled')
+	game.stop()
+	pygame.quit()
+	logger.debug(f'gamestop')
 
 
 def run_testclient(args):
@@ -476,4 +492,5 @@ if __name__ == "__main__":
 		run_testclient(args)
 	else:
 		main(args)
+	pygame.quit()
 
