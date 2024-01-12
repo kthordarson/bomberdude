@@ -305,6 +305,8 @@ class Game(Thread):
 				logger.error(e)
 		self.upgradeblocks.draw(self.screen)
 		if self.debugmode:
+			blktxt = self.font.render(f'blks: {len(self.blocks)}', (55,155,55))
+			self.screen.blit(blktxt[0], (133, 33))
 			for b in self.blocks:
 				blktxt = self.debugfont.render(f'{self.player.grid[b.gridpos[0]][b.gridpos[1]]}', (55,155,55))
 				self.screen.blit(blktxt[0], (b.rect.x+5, b.rect.y+3))
