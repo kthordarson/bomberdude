@@ -19,7 +19,7 @@ class ReceiverError(Exception):
 	pass
 
 class NewPlayer(Thread, Sprite):
-	def __init__(self, image, serveraddress='127.0.0.1', testmode=False, rh=None):
+	def __init__(self, image, serveraddress=None, testmode=False, rh=None):
 		Thread.__init__(self, daemon=True, name='NewPlayerThread')
 		Sprite.__init__(self)
 		self.rh = rh
@@ -92,11 +92,12 @@ class NewPlayer(Thread, Sprite):
 		self.lastpktid = gen_randid()
 		payload['c_pktid'] = self.lastpktid
 		payload['score'] = self.score
+		payload['connected'] = self.connected
 		payload = json.dumps(payload).encode('utf8')
 		msglen = str(len(payload)).encode('utf8').zfill(PKTHEADER)
-		self.socket.sendto(msglen,(self.serveraddress, 9696))
+		self.socket.sendto(msglen,self.serveraddress)
 		# logger.debug(f'playerdosendpayload {outmsgtype} lenx:{msglenx} {len(payload)} c_pktid: {self.lastpktid}')
-		self.socket.sendto(payload,(self.serveraddress, 9696))
+		self.socket.sendto(payload,self.serveraddress)
 
 	def receiver(self):
 		if not self.connected:
@@ -114,9 +115,14 @@ class NewPlayer(Thread, Sprite):
 					logger.error(f'[r] {e} {type(e)}')
 					self.kill = True
 					break
+				except OSError as e:
+					logger.error(f'[r] {e} {type(e)}')
+					self.kill = True
+					break
 				except Exception as e:
 					logger.error(f'[r] {e} {type(e)}')
 					self.kill = True
+					#break
 					raise ReceiverError(e)
 				try:
 					datalen = int(re.sub('^0+','',replen))
@@ -168,7 +174,7 @@ class NewPlayer(Thread, Sprite):
 				self.kill = True
 				break
 			try:
-				self.socket.connect((self.serveraddress, 9696))
+				self.socket.connect(self.serveraddress)
 				self.connected = True
 				logger.info(f'{self} connected c_cnt: {c_cnt}')
 				break
@@ -180,7 +186,7 @@ class NewPlayer(Thread, Sprite):
 		logger.info(f'{self} run ')
 		self.doconnect()
 		# try:
-		# 	self.socket.connect((self.serveraddress, 9696))
+		# 	self.socket.connect(self.serveraddress)
 		# 	self.connected = True
 		# 	logger.info(f'{self} connected maxretries: {maxretries}')
 		# except Exception as e:
@@ -197,7 +203,7 @@ class NewPlayer(Thread, Sprite):
 			if not self.send_queue.empty():
 				data = self.send_queue.get()
 				self.send_queue.task_done()
-				# self.socket.sendto(data,(self.serveraddress, 9696))
+				# self.socket.sendto(data,self.serveraddress)
 				try:
 					self.do_send(data)
 				except BrokenPipeError as e:
@@ -298,6 +304,9 @@ class NewPlayer(Thread, Sprite):
 		screen.blit(self.image, self.rect)
 		for player in self.playerlist:
 			plconn = self.playerlist.get(player).get('connected')
+			if not plconn:
+				logger.warning(f'player: {player} plconn: {plconn} \nplayerlist: {self.playerlist}')
+				break
 			if player == 'null':
 				logger.warning(f'player: {player} plconn: {plconn} \nplayerlist: {self.playerlist}')
 				# break
@@ -308,7 +317,7 @@ class NewPlayer(Thread, Sprite):
 				# gridpos = (pos[0] * BLOCK, pos[1] * BLOCK)
 				if not pos:
 					logger.warning(f'player: {player} plconn: {plconn}  playerlist: {self.playerlist}')
-					break
+					# qbreak
 				if pos:
 					if self.client_id != plid:
 						npimg = self.rh.get_image('data/netplayer.png')

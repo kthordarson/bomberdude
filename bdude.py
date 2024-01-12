@@ -20,8 +20,9 @@ from bombserver import Gameserver, NewHandler
 FPS = 60
 
 class Game(Thread):
-	def __init__ (self, debugmode=False):
+	def __init__ (self, args=None):
 		Thread.__init__(self, name='game')
+		self.args = args
 		self.kill = False
 		self.running = False
 		pygame.display.set_mode(size=(GRIDSIZE*BLOCK,GRIDSIZE*BLOCK), flags=pygame.DOUBLEBUF, vsync=1)
@@ -32,7 +33,7 @@ class Game(Thread):
 		self.clock = pygame.time.Clock()
 		self.game_started = False
 		self.rh = ResourceHandler()
-		self.player = NewPlayer(image=self.rh.get_image('data/playerone.png'), rh=self.rh)
+		self.player = NewPlayer(image=self.rh.get_image('data/playerone.png'), rh=self.rh, serveraddress=(self.args.server, self.args.port))
 		self.bombs = Group()
 		self.flames = Group()
 		self.particles = Group()
@@ -44,7 +45,7 @@ class Game(Thread):
 		# self.sprites.add(self.blocks)
 		self.debugfont = pygame.freetype.Font(DEFAULTFONT, 8)
 		self.font = pygame.freetype.Font(DEFAULTFONT, 22)
-		self.debugmode = debugmode
+		self.debugmode = self.args.debug
 
 	def __repr__(self):
 		return f'bdude ( p:{self.player} pl:{len(self.player.playerlist)} )'
@@ -76,17 +77,17 @@ class Game(Thread):
 			case 'connect_to_server':
 				self.connect_to_server()
 			case 'blktimeout':
-				# logger.debug(f'{msgtype} {payload}')
-				gridpos = payload.get('gridpos')
-				pos = payload.get('pos')
-				x = gridpos[0]
-				y = gridpos[1]
-				fgpos = (pos[0] // BLOCK, pos[1] // BLOCK)
-				self.player.grid[x][y] = 2
-				image = self.rh.get_image(f'data/blocksprite2.png')
-				self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
-				payload = {'msgtype' : 'cl_gridupdate', 'gridpos': gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
-				self.player.send_queue.put(payload)
+				logger.debug(f'{msgtype} {payload}')
+				# gridpos = payload.get('gridpos')
+				# pos = payload.get('pos')
+				# x = gridpos[0]
+				# y = gridpos[1]
+				# fgpos = (pos[0] // BLOCK, pos[1] // BLOCK)
+				# self.player.grid[x][y] = 2
+				# image = self.rh.get_image(f'data/blocksprite2.png')
+				# self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
+				# payload = {'msgtype' : 'cl_gridupdate', 'gridpos': gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
+				# self.player.send_queue.put(payload)
 				# block.kill()
 			case 'bombxplode':
 				# create flames from bomb
@@ -133,34 +134,39 @@ class Game(Thread):
 		# blocks = Group([k for k in self.sprites if isinstance(k, NewBlock)])
 		for p in self.particles:
 			colls = spritecollide(p, self.blocks, dokill=False)
-			[p.kill() for c in colls if c.blocktype != 2]
+			for c in colls:
+				if c.blocktype != 2:
+					p.vel[0] = - p.vel[0]
+					p.vel[1] = - p.vel[1]
+			# [p.kill() for c in colls if c.blocktype != 2]
 		for block in self.upgradeblocks: # check block collisions with player
-			if block.blocktype == 40:
-				if collide_rect(block, self.player):
-					self.player.bombsleft += 1
-					logger.info(f'extrabomb t:{block.blocktype} player: {self.player}')
-					x = block.gridpos[0]
-					y = block.gridpos[1]
-					fgpos = (block.pos[0] // BLOCK, block.pos[1] // BLOCK)
-					self.player.grid[x][y] = 2
-					image = self.rh.get_image(f'data/blocksprite2.png')
-					self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
-					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': block.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
-					self.player.send_queue.put(payload)
-					block.kill()
-			if block.blocktype == 44:
-				if collide_rect(block, self.player):
-					self.player.health += 1
-					logger.info(f'healthup t:{block.blocktype} player: {self.player}')
-					x = block.gridpos[0]
-					y = block.gridpos[1]
-					fgpos = (block.pos[0] // BLOCK, block.pos[1] // BLOCK)
-					self.player.grid[x][y] = 2
-					image = self.rh.get_image(f'data/blocksprite2.png')
-					self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
-					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': block.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
-					self.player.send_queue.put(payload)
-					block.kill()
+			match block.blocktype:
+				case 40:
+					if collide_rect(block, self.player):
+						self.player.bombsleft += 1
+						logger.info(f'extrabomb t:{block.blocktype} player: {self.player}')
+						# x = block.gridpos[0]
+						# y = block.gridpos[1]
+						# fgpos = (block.pos[0] // BLOCK, block.pos[1] // BLOCK)
+						# self.player.grid[x][y] = 2
+						# image = self.rh.get_image(f'data/blocksprite2.png')
+						# self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
+						# payload = {'msgtype' : 'cl_gridupdate', 'gridpos': block.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
+						# self.player.send_queue.put(payload)
+						block.kill()
+				case 44:
+					if collide_rect(block, self.player):
+						self.player.health += 1
+						logger.info(f'healthup t:{block.blocktype} player: {self.player}')
+						# x = block.gridpos[0]
+						# y = block.gridpos[1]
+						# fgpos = (block.pos[0] // BLOCK, block.pos[1] // BLOCK)
+						# self.player.grid[x][y] = 2
+						# image = self.rh.get_image(f'data/blocksprite2.png')
+						# self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
+						# payload = {'msgtype' : 'cl_gridupdate', 'gridpos': block.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
+						# self.player.send_queue.put(payload)
+						block.kill()
 		for f in self.flames: # check flame collisions with player
 			if collide_rect(f, self.player):
 				self.player.health -= f.damage
@@ -184,53 +190,51 @@ class Game(Thread):
 			colls = spritecollide(f, self.blocks, dokill=False)
 			for c in colls:
 				fgpos = (f.pos[0] // BLOCK, f.pos[1] // BLOCK)
-				if c.blocktype == 1: # edge solid unkillable
-					# newvel = [k * -1 for k in f.vel]
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(7)]
+				if c.blocktype != 2:
+					particles = [Particle(gridpos=fgpos, vel=[random.uniform(-1.5,1.5),random.uniform(-1.5,1.5)] )for k in range(15)]
 					self.particles.add(particles)
-					f.kill()
-				if c.blocktype == 2: # backgroundblock
-					pass
-				if c.blocktype == 3: # solid killables and upgradeblocks
-					x = c.gridpos[0]
-					y = c.gridpos[1]
-					# self.player.grid[y][x] = 2
-					self.player.grid[x][y] = 2
-					image = self.rh.get_image(f'data/blocksprite2.png')
-					self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
-					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
-					self.player.send_queue.put(payload)
-					# logger.info(f'c {c} kill\npayload: {payload}')
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-2.5,2.5),random.uniform(-2.5,2.5)) )for k in range(15)]
-					self.particles.add(particles)
-					c.kill()
-					f.kill()
-				if c.blocktype == 4: # solid killable creates upgradeblock type 40/44
-					# todo make server decide on upgrades....
-					x = c.gridpos[0]
-					y = c.gridpos[1]
-					self.player.grid[x][y] = 2
-					upgrade_type = random.choice([40,44])
-					# self.player.grid[x][y] = upgrade_type
-					if upgrade_type == 40:
-						image = self.rh.get_image(f'data/newbomb.png')
-					if upgrade_type == 44:
-						image = self.rh.get_image(f'data/heart.png')
-					# image = self.rh.get_image(f'data/blocksprite2.png')
-					self.upgradeblocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=upgrade_type)) # type 44 = heart
-					payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':upgrade_type, 'client_id': self.player.client_id, 'grid' :self.player.grid }
-					self.player.send_queue.put(payload)
-					# logger.info(f'c {c} kill\npayload: {payload}')
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-1.5,1.5),random.uniform(-1.5,1.5)) )for k in range(15)]
-					self.particles.add(particles)
-					c.kill()
-					f.kill()
-				if c.blocktype == 5: # solid unkillable
-					# newvel = [k * -1 for k in f.vel]
-					# particles = [Particle(gridpos=fpos) for k in range(3)]
-					particles = [Particle(gridpos=fgpos, vel=(random.uniform(-0.5,0.5),random.uniform(-0.5,0.5)) )for k in range(15)]
-					self.particles.add(particles)
-					f.kill()
+				match c.blocktype:
+					case 1: # edge solid unkillable
+						# newvel = [k * -1 for k in f.vel]
+						f.kill()
+					case 2: # backgroundblock
+						pass
+					case 3: # solid killables and upgradeblocks
+						x = c.gridpos[0]
+						y = c.gridpos[1]
+						# self.player.grid[y][x] = 2
+						self.player.grid[x][y] = 2 # background
+						image = self.rh.get_image(f'data/blocksprite2.png')
+						self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
+						payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
+						self.player.send_queue.put(payload)
+						# logger.info(f'c {c} kill\npayload: {payload}')
+						c.kill()
+						f.kill()
+					case 4: # solid killable creates upgradeblock type 40/44
+						# todo make server decide on upgrades....
+						x = c.gridpos[0]
+						y = c.gridpos[1]
+						self.player.grid[x][y] = 2 # background
+						upgrade_type = random.choice([40,44])
+						# self.player.grid[x][y] = upgrade_type
+						if upgrade_type == 40:
+							image = self.rh.get_image(f'data/newbomb.png')
+						if upgrade_type == 44:
+							image = self.rh.get_image(f'data/heart.png')
+						# image = self.rh.get_image(f'data/blocksprite2.png')
+						self.upgradeblocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=upgrade_type)) # type 44 = heart
+						payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':upgrade_type, 'client_id': self.player.client_id, 'grid' :self.player.grid }
+						self.player.send_queue.put(payload)
+						# logger.info(f'c {c} kill\npayload: {payload}')
+						c.kill()
+						f.kill()
+					case 5: # solid unkillable
+						# newvel = [k * -1 for k in f.vel]
+						# particles = [Particle(gridpos=fpos) for k in range(3)]
+						f.kill()
+					case _:
+						logger.warning(f'unknown type {c}')
 
 
 	def run(self):
@@ -276,23 +280,33 @@ class Game(Thread):
 						logger.info(f'{self} pygameeventquit {event.type} events: {len(events_)}')
 
 	def draw_game_info(self):
-		surf, rect = self.font.render(f'h: {self.player.health} bombs: {self.player.bombsleft} score: {self.player.score}', (255,255,255))
+		surf, rect1 = self.font.render(f'h: {self.player.health} bombs: {self.player.bombsleft} score: {self.player.score}', (255,255,255))
 		self.screen.blit(surf, (10,10))
+		surf, rect = self.font.render(f'{self.player.health} ', (5,255,55)) # {self.player.playerlist[self.player.client_id]["health"]}
+		self.screen.blit(surf, (self.player.pos))
 		for np in self.player.playerlist:
 			if np != self.player.client_id:
 				surf, rect = self.font.render(f'h: {self.player.playerlist[np]["health"]} bombs: {self.player.playerlist[np]["bombsleft"]} score: {self.player.playerlist[np]["score"]}', (155,255,255))
-				self.screen.blit(surf, (rect.width+30,10))
+				self.screen.blit(surf, (rect1.width+30,10))
+				surf, rect = self.font.render(f'{self.player.playerlist[np]["health"]} ', (255,5,55))
+				self.screen.blit(surf, (self.player.playerlist[np]["pos"]))
+
 
 	def draw(self):
 		self.blocks.draw(self.screen)
 		self.flames.draw(self.screen)
 		self.particles.draw(self.screen)
 		self.bombs.draw(self.screen)
-		self.draw_game_info()
-		if self.player.gotpos:
+		if self.player.gotpos and self.player.gotgrid:
 			self.player.draw(self.screen)
+			try:
+				self.draw_game_info()
+			except TypeError as e:
+				logger.error(e)
 		self.upgradeblocks.draw(self.screen)
 		if self.debugmode:
+			blktxt = self.font.render(f'blks: {len(self.blocks)}', (55,155,55))
+			self.screen.blit(blktxt[0], (133, 33))
 			for b in self.blocks:
 				blktxt = self.debugfont.render(f'{self.player.grid[b.gridpos[0]][b.gridpos[1]]}', (55,155,55))
 				self.screen.blit(blktxt[0], (b.rect.x+5, b.rect.y+3))
@@ -328,7 +342,7 @@ class Game(Thread):
 		server.tui.start()
 		logger.info(f'server: {server} {server.tui}')
 		try:
-			mainsocket.bind(('127.0.0.1',9696))
+			mainsocket.bind((self.args.listen,self.args.port))
 		except OSError as e:
 			logger.error(e)
 			sys.exit(1)
@@ -428,7 +442,7 @@ class Game(Thread):
 			logger.debug(f'[mouse] {mx},{my} ')
 
 def main(args):
-	game = Game(debugmode=True)
+	game = Game(args=args)
 	logger.debug(f'main game: {game}')
 	game.daemon = True
 	game.running = True
@@ -452,8 +466,10 @@ if __name__ == "__main__":
 	# pygame.key.set_repeat(1000,3000)
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
+	parser.add_argument('--listen', action='store', dest='listen', default='localhost')
 	parser.add_argument('--server', action='store', dest='server', default='localhost')
 	parser.add_argument('--port', action='store', dest='port', default=9696)
+	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()
 	if args.testclient:
 		run_testclient(args)
