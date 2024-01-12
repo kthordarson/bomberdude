@@ -105,7 +105,7 @@ class NewHandler(Thread):
 			msgdata = re.sub('^0+','', rawmsg)
 			try:
 				data = json.loads(msgdata)
-			except JSONDecodeError as e:
+			except json.decoder.JSONDecodeError as e:
 				logger.error(f'{e} msgdata: {msgdata}')
 				data = {'msgtype': 'JSONDecodeError', 'error': e, 'msgdatabuffer' : msgdata, 'client_id': self.client_id}
 			if not self.client_id:
@@ -140,14 +140,14 @@ class Gameserver(Thread):
 			try:
 				# self.do_send(client._args[0], client._args[1], msg)
 				self.do_send(client.conn, client.addr, msg)
-			except ServerSendException as e:
+			except ServerSendException as e: # todo check and fix this...
 				logger.warning(f'[!] {e} in {self} {client}')
-				self.playerlist.pop(clients.client_id)
-				self.clients.pop(self.clients.index(client))
+				# self.playerlist.pop(clients.client_id)
+				# self.clients.pop(self.clients.index(client))
 			except Exception as e:
 				logger.error(f'[!] {e} in {self} {client}')
-				self.playerlist.pop(clients.client_id)
-				self.clients.pop(self.clients.index(client))
+				# self.playerlist.pop(clients.client_id)
+				# self.clients.pop(self.clients.index(client))
 
 	def refresh_clients(self):
 		# logger.info(f'playerlist {self.playerlist}\nclients: {self.clients}\n' )
@@ -349,10 +349,10 @@ def get_grid_pos(grid):
 			if grid[gpx][gpy] == 2:
 				validpos = True
 				# logger.info(f'valid {invcntr} pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
-				break
+				return (gpx, gpy)
 		except (IndexError, ValueError, AttributeError) as e:
-			logger.error(f'Err: {e} {type(e)} gl={len(grid)} pos={pos} gpx={gpx} gpy={gpy} ')
-	return (gpx, gpy)
+			logger.error(f'Err: {e} {type(e)} gl={len(grid)} gpx={gpx} gpy={gpy} ')
+	
 
 if __name__ == '__main__':
 	parser = ArgumentParser(description='server')

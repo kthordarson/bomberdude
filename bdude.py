@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # bomberdude
 import os
+import sys
 import random
 from argparse import ArgumentParser
 from threading import Thread
