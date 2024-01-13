@@ -69,6 +69,7 @@ class ResourceHandler:
 	def get_image(self, filename:str, force=False) -> tuple:
 		if force or filename not in list(self.__images.keys()):
 			img = pygame.image.load(filename).convert()
+			# img = pygame.transform.scale(img, (BLOCK, BLOCK))
 			rect = img.get_rect()
 			self.__images[filename] = (img, rect)
 			# logger.info(f'Image {filename} loaded images={len(self.__images)}')
@@ -112,13 +113,40 @@ class NewBlock(Sprite):
 		screen.blit(self.image, self.rect)
 
 	def update(self):
-		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
-		if self.blocktype in [40,44]:
-			if pygame.time.get_ticks() - self.start_time >= self.blocktimer:
-				# logger.debug(f'timeoutkill tchk:{pygame.time.get_ticks() - self.start_time >= self.blocktimer} start {self.start_time} {self.blocktimer} ticks: {pygame.time.get_ticks()}')
-				pygame.event.post(Event(USEREVENT, payload={'msgtype': 'blktimeout', 'gridpos': self.gridpos,'pos': self.pos,}))
-				self.kill()
+		pass
 
+class UpgradeBlock(Sprite):
+	def __init__(self, gridpos, image, blocktype):
+		super().__init__()
+		self.blocktype = blocktype
+		if self.blocktype == 40:
+			self.blocktimer = 4000
+		elif self.blocktype == 44:
+			self.blocktimer = 4000
+		else:
+			self.blocktimer = 0
+		self.gridpos = gridpos
+		self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+		self.image = image
+		self.rect = self.image.get_rect()
+		self.vel = Vector2()
+		self.start_time = pygame.time.get_ticks()
+		self.clock = pygame.time.Clock()
+		self.accel = Vector2(0, 0)
+		self.rect = self.image.get_rect(center=self.pos)
+		self.rect.x = self.pos[0]
+		self.rect.y = self.pos[1]
+
+	def __repr__(self):
+		return f'Upgradeblock (t:{self.blocktype} pos={self.pos} {self.gridpos} bt:{self.blocktimer} {pygame.time.get_ticks() - self.start_time} )'
+
+	def draw(self, screen):
+		screen.blit(self.image, self.rect)
+
+	def update(self):
+		if pygame.time.get_ticks() - self.start_time >= self.blocktimer:
+			# logger.debug(f'timeoutkill tchk:{pygame.time.get_ticks() - self.start_time >= self.blocktimer} start {self.start_time} {self.blocktimer} ticks: {pygame.time.get_ticks()}')
+			self.kill()
 
 
 class NewBomb(Sprite):
@@ -190,6 +218,12 @@ class Particle(Sprite): # todo fix initial position
 
 	def __repr__(self):
 		return f'Particle ( uc:{self.uc} pos={self.pos} {self.gridpos} )'
+
+	def bounce(self, block): # change velocity to bounce off block
+		if block.blocktype == 2:
+			return
+		else:
+			self.vel = [-1,-1]
 
 	def update(self):
 		# noise = 1 * random.random() - 4.5

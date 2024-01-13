@@ -1,9 +1,8 @@
 import random
-import numpy as np
 from loguru import logger
 from constants import (BLOCK,GRIDSIZE, BLOCKSIZE, BLOCKTYPES, BOMBSIZE, DEBUG, FLAMESIZE, PARTICLESIZE, POWERUPSIZE)
 from globals import BlockNotFoundError
-TESTGRID1 = np.array(		[
+TESTGRID1 = (		[
 	   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
        [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
        [1, 2, 2, 2, 2, 5, 2, 2, 2, 5, 2, 5, 2, 5, 2, 2, 2, 2, 2, 1],
@@ -25,7 +24,7 @@ TESTGRID1 = np.array(		[
        [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
 
-TESTGRID1 = np.array(		[
+TESTGRID1 = (		[
 	   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
        [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
        [1, 2, 2, 2, 2, 5, 2, 2, 2, 5, 2, 5, 2, 5, 2, 2, 2, 2, 2, 1],
@@ -48,7 +47,7 @@ TESTGRID1 = np.array(		[
        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
 
 
-TESTGRID = np.array(		[
+TESTGRID = (		[
 	   [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
        [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
        [1, 2, 2, 2, 2, 5, 2, 2, 2, 5, 2, 5, 2, 5, 2, 2, 2, 2, 2, 1],
@@ -70,23 +69,8 @@ TESTGRID = np.array(		[
        [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1],
        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]])
 
-def oldgenerate_grid():
-	oneline = [0 for k in range(0, GRIDSIZE)]
-	grid = np.array([oneline for k in range(0, GRIDSIZE)])
-	# edges
-	for k in grid:
-		k[0] = 1
-		k[-1] = 1
-	for k in range(len(grid[0])):
-		grid[0][k] = 1
-		grid[-1][k] = 1
-	# random blocks
-	for y in range(1, len(grid)-1):
-		for x in range(1, len(grid)-1):
-			grid[x][y] = random.choice([2,2,2,2,2,5])
-	return TESTGRID
 
-def generate_grid():
+def generate_grid(gsz=GRIDSIZE):
 	# types
 	# 1 = edges
 	# 2 = background
@@ -95,9 +79,8 @@ def generate_grid():
 	# 5 = unkillable block
 	# 44 = heart
 	# 40 = extrabomb
-	grid = [[random.choice([2,2,2,2,2,3,4,5]) for k in range(GRIDSIZE)] for j in range(GRIDSIZE)]
-	gridsize = len(grid)
-	for x in range(gridsize): # set grid edges to solid blocks type 1
+	grid = [[random.choice([2,2,2,2,2,3,4,5]) for k in range(gsz)] for j in range(gsz)]
+	for x in range(gsz): # set grid edges to solid blocks type 1
 		grid[x][0] = 1
 		grid[0][x] = 1
 		grid[-1][x] = 1

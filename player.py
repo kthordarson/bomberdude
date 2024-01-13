@@ -33,7 +33,7 @@ class NewPlayer(Thread, Sprite):
 		self.killed = False
 		self.connected = False
 		self.serveraddress = serveraddress
-		self.receiver_t = Thread(target=self.receiver, daemon=True)
+		self.receiver_t = Thread(target=self.receiver, daemon=True, name=f'receiver_t')
 		self.receiverq = Queue()
 		self.send_queue = Queue()
 		self.msg_queue = Queue()
@@ -54,6 +54,9 @@ class NewPlayer(Thread, Sprite):
 		# self.updatetimer = RepeatedTimer(interval=1, function=self.playertimer)
 		self.updcntr = 0
 		self.score = 0
+		self.map_pos = (0,0)
+		self.moveBox = (100,100,500,500)
+		self.debuginfo = {'server':{}}
 		# self.rect.x = self.pos[0]
 		# self.rect.y = self.pos[1]
 
@@ -106,6 +109,7 @@ class NewPlayer(Thread, Sprite):
 		self.socket.sendto(msglen,self.serveraddress)
 		# logger.debug(f'playerdosendpayload {outmsgtype} lenx:{msglenx} {len(payload)} c_pktid: {self.lastpktid}')
 		self.socket.sendto(payload,self.serveraddress)
+		self.sendcounter += 1
 
 	def receiver(self):
 		if not self.connected:
@@ -160,6 +164,7 @@ class NewPlayer(Thread, Sprite):
 				jresp = json.loads(response)
 				# logger.debug(f'[r] {jresp.get("msgtype")} rqs:{self.receiverq.qsize()} dl: {datalen} r: {len(response)} jr:{len(jresp)}')
 				self.receiverq.put(jresp)
+				self.recvcounter += 1
 			except json.decoder.JSONDecodeError as e:
 				logger.error(f'[r] {e} {type(e)} response: {response}')
 				self.gotgrid = False
@@ -270,35 +275,37 @@ class NewPlayer(Thread, Sprite):
 					self.rect.x = self.pos[0]
 					self.rect.y = self.pos[1]
 					logger.info(f'gotpos {msgtype} newpos: {newpos} {self.gridpos} {self.pos}')
-				else:
-					logger.warning(f'missing setpos from {jresp}')
 
-			case 'serveracktimer' |  'trigger_newplayer':
+			case 'trigger_newplayer':
+				playerlist = jresp.get('playerlist', None)
+				self.playerlist = playerlist
+				grid = jresp.get('grid')
+				if grid:
+					self.gotgrid = True
+					self.grid = grid
+					# logger.info(f'gotgrid {self.gotgrid} {msgtype} ')
+					pygame.event.post(pygame.event.Event(USEREVENT, payload={'msgtype': 'trigger_newplayer_grid', 'grid':self.grid}))
+				else:
+					logger.warning(f'nogrid in {jresp}')
+				newpos = jresp.get('setpos')
+				if newpos:
+					self.gotpos = True
+					self.gridpos = newpos
+					self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
+					self.rect.x = self.pos[0]
+					self.rect.y = self.pos[1]
+					logger.info(f'gotpos {msgtype} newpos: {newpos} {self.gridpos} {self.pos}')
+				else:
+					logger.warning(f'{msgtype} missing newpos/setpos from {jresp}')
+
+			case 'serveracktimer':
 				# logger.debug(f'{self} {msgtype} {jresp}')
 				# playerlist = None
 				# data = jresp.get('data')
 				playerlist = jresp.get('playerlist', None)
 				self.playerlist = playerlist
-				if not self.gotgrid:
-					grid = jresp.get('grid')
-					if grid:
-						self.gotgrid = True
-						self.grid = grid
-						logger.info(f'gotgrid {self.gotgrid} {msgtype} ')
-						pygame.event.post(pygame.event.Event(USEREVENT, payload={'msgtype': 'newgridfromserver', 'grid':self.grid}))
-					else:
-						logger.warning(f'nogrid in {jresp}')
-				if not self.gotpos:
-					newpos = jresp.get('setpos')
-					if newpos:
-						self.gotpos = True
-						self.gridpos = newpos
-						self.pos = (self.gridpos[0] * BLOCK, self.gridpos[1] * BLOCK)
-						self.rect.x = self.pos[0]
-						self.rect.y = self.pos[1]
-						logger.info(f'gotpos {msgtype} newpos: {newpos} {self.gridpos} {self.pos}')
-					else:
-						logger.warning(f'missing setpos from {jresp}')
+			case 'sv_serverdebug': # got debuginfo from server
+				self.debuginfo['server'] = jresp.get('dbginfo')
 			case _:
 				logger.warning(f'missingmsgtype jresp: {jresp} ')
 
@@ -357,9 +364,13 @@ class NewPlayer(Thread, Sprite):
 			return
 		gpx, gpy = self.gridpos
 		newgridpos = [gpx, gpy]
+		mx,my = self.map_pos
+		xmoved = False
+		ymoved = False
 		if action == 'u':
 			if self.grid[gpx][gpy-1] in [2,40,44]:
 				newgridpos = [gpx, gpy-1]
+				ymoved = True
 			else:
 				logger.warning(f'cannot move {action} from {self.gridpos} to {[gpx, gpy-1]} gridval: {self.grid[gpx][gpy-1]}')
 				newgridpos = [gpx, gpy]
@@ -367,6 +378,7 @@ class NewPlayer(Thread, Sprite):
 		elif action == 'd':
 			if self.grid[gpx][gpy+1] in [2,40,44]:
 				newgridpos = [gpx, gpy+1]
+				ymoved = True
 			else:
 				logger.warning(f'cannot move {action} from {self.gridpos} to {[gpx, gpy+1]} gridval: {self.grid[gpx][gpy+1]}')
 				newgridpos = [gpx, gpy]
@@ -374,6 +386,7 @@ class NewPlayer(Thread, Sprite):
 		elif action == 'l':
 			if self.grid[gpx-1][gpy] in [2,40,44]:
 				newgridpos = [gpx-1, gpy]
+				xmoved = True
 			else:
 				logger.warning(f'cannot move {action} from {self.gridpos} to {[gpx-1, gpy]} gridval: {self.grid[gpx-1][gpy]}')
 				newgridpos = [gpx, gpy]
@@ -381,6 +394,7 @@ class NewPlayer(Thread, Sprite):
 		elif action == 'r':
 			if self.grid[gpx+1][gpy] in [2,40,44]: # else [gpx, gpy]
 				newgridpos = [gpx+1, gpy]
+				xmoved = True
 			else:
 				logger.warning(f'cannot move {action} from {self.gridpos} to {[gpx+1, gpy]} gridval: {self.grid[gpx+1][gpy]}')
 				newgridpos = [gpx, gpy]
@@ -393,5 +407,17 @@ class NewPlayer(Thread, Sprite):
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
 		self.send_queue.put(payload)
-		# logger.info(f'{self} move {action} gridpos: {self.gridpos} pos: {self.pos}')
+		if xmoved:
+			if self.rect.x <= self.moveBox[0]:
+				mx += 8
+			elif self.rect.x >= self.moveBox[2]-BLOCK:
+				mx -= 8
+		if ymoved:
+			if self.rect.y <= self.moveBox[1]:
+				my += 8
+			elif self.rect.y >= self.moveBox[3]-BLOCK:
+				my -= 8
+		if xmoved or ymoved:
+			self.map_pos = (mx,my)
+			logger.info(f'move {action} mappos:{self.map_pos} mx:{mx} my:{my} gridpos: {self.gridpos} pos: {self.pos}')
 

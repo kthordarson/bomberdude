@@ -10,12 +10,8 @@ COLOR_INACTIVE = Color('lightskyblue3')
 COLOR_ACTIVE = Color('dodgerblue2')
 
 DEBUGFONTCOLOR = (123, 123, 123)
-SQUARESIZE=13
 BLOCK = 32
 BLOCKSIZE = (BLOCK, BLOCK)
-PLAYERSIZE = [round(x // 1.3) for x in BLOCKSIZE]
-NETPLAYERSIZE = [round(x // 1.4) for x in PLAYERSIZE]
-DUMMYSIZE = [round(x // 2) for x in BLOCKSIZE]
 POWERUPSIZE = [round(x // 2) for x in BLOCKSIZE]
 BOMBSIZE = [round(x // 2.5) for x in BLOCKSIZE]
 PARTICLESIZE = [round(x // 4) for x in BLOCKSIZE]
@@ -23,7 +19,6 @@ FLAMESIZE = [10, 10]
 MAXPARTICLES = 5
 GRIDSIZE = 20
 
-FPS = 30
 POWERUPS = {
 	"bombpower": 11,
 	"speedup": 12,
