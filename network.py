@@ -237,7 +237,7 @@ class Receiver(Thread):
 					for rawpart in rawdata:
 						if len(rawpart) > 1:
 							# logger.debug(f'rawpart: {len(rawpart)}\n{rawpart}\n')
-							self.queue.put(rawpart)
+							self.queue.put(rawpart, block=True)
 						# data = json.dumps({'msgtype':'msgokack', 'client_id':self.client_id}).encode('utf-8')
 						# self.socket.sendall(data)
 				except TypeError as e:
@@ -248,7 +248,7 @@ class Sender(Thread):
 		Thread.__init__(self, daemon=True)
 		self.s_type = s_type
 		self.kill = False
-		self.queue = Queue() # put socket and payload here, eg:  sender.queue.put((self.socket, payload))
+		self.queue = Queue()
 		self.sendcount = 0
 		self.client_id = client_id
 		self.socket = socket

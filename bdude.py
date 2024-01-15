@@ -12,6 +12,7 @@
 
 import os
 import sys
+import time
 import random
 from argparse import ArgumentParser
 import threading
@@ -28,6 +29,7 @@ from pygame import USEREVENT
 from constants import BLOCK
 from constants import DEFAULTFONT
 from globals import ResourceHandler, NewBlock, UpgradeBlock, NewBomb, NewFlame, get_bomb_flames, Particle
+from globals import RepeatedTimer
 from menus import GameMenu
 from player import  NewPlayer
 from bombserver import Gameserver, NewHandler
@@ -180,7 +182,7 @@ class Game(Thread):
 					self.player.bombsleft = 3
 					# update server
 					payload = {'msgtype' : 'cl_playerkilled', 'client_id': self.player.client_id, 'playerlist' :self.player.playerlist }
-					self.player.send_queue.put(payload)
+					self.player.send_queue.put(payload, block=True)
 				else:
 					logger.info(f'playerflamedamage f: {f.bomberid} ph: {self.player.health}')
 
@@ -205,7 +207,7 @@ class Game(Thread):
 						image = self.rh.get_image(f'data/blocksprite2.png')
 						self.blocks.add(NewBlock(gridpos=fgpos, image=image, blocktype=2))
 						payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':2, 'client_id': self.player.client_id, 'grid' :self.player.grid }
-						self.player.send_queue.put(payload) # tell server
+						self.player.send_queue.put(payload, block=True) # tell server
 						c.kill() # kill block and flame
 						f.kill()
 					case 4: # solid killable creates upgradeblock type 40/44
@@ -222,7 +224,7 @@ class Game(Thread):
 						# image = self.rh.get_image(f'data/blocksprite2.png')
 						self.upgradeblocks.add(UpgradeBlock(gridpos=fgpos, image=image, blocktype=upgrade_type)) # type 44 = heart
 						payload = {'msgtype' : 'cl_gridupdate', 'gridpos': c.gridpos, 'blocktype':upgrade_type, 'client_id': self.player.client_id, 'grid' :self.player.grid }
-						self.player.send_queue.put(payload) # tell server and kill block and flame
+						self.player.send_queue.put(payload, block=True) # tell server and kill block and flame
 						c.kill()
 						f.kill()
 					case 5: # solid unkillable
@@ -310,9 +312,11 @@ class Game(Thread):
 		# 	blktxt = f'{b.gridpos}'
 		# 	self.debugfont.render_to(self.display, (b.rect.x+15, b.rect.y+13),blktxt, (255,255,255))
 
-	def draw_debug_info(self):
+	def request_debug_info(self):
 		payload = {'msgtype' : 'cl_serverdebug',} # request serverdebuginfo when in debugmode
-		self.player.send_queue.put(payload) # tell server and kill block and flame
+		self.player.send_queue.put(payload, block=True) # tell server and kill block and flame
+
+	def draw_debug_info(self):
 		w,h = self.display.get_size()
 		txtpos = [10,h]
 		dbgitems = []
@@ -498,6 +502,7 @@ class Game(Thread):
 		elif keypressed == pygame.K_F1:
 			# toggle debug
 			self.debugmode = not self.debugmode
+			dbgtimer = RepeatedTimer(interval=1, function=self.request_debug_info)
 			logger.debug(f'toggledebug')
 		elif keypressed == pygame.K_F2:
 			# toggle blockdebug

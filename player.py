@@ -81,7 +81,7 @@ class NewPlayer(Thread, Sprite):
 			self.updcntr += 1
 			payload = {'msgtype' : 'playertimer'}
 			# self.do_send(payload)
-			self.send_queue.put(payload)
+			self.send_queue.put(payload, block=True)
 			if not self.gotgrid:
 				logger.warning(f'{self.client_id} playertimer needgrid ')
 			if not self.gotpos:
@@ -163,7 +163,7 @@ class NewPlayer(Thread, Sprite):
 				response = re.sub('^0+','', response)
 				jresp = json.loads(response)
 				# logger.debug(f'[r] {jresp.get("msgtype")} rqs:{self.receiverq.qsize()} dl: {datalen} r: {len(response)} jr:{len(jresp)}')
-				self.receiverq.put(jresp)
+				self.receiverq.put(jresp, block=True)
 				self.recvcounter += 1
 			except json.decoder.JSONDecodeError as e:
 				logger.error(f'[r] {e} {type(e)} response: {response}')
@@ -213,11 +213,11 @@ class NewPlayer(Thread, Sprite):
 				self.killed = True
 				break
 			if not self.receiverq.empty():
-				jresp = self.receiverq.get()
+				jresp = self.receiverq.get(block=True)
 				self.receiverq.task_done()
 				self.msg_handler(jresp)
 			if not self.send_queue.empty():
-				data = self.send_queue.get()
+				data = self.send_queue.get(block=True)
 				self.send_queue.task_done()
 				# self.socket.sendto(data,self.serveraddress)
 				try:
@@ -232,11 +232,13 @@ class NewPlayer(Thread, Sprite):
 		msgtype = jresp.get('msgtype')
 		match msgtype:
 			case 'sv_playerlist': # server sent playerlist
-				self.playerlist = jresp.get('playerlist')
-				newscore = self.playerlist[self.client_id].get('score') # get our score
-				if self.score != newscore:
-					self.score = newscore
-					logger.info(f'{msgtype} score:{self.score}')
+				playerlist = jresp.get('playerlist', None)
+				if playerlist:
+					self.playerlist = playerlist
+					newscore = self.playerlist[self.client_id].get('score') # get our score
+					if self.score != newscore:
+						self.score = newscore
+						logger.info(f'{msgtype} score:{self.score}')
 
 			case 'sv_gridupdate': # todo do some checking here
 				newgrid = jresp.get('grid')
@@ -278,7 +280,8 @@ class NewPlayer(Thread, Sprite):
 
 			case 'trigger_newplayer':
 				playerlist = jresp.get('playerlist', None)
-				self.playerlist = playerlist
+				if playerlist:
+					self.playerlist = playerlist
 				grid = jresp.get('grid')
 				if grid:
 					self.gotgrid = True
@@ -303,9 +306,11 @@ class NewPlayer(Thread, Sprite):
 				# playerlist = None
 				# data = jresp.get('data')
 				playerlist = jresp.get('playerlist', None)
-				self.playerlist = playerlist
+				if playerlist:
+					self.playerlist = playerlist
 			case 'sv_serverdebug': # got debuginfo from server
 				self.debuginfo['server'] = jresp.get('dbginfo')
+				self.playertimer()
 			case _:
 				logger.warning(f'missingmsgtype jresp: {jresp} ')
 
@@ -353,7 +358,7 @@ class NewPlayer(Thread, Sprite):
 
 	def sendbomb(self):
 		payload = {'msgtype' : 'cl_playerbomb','action': 'playerbomb', 'clbombpos': self.gridpos}
-		self.send_queue.put(payload)
+		self.send_queue.put(payload, block=True)
 
 	def move(self, action): # todo decide on to check grid or use spritecollide....
 		if not self.gotgrid:
@@ -406,7 +411,7 @@ class NewPlayer(Thread, Sprite):
 		payload = {'msgtype' : 'cl_playermove', 'action': action}
 		self.rect.x = self.pos[0]
 		self.rect.y = self.pos[1]
-		self.send_queue.put(payload)
+		self.send_queue.put(payload, block=True)
 		if xmoved:
 			if self.rect.x <= self.moveBox[0]:
 				mx += 8
