@@ -1,107 +1,45 @@
-import pygame
-from pygame import Color
-from pygame import USEREVENT
+import arcade
+
+SPRITE_SCALING = 1
+TILE_SCALING = 1
+PLAYER_SCALING = 1
+
+SCREEN_WIDTH = 800
+SCREEN_HEIGHT = 600
+SCREEN_TITLE = "bdude"
+
+# Physics
+MOVEMENT_SPEED = 5
+GRAVITY = 0
+
+
+CAMERA_SPEED = 0.1
+PLAYER_MOVEMENT_SPEED = 4
+
+MINIMAP_BACKGROUND_COLOR = arcade.color.ALMOND
+
+
+PARTICLE_GRAVITY = 0.05
+PARTICLE_FADE_RATE = 3
+PARTICLE_MIN_SPEED = 2.5
+PARTICLE_SPEED_RANGE = 2.5
+
+PARTICLE_COUNT = 20
+PARTICLE_RADIUS = 3
+PARTICLE_COLORS = [arcade.color.ALIZARIN_CRIMSON, arcade.color.COQUELICOT, arcade.color.LAVA, arcade.color.KU_CRIMSON, arcade.color.DARK_TANGERINE]
+PARTICLE_SPARKLE_CHANCE = 0.02
+
+BOMBTIMEOUT = 2000
+BOMBTICKER = 10
+
+FLAME_TIME = 1000
+FLAME_RATE = 33
+FLAME_SPEED = 3
+FLAMEX = 16
+FLAMEY = 16
 PKTHEADER = 64
 PKTLEN = 1024*2
 FORMAT = 'utf8'
-DEBUG = True
-DEFAULTFONT = "data/DejaVuSans.ttf"
-COLOR_INACTIVE = Color('lightskyblue3')
-COLOR_ACTIVE = Color('dodgerblue2')
 
-DEBUGFONTCOLOR = (123, 123, 123)
-BLOCK = 32
-BLOCKSIZE = (BLOCK, BLOCK)
-POWERUPSIZE = [round(x // 2) for x in BLOCKSIZE]
-BOMBSIZE = [round(x // 2.5) for x in BLOCKSIZE]
-PARTICLESIZE = [round(x // 4) for x in BLOCKSIZE]
-FLAMESIZE = [10, 10]
-MAXPARTICLES = 5
 GRIDSIZE = 20
-
-POWERUPS = {
-	"bombpower": 11,
-	"speedup": 12,
-	"addbomb": 13,
-	"healthup": 40
-}
-
-BLOCKTYPES = {
-	1: {
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite5a.png",
-		"bgbitmap": "data/black.png",
-		"powerup": False,
-		'timer': 1,
-	},
-	2: {
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite3b.png",
-		"bgbitmap": "data/black.png",
-		"powerup": True,
-		'timer': 1,
-	},
-	3: {
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite6.png",
-		"bgbitmap": "data/black.png",
-		"powerup": True,
-		'timer': 1,
-	},
-	4: {
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite3.png",
-		"bgbitmap": "data/black.png",
-		"powerup": False,
-		'timer': 1,
-	},
-	5: {
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite1b.png",
-		"bgbitmap": "data/black.png",
-		"powerup": False,
-		'timer': 1,
-	},
-	10: {
-		"size": BLOCKSIZE,
-		"bitmap": "data/blocksprite1.png",
-		"bgbitmap": "data/black.png",
-		"powerup": False,
-		'timer': 1,
-	},
-	11: {
-		"size": BLOCKSIZE,
-		"bitmap": "data/blackfloor.png",
-		"bgbitmap": "data/black.png",
-		"powerup": False,
-		'timer': 1,
-	},
-	20: {
-		"size": POWERUPSIZE,
-		"bitmap": "data/heart.png", # bmargo
-		"bgbitmap": "data/blackfloor.png",
-		"powerup": False,
-		'timer': 4300,
-	},
-	21: {
-		"size": POWERUPSIZE,
-		"bitmap": "data/newbomb.png",
-		"bgbitmap": "data/blackfloor.png",
-		"powerup": False,
-		'timer': 3700,
-	},
-	22: {
-		"size": POWERUPSIZE,
-		"bitmap": "data/newbomb2.png",
-		"bgbitmap": "data/blackfloor.png",
-		"powerup": False,
-		'timer': 4000,
-	},
-	30: {
-		"size": POWERUPSIZE,
-		"bitmap": "data/newbomb.png",
-		"bgbitmap": "data/blackfloor.png",
-		"powerup": False,
-		'timer': 4100,
-	},
-}
+BLOCK = 32
