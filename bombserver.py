@@ -8,13 +8,17 @@ import json
 from argparse import ArgumentParser
 import threading
 from threading import Thread, current_thread, Timer, active_count, _enumerate
-from queue import Queue, Empty
+from queue import Queue
 from loguru import logger
 import re
-from constants import PKTHEADER, FORMAT
-from map import generate_grid
+import pickle
+import arcade
+from constants import *
+from exceptions import *
+from objects import gen_randid
 
-
+def generate_grid(gsz=GRIDSIZE):
+	return json.loads(open('data/map.json','r').read())
 
 class ServerSendException(Exception):
 	pass
@@ -26,13 +30,21 @@ class TuiException(Exception):
 	pass
 
 class ServerTUI(Thread):
-	def __init__(self, server):
+	def __init__(self, server, debugmode=False):
 		Thread.__init__(self, daemon=True, name='tui')
 		self.server = server
 		self.killed = False
+		self.debugmode = debugmode
+		self._stop = threading.Event()
 
 	def __repr__(self):
-		return f'ServerTUI (k:{self.killed} server: {self.server})'
+		return f'ServerTUI (s:{self.stopped()})'
+
+	def stop(self):
+		self._stop.set()
+
+	def stopped(self):
+		return self._stop.is_set()
 
 	def get_serverinfo(self):
 		logger.info(f'playerlist={len(self.server.playerlist)} t:{active_count()}')
@@ -40,9 +52,12 @@ class ServerTUI(Thread):
 			print(f'\t{t} {t.name} alive: {t.is_alive()}')
 
 	def dump_playerlist(self):
-		logger.info(f'playerlist={len(self.server.playerlist)} ')
+		logger.info(f'playerlist: {len(self.server.playerlist)} clientlist: {len(self.server.clients)}')
 		for p in self.server.playerlist:
-			print(f'\tclid: {p} pos: {self.server.playerlist[p].get("pos")} {self.server.playerlist[p].get("gridpos")} b: {self.server.playerlist[p].get("bombsleft")} h: {self.server.playerlist[p].get("health")} uc: {self.server.playerlist[p].get("updcntr")} ')
+			print(f'\tplayer: {p} pos: {self.server.playerlist[p].get("pos")} gp: {self.server.playerlist[p].get("gridpos")} b: {self.server.playerlist[p].get("bombsleft")} h: {self.server.playerlist[p].get("health")} uc: {self.server.playerlist[p].get("runcounter")} ')
+		for c in self.server.clients:
+			print(f'\tclient: {c.name} id: {c.client_id} connected: {c.connected} hqs: {c.handlerq.qsize()}')
+			c.send_ping()
 
 	def run(self):
 		while True:
@@ -60,8 +75,8 @@ class ServerTUI(Thread):
 					logger.warning(f'{self} {self.server} tuikilled')
 					# raise TuiException('tui killed')
 					break
-				else:
-					logger.info(f'[S] cmds: s serverinfo, p playerlist, q quit')
+				# else:
+				#	logger.info(f'[tui] {self} server: {self.server}')
 			except KeyboardInterrupt:
 				self.killed = True
 				self.server.killed = True
@@ -69,125 +84,138 @@ class ServerTUI(Thread):
 
 
 class NewHandler(Thread):
-	def __init__(self, conn=None, addr=None, serverhq=None, name='foobar'):
-		Thread.__init__(self,  daemon=True, name=name)
+	def __init__(self, conn=None, addr=None, handlerq=None, name=None, debugmode=False, server=None, client_id=None):
+		Thread.__init__(self,  daemon=True, name=f'Handler-{name}-{client_id}')
+		self.client_id = client_id
+		self.server = server
+		self.debugmode = debugmode
 		self.conn = conn
 		self.addr = addr
 		self.connected = True
-		self.serverhq = serverhq
-		self.handlerq = Queue()
+		self.handlerq = handlerq
 		self.name = name
-		self.client_id = None
-
+		self._stop = threading.Event()
 	def __repr__(self) -> str:
-		return f'Handler ({self.client_id} n: {self.name} conn: {self.connected} hqs:{self.handlerq.qsize()}) sqs:{self.serverhq.qsize()})'
+		return f'Handler ({self.client_id} {self.name} {self.connected} {self.handlerq.qsize()})'
 
-	def client_do_send(self, payload):
-		if not self.connected:
-			logger.warning(f'{self} notconnected!')
-			return
-		if self.connected:
-			payload = json.dumps(payload).encode('utf8')
-			msglenx = str(len(payload)).encode('utf8')
-			msglen = msglenx.zfill(PKTHEADER)
-			# payload['serverdq'] = self.serverdq.qsize()
-			try:
-				# logger.debug(f'do_send {socket} {serveraddress} {payload}')
-				try:
-					self.conn.sendto(msglen,self.addr )
-					# logger.debug(f'do_send_msglen {pmsgtype} len: {msglenx}')
-				except TypeError as e:
-					logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
-					self.connected = False
-					return # raise ServerSendException(e)
-				except OSError as e:
-					logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
-					self.connected = False
-					return # raise ServerSendException(e)
-			except Exception as e:
-				logger.error(f'[!] {e} {type(e)} {type(payload)} {payload}')
-				self.connected = False
-				return # raise ServerSendException(e)
-			try:
-				self.conn.sendto(payload,self.addr)
-					# logger.debug(f'do_send payload: {pmsgtype} {type(payload)}')
-			except OSError as e:
-				logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
-				self.connected = False
-				return # raise ServerSendException(e)
-			except TypeError as e:
-				logger.error(f'{e} payloaderror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
-				self.connected = False
-				return # raise ServerSendException(e)
-		
+	def stop(self):
+		self._stop.set()
+
+	def stopped(self):
+		return self._stop.is_set()
+
+	def do_kill(self):
+		self.connected = False
+		logger.info(f'{self} dokill....')
+		self.join()
+
+	def send_ping(self):
+		msg = {'msgtype': 'ping', 'client_id': self.client_id,}
+		self.server.do_send(self.conn, self.addr, msg)
+
 	def run(self):
 		while self.connected:
+			data = {'msgtype': 'none'}
 			try:
 				rawmsglen = self.conn.recv(PKTHEADER).decode(FORMAT)
 			except ConnectionResetError as e:
-				logger.warning(f'{self} {e}')
+				logger.warning(f'{self} {e} {type(e)} {e.errno}')
 				self.connected = False
-				self.conn.close()
+				data = {'msgtype': 'ConnectionResetError', 'client_id': self.client_id}
+				rawmsglen = None
+				self.handlerq.put(data)
 				break
-			try:
-				msglen = int(re.sub('^0+','',rawmsglen))
-			except ValueError as e:
-				logger.error(f'{self.client_id} disconnected {e} {type(e)}') # \nrawmsglen: {type(rawmsglen)}\nrawm: {rawmsglen}')
-				self.connected = False
-				# self.conn.close()
-				break
-			try:
-				rawmsg = self.conn.recv(msglen).decode(FORMAT)
 			except OSError as e:
-				logger.error(f'{self} {e} {type(e)} m:{msglen} rawmsglen: {type(rawmsglen)}\raw: {rawmsglen}')
+				logger.warning(f'{self} {e} {type(e)}')
 				self.connected = False
-				self.conn.close()
 				break
-			msgdata = re.sub('^0+','', rawmsg)
-			try:
-				data = json.loads(msgdata)
-			except json.decoder.JSONDecodeError as e:
-				logger.error(f'{e} msgdata: {msgdata}')
-				data = {'msgtype': 'JSONDecodeError', 'error': e, 'msgdatabuffer' : msgdata, 'client_id': self.client_id}
-			if not self.client_id:
-				self.client_id = data.get('client_id', None)
-				logger.info(f'{self} setclid client_id: {self.client_id} ')
-			if self.handlerq.qsize() > 5:
-				logger.warning(f"{self} H handlerq: {self.handlerq.qsize()}  shq: {self.serverhq.qsize()} ") # data:\n{data}\n")
-			if self.serverhq.qsize() > 5:
-				logger.warning(f"{self} S handlerq: {self.handlerq.qsize()}  shq: {self.serverhq.qsize()} ") # data:\n{data}\n")
-				# self.handlerq = Queue()
-			self.serverhq.put(data, block=True)
+			if rawmsglen == '':
+				# rawmsglen2 = self.conn.recv(PKTHEADER * 2).decode(FORMAT)
+				logger.warning(f'rawmsglenempty: {rawmsglen} {type(rawmsglen)} ' )
+				data = {'msgtype': 'rawmsglenempty', 'client_id': self.client_id}
+				rawmsglen = None
+				self.connected = False
+				self.handlerq.put(data)
+				break
+				# self.conn.close()
+				# self.send_ping()
+			if rawmsglen:
+				try:
+					msglen = int(re.sub('^0+','',rawmsglen))
+				except ValueError as e:
+					logger.error(f'error: {e} {type(e)} clientid: {self.client_id}  rawmsglen: {type(rawmsglen)} rawm: {rawmsglen}')
+					data = {'msgtype': 'valueerror', 'error': e, 'client_id': self.client_id}
+					msglen = None
+					self.handlerq.put(data)
+					# self.connected = False
+					# self.conn.close()
+					# break
+				if msglen:
+					try:
+						rawmsg = self.conn.recv(msglen).decode(FORMAT)
+					except OSError as e:
+						logger.error(f'{self} {e} {type(e)} m:{msglen} rawmsglen: {type(rawmsglen)}\raw: {rawmsglen}')
+						self.connected = False
+						self.conn.close()
+						break
+					msgdata = re.sub('^0+','', rawmsg)
+					try:
+						data = json.loads(msgdata)
+					except json.decoder.JSONDecodeError as e:
+						logger.error(f'{e} msgdata: {msgdata}')
+						data = {'msgtype': 'JSONDecodeError', 'error': e, 'msgdatabuffer' : msgdata, 'client_id': self.client_id}
+					if self.handlerq.qsize() > 15:
+						logger.warning(f"{self} handlerq: {self.handlerq.qsize()} data:\n{data}")
+						# self.handlerq = Queue()
+					self.handlerq.put(data)
 
 class Gameserver(Thread):
-	def __init__(self, connq=None, mainsocket=None, lock=None, handlerq=None):
+	def __init__(self, connq, mainsocket, lock, debugmode=False):
 		Thread.__init__(self,  daemon=True, name='gameserverthread')
+		self._stop = threading.Event()
+		self.debugmode = debugmode
 		self.lock = lock
 		self.mainsocket = mainsocket
 		self.killed = False
 		self.clients = []
 		self.connq = connq
-		# self.serverdq = Queue()
-		self.handlerq = Queue()
+		self.serverdq = Queue()
 		self.gridsize = 20
 		self.grid = generate_grid(gsz=self.gridsize)
 		self.playerlist = {}
-		self.sv_updcntr = 0
+		self.trgnpc = 0 # how often trigger_newplayer was called
 		self.tui = ServerTUI(server=self)
 
 	def __repr__(self):
 		return f'Gameserver (c:{len(self.clients)})'
 
-	def trigger_newplayer(self):
-		self.sv_updcntr += 1
+	def stop(self):
+		self._stop.set()
+
+	def stopped(self):
+		return self._stop.is_set()
+
+	def trigger_newplayer(self, thread):
+		self.trgnpc += 1
+		thread.start()
+		self.clients.append(thread)
+		newpos = (10,10) # get_grid_pos(self.grid)
+		self.playerlist[thread.client_id] = {'pos': newpos, 'bombsleft': 3, 'health': 100, 'runcounter': 0}
+		# send this to the new client
+		msg = {'msgtype': 'trigger_newplayer', 'clientname': thread.name, 'setpos': newpos, 'client_id': thread.client_id, 'playerlist': self.playerlist}
+		logger.debug(f'trigger_newplayer c:{self.trgnpc} selfclients:{len(self.clients)} client: {thread.client_id}')
+		self.do_send(thread.conn, thread.addr, msg)
+		newplayer = {
+			'client_id' : thread.client_id,
+			'clientname' : thread.name,
+			'pos' : newpos,
+			}
 		for client in self.clients:
-			logger.debug(f'trigger_newplayer c:{self.sv_updcntr} client: {client}')
-			newpos = get_grid_pos(self.grid)
-			msg = {'msgtype': 'trigger_newplayer', 'clientname': client.name, 'setpos': newpos, 'client_id': client.client_id, 'grid': self.grid,}
+			logger.debug(f'trigger_netplayers c:{self.trgnpc} client: {client}')
+			# update other clients... # todo exclude the new client
+			msg = {'msgtype': 'trigger_netplayers', 'clientname': client.name, 'client_id': client.client_id, 'newplayer': newplayer,}
 			try:
-				# self.do_send(client._args[0], client._args[1], msg)
-				client.client_do_send(payload=msg)
-				# self.server_do_send(client.conn, client.addr, msg)
+				self.do_send(client.conn, client.addr, msg)
 			except ServerSendException as e: # todo check and fix this...
 				logger.warning(f'[!] {e} in {self} {client}')
 				# self.playerlist.pop(clients.client_id)
@@ -197,63 +225,62 @@ class Gameserver(Thread):
 				# self.playerlist.pop(clients.client_id)
 				# self.clients.pop(self.clients.index(client))
 
-	def refresh_clients(self):
-		# logger.info(f'playerlist {self.playerlist}\nclients: {self.clients}\n' )
-		for cl in self.clients:
-			# logger.info(f'cl: {cl} ')
-			if not cl.client_id:
-				pass
-				# logger.warning(f'needclientid {cl} {self.clients}')
-				# continue
-			else:
-				if not cl.connected:
-					try:
-						self.playerlist.pop(cl.client_id) # ]['connected'] = False
-					except KeyError as e:
-						logger.error(f'{e} {type(e)} cl: {cl}\nplayerlist: {self.playerlist}\nclients: {self.clients}\n')						
-					self.clients.pop(self.clients.index(cl))
-					logger.warning(f'{self} {cl.client_id} disconnected playerlist: {len(self.playerlist)}')
-
-
 	def refresh_playerlist(self, data):
-		# logger.debug(f'refresh_playerlist {data}')
-		clid = data.get('client_id')
-		if clid:
-			self.playerlist[clid] = data
-		else:
-			logger.error(f'clid not found in {data}')
+		msgtype = data.get('msgtype')
+		match msgtype:
+			case 'playermove' | 'bombdrop' | 'on_update':
+				# logger.debug(f'refresh_playerlist {data}')
+				client_id = data.get('client_id')
+				self.playerlist[client_id] = {'pos':data['pos']}
+				#self.playerlist[data['client_id']] = {'client_id':data['client_id'],'pos':data['pos']}
+				# logger.info(f'self.playerlist {self.playerlist}')
+			case _:
+				logger.warning(f'refresh_playerlist {data}')
+		# if client_id:
+		# 	self.playerlist[client_id] = data
+		# else:
+		# 	logger.error(f'client_id not found in {data}')
 
-	def server_do_send(self, socket, serveraddress, payload):
-		payload['playerlist'] = self.playerlist
-		payload['grid'] = self.grid
-		payload['sv_updcntr'] = self.sv_updcntr
-		payload = json.dumps(payload).encode('utf8')
-		msglenx = str(len(payload)).encode('utf8')
-		msglen = msglenx.zfill(PKTHEADER)
-		# payload['serverdq'] = self.serverdq.qsize()
+	def do_send(self, socket, serveraddress, data):
+		data['playerlist'] = self.playerlist
+		data['grid'] = {}# self.grid
 		try:
-			# logger.debug(f'do_send {socket} {serveraddress} {payload}')
+			payload = json.dumps(data).encode('utf8')
+		except (ValueError, TypeError) as e:
+			logger.error(f'{e} {type(e)} {data} {type(data)}')
+			return
+		if payload:
 			try:
-				socket.sendto(msglen,serveraddress )
-				# logger.debug(f'do_send_msglen {pmsgtype} len: {msglenx}')
-			except TypeError as e:
-				logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
-				return # raise ServerSendException(e)
-			except OSError as e:
-				logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
-				return # raise ServerSendException(e)
-		except Exception as e:
-			logger.error(f'[!] {e} {type(e)} {type(payload)} {payload}')
-			return # raise ServerSendException(e)
-		try:
-			socket.sendto(payload,serveraddress)
-				# logger.debug(f'do_send payload: {pmsgtype} {type(payload)}')
-		except OSError as e:
-			logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
-			return # raise ServerSendException(e)
-		except TypeError as e:
-			logger.error(f'{e} payloaderror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
-			return # raise ServerSendException(e)
+				# logger.debug(f'do_send {socket} {serveraddress} {payload}')
+
+				msglenx = str(len(payload)).encode('utf8')
+				msglen = msglenx.zfill(PKTHEADER)
+				try:
+					socket.sendto(msglen,serveraddress )
+					# logger.debug(f'do_send_msglen {pmsgtype} len: {msglenx}')
+				except TypeError as e:
+					# logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
+					raise ServerSendException(f'sendmsglen {e} {type(e)}')
+				except OSError as e:
+					logger.error(f'{e} msglenerror = {type(msglen)} {msglen} ')# \npayload = {type(payload)}\n{payload}\n')
+					# raise ServerSendException(f'sendmsglen {e} {type(e)}')
+				try:
+					socket.sendto(payload,serveraddress)
+					# logger.debug(f'do_send payload: {pmsgtype} {type(payload)}')
+				except OSError as e:
+					# logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
+					raise ServerSendException(f'sendpayload {e} {type(e)}')
+				except TypeError as e:
+					# logger.error(f'{e} payloaderror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
+					raise ServerSendException(f'sendpayload {e} {type(e)}')
+			except ServerSendException as e:
+				if self.debugmode:
+					logger.warning(f'[!] {e} {type(e)} p: {len(payload)}')
+				else:
+					logger.warning(f'[!] {e} {type(e)}')
+				# raise ServerSendException(e)#
+			except Exception as e:
+				logger.error(f'[!] {e} {type(e)} {type(payload)} p: {len(payload)}')
 
 	def msg_handler(self, data):
 		msgtype = data.get('msgtype')
@@ -261,198 +288,69 @@ class Gameserver(Thread):
 			logger.error(f'[!] msgtype not found in {data}')
 		self.refresh_playerlist(data) # todo check disconnected clients
 		match msgtype:
-			case 'cl_serverdebug': # client request debuginfo
-				debuginfo = {
-					'plcnt': len(self.playerlist),
-					'clcnt': len(self.clients),
-					#'playerlist': self.playerlist,
-					'sv_updcntr': self.sv_updcntr,
-					'clients': []
-				}
-				msg = {'msgtype': 'sv_serverdebug', 'dbginfo': debuginfo}
-				for client in self.clients:
-					msg['dbginfo']['clients'].append({'client_id': client.client_id, 'name': client.name, 'handlerq': client.handlerq.qsize()})
+			case 'on_update':
+				logger.info(f'{msgtype} from {data.get("client_id")} delta_time: {data.get("delta_time")} ')
+			case 'playermove':
+				logger.debug(data)
 				for client in self.clients:
 					try:
-						# self.server_do_send(client.conn, client.addr, msg)
-						client.client_do_send(payload=msg)
+						self.do_send(client.conn, client.addr, data)
 					except ServerSendException as e:
 						logger.warning(f'[!] {e} in {self} {client}')
-						self.clients.pop(self.clients.index(client))
-					except Exception as e:
-						logger.error(f'[!] {e} {type(e)} in {self} {client}\ndata: {type(data)} {data}\nmsg: {type(msg)} {msg}\n')
-						self.clients.pop(self.clients.index(client))
-			case 'requestnewgrid': # client requests new grid, send to all clients
-				self.grid = generate_grid(gsz=self.gridsize)
-				for client in self.clients:
-					newpos = get_grid_pos(self.grid)
-					msg = {'msgtype': 'newgridresponse', 'clientname': client.name, 'setpos': newpos, 'client_id': client.client_id}
-					# logger.debug(f'{self} {msgtype} from {data.get("client_id")} sendingto: {client.name} ')
-					try:
-						# self.do_send(client._args[0], client._args[1], msg)
-						# self.server_do_send(client.conn, client.addr, msg)
-						client.client_do_send(payload=msg)
-					except ServerSendException as e:
-						logger.warning(f'[!] {e} in {self} {client}')
-						self.clients.pop(self.clients.index(client))
-					except Exception as e:
-						logger.error(f'[!] {e} {type(e)} in {self} {client}\ndata: {type(data)} {data}\nmsg: {type(msg)} {msg}\n')
-						self.clients.pop(self.clients.index(client))
-			case 'playertimer' | 'ackserveracktimer' | 'cl_playermove':
-				msg = {'msgtype': 'serveracktimer'}
-				if not data.get('gotgrid'):
-					logger.warning(f'need grid data from {data.get("client_id")}')
-				if not data.get('gotpos'):
-					# find a random spot on the map to place the player
-					newpos = get_grid_pos(self.grid)
-					msg['setpos'] = newpos
-					logger.warning(f'needpos {data.get("client_id")} newpos: {newpos}')
-				for client in self.clients:
-					msg['clientname'] = client.name
-					# logger.debug(f'{self} {msgtype} from {data.get("client_id")} sendingto: {client.name} ')
-					try:
-						# self.do_send(client._args[0], client._args[1], msg)
-						# self.server_do_send(client.conn, client.addr, msg)
-						client.client_do_send(payload=msg)
-					except ServerSendException as e:
-						logger.warning(f'[!] {e} in {self} {client}')
-						self.clients.pop(self.clients.index(client))
-					except Exception as e:
-						logger.error(f'[!] {e} {type(e)} in {self} {client}\ndata: {type(data)} {data}\nmsg: {type(msg)} {msg}\n')
-						self.clients.pop(self.clients.index(client))
-			case 'cl_playerbomb': # player sent bomb, update others
-				if not data.get('gotgrid'):
-					logger.warning(f'missing gotgrid data: {data}')
-				logger.info(f'{msgtype} dclid: {data.get("client_id")} clbombpos: {data.get("clbombpos")}')
-				for client in self.clients:
-					msg = {'msgtype': 'ackplrbmb', 'client': client.name, 'data': data}
-					try:
-						# self.server_do_send(client.conn, client.addr, msg)
-						client.client_do_send(payload=msg)
-					except ServerSendException as e:
-						logger.warning(f'[!] {e} in {self} {client}')
-						self.clients.pop(self.clients.index(client))
+						# self.playerlist.pop(clients.client_id)
+						# self.clients.pop(self.clients.index(client))
 					except Exception as e:
 						logger.error(f'[!] {e} in {self} {client}')
-						self.clients.pop(self.clients.index(client))
-			case 'cl_gridupdate': # gridupdate from client....
-				self.grid = data.get('grid')
+						# self.playerlist.pop(clients.client_id)
+						# self.clients.pop(self.clients.index(client))
+			case 'bombdrop':
+				logger.info(f'{msgtype} from {data.get("bomber")} pos: {data.get("pos")}')
 				for client in self.clients:
-					msg = {'msgtype': 'sv_gridupdate', 'grid': self.grid,}
-					# logger.info(f'sv_gridupdate to {client.name} dclid: {data.get("client_id")} ')
 					try:
-						# self.server_do_send(client.conn, client.addr, msg)
-						client.client_do_send(payload=msg)
+						self.do_send(client.conn, client.addr, data)
 					except ServerSendException as e:
 						logger.warning(f'[!] {e} in {self} {client}')
-						self.clients.pop(self.clients.index(client))
+						# self.playerlist.pop(clients.client_id)
+						# self.clients.pop(self.clients.index(client))
 					except Exception as e:
 						logger.error(f'[!] {e} in {self} {client}')
-						self.clients.pop(self.clients.index(client))
-			case 'cl_playerkilled': # cl_playerkilled from client, send update to others....
-				self.playerlist = data.get('playerlist')
-				logger.info(f'{msgtype} dclid: {data.get("client_id")} ') # playerlist: {self.playerlist}
-				for client in self.clients:
-					msg = {'msgtype': 'sv_playerlist', 'playerlist': self.playerlist,}
-					try:
-						# self.server_do_send(client.conn, client.addr, msg)
-						client.client_do_send(payload=msg)
-					except ServerSendException as e:
-						logger.warning(f'[!] {e} in {self} {client}')
-						self.clients.pop(self.clients.index(client))
-					except Exception as e:
-						logger.error(f'[!] {e} in {self} {client}')
-						self.clients.pop(self.clients.index(client))
+						# self.playerlist.pop(clients.client_id)
+						# self.clients.pop(self.clients.index(client))
+			case 'onkeypress':
+				logger.info(f'{msgtype} ')
+			case 'getservermap':
+				logger.info(f'{msgtype} ')
+			case 'valueerror' | 'JSONDecodeError' | 'rawmsglenempty':
+				logger.warning(f'{msgtype} data: {data}')
 			case _:
 				logger.warning(f'unknown msgtype {msgtype} from {data.get("client_id")}\ndata: {data}')
-
-	def check_handlerq(self):
-		try:
-			hdataq = [self.handlerq.get(block=True) for k in range(self.handlerq.qsize())]
-		except Empty:
-			pass
-		if hdataq:
-			if len(hdataq) > 2:
-				logger.warning(f'q: {self.handlerq.qsize()} dl: {len(hdataq)} ') # \ndata: {datafromq}\n')
-			for d in hdataq:
-				try:
-					# data = json.loads(datafromq)
-					self.msg_handler(d)
-				except json.decoder.JSONDecodeError as e:
-					logger.error(f'{e} {type(e)} {type(d)} {d}\n datafromq:\n {hdataq}\n')
-					continue
-			self.handlerq.task_done()
-
-	def check_client_serverhq(self):
-		for c in self.clients:
-			try:
-				sqdata = [c.serverhq.get(block=True) for k in range(c.serverhq.qsize())]
-			except Empty:
-				pass
-			if sqdata:
-				if len(sqdata) > 2:
-					logger.warning(f'q: {c.serverhq.qsize()} dl: {len(sqdata)} ') # \ndata: {datafromq}\n')
-				for d in sqdata:
-					try:
-						# data = json.loads(datafromq)
-						self.msg_handler(d)
-					except json.decoder.JSONDecodeError as e:
-						logger.error(f'{e} {type(e)} {type(d)} {d}\n datafromq:\n {sqdata}\n')
-						continue
-				c.serverhq.task_done()
 
 	def run(self):
 		# logger.info(f'{self} starting tui')
 		# self.tui.start()
 		logger.info(f'{self} started')
 		while True:
-			self.check_handlerq()
-			self.check_client_serverhq()
 			if self.tui.killed: # todo fix tuiquit
 				logger.warning(f'{self} tui {self.tui} killed')
 				self.killed = True
+				self.stop()
 				# self.mainsocket.close()
 				break
 				# sys.exit(1)
 			if self.killed:
 				logger.warning(f'{self} killed')
+				self.stop()
 				break
-			# try:
-			# 	self.refresh_clients()
-			# except Exception as e:
-			# 	logger.error(f'{self} {e} {type(e)}')
-
-	def oldoldrunq(self):
-		for c in self.clients:
-			datafromq = None
-			try:
-				datafromq = [c.handlerq.get(block=False) for k in range(c.handlerq.qsize())]
-			except Empty:
-				pass
-			if datafromq:
-				c.handlerq.task_done()
-				if len(datafromq) > 2:
-					logger.warning(f'cdqsize {c.handlerq.qsize()} self: {self.handlerq.qsize()} dl: {len(datafromq)} ') # \ndata: {datafromq}\n')
-				for d in datafromq:
+			for c in self.clients:
+				if not c.handlerq.empty():
+					datafromq = c.handlerq.get()
+					c.handlerq.task_done()
 					try:
 						# data = json.loads(datafromq)
-						self.msg_handler(d)
+						self.msg_handler(datafromq)
 					except json.decoder.JSONDecodeError as e:
-						logger.error(f'{e} {type(e)} {type(d)} {d} datafromq: {datafromq}')
+						logger.error(f'{e} {type(e)} {type(datafromq)} {datafromq}')
 						continue
-					
-
-	def oldrunhandlerq(self):
-		for c in self.clients:
-			if not c.handlerq.empty():
-				datafromq = c.handlerq.get()
-				c.handlerq.task_done()
-				try:
-					# data = json.loads(datafromq)
-					self.msg_handler(datafromq)
-				except json.decoder.JSONDecodeError as e:
-					logger.error(f'{e} {type(e)} {type(datafromq)} {datafromq}')
-					continue
 					# logger.debug(f'{self} msghanlder {data}')
 
 def get_grid_pos(grid):
@@ -476,8 +374,9 @@ def bind_thread(server):
 	pass
 
 class BindThread(Thread):
-	def __init__(self, server, lock):
+	def __init__(self, server, lock, debugmode=False):
 		Thread.__init__(self, daemon=True, name='Bindthread')
+		self.debugmode = debugmode
 		self.lock = lock
 		self.server = server
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -511,31 +410,23 @@ class BindThread(Thread):
 			except Exception as e:
 				logger.warning(f'{e} {type(e)}')
 				break
-			# thread = NewHandler(conn,addr, Queue(), name=f'clthrd{conncounter}')
-			thread = NewHandler(conn=conn,addr=addr, serverhq=self.server.handlerq, name=f'clthrd{conncounter}')
-			self.server.clients.append(thread)
-			thread.start()
+			client_id =  gen_randid()
+			thread = NewHandler(conn=conn, addr=addr, handlerq=Queue(), name=f'clthrd{conncounter}', server=self.server, client_id=client_id)
+			# self.server.clients.append(thread)
+			# thread.start()
 			conncounter += 1
-			logger.info(f'{self.server} started {thread} {conncounter}')
-			self.server.trigger_newplayer()
+			logger.info(f'newconnection thread: {client_id} {thread} conn: {conncounter} serverc: {len(self.server.clients)}')
+			self.server.trigger_newplayer(thread)
+
 
 def locker_thread(lock):
-	logger.debug('locker_thread Starting')
-	while True:
-		lock.acquire()
-		try:
-			# logger.debug('locker_thread Locking')
-			time.sleep(0.05)
-		finally:
-			# logger.debug('locker_thread Not locking')
-			lock.release()
-		time.sleep(0.05)
-	return
+    logger.debug('locker_thread Starting')
 
 if __name__ == '__main__':
 	parser = ArgumentParser(description='server')
 	parser.add_argument('--listen', action='store', dest='listen', default='localhost')
 	parser.add_argument('--port', action='store', dest='port', default=9696, type=int)
+	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()
 
 	mainsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -543,17 +434,17 @@ if __name__ == '__main__':
 
 	threads = []
 	connq = Queue()
-	# handlerq = Queue()
+
 	# lock = threading.Lock()
 	# lt = Thread(target=locker_thread, args=(lock,), daemon=True, name='svlocker_thread')
-	#threads.append(lt)
+	# threads.append(lt)
 	lock = None
-	gt = Gameserver(connq=connq, mainsocket=mainsocket, lock=lock)
-	tui = ServerTUI(server=gt)
+	gt = Gameserver(connq=connq, mainsocket=mainsocket, lock=lock, debugmode=args.debug)
+	tui = ServerTUI(server=gt, debugmode=args.debug)
 	threads.append(tui)
 	# tui.run()
 	threads.append(gt)
-	bt = BindThread(gt, lock)
+	bt = BindThread(server=gt, lock=lock, debugmode=args.debug)
 	threads.append(bt)
 	for t in threads:
 		logger.info(f'starting {t}')
@@ -561,29 +452,11 @@ if __name__ == '__main__':
 	killserver = False
 	while not killserver:
 		for t in threads:
-			if not t.is_alive():
-				logger.warning(f'{t} killed')
+			try:
+				if t.stopped():
+					logger.warning(f'{t} killed')
+					killserver = True
+					break
+			except Exception as e:
+				logger.error(f'{e} {type(e)} t: {t}')
 				killserver = True
-				break
-	# try:
-	# 	mainsocket.bind((args.listen,args.port))
-	# except OSError as e:
-	# 	logger.error(e)
-	# 	sys.exit(1)
-	# conncounter = 0
-	# while True:
-	# 	mainsocket.listen()
-	# 	try:
-	# 		conn, addr = mainsocket.accept()
-	# 	except KeyboardInterrupt as e:
-	# 		logger.warning(f'{e}')
-	# 		break
-	# 	except Exception as e:
-	# 		logger.warning(f'{e} {type(e)}')
-	# 		break
-	# 	thread = NewHandler(conn,addr, server.dataq, name=f'clthrd{conncounter}')
-	# 	server.clients.append(thread)
-	# 	thread.start()
-	# 	conncounter += 1
-	# 	logger.info(f'{server} started {thread} {conncounter}')
-	# 	server.trigger_newplayer()
