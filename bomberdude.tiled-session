@@ -1,0 +1,100 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "data/map.json",
+    "expandedProjectPaths": [
+        "data",
+        "."
+    ],
+    "file.lastUsedOpenFilter": "All Files (*)",
+    "fileStates": {
+        "/home/kth/development2/games/donk-tiled/tileset_oink.tsx": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/level_2.json": {
+            "scale": 0.272234375,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 1603.397807495839,
+                "y": 1281.9835849164901
+            }
+        },
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map2_level_1.json": {
+            "scale": 0.170146484375,
+            "selectedLayer": 4,
+            "viewCenter": {
+                "x": 2565.4364919933423,
+                "y": 1093.1756873098777
+            }
+        },
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map2_level_1.json#tileset": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/standard_tileset.json": {
+            "dynamicWrapping": true,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "data/btiles.tsx": {
+            "dynamicWrapping": true,
+            "scaleInDock": 0.75,
+            "scaleInEditor": 1
+        },
+        "data/map.json": {
+            "scale": 1,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 446.5,
+                "y": 333
+            }
+        },
+        "data/map.tmx": {
+            "scale": 0.9074479166666666,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 481.0193422487517,
+                "y": 320.6795614991678
+            }
+        },
+        "map.json": {
+            "scale": 0.9074479166666666,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 481.0193422487517,
+                "y": 320.6795614991678
+            }
+        },
+        "map.tmx": {
+            "scale": 0.9074479166666666,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 481.0193422487517,
+                "y": 320.6795614991678
+            }
+        }
+    },
+    "last.exportedFilePath": "/home/kth/development/bomberdudearcade/data",
+    "last.imagePath": "/home/kth/development/bomberdudearcade/data",
+    "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
+    "map.lastUsedFormat": "tmx",
+    "openFiles": [
+        "data/map.json"
+    ],
+    "project": "bomberdude.tiled-project",
+    "recentFiles": [
+        "data/map.json",
+        "data/btiles.tsx",
+        "data/map.tmx",
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/standard_tileset.json",
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/level_2.json",
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map2_level_1.json",
+        "/home/kth/development2/games/donk-tiled/tileset_oink.tsx",
+        "map.json",
+        "map.tmx"
+    ],
+    "tileset.lastUsedFormat": "tsx",
+    "tileset.type": 1
+}
