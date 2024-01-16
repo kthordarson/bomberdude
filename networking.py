@@ -166,6 +166,8 @@ class Client(Thread):
 					logger.info(f'gotpos {msgtype} newpos: {newpos} {self.gridpos} {self.pos}')
 			case 'trigger_netplayers':
 				self.eventq.put(jresp)
+			case 'refresh_playerlist':
+				self.eventq.put(jresp)
 			case 'trigger_newplayer': # when new player joins
 				client_id = jresp.get('client_id')
 				# logger.info(f'{msgtype} {jresp}')
@@ -178,7 +180,6 @@ class Client(Thread):
 					self.playerlist[jresp.get('client_id')] = {'setpos':jresp.get('setpos')}
 					logger.info(f'{self} {msgtype} name: {jresp.get("clientname")} client_id: {jresp.get("client_id")} setpos: {jresp.get("setpos")} ')
 					self.eventq.put(jresp)
-					return
 			case 'serveracktimer':
 				# logger.debug(f'{self} {msgtype} {jresp}')
 				# playerlist = None

@@ -1,4 +1,5 @@
 import arcade
+from arcade.gui import UILabel
 import random
 import math
 from loguru import logger
@@ -13,17 +14,23 @@ def gen_randid() -> str:
 
 
 class Bomberplayer(arcade.Sprite):
-	def __init__(self, image=None, scale=1, client_id=None):
-		super().__init__(image,scale)
+	def __init__(self, image=None, scale=1, client_id=None, visible=False):
+		super().__init__(image,scale,visible=visible,center_x=0,center_y=0)
 		self.bombsleft = 3
 		self.client_id = client_id
+		self.visible = visible
+		self.center_x = 0
+		self.center_y = 0
+		self.position = (self.center_x, self.center_y)
+		self.text = arcade.Text(f'{self.client_id} {self.position}', 10,10)
 
 	def __repr__(self):
-		return f'Bomberplayer(pos={self.center_x},{self.center_y} b:{self.bombsleft})'
+		return f'Bomberplayer(id: {self.client_id} pos={self.center_x},{self.center_y} b:{self.bombsleft})'
 
 	def setpos(self, newpos):
-		self.center_x = newpos[0]
-		self.center_x = newpos[1]
+		self.position = newpos
+		# self.center_x = newpos[0]
+		# self.center_x = newpos[1]
 
 	def moveup(self):
 		pass

@@ -1,7 +1,10 @@
+#!/usr/bin/python
 import random
 from queue import Queue, Empty
 import arcade
-from arcade.gui import UIManager
+from arcade.gui import UIManager, UILabel, UIBoxLayout
+from arcade.gui.widgets.layout import UIAnchorLayout
+
 from loguru import logger
 from objects import Bomberplayer, Bomb
 # from menus import MainMenu
@@ -13,7 +16,14 @@ from exceptions import *
 # draw netplayers
 # draw netbombs
 # sync info bewteen Client and Bomberplayer
+# update clients when new player connects
+# task 1 send player input to server
+# task 2 receive game state from server
+# task 3 draw game
 
+# task 1 accept connections
+# taks 2 a. receive player input b. update game state
+# task 3 send game state to clients
 
 class MainMenu(arcade.View):
 	def __init__(self):
@@ -22,31 +32,25 @@ class MainMenu(arcade.View):
 
 		start_new_game_button = arcade.gui.UIFlatButton(text="Start New Game", width=150)
 		exit_button = arcade.gui.UIFlatButton(text="Exit", width=320)
-
 		# Initialise a grid in which widgets can be arranged.
 		self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
-
 		# Adding the buttons to the layout.
 		self.grid.add(start_new_game_button, col_num=1, row_num=0)
 		self.grid.add(exit_button, col_num=0, row_num=2, col_span=2)
-
 		self.anchor = self.manager.add(arcade.gui.UIAnchorLayout())
-
 		self.anchor.add(anchor_x="center_x", anchor_y="center_y", child=self.grid,)
 
 		@start_new_game_button.event("on_click")
 		def on_click_start_new_game_button(event):
-			logger.debug(f'on_click_start_new_game_button event:{event}')
-			b = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-			b.setup()
-			self.window.show_view(b)
+
+			self.game.setup()
+			self.window.show_view(self.game)
 
 		@exit_button.event("on_click")
 		def on_click_exit_button(event):
 			arcade.exit()
 
 	def on_show_view(self):
-		logger.info(f'{self} on_show_view m:{self.manager}')
 		self.window.background_color = arcade.color.WHITE
 		self.manager.enable()
 
@@ -59,23 +63,70 @@ class MainMenu(arcade.View):
 		self.manager.disable()
 
 class Bomberdude(arcade.View):
-	def __init__(self, width, height, title):
+	def __init__(self, width, height, title, manager):
 		super().__init__()
+		self.manager = manager
 		#super().__init__(width, height, title, resizable=True)
 		self.width = width
 		self.height = height
-		self.player_list = None
+		# self.player_list = None
+		self.netplayers = []
 		self.physics_engine = None
 		self.bomb_list = None
 		self.particle_list = None
 		self.flame_list = None
 		self.title = title
 		self.eventq = Queue()
-		self.client = Client(serveraddress=('127.0.0.1', 9696), eventq=self.eventq)
 		self.playerone = None
+		self.client = Client(serveraddress=('127.0.0.1', 9696), eventq=self.eventq)
+		self.game_ready = False
+		self.timer = UILabel(align="right", size_hint_min=(30, 20))
+		# start_new_game_button = arcade.gui.UIFlatButton(text="Start New Game", width=150)
+		# exit_button = arcade.gui.UIFlatButton(text="Exit", width=320)
+		# Initialise a grid in which widgets can be arranged.
+		# self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
+		# Adding the buttons to the layout.
+		# self.grid.add(start_new_game_button, col_num=1, row_num=0)
+		# self.grid.add(exit_button, col_num=0, row_num=2, col_span=2)
+
+		wood = UILabel(align="right", size_hint_min=(30, 20))
+		stone = UILabel(align="right", size_hint_min=(30, 20))
+		food = UILabel(align="right", size_hint_min=(30, 20))
+
+		self.columns = UIBoxLayout(
+			vertical=False,
+			children=[
+				# Create one vertical UIBoxLayout per column and add the labels
+				UIBoxLayout(
+					vertical=True,
+					children=[
+						UILabel(text="Time:", align="left", width=50),
+						UILabel(text="Wood:", align="left", width=50),
+						UILabel(text="Stone:", align="left", width=50),
+						UILabel(text="Food:", align="left", width=50),
+					],
+				),
+				# Create one vertical UIBoxLayout per column and add the labels
+				UIBoxLayout(vertical=True, children=[self.timer, wood, stone, food]),
+			],
+		)
+		self.anchor = self.manager.add(arcade.gui.UIAnchorLayout())
+		self.anchor.add(anchor_x="center_x", anchor_y="bottom", child=self.columns,)
 
 	def __repr__(self):
-		return f'Bomberdude( {self.title} p: {len(self.player_list)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
+		return f'Bomberdude( {self.title} np: {len(self.netplayers)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
+
+	def on_show_view(self):
+		self.window.background_color = arcade.color.WHITE
+		self.manager.enable()
+
+	def on_draw(self):
+		self.clear()
+		self.manager.draw()
+
+	def on_hide_view(self):
+		# Disable the UIManager when the view is hidden.
+		self.manager.disable()
 
 	def setup(self):
 		layer_options = {"Blocks": {"use_spatial_hash": True},}
@@ -83,11 +134,11 @@ class Bomberdude(arcade.View):
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 		self.scene.add_sprite_list_after("Player", "Foreground")
 
-		self.player_list = arcade.SpriteList()
+		# self.player_list = arcade.SpriteList()
 		self.bomb_list = arcade.SpriteList()
 		self.particle_list = arcade.SpriteList()
 		self.flame_list = arcade.SpriteList()
-
+		self.netplayers = arcade.SpriteList()
 		# self.playerone = self.client.player # Bomberplayer("data/playerone.png",scale=0.9) # arcade.Sprite("data/playerone.png",scale=1)
 		# self.playerone.center_x = 128
 		# self.playerone.center_y = 128
@@ -100,9 +151,7 @@ class Bomberdude(arcade.View):
 		self.end_of_map = (self.tile_map.width * self.tile_map.tile_width) * self.tile_map.scaling
 		self.background_color = arcade.color.AMAZON
 		doconn = self.client.do_connect()
-		logger.info(f'{self} setup end_of_map={self.end_of_map} conn: {doconn} {self.client} {self.client.receiver}')
 		self.client.start()
-		logger.debug(f'{self} self.client.receiver starting {self.client} {self.client.receiver}')
 		self.client.receiver.start()
 
 		# self.client.receiver.run()
@@ -112,15 +161,22 @@ class Bomberdude(arcade.View):
 		self.clear()
 		self.camera.use()
 		self.scene.draw()
-		self.player_list.draw()
-		self.bomb_list.draw()
-		self.particle_list.draw()
-		self.flame_list.draw()
+		if self.game_ready and self.playerone:
+			self.netplayers.draw()
+			self.playerone.draw()
+			self.bomb_list.draw()
+			self.particle_list.draw()
+			self.flame_list.draw()
+			for np in self.netplayers:
+				np.text.draw()
 
 		# self.gui_camera.use()
-		# arcade.draw_rectangle_filled(self.width , 20, self.width, 40, arcade.color.ALMOND)
+		arcade.draw_rectangle_filled(self.width , 20, self.width, 40, arcade.color.ALMOND)
 
 	def on_key_press(self, key, modifiers):
+		if not self.game_ready:
+			logger.warning(f'game not ready')
+			return
 		sendmove = False
 		# logger.debug(f'{key} {self} {self.client} {self.client.receiver}')
 		if key == arcade.key.ESCAPE or key == arcade.key.Q:
@@ -151,50 +207,68 @@ class Bomberdude(arcade.View):
 	def handle_netevent(self, netevent):
 		msgtype = netevent.get('msgtype', 'nonetype')
 		match msgtype:
+			case 'refresh_playerlist':
+				playerlist = netevent.get('playerlist')
+				for np in playerlist:
+					npclid = playerlist[np].get('client_id')
+					npos = playerlist[np].get('pos')
+					logger.info(f'np: {np} npos:{npos} {playerlist[np]}')
+					text = arcade.Text(f'{npclid} {npos}', npos[0],npos[1], arcade.color.GREEN)
+					[k.setpos(playerlist[np].get('pos')) for k in self.netplayers if k.client_id == np]
 			case 'trigger_netplayers':
 				playerlist = netevent.get('playerlist')
 				newplayer = netevent.get('newplayer')
+				newplayerpos = newplayer.get('pos')
 				if newplayer:
 					netplayer = Bomberplayer("data/netplayer.png",scale=0.9, client_id=newplayer.get('client_id'))
-					netplayer.center_x = 110
-					netplayer.center_y = 110
-					self.player_list.append(netplayer)
-					logger.debug(f'{msgtype} {netevent}')
+					netplayer.position = newplayerpos
+					self.netplayers.append(netplayer)
+					logger.debug(f'{msgtype} newplayer: {newplayer} netplayers:{len(self.netplayers)} ')
+					netplayer.visible = True
 			case 'trigger_newplayer':
 				client_id = netevent.get('client_id')
+				pos = netevent.get('setpos')
 				self.playerone = Bomberplayer("data/playerone.png",scale=0.9, client_id=client_id)
-				self.playerone.center_x = 128
-				self.playerone.center_y = 128
 				self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scene['Blocks'], gravity_constant=GRAVITY)
-				self.player_list.append(self.playerone)
+				#self.playerone.client_id = client_id #  = Bomberplayer("data/playerone.png",scale=0.9, client_id=client_id)
+				# self.playerone.change_x = 0
+				# self.playerone.change_y = 0
+				self.playerone.position = pos
+				# self.playerone.center_x = pos[0]
+				# self.playerone.center_y = pos[1]
+				# self.player_list.append(self.playerone)
+				self.game_ready = True
 				logger.info(f'{msgtype} {self.playerone}')
+				self.playerone.visible = True
 			case 'bombdrop':
 				if self.client.client_id != netevent.get('client_id'):
 					logger.debug(f'{msgtype} {netevent}')
 				# logger.debug(f'{msgtype} {netevent}')
 			case 'playermove':
 				clid = netevent.get('client_id')
-				if self.client.client_id != clid:
-					# logger.debug(f'{msgtype} {netevent}')
-					cx = netevent.get('pos')[0]
-					cy = netevent.get('pos')[1]
-					for player in self.player_list:
-						if player.client_id == self.client.client_id:
-							pass
-						else:
-							player.center_x = cx
-							player.center_y = cy
-							logger.debug(f'{msgtype} move {player} to {cx} {cy}')
+				cx = netevent.get('pos')[0]
+				cy = netevent.get('pos')[1]
+				for player in self.netplayers:
+					if clid == player.client_id:
+						player.position = (cx,cy)
+						player.text = arcade.Text(f'{clid} {player.position}', cx,cy, arcade.color.BLUE)
+						logger.debug(f'{msgtype} move {player} to {cx} {cy}')
+					else:
+						player.position = (cx,cy)
+						player.text = arcade.Text(f'{clid} {player.position}', cx,cy, arcade.color.RED)
+						logger.debug(f'{msgtype} move {player} to {cx} {cy}')
 
 				#logger.debug(f'{msgtype} {netevent}')
 			case _:
 				logger.warning(f'{self} {netevent}')
 
 	def on_update(self, delta_time):
-		try:
-			self.physics_engine.update()
-		except AttributeError as e:
-			pass
+		self.timer = f't: {delta_time}'
+		if self.game_ready and self.playerone:
+			try:
+				self.physics_engine.update()
+			except AttributeError as e:
+				logger.error(f'{e} gameready:{self.game_ready} p1: {self.playerone}')
 		self.client.update_run()
 		self.client.update_run_recv()
 		# self.client.send_queue.put({'msgtype': 'on_update', 'delta_time':delta_time, 'pos' : self.playerone.position, 'client_id': self.client.client_id})
@@ -257,8 +331,10 @@ class Bomberdude(arcade.View):
 
 		self.particle_list.update()
 		self.flame_list.update()
-		if self.playerone:
+		if self.playerone and self.game_ready:
 			self.camera.center(self.playerone.position)
+		else:
+			logger.warning(f'gameready: {self.game_ready} p1: {self.playerone}')
 
 	def dropbomb(self):
 		# logger.debug(f'p1: {self.playerone} drops bomb...')
@@ -279,6 +355,7 @@ def main():
 	""" Main function """
 	mainwindow = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
 	# gameview = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+	game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
 	mainmenu = MainMenu()
 	mainwindow.show_view(mainmenu)
 	#window.setup()

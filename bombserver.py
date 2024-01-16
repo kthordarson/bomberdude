@@ -199,7 +199,7 @@ class Gameserver(Thread):
 		self.trgnpc += 1
 		thread.start()
 		self.clients.append(thread)
-		newpos = (10,10) # get_grid_pos(self.grid)
+		newpos = (110,101) # get_grid_pos(self.grid)
 		self.playerlist[thread.client_id] = {'pos': newpos, 'bombsleft': 3, 'health': 100, 'runcounter': 0}
 		# send this to the new client
 		msg = {'msgtype': 'trigger_newplayer', 'clientname': thread.name, 'setpos': newpos, 'client_id': thread.client_id, 'playerlist': self.playerlist}
@@ -211,19 +211,22 @@ class Gameserver(Thread):
 			'pos' : newpos,
 			}
 		for client in self.clients:
-			logger.debug(f'trigger_netplayers c:{self.trgnpc} client: {client}')
-			# update other clients... # todo exclude the new client
-			msg = {'msgtype': 'trigger_netplayers', 'clientname': client.name, 'client_id': client.client_id, 'newplayer': newplayer,}
-			try:
-				self.do_send(client.conn, client.addr, msg)
-			except ServerSendException as e: # todo check and fix this...
-				logger.warning(f'[!] {e} in {self} {client}')
-				# self.playerlist.pop(clients.client_id)
-				# self.clients.pop(self.clients.index(client))
-			except Exception as e:
-				logger.error(f'[!] {e} in {self} {client}')
-				# self.playerlist.pop(clients.client_id)
-				# self.clients.pop(self.clients.index(client))
+			if client.client_id == thread.client_id:
+				logger.info(f'skipping {client} {thread}')
+			else:
+				logger.debug(f'sending trigger_netplayers to {client}')
+				# update other clients... # todo exclude the new client
+				msg = {'msgtype': 'trigger_netplayers', 'clientname': client.name, 'client_id': client.client_id, 'newplayer': newplayer,}
+				try:
+					self.do_send(client.conn, client.addr, msg)
+				except ServerSendException as e: # todo check and fix this...
+					logger.warning(f'[!] {e} in {self} {client}')
+					# self.playerlist.pop(clients.client_id)
+					# self.clients.pop(self.clients.index(client))
+				except Exception as e:
+					logger.error(f'[!] {e} in {self} {client}')
+					# self.playerlist.pop(clients.client_id)
+					# self.clients.pop(self.clients.index(client))
 
 	def refresh_playerlist(self, data):
 		msgtype = data.get('msgtype')
@@ -236,10 +239,25 @@ class Gameserver(Thread):
 				# logger.info(f'self.playerlist {self.playerlist}')
 			case _:
 				logger.warning(f'refresh_playerlist {data}')
-		# if client_id:
-		# 	self.playerlist[client_id] = data
-		# else:
-		# 	logger.error(f'client_id not found in {data}')
+		if len(self.clients) > 1:
+			for client in self.clients:
+				logger.debug(f'sending refresh_playerlist to {client}')
+				# update other clients... # todo exclude the new client
+				msg = {'msgtype': 'refresh_playerlist', 'playerlist': self.playerlist}
+				try:
+					self.do_send(client.conn, client.addr, msg)
+				except ServerSendException as e: # todo check and fix this...
+					logger.warning(f'[!] {e} in {self} {client}')
+					# self.playerlist.pop(clients.client_id)
+					# self.clients.pop(self.clients.index(client))
+				except Exception as e:
+					logger.error(f'[!] {e} in {self} {client}')
+					# self.playerlist.pop(clients.client_id)
+					# self.clients.pop(self.clients.index(client))
+			# if client_id:
+			# 	self.playerlist[client_id] = data
+			# else:
+			# 	logger.error(f'client_id not found in {data}')
 
 	def do_send(self, socket, serveraddress, data):
 		data['playerlist'] = self.playerlist
@@ -291,7 +309,7 @@ class Gameserver(Thread):
 			case 'on_update':
 				logger.info(f'{msgtype} from {data.get("client_id")} delta_time: {data.get("delta_time")} ')
 			case 'playermove':
-				logger.debug(data)
+				logger.info(f'{msgtype} from {data.get("client_id")} pos: {data.get("pos")} ')
 				for client in self.clients:
 					try:
 						self.do_send(client.conn, client.addr, data)
