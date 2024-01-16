@@ -280,7 +280,8 @@ class Gameserver(Thread):
 					# logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
 					raise ServerSendException(f'sendmsglen {e} {type(e)}')
 				except OSError as e:
-					logger.error(f'{e} msglenerror = {type(msglen)} {msglen} ')# \npayload = {type(payload)}\n{payload}\n')
+					logger.error(f'{e} msglenerror {msglen} {type(msglen)}  ')# \npayload = {type(payload)}\n{payload}\n')
+					return
 					# raise ServerSendException(f'sendmsglen {e} {type(e)}')
 				try:
 					socket.sendto(payload,serveraddress)
@@ -339,7 +340,14 @@ class Gameserver(Thread):
 			case 'getservermap':
 				logger.info(f'{msgtype} ')
 			case 'valueerror' | 'JSONDecodeError' | 'rawmsglenempty':
-				logger.warning(f'{msgtype} data: {data}')
+				client_id = data.get('client_id')
+				logger.warning(f'{msgtype} disconnecting c: {client_id} ')# data: {data}')
+				try:
+					self.playerlist.pop(client_id)
+					[k.stop() for k in self.clients if k.client_id == client_id]
+					[self.clients.pop(self.clients.index(k)) for k in self.clients if k.client_id == client_id]
+				except Exception as e:
+					logger.error(f'{e} {type(e)} clid: {client_id} selfplayerlist={self.playerlist} selfclients={self.clients}')
 			case _:
 				logger.warning(f'unknown msgtype {msgtype} from {data.get("client_id")}\ndata: {data}')
 

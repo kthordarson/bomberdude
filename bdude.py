@@ -29,7 +29,7 @@ class MainMenu(arcade.View):
 	def __init__(self):
 		super().__init__()
 		self.manager = UIManager()
-
+		self.game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
 		start_new_game_button = arcade.gui.UIFlatButton(text="Start New Game", width=150)
 		exit_button = arcade.gui.UIFlatButton(text="Exit", width=320)
 		# Initialise a grid in which widgets can be arranged.
@@ -42,7 +42,6 @@ class MainMenu(arcade.View):
 
 		@start_new_game_button.event("on_click")
 		def on_click_start_new_game_button(event):
-
 			self.game.setup()
 			self.window.show_view(self.game)
 
@@ -51,7 +50,7 @@ class MainMenu(arcade.View):
 			arcade.exit()
 
 	def on_show_view(self):
-		self.window.background_color = arcade.color.WHITE
+		self.window.background_color = arcade.color.GRAY_ASPARAGUS
 		self.manager.enable()
 
 	def on_draw(self):
@@ -63,10 +62,11 @@ class MainMenu(arcade.View):
 		self.manager.disable()
 
 class Bomberdude(arcade.View):
-	def __init__(self, width, height, title, manager):
+	def __init__(self, width, height, title):
 		super().__init__()
-		self.manager = manager
 		#super().__init__(width, height, title, resizable=True)
+		self.manager = UIManager()
+		self.window.set_location(0,0)
 		self.width = width
 		self.height = height
 		# self.player_list = None
@@ -80,7 +80,7 @@ class Bomberdude(arcade.View):
 		self.playerone = None
 		self.client = Client(serveraddress=('127.0.0.1', 9696), eventq=self.eventq)
 		self.game_ready = False
-		self.timer = UILabel(align="right", size_hint_min=(30, 20))
+		self.timer = UILabel(text='.', align="right", size_hint_min=(30, 20))
 		# start_new_game_button = arcade.gui.UIFlatButton(text="Start New Game", width=150)
 		# exit_button = arcade.gui.UIFlatButton(text="Exit", width=320)
 		# Initialise a grid in which widgets can be arranged.
@@ -111,13 +111,13 @@ class Bomberdude(arcade.View):
 			],
 		)
 		self.anchor = self.manager.add(arcade.gui.UIAnchorLayout())
-		self.anchor.add(anchor_x="center_x", anchor_y="bottom", child=self.columns,)
+		self.anchor.add(anchor_x="left", anchor_y="top", child=self.columns,)
 
 	def __repr__(self):
 		return f'Bomberdude( {self.title} np: {len(self.netplayers)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
 
 	def on_show_view(self):
-		self.window.background_color = arcade.color.WHITE
+		self.window.background_color = arcade.color.GRAY_BLUE
 		self.manager.enable()
 
 	def on_draw(self):
@@ -150,9 +150,11 @@ class Bomberdude(arcade.View):
 		self.gui_camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.end_of_map = (self.tile_map.width * self.tile_map.tile_width) * self.tile_map.scaling
 		self.background_color = arcade.color.AMAZON
+		self.manager.enable()
 		doconn = self.client.do_connect()
 		self.client.start()
 		self.client.receiver.start()
+		self.background_color = arcade.color.DARK_BLUE_GRAY
 
 		# self.client.receiver.run()
 		# logger.info(f'{self} self.client.receiver started {self.client} {self.client.receiver}')
@@ -169,6 +171,7 @@ class Bomberdude(arcade.View):
 			self.flame_list.draw()
 			for np in self.netplayers:
 				np.text.draw()
+		self.manager.draw()
 
 		# self.gui_camera.use()
 		arcade.draw_rectangle_filled(self.width , 20, self.width, 40, arcade.color.ALMOND)
@@ -263,7 +266,8 @@ class Bomberdude(arcade.View):
 				logger.warning(f'{self} {netevent}')
 
 	def on_update(self, delta_time):
-		self.timer = f't: {delta_time}'
+		if self.playerone:
+			self.timer.text = f't: {delta_time} {self.playerone.position}'
 		if self.game_ready and self.playerone:
 			try:
 				self.physics_engine.update()
@@ -355,7 +359,7 @@ def main():
 	""" Main function """
 	mainwindow = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
 	# gameview = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-	game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+	#game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
 	mainmenu = MainMenu()
 	mainwindow.show_view(mainmenu)
 	#window.setup()
