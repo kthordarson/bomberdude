@@ -84,7 +84,7 @@ class Bomberdude(arcade.View):
 		self.title = title
 		self.eventq = Queue()
 		self.playerone = None
-		self.client = Client(serveraddress=('localhost', 9696), eventq=self.eventq)
+		self.client = Client(serveraddress=('127.0.0.1', 9696), eventq=self.eventq)
 		self.game_ready = False
 		self.timer = UILabel(text='.', align="right", size_hint_min=(30, 20))
 		# start_new_game_button = arcade.gui.UIFlatButton(text="Start New Game", width=150)
@@ -367,7 +367,7 @@ class Bomberdude(arcade.View):
 async def main(args, loop):
 	""" Main function """
 	loop = asyncio.get_event_loop()
-	conn = await DatagramConnection.connect("localhost", 9696)
+	conn = await DatagramConnection.connect("127.0.0.1", 9696)
 	logger.info(f'got conn: {conn}')
 	for msg in conn.iter_messages():
 		while msg:
@@ -396,8 +396,8 @@ async def main(args, loop):
 if __name__ == "__main__":
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
-	parser.add_argument('--listen', action='store', dest='listen', default='localhost')
-	parser.add_argument('--server', action='store', dest='server', default='localhost')
+	parser.add_argument('--listen', action='store', dest='listen', default='127.0.0.1')
+	parser.add_argument('--server', action='store', dest='server', default='127.0.0.1')
 	parser.add_argument('--port', action='store', dest='port', default=9696)
 	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()

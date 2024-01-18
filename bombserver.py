@@ -759,11 +759,15 @@ def old_apply_movement(speed, dt, curpos , key: KeysPressed):
 	# delta_position = (sum([k for k in kp.keys]),sum([k for k in kp.keys]))
 	#return current_position + delta_position * speed * dt
 
-def update_game_state(gs: GameState, event: PlayerEvent):
+def update_game_state(gs: GameState, event: PlayerEvent, clid):
+	# logger.debug(f'gs: {gs} event:{event} from: {clid}')
 	if isinstance(gs, str):
 		logger.warning(f'wrongtype: {gs} {type(gs)} {event} {type(event)}')
 		return
 	player_state = gs.player_states[0]
+	if gs.player_states[0].client_id == 'bstmissing':
+		gs.player_states[0].client_id = clid
+		logger.debug(f'setting clid gs: {gs} event:{event} from: {clid}')
 	dt = time.time() # - (player_state.updated)
 	current_position = (player_state.x, player_state.y)
 	# current_position = apply_movement(player_state.speed, dt, current_position, event)
@@ -771,28 +775,32 @@ def update_game_state(gs: GameState, event: PlayerEvent):
 	player_state.x = current_position[0]
 	player_state.y = current_position[1]
 	player_state.updated = time.time()
+	#logger.info(f'gs: {gs}')
 
 
-async def update_from_client(gs, sock):
+async def update_from_client(gs, sockrecv):
 	try:
 		while True:
-			msg = await sock.recv_json()
+			msg = await sockrecv.recv_json()
 			counter = msg['counter']
 			event_dict = msg['event']
+			clid = msg['client_id']
+			event_dict['client_id'] = clid
 			# event_dict = await sock.recv_json()
-			# print(f'Got event dict: {event_dict}')
 			event = PlayerEvent(**event_dict)
+			event.set_client_id(clid)
+			# logger.info(f'msg from {clid} eventdict: {event_dict} msg:{msg} gs:{gs} event:{event}')
 			if 0:
 				# impose fake latency
-				asyncio.get_running_loop().call_later(0.2, update_game_state, gs, event)
+				asyncio.get_running_loop().call_later(0.2, update_game_state, gs, event, clid)
 			else:
-				update_game_state(gs, event)
+				update_game_state(gs, event, clid)
 	except asyncio.CancelledError:
 		pass
 
 
-async def ticker(sock1, sock2):
-	ps = PlayerState(speed=150)
+async def ticker(sockpush, sockrecv):
+	ps = PlayerState(speed=PLAYER_MOVEMENT_SPEED, client_id='bstmissing')
 	gs = GameState(player_states=[ps], game_seconds=1)
 	logger.debug(f'tickergs: {gs}')
 	# s = gs.to_json()
@@ -800,12 +808,12 @@ async def ticker(sock1, sock2):
 
 	# A task to receive keyboard and mouse inputs from players.
 	# This will also update the game state, gs.
-	t = create_task(update_from_client(gs, sock2))
+	t = create_task(update_from_client(gs, sockrecv))
 
 	# Send out the game state to all players 60 times per second.
 	try:
 		while True:
-			await sock1.send_string(gs.to_json())
+			await sockpush.send_string(gs.to_json())
 			# print('.', end='', flush=True)
 			await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
 	except asyncio.CancelledError:
@@ -842,7 +850,7 @@ if __name__ == '__main__':
 	if sys.platform == 'win32':
 		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())	
 	parser = ArgumentParser(description='server')
-	parser.add_argument('--listen', action='store', dest='listen', default='localhost')
+	parser.add_argument('--listen', action='store', dest='listen', default='127.0.0.1')
 	parser.add_argument('--port', action='store', dest='port', default=9696, type=int)
 	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()

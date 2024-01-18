@@ -37,57 +37,74 @@ MOVE_MAP = {
 }
 
 class KeysPressed:
-	def __init__(self):
+	def __init__(self, client_id):
+		self.client_id = client_id
 		self.keys = {k: False for k in MOVE_MAP}
 
 @dataclass
 class PlayerEvent:
-    keys: Dict = field(default_factory=lambda: {k: False for k in MOVE_MAP})
+	keys: Dict = field(default_factory=lambda: {k: False for k in MOVE_MAP})
+	client_id: str = 'pemissing'
 
-    def __post_init__(self):
-        self.keys = {int(k): v for k, v in self.keys.items()}
+#	def __init__(self, client_id='missing', *args, **kwars):
+#		self.client_id = client_id
+		#self.keys: Dict = field(default_factory=lambda: {k: False for k in MOVE_MAP})
 
-    def asdict(self):
-        return asdict(self)
+	def __post_init__(self):
+		self.keys = {int(k): v for k, v in self.keys.items()}
+
+	def asdict(self):
+		return asdict(self)
+	
+	def set_client_id(self,clid):
+		self.client_id = clid
 
 
 @dataclass
 class PlayerState:
-    updated: float = 0
-    x: float = 123
-    y: float = 123
-    speed: float = 0
-    health: float = 0
-    ammo: float = 0
-    score: int = 0
+	updated: float = 0.0
+	x: float = 123.1
+	y: float = 123.1
+	speed: float = 0.0
+	health: float = 0.0
+	ammo: float = 0.0
+	score: int = 0
+	client_id: str = 'none'
 
-    def asdict(self):
-        return asdict(self)
+	def __init__(self, client_id, *args, **kwars):
+		self.client_id = client_id
+
+	def asdict(self):
+		return asdict(self)
+
+	def set_client_id(self,clid):
+		self.client_id = clid
 
 
 @dataclass
 class GameState:
-    player_states: List[PlayerState]
-    game_seconds: int
+	player_states: List[PlayerState]
+	game_seconds: int
 
-    def to_json(self):
-        d = dict(
-            player_states=[asdict(p) for p in self.player_states],
-            game_seconds=self.game_seconds
-        )
-        return json.dumps(d)
+	def to_json(self):
+		d = dict(player_states=[asdict(p) for p in self.player_states], game_seconds=self.game_seconds)
+		return json.dumps(d)
 
-    def from_json(self, data):
-        d = json.loads(data)
-        self.game_seconds = d['game_seconds']
-        for i, p in enumerate(d['player_states']):
-            self.player_states[i] = PlayerState(**p)
+	def from_json(self, data):
+		d = json.loads(data)
+		self.game_seconds = d['game_seconds']
+		for i, p in enumerate(d['player_states']):
+			self.player_states[i] = PlayerState(**p)
 
+	def jsonupdate(self, jsondata):
+		self.game_seconds = jsondata['game_seconds']
+		for i, p in enumerate(jsondata['player_states']):
+			self.player_states[i] = PlayerState(**p)
 
 
 class Bomberplayer(arcade.Sprite):
-	def __init__(self, image=None, scale=1, client_id=None, visible=False,center_x=0,center_y=0):
-		super().__init__(image,scale,visible=visible,center_x=0,center_y=0)
+	def __init__(self, image=None, scale=1, client_id=None, visible=False,center_x=0.0,center_y=0.0):
+		super().__init__(image,scale,visible=visible,center_x=0.0,center_y=0.0)
 		self.bombsleft = 3
 		self.client_id = client_id
 		self.visible = visible

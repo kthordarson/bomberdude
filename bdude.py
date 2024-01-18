@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import sys
 import asyncio
+import json
 from collections import deque
 from threading import Thread
 import time
@@ -75,9 +76,13 @@ class Bomberdude(arcade.View):
 		super().__init__()
 		#super().__init__(width, height, title, resizable=True)
 		self.t = 0
-		self.keys_pressed = KeysPressed()
+		self.playerone = Bomberplayer("data/playerone.png",scale=0.9, client_id='101', center_x=128, center_y=128, visible=True)
+
+		self.keys_pressed = KeysPressed(self.playerone.client_id)
 		self.player_event = PlayerEvent()
-		self.game_state = GameState(player_states=[PlayerState()],game_seconds=0)
+		ps = PlayerState(self.playerone.client_id)
+		ps.set_client_id(self.playerone.client_id)
+		self.game_state = GameState(player_states=[ps],game_seconds=0)
 		self.position_buffer = deque(maxlen=3)
 
 		self.ctx = Context()
@@ -85,7 +90,7 @@ class Bomberdude(arcade.View):
 		self.push_sock: Socket = self.ctx.socket(zmq.PUSH)
 		self._connected = False
 		self.manager = UIManager()
-		self.window.set_location(0,0)
+		self.window.center_window() # set_location(0,0)
 		self.width = width
 		self.height = height
 		# self.player_list = None
@@ -96,8 +101,7 @@ class Bomberdude(arcade.View):
 		self.flame_list = None
 		self.title = title
 		self.eventq = Queue()
-		self.playerone = None
-		self.client = Client(serveraddress=('localhost', 9696), eventq=self.eventq)
+		self.client = Client(serveraddress=('127.0.0.1', 9696), eventq=self.eventq)
 		self.game_ready = False
 		self.timer = UILabel(text='.', align="right", size_hint_min=(30, 20))
 
@@ -106,13 +110,6 @@ class Bomberdude(arcade.View):
 		self.grid.add(self.connectb, col_num=1, row_num=0)
 		self.anchor = self.manager.add(arcade.gui.UIAnchorLayout())
 		self.anchor.add(anchor_x="right", anchor_y="top", child=self.grid,)
-
-		# exit_button = arcade.gui.UIFlatButton(text="Exit", width=320)
-		# Initialise a grid in which widgets can be arranged.
-		# self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
-		# Adding the buttons to the layout.
-		# self.grid.add(start_new_game_button, col_num=1, row_num=0)
-		# self.grid.add(exit_button, col_num=0, row_num=2, col_span=2)
 
 		health = UILabel(align="right", size_hint_min=(30, 20))
 		bombs = UILabel(align="right", size_hint_min=(30, 20))
@@ -150,9 +147,9 @@ class Bomberdude(arcade.View):
 
 	def start_client(self):
 		logger.info(f'{self} start_client')
-		self.sub_sock.connect('tcp://localhost:9696')
+		self.sub_sock.connect('tcp://127.0.0.1:9696')
 		self.sub_sock.subscribe('')
-		self.push_sock.connect('tcp://localhost:9697')
+		self.push_sock.connect('tcp://127.0.0.1:9697')
 		self._connected = True
 
 	def on_show_view(self):
@@ -173,28 +170,19 @@ class Bomberdude(arcade.View):
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 		self.scene.add_sprite_list_after("Player", "Foreground")
 
-		# self.player_list = arcade.SpriteList()
 		self.bomb_list = arcade.SpriteList()
 		self.particle_list = arcade.SpriteList()
 		self.flame_list = arcade.SpriteList()
 		self.netplayers = arcade.SpriteList()
-		# self.playerone = self.client.player # Bomberplayer("data/playerone.png",scale=0.9) # arcade.Sprite("data/playerone.png",scale=1)
-		# self.playerone.center_x = 128
-		# self.playerone.center_y = 128
-		# self.player_list.append(self.playerone)
-		# self.scene.add_sprite("Player", self.playerone)
 
 		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.gui_camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.end_of_map = (self.tile_map.width * self.tile_map.tile_width) * self.tile_map.scaling
 		self.background_color = arcade.color.AMAZON
 		self.manager.enable()
-		self.playerone = Bomberplayer("data/playerone.png",scale=0.9, client_id='101', center_x=128, center_y=128, visible=True)
-		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scene['Blocks'], gravity_constant=GRAVITY)
 		self.background_color = arcade.color.DARK_BLUE_GRAY
+		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scene['Blocks'], gravity_constant=GRAVITY)
 
-		# self.client.receiver.run()
-		# logger.info(f'{self} self.client.receiver started {self.client} {self.client.receiver}')
 
 	def on_draw(self):
 		self.clear()
@@ -213,34 +201,11 @@ class Bomberdude(arcade.View):
 		pass
 
 	def on_key_press(self, key, modifiers):
-		# logger.debug(f'{key} {self} {self.client} {self.client.receiver}')
 		self.player_event.keys[key] = True
 		self.keys_pressed.keys[key] = True
+		# logger.debug(f'{key} pek:{self.player_event} skpk:{self.keys_pressed}')
 		if key == arcade.key.ESCAPE or key == arcade.key.Q:
 			arcade.close_window()
-
-	def xoldon_key_press(self, key, modifiers):
-		self.send_key_press(key, modifiers)
-		if key == arcade.key.ESCAPE or key == arcade.key.Q:
-			arcade.close_window()
-
-	def oldkp(self, key, modifiers):
-		if key == arcade.key.ESCAPE or key == arcade.key.Q:
-			arcade.close_window()
-		elif key == arcade.key.UP or key == arcade.key.W:
-			self.playerone.change_y = PLAYER_MOVEMENT_SPEED
-			sendmove = True
-		elif key == arcade.key.DOWN or key == arcade.key.S:
-			self.playerone.change_y = -PLAYER_MOVEMENT_SPEED
-			sendmove = True
-		elif key == arcade.key.LEFT or key == arcade.key.A:
-			self.playerone.change_x = -PLAYER_MOVEMENT_SPEED
-			sendmove = True
-		elif key == arcade.key.RIGHT or key == arcade.key.D:
-			self.playerone.change_x = PLAYER_MOVEMENT_SPEED
-			sendmove = True
-		elif key == arcade.key.SPACE:
-			self.dropbomb()
 
 	def on_key_release(self, key, modifiers):
 		self.player_event.keys[key] = False
@@ -294,7 +259,7 @@ class Bomberdude(arcade.View):
 
 
 	def on_update(self, dt):
-		self.posupdate(dt)
+		# self.posupdate(dt)
 		# try:
 		# 	if self.connected():
 		# 		self.playerone.position = self.position_buffer.pop()
@@ -303,7 +268,7 @@ class Bomberdude(arcade.View):
 		try:
 			self.physics_engine.update()
 		except Exception as e:
-			logger.error(f'{e} {type(e)} posb: {self.position_buffer} ppos: {self.playerone.position}')
+			logger.error(f'{e} {type(e)} posb: {self.position_buffer} ppos: {self.playerone}')
 		for b in self.bomb_list:
 			bombflames = b.update()
 			if bombflames: # bomb returns flames when exploding
@@ -381,19 +346,36 @@ async def thread_main(window, mainmenu, game, loop):
 		while True:
 			d = game.player_event.asdict()
 			msg = dict(counter=1, event=d)
+			msg['client_id'] = game.playerone.client_id
 			if game.connected():
+				# logger.info(f'push: {d} msg: {msg}')
 				await game.push_sock.send_json(msg)
 			await asyncio.sleep(1 / UPDATE_TICK)
 
 	async def receive_game_state():
 		while True:
-			gs = await game.sub_sock.recv_string()
-			game.game_state.from_json(gs)
+			_gs = await game.sub_sock.recv_string()
+			gs = json.loads(_gs)
+			# game.game_state.from_json(gs)
+			game.game_state.jsonupdate(gs)
 			ps = game.game_state.player_states[0]
 			t = time.time()
+			try:
+				recvx = [k for k in gs.get('player_states') if k.get('client_id') == game.playerone.client_id][0]['x']
+				recvy = [k for k in gs.get('player_states') if k.get('client_id') == game.playerone.client_id][0]['y']
+			except (AttributeError,IndexError) as e:
+				logger.error(f'{e} _gs: {_gs} gs: {gs}')
+				recvx = 0.0
+				recvy = 0.0
 			game.position_buffer.append(((ps.x, ps.y), t))
 			game.t = 0
 			game.player_position_snapshot = copy.copy(game.playerone.position)
+			if ps.client_id == game.playerone.client_id:
+				ox, oy = game.playerone.position
+				#game.playerone.position = (ps.x, ps.y)
+				# game.playerone.setpos((ps.x, ps.y))
+				game.playerone.setpos((recvx, recvy))
+				# logger.debug(f'rx: {recvx} ry:{recvy} ox:{ox} {oy} newpos: {game.playerone.position}\nrecv gs:{_gs}\nps:{ps}\ngamestate: {game.game_state}')
 
 	try:
 		await asyncio.gather(pusher(), receive_game_state())
@@ -419,8 +401,8 @@ def main():
 
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
-	parser.add_argument('--listen', action='store', dest='listen', default='localhost')
-	parser.add_argument('--server', action='store', dest='server', default='localhost')
+	parser.add_argument('--listen', action='store', dest='listen', default='127.0.0.1')
+	parser.add_argument('--server', action='store', dest='server', default='127.0.0.1')
 	parser.add_argument('--port', action='store', dest='port', default=9696)
 	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()
