@@ -713,20 +713,51 @@ async def oldmain(args, loop):
 def apply_movement(speed, dt, curpos , key: KeysPressed):
 	cx = 0
 	cy = 0
-	if key == arcade.key.UP or key == arcade.key.W:
-		curpos[1] += PLAYER_MOVEMENT_SPEED
-	elif key == arcade.key.DOWN or key == arcade.key.S:
-		curpos[1] -= PLAYER_MOVEMENT_SPEED
-	elif key == arcade.key.LEFT or key == arcade.key.A:
-		curpos[0] -= PLAYER_MOVEMENT_SPEED
-	elif key == arcade.key.RIGHT or key == arcade.key.D:
-		curpos[0] += PLAYER_MOVEMENT_SPEED
+	oldpos = [curpos[0], curpos[1]]
+	newpos = [curpos[0], curpos[1]]
+	# logger.info(f'curpos: {curpos} {type(curpos)} k:{key}')
+	if key == arcade.key.UP or key == arcade.key.W or key == 119  or key.keys[119]:
+		newpos[1] += PLAYER_MOVEMENT_SPEED
+		# logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos} np:{newpos}')
+	elif key == arcade.key.DOWN or key == arcade.key.S or key == 115  or key.keys[115]:
+		newpos[1] -= PLAYER_MOVEMENT_SPEED
+		# logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos} np:{newpos}')
+	elif key == arcade.key.LEFT or key == arcade.key.A or key == 97 or key.keys[97]:
+		newpos[0] -= PLAYER_MOVEMENT_SPEED
+		# logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos} np:{newpos}')
+	elif key == arcade.key.RIGHT or key == arcade.key.D or key == 100  or key.keys[100]:
+		newpos[0] += PLAYER_MOVEMENT_SPEED
+		# logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos} np:{newpos}')
 	elif key == arcade.key.SPACE:
 		pass
-	return curpos
+	
+	return newpos
 	# delta_position = (sum([k for k in kp.keys]),sum([k for k in kp.keys]))
 	#return current_position + delta_position * speed * dt
 
+def old_apply_movement(speed, dt, curpos , key: KeysPressed):
+	cx = 0
+	cy = 0
+	oldpos = curpos
+	logger.info(f'curpos: {curpos} {type(curpos)} k:{key}')
+	if key == arcade.key.UP or key == arcade.key.W or key == 119:
+		curpos[1] += PLAYER_MOVEMENT_SPEED
+		logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos}')
+	elif key == arcade.key.DOWN or key == arcade.key.S or key == 115:
+		curpos[1] -= PLAYER_MOVEMENT_SPEED
+		logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos}')
+	elif key == arcade.key.LEFT or key == arcade.key.A or key == 97:
+		curpos[0] -= PLAYER_MOVEMENT_SPEED
+		logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos}')
+	elif key == arcade.key.RIGHT or key == arcade.key.D or key == 100:
+		curpos[0] += PLAYER_MOVEMENT_SPEED
+		logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos}')
+	elif key == arcade.key.SPACE:
+		pass
+	
+	return curpos
+	# delta_position = (sum([k for k in kp.keys]),sum([k for k in kp.keys]))
+	#return current_position + delta_position * speed * dt
 
 def update_game_state(gs: GameState, event: PlayerEvent):
 	if isinstance(gs, str):
@@ -735,7 +766,8 @@ def update_game_state(gs: GameState, event: PlayerEvent):
 	player_state = gs.player_states[0]
 	dt = time.time() # - (player_state.updated)
 	current_position = (player_state.x, player_state.y)
-	current_position = apply_movement(player_state.speed, dt, current_position, event)
+	# current_position = apply_movement(player_state.speed, dt, current_position, event)
+	current_position = apply_movement(PLAYER_MOVEMENT_SPEED, dt, current_position, event)
 	player_state.x = current_position[0]
 	player_state.y = current_position[1]
 	player_state.updated = time.time()
@@ -762,7 +794,7 @@ async def update_from_client(gs, sock):
 async def ticker(sock1, sock2):
 	ps = PlayerState(speed=150)
 	gs = GameState(player_states=[ps], game_seconds=1)
-	logger.debug(f'gs: {gs}')
+	logger.debug(f'tickergs: {gs}')
 	# s = gs.to_json()
 	# print(f's:{s}')
 

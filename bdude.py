@@ -255,8 +255,16 @@ class Bomberdude(arcade.View):
 		return (1 - t) * v0 + t * v1
 
 	def posupdate(self, dt):
+		self.t += dt
 		# Now calculate the new position based on the server information
+		if len(self.position_buffer) == 0:
+			# logger.warning(f'position_buffer < 2 posb: {self.position_buffer} ppos: {self.playerone.position}')
+			return
+
 		if len(self.position_buffer) < 2:
+			# p0, t0 = self.position_buffer.pop()
+			#logger.warning(f'position_buffer < 2 posb: {self.position_buffer} {len(self.position_buffer)} ppos: {self.playerone.position} p0: {p0} t0: {t0}')
+			#self.playerone.position = p0
 			return
 
 		# These are the last two positions. p1 is the latest, p0 is the
@@ -269,24 +277,22 @@ class Bomberdude(arcade.View):
 			return
 
 		# Calculate a PREDICTED future position, based on these two.
-		try:
-			velocity = (p1 - p0) / dtt
-			# predicted position
-			predicted_position = velocity * dtt + p1
-		except TypeError as e:
-			logger.error(f'{e} p1: {p1} {type(p1)} p0: {p0} {type(p0)} {dtt} {type(dtt)}')
-			velocity = (0,0)
-			predicted_position = (p0,p1)
-
-
-		x = (self.t - 0) / dtt
-		x = min(x, 1)
-		interp_position = self.lerp(self.player_position_snapshot, predicted_position, x)
-		self.playerone.position = interp_position
+		# velocity = (p1 - p0) / dtt
+		velocity = PLAYER_MOVEMENT_SPEED/dtt
+		self.playerone.position = p1
+		# predicted position
+		#predicted_position = velocity * dtt + p1
+		# x = (self.t - 0) / dtt
+		# x = min(x, 1)
+		# try:
+		# 	interp_position = arcade.math.lerp(self.player_position_snapshot, predicted_position, x)
+		# except TypeError as e:
+		# 	logger.warning(f'{e} {type(e)} possnap:{self.player_position_snapshot} predicted:{predicted_position}  x:{x} ')
+		# 	interp_position = predicted_position
+		# self.playerone.position = interp_position
 		# self.player.position = p1
 		# self.ghost.position = p1
 
-		self.t += dt
 
 
 	def on_update(self, dt):

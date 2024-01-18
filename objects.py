@@ -19,14 +19,21 @@ def gen_randid() -> str:
 
 
 MOVE_MAP = {
-	arcade.key.UP: (0, 1),
-	arcade.key.W: (0, 1),
-	arcade.key.DOWN: (0, -1),
-	arcade.key.D: (0, -1),
-	arcade.key.LEFT: (-1, 0),
-	arcade.key.RIGHT: (1, 0),
-	arcade.key.A: (-1, 0),
-	arcade.key.D: (1, 0),
+	arcade.key.UP: (0, PLAYER_MOVEMENT_SPEED),
+	arcade.key.W: (0, PLAYER_MOVEMENT_SPEED),
+	119: (0, PLAYER_MOVEMENT_SPEED),
+
+	arcade.key.DOWN: (0, -PLAYER_MOVEMENT_SPEED),
+	arcade.key.S: (0, -PLAYER_MOVEMENT_SPEED),
+	115: (0, -PLAYER_MOVEMENT_SPEED),
+
+	arcade.key.LEFT: (-PLAYER_MOVEMENT_SPEED, 0),
+	arcade.key.A: (-PLAYER_MOVEMENT_SPEED, 0),
+	97: (-PLAYER_MOVEMENT_SPEED, 0),
+
+	arcade.key.RIGHT: (PLAYER_MOVEMENT_SPEED, 0),
+	arcade.key.D: (PLAYER_MOVEMENT_SPEED, 0),
+	100: (PLAYER_MOVEMENT_SPEED, 0),
 }
 
 class KeysPressed:
