@@ -759,7 +759,7 @@ def old_apply_movement(speed, dt, curpos , key: KeysPressed):
 	# delta_position = (sum([k for k in kp.keys]),sum([k for k in kp.keys]))
 	#return current_position + delta_position * speed * dt
 
-def update_game_state(gs: GameState, event: PlayerEvent, clid):
+def xupdate_game_state(gs: GameState, event: PlayerEvent, clid):
 	# logger.debug(f'gs: {gs} event:{event} from: {clid}')
 	if isinstance(gs, str):
 		logger.warning(f'wrongtype: {gs} {type(gs)} {event} {type(event)}')
@@ -777,6 +777,20 @@ def update_game_state(gs: GameState, event: PlayerEvent, clid):
 	player_state.updated = time.time()
 	#logger.info(f'gs: {gs}')
 
+def update_game_state(gs: GameState, event: PlayerEvent, clid):
+	# logger.debug(f'gs: {gs} event:{event} from: {clid}')
+	for ps in gs.player_states:
+		if ps.client_id == 'bstmissing':
+			ps.client_id = clid
+			logger.debug(f'bstmissing ps:{ps} setting clid to {clid} gs: {gs} event:{event}')
+		dt = time.time() # - (player_state.updated)
+		current_position = (ps.x, ps.y)
+		# current_position = apply_movement(player_state.speed, dt, current_position, event)
+		current_position = apply_movement(PLAYER_MOVEMENT_SPEED, dt, current_position, event)
+		ps.x = current_position[0]
+		ps.y = current_position[1]
+		ps.updated = time.time()
+		#logger.info(f'gs: {gs}')
 
 async def update_from_client(gs, sockrecv):
 	try:
