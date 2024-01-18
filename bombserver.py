@@ -839,6 +839,8 @@ async def main(args):
 
 
 if __name__ == '__main__':
+	if sys.platform == 'win32':
+		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())	
 	parser = ArgumentParser(description='server')
 	parser.add_argument('--listen', action='store', dest='listen', default='localhost')
 	parser.add_argument('--port', action='store', dest='port', default=9696, type=int)

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import sys
 import asyncio
 from collections import deque
 from threading import Thread
@@ -17,7 +18,7 @@ from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, G
 from constants import *
 from networking import Client
 from exceptions import *
-UPDATE_TICK = 30
+UPDATE_TICK = 60
 import zmq
 from zmq.asyncio import Context, Socket
 # todo get inital pos from server
@@ -36,7 +37,7 @@ from zmq.asyncio import Context, Socket
 class MainMenu(arcade.View):
 	def __init__(self, game):
 		super().__init__()
-		self.loop = asyncio.get_event_loop()
+		# self.loop = asyncio.get_event_loop()
 		self.manager = UIManager()
 		self.game = game
 
@@ -250,9 +251,6 @@ class Bomberdude(arcade.View):
 		elif key == arcade.key.LEFT or key == arcade.key.RIGHT or key == arcade.key.A or key == arcade.key.D:
 			self.playerone.change_x = 0
 
-	def lerp(self, v0: float, v1: float, t: float):
-		""" L-inear int-ERP-olation"""
-		return (1 - t) * v0 + t * v1
 
 	def posupdate(self, dt):
 		self.t += dt
@@ -417,7 +415,7 @@ def main():
 	# window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT)
 	# window.setup()
 
-	loop = asyncio.get_event_loop()
+	# loop = asyncio.get_event_loop()
 
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
@@ -442,5 +440,7 @@ def main():
 
 
 if __name__ == "__main__":
+	if sys.platform == 'win32':
+		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())	
 	main()
 	# arcade.run()
