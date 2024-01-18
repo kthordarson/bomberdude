@@ -7,20 +7,85 @@ from constants import *
 import time
 import hashlib
 
+from typing import List, Dict
+import json
+from dataclasses import dataclass, asdict, field
+
+
 def gen_randid() -> str:
 	hashid = hashlib.sha1()
 	hashid.update(str(time.time()).encode("utf-8"))
 	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
 
 
+MOVE_MAP = {
+	arcade.key.UP: (0, 1),
+	arcade.key.W: (0, 1),
+	arcade.key.DOWN: (0, -1),
+	arcade.key.D: (0, -1),
+	arcade.key.LEFT: (-1, 0),
+	arcade.key.RIGHT: (1, 0),
+	arcade.key.A: (-1, 0),
+	arcade.key.D: (1, 0),
+}
+
+class KeysPressed:
+	def __init__(self):
+		self.keys = {k: False for k in MOVE_MAP}
+
+@dataclass
+class PlayerEvent:
+    keys: Dict = field(default_factory=lambda: {k: False for k in MOVE_MAP})
+
+    def __post_init__(self):
+        self.keys = {int(k): v for k, v in self.keys.items()}
+
+    def asdict(self):
+        return asdict(self)
+
+
+@dataclass
+class PlayerState:
+    updated: float = 0
+    x: float = 123
+    y: float = 123
+    speed: float = 0
+    health: float = 0
+    ammo: float = 0
+    score: int = 0
+
+    def asdict(self):
+        return asdict(self)
+
+
+@dataclass
+class GameState:
+    player_states: List[PlayerState]
+    game_seconds: int
+
+    def to_json(self):
+        d = dict(
+            player_states=[asdict(p) for p in self.player_states],
+            game_seconds=self.game_seconds
+        )
+        return json.dumps(d)
+
+    def from_json(self, data):
+        d = json.loads(data)
+        self.game_seconds = d['game_seconds']
+        for i, p in enumerate(d['player_states']):
+            self.player_states[i] = PlayerState(**p)
+
+
+
 class Bomberplayer(arcade.Sprite):
-	def __init__(self, image=None, scale=1, client_id=None, visible=False):
+	def __init__(self, image=None, scale=1, client_id=None, visible=False,center_x=0,center_y=0):
 		super().__init__(image,scale,visible=visible,center_x=0,center_y=0)
 		self.bombsleft = 3
 		self.client_id = client_id
 		self.visible = visible
-		self.center_x = 0
-		self.center_y = 0
+		self.center_x = center_x
+		self.center_y = center_y
 		self.position = (self.center_x, self.center_y)
 		self.text = arcade.Text(f'{self.client_id} {self.position}', 10,10)
 

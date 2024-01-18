@@ -1,4 +1,9 @@
 #!/usr/bin/python
+import enum
+import struct
+import asyncio
+from typing import Dict, Tuple
+from contextlib import suppress
 import time
 import os
 import random
@@ -7,8 +12,8 @@ import sys
 import json
 from argparse import ArgumentParser
 import threading
-from threading import Thread, current_thread, Timer, active_count, _enumerate
-from queue import Queue
+from threading import Thread, current_thread, Timer, active_count, _enumerate, Event
+from queue import Queue, Empty
 from loguru import logger
 import re
 import pickle
@@ -16,7 +21,12 @@ import arcade
 from constants import *
 from exceptions import *
 from objects import gen_randid
+from objects import PlayerEvent, PlayerState, GameState,KeysPressed
+from asyncio import run, create_task, CancelledError
 
+import zmq
+from zmq.asyncio import Context, Socket
+SERVER_UPDATE_TICK_HZ = 10
 def generate_grid(gsz=GRIDSIZE):
 	return json.loads(open('data/map.json','r').read())
 
@@ -29,19 +39,70 @@ class HandlerException(Exception):
 class TuiException(Exception):
 	pass
 
+_MAX_DATAGRAM_BODY = 32000
+
+
+class _NetFlags(enum.IntFlag):
+	DATA = 0x1
+	ACK = 0x2
+	NAK = 0x4
+	EOM = 0x8
+	UNRELIABLE = 0x10
+	CTL = 0x8000
+
+
+_SUPPORTED_FLAG_COMBINATIONS = (
+	_NetFlags.DATA,    # Should work but I don't think it's been seen in the wild
+	_NetFlags.DATA | _NetFlags.EOM,
+	_NetFlags.UNRELIABLE,
+	_NetFlags.ACK,
+)
+
+class DatagramError(Exception):
+	pass
+
+
+class RepeatedTimer():
+	def __init__(self, interval, function, *args, **kwargs):
+		self._timer     = None
+		self.interval   = interval
+		self.function   = function
+		self.args       = args
+		self.kwargs     = kwargs
+		self.is_running = False
+		self.start()
+
+	def _run(self):
+		self.is_running = False
+		self.start()
+		self.function(*self.args, **self.kwargs)
+
+	def start(self):
+		if not self.is_running:
+			self._timer = Timer(self.interval, self._run)
+			self._timer.start()
+			self.is_running = True
+
+	def stop(self):
+		self._timer.cancel()
+		self.is_running = False
+		logger.warning(f'{self} stop')
+
+
 class ServerTUI(Thread):
-	def __init__(self, server, debugmode=False):
+	def __init__(self, server, debugmode=False, gq=None):
 		Thread.__init__(self, daemon=True, name='tui')
+		self.gq = gq
 		self.server = server
-		self.killed = False
 		self.debugmode = debugmode
-		self._stop = threading.Event()
+		self._stop = Event()
 
 	def __repr__(self):
 		return f'ServerTUI (s:{self.stopped()})'
 
 	def stop(self):
 		self._stop.set()
+		logger.warning(f'{self} stop')
 
 	def stopped(self):
 		return self._stop.is_set()
@@ -60,9 +121,7 @@ class ServerTUI(Thread):
 			c.send_ping()
 
 	def run(self):
-		while True:
-			if self.killed:
-				break
+		while not self.stopped():
 			try:
 				cmd = input(':> ')
 				if cmd[:1] == 's':
@@ -70,22 +129,21 @@ class ServerTUI(Thread):
 				if cmd[:1] == 'p':
 					self.dump_playerlist()
 				elif cmd[:1] == 'q':
-					self.killed = True
-					self.server.killed = True
-					logger.warning(f'{self} {self.server} tuikilled')
+					logger.warning(f'{self} {self.server} tuiquit')
+					self.gq.put({'msgtype':'quit'})
 					# raise TuiException('tui killed')
-					break
+					self.stop()
 				# else:
 				#	logger.info(f'[tui] {self} server: {self.server}')
 			except KeyboardInterrupt:
-				self.killed = True
-				self.server.killed = True
+				self.stop()
 				break
 
 
 class NewHandler(Thread):
-	def __init__(self, conn=None, addr=None, handlerq=None, name=None, debugmode=False, server=None, client_id=None):
+	def __init__(self, conn=None, addr=None, handlerq=None, name=None, debugmode=False, server=None, client_id=None, gq=None):
 		Thread.__init__(self,  daemon=True, name=f'Handler-{name}-{client_id}')
+		self.gq = gq
 		self.client_id = client_id
 		self.server = server
 		self.debugmode = debugmode
@@ -94,24 +152,20 @@ class NewHandler(Thread):
 		self.connected = True
 		self.handlerq = handlerq
 		self.name = name
-		self._stop = threading.Event()
+		self._stop = Event()
 	def __repr__(self) -> str:
 		return f'Handler ({self.client_id} {self.name} {self.connected} {self.handlerq.qsize()})'
 
 	def stop(self):
 		self._stop.set()
+		logger.warning(f'{self} stop')
 
 	def stopped(self):
 		return self._stop.is_set()
 
-	def do_kill(self):
-		self.connected = False
-		logger.info(f'{self} dokill....')
-		self.join()
-
 	def send_ping(self):
 		msg = {'msgtype': 'ping', 'client_id': self.client_id,}
-		self.server.do_send(self.conn, self.addr, msg)
+		self.server.serverdq.put((self.conn, self.addr, msg))
 
 	def run(self):
 		while self.connected:
@@ -124,6 +178,7 @@ class NewHandler(Thread):
 				data = {'msgtype': 'ConnectionResetError', 'client_id': self.client_id}
 				rawmsglen = None
 				self.handlerq.put(data)
+				self.stop()
 				break
 			except OSError as e:
 				logger.warning(f'{self} {e} {type(e)}')
@@ -170,13 +225,13 @@ class NewHandler(Thread):
 					self.handlerq.put(data)
 
 class Gameserver(Thread):
-	def __init__(self, connq, mainsocket, lock, debugmode=False):
+	def __init__(self, connq, mainsocket, lock, debugmode=False, gq=None):
 		Thread.__init__(self,  daemon=True, name='gameserverthread')
-		self._stop = threading.Event()
+		self.gq = gq
+		self._stop = Event()
 		self.debugmode = debugmode
 		self.lock = lock
 		self.mainsocket = mainsocket
-		self.killed = False
 		self.clients = []
 		self.connq = connq
 		self.serverdq = Queue()
@@ -185,12 +240,14 @@ class Gameserver(Thread):
 		self.playerlist = {}
 		self.trgnpc = 0 # how often trigger_newplayer was called
 		self.tui = ServerTUI(server=self)
+		self.refresh_clients_timer = RepeatedTimer(interval=0.1, function=self.refresh_clients)
 
 	def __repr__(self):
 		return f'Gameserver (c:{len(self.clients)})'
 
 	def stop(self):
 		self._stop.set()
+		logger.warning(f'{self} stop')
 
 	def stopped(self):
 		return self._stop.is_set()
@@ -204,7 +261,8 @@ class Gameserver(Thread):
 		# send this to the new client
 		msg = {'msgtype': 'trigger_newplayer', 'clientname': thread.name, 'setpos': newpos, 'client_id': thread.client_id, 'playerlist': self.playerlist}
 		logger.debug(f'trigger_newplayer c:{self.trgnpc} selfclients:{len(self.clients)} client: {thread.client_id}')
-		self.do_send(thread.conn, thread.addr, msg)
+		# self.do_send(thread.conn, thread.addr, msg)
+		self.serverdq.put((thread.conn, thread.addr, msg))
 		newplayer = {
 			'client_id' : thread.client_id,
 			'clientname' : thread.name,
@@ -218,7 +276,8 @@ class Gameserver(Thread):
 				# update other clients... # todo exclude the new client
 				msg = {'msgtype': 'trigger_netplayers', 'clientname': client.name, 'client_id': client.client_id, 'newplayer': newplayer,}
 				try:
-					self.do_send(client.conn, client.addr, msg)
+					# self.do_send(client.conn, client.addr, msg)
+					self.serverdq.put((client.conn, client.addr, msg))
 				except ServerSendException as e: # todo check and fix this...
 					logger.warning(f'[!] {e} in {self} {client}')
 					# self.playerlist.pop(clients.client_id)
@@ -227,6 +286,27 @@ class Gameserver(Thread):
 					logger.error(f'[!] {e} in {self} {client}')
 					# self.playerlist.pop(clients.client_id)
 					# self.clients.pop(self.clients.index(client))
+
+	def refresh_clients(self):
+		for client in self.clients:
+			# logger.debug(f'sending refresh_playerlist to {client}')
+			# update other clients... # todo exclude the new client
+			msg = {'msgtype': 'refresh_playerlist', }
+			try:
+				# self.do_send(client.conn, client.addr, msg)
+				self.serverdq.put((client.conn, client.addr, msg))
+			except ServerSendException as e: # todo check and fix this...
+				logger.warning(f'[!] {e} in {self} {client}')
+				# self.playerlist.pop(clients.client_id)
+				# self.clients.pop(self.clients.index(client))
+			except Exception as e:
+				logger.error(f'[!] {e} in {self} {client}')
+				# self.playerlist.pop(clients.client_id)
+				# self.clients.pop(self.clients.index(client))
+		# if client_id:
+		# 	self.playerlist[client_id] = data
+		# else:
+		# 	logger.error(f'client_id not found in {data}')
 
 	def refresh_playerlist(self, data):
 		msgtype = data.get('msgtype')
@@ -239,27 +319,11 @@ class Gameserver(Thread):
 				# logger.info(f'self.playerlist {self.playerlist}')
 			case _:
 				logger.warning(f'refresh_playerlist {data}')
-		if len(self.clients) > 1:
-			for client in self.clients:
-				logger.debug(f'sending refresh_playerlist to {client}')
-				# update other clients... # todo exclude the new client
-				msg = {'msgtype': 'refresh_playerlist', 'playerlist': self.playerlist}
-				try:
-					self.do_send(client.conn, client.addr, msg)
-				except ServerSendException as e: # todo check and fix this...
-					logger.warning(f'[!] {e} in {self} {client}')
-					# self.playerlist.pop(clients.client_id)
-					# self.clients.pop(self.clients.index(client))
-				except Exception as e:
-					logger.error(f'[!] {e} in {self} {client}')
-					# self.playerlist.pop(clients.client_id)
-					# self.clients.pop(self.clients.index(client))
-			# if client_id:
-			# 	self.playerlist[client_id] = data
-			# else:
-			# 	logger.error(f'client_id not found in {data}')
 
-	def do_send(self, socket, serveraddress, data):
+	# def do_send(self, socket, serveraddress, data):
+
+	def do_send(self, item):
+		socket, serveraddress, data = item
 		data['playerlist'] = self.playerlist
 		data['grid'] = {}# self.grid
 		try:
@@ -293,6 +357,7 @@ class Gameserver(Thread):
 					# logger.error(f'{e} payloaderror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
 					raise ServerSendException(f'sendpayload {e} {type(e)}')
 			except ServerSendException as e:
+				self.msg_handler({'msgtype': 'disconnectplayer', 'client_id': data.get("client_id")})
 				if self.debugmode:
 					logger.warning(f'[!] {e} {type(e)} p: {len(payload)}')
 				else:
@@ -313,7 +378,8 @@ class Gameserver(Thread):
 				logger.info(f'{msgtype} from {data.get("client_id")} pos: {data.get("pos")} ')
 				for client in self.clients:
 					try:
-						self.do_send(client.conn, client.addr, data)
+						#self.do_send(client.conn, client.addr, data)
+						self.serverdq.put((client.conn, client.addr, data))
 					except ServerSendException as e:
 						logger.warning(f'[!] {e} in {self} {client}')
 						# self.playerlist.pop(clients.client_id)
@@ -326,7 +392,8 @@ class Gameserver(Thread):
 				logger.info(f'{msgtype} from {data.get("bomber")} pos: {data.get("pos")}')
 				for client in self.clients:
 					try:
-						self.do_send(client.conn, client.addr, data)
+						# self.do_send(client.conn, client.addr, data)
+						self.serverdq.put((client.conn, client.addr, data))
 					except ServerSendException as e:
 						logger.warning(f'[!] {e} in {self} {client}')
 						# self.playerlist.pop(clients.client_id)
@@ -339,7 +406,7 @@ class Gameserver(Thread):
 				logger.info(f'{msgtype} ')
 			case 'getservermap':
 				logger.info(f'{msgtype} ')
-			case 'valueerror' | 'JSONDecodeError' | 'rawmsglenempty':
+			case 'valueerror' | 'JSONDecodeError' | 'rawmsglenempty' | 'disconnectplayer' | 'ConnectionResetError':
 				client_id = data.get('client_id')
 				logger.warning(f'{msgtype} disconnecting c: {client_id} ')# data: {data}')
 				try:
@@ -356,17 +423,14 @@ class Gameserver(Thread):
 		# self.tui.start()
 		logger.info(f'{self} started')
 		while True:
-			if self.tui.killed: # todo fix tuiquit
-				logger.warning(f'{self} tui {self.tui} killed')
-				self.killed = True
-				self.stop()
-				# self.mainsocket.close()
-				break
-				# sys.exit(1)
-			if self.killed:
-				logger.warning(f'{self} killed')
+			if self.tui.stopped(): # todo fix tuiquit
+				logger.warning(f'{self} tui {self.tui} tuistopped')
 				self.stop()
 				break
+			try:
+				self.do_send(self.serverdq.get())
+			except Empty:
+				pass
 			for c in self.clients:
 				if not c.handlerq.empty():
 					datafromq = c.handlerq.get()
@@ -400,17 +464,19 @@ def bind_thread(server):
 	pass
 
 class BindThread(Thread):
-	def __init__(self, server, lock, debugmode=False):
+	def __init__(self, server, lock, debugmode=False, gq=None):
 		Thread.__init__(self, daemon=True, name='Bindthread')
+		self.gq = gq
 		self.debugmode = debugmode
 		self.lock = lock
 		self.server = server
 		self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self._stop = threading.Event()
+		self._stop = Event()
 
 	def stop(self):
 		self._stop.set()
+		logger.warning(f'{self} stop')
 
 	def stopped(self):
 		return self._stop.is_set()
@@ -446,7 +512,299 @@ class BindThread(Thread):
 
 
 def locker_thread(lock):
-    logger.debug('locker_thread Starting')
+	logger.debug('locker_thread Starting')
+
+def oldthreadmain():
+	mainsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	mainsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+	threads = []
+	connq = Queue()
+	gq = Queue()
+
+	# lock = threading.Lock()
+	# lt = Thread(target=locker_thread, args=(lock,), daemon=True, name='svlocker_thread')
+	# threads.append(lt)
+	lock = None
+	gt = Gameserver(connq=connq, mainsocket=mainsocket, lock=lock, debugmode=args.debug, gq=gq)
+	tui = ServerTUI(server=gt, debugmode=args.debug, gq=gq)
+	threads.append(tui)
+	# tui.run()
+	threads.append(gt)
+	bt = BindThread(server=gt, lock=lock, debugmode=args.debug, gq=gq)
+	threads.append(bt)
+	for t in threads:
+		logger.info(f'starting {t}')
+		t.start()
+	data = None
+	running = True
+	while running:
+		try:
+			data = gq.get_nowait()
+		except Empty:
+			pass
+		if data:
+			print(data)
+			msgtype = data.get('msgtype', 'none')
+			match msgtype:
+				case 'quit':
+					#bt.join()
+					# gt.join()
+					#tui.join()
+					#tui.stop()
+					bt.stop()
+					running = False
+					gt.stop()
+					break
+
+class Player:
+	def __init__(self, transport, addr):
+		self.transport = transport
+		self.addr = addr
+
+	def send(self, new_state):
+		self.transport.sendto(new_state, self.addr)
+
+def handle_cancellation(f):
+	async def inner(*args, **kwargs):
+		with suppress(asyncio.CancelledError):
+			return await f(*args, **kwargs)
+	return inner
+
+
+class ServerProtocol(asyncio.Protocol):
+	def __init__(self, loop):
+		self._loop = loop
+		self.players: Dict[str, Player] = {}
+		self.state_queue: asyncio.Queue[bytes] = asyncio.Queue()
+		self.input_queue: asyncio.Queue[Tuple[Player, bytes]] = asyncio.Queue()
+		self.brain_task = loop.create_task(self.game_brain())
+		self.state_sender_task = loop.create_task(self.state_sender())
+		self._recv_queue = asyncio.Queue()
+		self._connected_future = asyncio.Future()
+		self._transport = None
+		self._send_reliable_queue = asyncio.Queue()
+		self._send_reliable_ack_queue = asyncio.Queue()
+		self._message_queue = asyncio.Queue()
+		self._unreliable_send_seq = 0
+		# self._udp = None
+
+	def eof_received(self):
+		logger.warning(f'eof_received')
+
+	async def _recv_loop(self):
+		header_fmt = ">HHL"
+		header_size = struct.calcsize(header_fmt)
+
+		recv_seq = 0
+		unreliable_recv_seq = 0
+		reliable_msg = b''
+
+
+
+	async def send_reliable(self, data):
+		acked_future = asyncio.Future()
+		await self._send_reliable_queue.put((data, acked_future))
+		await acked_future
+
+	async def _send_reliable_loop(self):
+		send_seq = 0
+
+		while True:
+			# Wait for the next message to be sent.
+			data, fut = await self._send_reliable_queue.get()
+
+			# Split the message into packets up to the maximum allowed.
+			while data:
+				# Send the packet
+				payload, data = data[:_MAX_DATAGRAM_BODY], data[_MAX_DATAGRAM_BODY:]
+				netflags = _NetFlags.DATA
+				if not data:
+					netflags |= _NetFlags.EOM
+				packet = self._encap_packet(netflags, send_seq, payload)
+				# self._udp.sendto(packet, (self._host, self._port))
+
+				# Wait for an ACK
+				while True:
+					ack_seq = await self._send_reliable_ack_queue.get()
+					if ack_seq != send_seq:
+						logger.warning("Stale ACK received")
+					else:
+						break
+
+				send_seq += 1
+
+			# Let the caller know the result
+			fut.set_result(None)
+	async def _monitor_queues(self):
+		pass
+	def connection_made(self, transport):
+		logger.info(f'{self} connection made transport: {transport}')
+		self.transport = transport
+
+		self._tasks = asyncio.gather(asyncio.create_task(self._send_reliable_loop()), asyncio.create_task(self._recv_loop()), asyncio.create_task(self._monitor_queues()))
+
+	def connection_lost(self, transport):
+		logger.info('Connection lost')
+
+	@handle_cancellation
+	async def game_brain(self):
+		while True:
+			player, new_input = await self.input_queue.get()
+			new_state = b'new state!'  # This is a big calculation
+			await self.state_queue.put(new_state)
+
+	@handle_cancellation
+	async def state_sender(self):
+		# print('start up state sender')
+		while True:
+			new_state = await self.state_queue.get()
+			# All players get the new game state
+			for p in self.players.values():
+				p.send(new_state)
+
+	def datagram_received(self, data, addr):
+		logger.info(f"Received from {addr} {data} rq: {self._recv_queue.qsize()}")
+		asyncio.ensure_future(self._recv_queue.put((data, addr)), loop=self._loop)
+
+	async def recvfrom(self):
+		data, addr = await self._recv_queue.get()
+		logger.debug(f"Received from {addr} {data}")
+		return data, addr
+
+	def xdata_received(self, data):
+		logger.debug(f'data: {data}')
+
+	def xdatagram_received(self, data, addr):
+		logger.info(f'data:{data} qs:{self.input_queue.qsize()}')
+		try:
+			if data == b'JOIN':
+				self.players[addr] = Player(self.transport, addr)
+				# return
+			elif data == b'LEAVE':
+				del self.players[addr]
+				return
+		except Exception as e:
+			logger.error(f'{e} {type(e)} {data} {addr}')
+			return
+		if data:
+			# This means game input was received.
+			try:
+				message = data.decode()
+			except UnicodeDecodeError as e:
+				logger.warning(f'{e} {type(e)} {data} {addr}')
+				message = data
+			# logger.debug('Send %r to %s' % (message, addr))
+			new_input = (self.players[addr], data)
+			self.input_queue.put_nowait(new_input)
+			logger.debug(f'Received {message} from {addr} qs:{self.input_queue.qsize()}')
+
+
+async def oldmain(args, loop):
+	listen = loop.create_datagram_endpoint(lambda: ServerProtocol(loop), local_addr=(args.listen, args.port))
+	transport, protocol = await listen
+	#listen = loop.create_server(ServerProtocol, host=args.listen, port=args.port)
+	#transport = await listen
+	try:
+		await asyncio.sleep(100000)
+	except asyncio.CancelledError:
+		transport.close()
+
+def apply_movement(speed, dt, curpos , key: KeysPressed):
+	cx = 0
+	cy = 0
+	if key == arcade.key.UP or key == arcade.key.W:
+		curpos[1] += PLAYER_MOVEMENT_SPEED
+	elif key == arcade.key.DOWN or key == arcade.key.S:
+		curpos[1] -= PLAYER_MOVEMENT_SPEED
+	elif key == arcade.key.LEFT or key == arcade.key.A:
+		curpos[0] -= PLAYER_MOVEMENT_SPEED
+	elif key == arcade.key.RIGHT or key == arcade.key.D:
+		curpos[0] += PLAYER_MOVEMENT_SPEED
+	elif key == arcade.key.SPACE:
+		pass
+	return curpos
+	# delta_position = (sum([k for k in kp.keys]),sum([k for k in kp.keys]))
+	#return current_position + delta_position * speed * dt
+
+
+def update_game_state(gs: GameState, event: PlayerEvent):
+	if isinstance(gs, str):
+		logger.warning(f'wrongtype: {gs} {type(gs)} {event} {type(event)}')
+		return
+	player_state = gs.player_states[0]
+	dt = time.time() # - (player_state.updated)
+	current_position = (player_state.x, player_state.y)
+	current_position = apply_movement(player_state.speed, dt, current_position, event)
+	player_state.x = current_position[0]
+	player_state.y = current_position[1]
+	player_state.updated = time.time()
+
+
+async def update_from_client(gs, sock):
+	try:
+		while True:
+			msg = await sock.recv_json()
+			counter = msg['counter']
+			event_dict = msg['event']
+			# event_dict = await sock.recv_json()
+			# print(f'Got event dict: {event_dict}')
+			event = PlayerEvent(**event_dict)
+			if 0:
+				# impose fake latency
+				asyncio.get_running_loop().call_later(0.2, update_game_state, gs, event)
+			else:
+				update_game_state(gs, event)
+	except asyncio.CancelledError:
+		pass
+
+
+async def ticker(sock1, sock2):
+	ps = PlayerState(speed=150)
+	gs = GameState(player_states=[ps], game_seconds=1)
+	logger.debug(f'gs: {gs}')
+	# s = gs.to_json()
+	# print(f's:{s}')
+
+	# A task to receive keyboard and mouse inputs from players.
+	# This will also update the game state, gs.
+	t = create_task(update_from_client(gs, sock2))
+
+	# Send out the game state to all players 60 times per second.
+	try:
+		while True:
+			await sock1.send_string(gs.to_json())
+			# print('.', end='', flush=True)
+			await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
+	except asyncio.CancelledError:
+		t.cancel()
+		await t
+
+
+
+async def main(args):
+	fut = asyncio.Future()
+	# app = App(signal=fut)
+	ctx = Context()
+
+	sock_push_gamestate: Socket = ctx.socket(zmq.PUB)
+	sock_push_gamestate.bind('tcp://127.0.0.1:9696')
+
+	sock_recv_player_evts: Socket = ctx.socket(zmq.PULL)
+	sock_recv_player_evts.bind('tcp://127.0.0.1:9697')
+
+	ticker_task = asyncio.create_task(ticker(sock_push_gamestate, sock_recv_player_evts),)
+	try:
+		await asyncio.wait([ticker_task, fut],return_when=asyncio.FIRST_COMPLETED)
+	except CancelledError:
+		print('Cancelled')
+	finally:
+		ticker_task.cancel()
+		await ticker_task
+		sock_push_gamestate.close(1)
+		sock_recv_player_evts.close(1)
+		ctx.destroy(linger=1000)
+
 
 if __name__ == '__main__':
 	parser = ArgumentParser(description='server')
@@ -454,35 +812,8 @@ if __name__ == '__main__':
 	parser.add_argument('--port', action='store', dest='port', default=9696, type=int)
 	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()
-
-	mainsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	mainsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-	threads = []
-	connq = Queue()
-
-	# lock = threading.Lock()
-	# lt = Thread(target=locker_thread, args=(lock,), daemon=True, name='svlocker_thread')
-	# threads.append(lt)
-	lock = None
-	gt = Gameserver(connq=connq, mainsocket=mainsocket, lock=lock, debugmode=args.debug)
-	tui = ServerTUI(server=gt, debugmode=args.debug)
-	threads.append(tui)
-	# tui.run()
-	threads.append(gt)
-	bt = BindThread(server=gt, lock=lock, debugmode=args.debug)
-	threads.append(bt)
-	for t in threads:
-		logger.info(f'starting {t}')
-		t.start()
-	killserver = False
-	while not killserver:
-		for t in threads:
-			try:
-				if t.stopped():
-					logger.warning(f'{t} killed')
-					killserver = True
-					break
-			except Exception as e:
-				logger.error(f'{e} {type(e)} t: {t}')
-				killserver = True
+	run(main(args))
+	# loop = asyncio.get_event_loop()
+	# loop.create_task(main(args, loop))
+	# loop.run_forever()
+	# loop.close()

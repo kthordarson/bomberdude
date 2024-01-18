@@ -1,10 +1,10 @@
 #!/usr/bin/python
-import asyncio
-from collections import deque
-from threading import Thread
-import time
-import copy
 from argparse import ArgumentParser
+
+import asyncio
+from typing import Dict, Tuple
+from contextlib import suppress
+
 import random
 from queue import Queue, Empty
 import arcade
@@ -12,14 +12,12 @@ from arcade.gui import UIManager, UILabel, UIBoxLayout
 from arcade.gui.widgets.layout import UIAnchorLayout
 
 from loguru import logger
-from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState
+from objects import Bomberplayer, Bomb, KeysPressed
 # from menus import MainMenu
 from constants import *
-from networking import Client
+from networking import Client, BombClientProtocol, DatagramConnection
 from exceptions import *
-UPDATE_TICK = 30
-import zmq
-from zmq.asyncio import Context, Socket
+
 # todo get inital pos from server
 # draw netplayers
 # draw netbombs
@@ -34,26 +32,26 @@ from zmq.asyncio import Context, Socket
 # task 3 send game state to clients
 
 class MainMenu(arcade.View):
-	def __init__(self, game):
+	def __init__(self):
 		super().__init__()
-		self.loop = asyncio.get_event_loop()
 		self.manager = UIManager()
-		self.game = game
-
-		self.sb = arcade.gui.UIFlatButton(text="Start New Game", width=150)
-		self.eb = arcade.gui.UIFlatButton(text="Exit", width=320)
+		self.game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+		start_new_game_button = arcade.gui.UIFlatButton(text="Start New Game", width=150)
+		exit_button = arcade.gui.UIFlatButton(text="Exit", width=320)
+		# Initialise a grid in which widgets can be arranged.
 		self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
-		self.grid.add(self.sb, col_num=1, row_num=0)
-		self.grid.add(self.eb, col_num=0, row_num=2, col_span=2)
+		# Adding the buttons to the layout.
+		self.grid.add(start_new_game_button, col_num=1, row_num=0)
+		self.grid.add(exit_button, col_num=0, row_num=2, col_span=2)
 		self.anchor = self.manager.add(arcade.gui.UIAnchorLayout())
 		self.anchor.add(anchor_x="center_x", anchor_y="center_y", child=self.grid,)
 
-		@self.sb.event("on_click")
+		@start_new_game_button.event("on_click")
 		def on_click_start_new_game_button(event):
 			self.game.setup()
 			self.window.show_view(self.game)
 
-		@self.eb.event("on_click")
+		@exit_button.event("on_click")
 		def on_click_exit_button(event):
 			arcade.exit()
 
@@ -73,16 +71,6 @@ class Bomberdude(arcade.View):
 	def __init__(self, width, height, title):
 		super().__init__()
 		#super().__init__(width, height, title, resizable=True)
-		self.t = 0
-		self.keys_pressed = KeysPressed()
-		self.player_event = PlayerEvent()
-		self.game_state = GameState(player_states=[PlayerState()],game_seconds=0)
-		self.position_buffer = deque(maxlen=3)
-
-		self.ctx = Context()
-		self.sub_sock: Socket = self.ctx.socket(zmq.SUB)
-		self.push_sock: Socket = self.ctx.socket(zmq.PUSH)
-		self._connected = False
 		self.manager = UIManager()
 		self.window.set_location(0,0)
 		self.width = width
@@ -99,13 +87,7 @@ class Bomberdude(arcade.View):
 		self.client = Client(serveraddress=('localhost', 9696), eventq=self.eventq)
 		self.game_ready = False
 		self.timer = UILabel(text='.', align="right", size_hint_min=(30, 20))
-
-		self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
-		self.connectb = arcade.gui.UIFlatButton(text="Connect", width=150)
-		self.grid.add(self.connectb, col_num=1, row_num=0)
-		self.anchor = self.manager.add(arcade.gui.UIAnchorLayout())
-		self.anchor.add(anchor_x="right", anchor_y="top", child=self.grid,)
-
+		# start_new_game_button = arcade.gui.UIFlatButton(text="Start New Game", width=150)
 		# exit_button = arcade.gui.UIFlatButton(text="Exit", width=320)
 		# Initialise a grid in which widgets can be arranged.
 		# self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
@@ -113,9 +95,9 @@ class Bomberdude(arcade.View):
 		# self.grid.add(start_new_game_button, col_num=1, row_num=0)
 		# self.grid.add(exit_button, col_num=0, row_num=2, col_span=2)
 
-		health = UILabel(align="right", size_hint_min=(30, 20))
-		bombs = UILabel(align="right", size_hint_min=(30, 20))
-		status = UILabel(align="right", size_hint_min=(30, 20))
+		wood = UILabel(align="right", size_hint_min=(30, 20))
+		stone = UILabel(align="right", size_hint_min=(30, 20))
+		food = UILabel(align="right", size_hint_min=(30, 20))
 
 		self.columns = UIBoxLayout(
 			vertical=False,
@@ -125,34 +107,20 @@ class Bomberdude(arcade.View):
 					vertical=True,
 					children=[
 						UILabel(text="Time:", align="left", width=50),
-						UILabel(text="health:", align="left", width=50),
-						UILabel(text="bombs:", align="left", width=50),
-						UILabel(text="status:", align="left", width=50),
+						UILabel(text="Wood:", align="left", width=50),
+						UILabel(text="Stone:", align="left", width=50),
+						UILabel(text="Food:", align="left", width=50),
 					],
 				),
 				# Create one vertical UIBoxLayout per column and add the labels
-				UIBoxLayout(vertical=True, children=[self.timer, health, bombs, status]),
+				UIBoxLayout(vertical=True, children=[self.timer, wood, stone, food]),
 			],
 		)
 		self.anchor = self.manager.add(arcade.gui.UIAnchorLayout())
 		self.anchor.add(anchor_x="left", anchor_y="top", child=self.columns,)
 
-		@self.connectb.event("on_click")
-		def on_connect_to_server(event):
-			self.start_client()
-
 	def __repr__(self):
 		return f'Bomberdude( {self.title} np: {len(self.netplayers)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
-
-	def connected(self):
-		return self._connected
-
-	def start_client(self):
-		logger.info(f'{self} start_client')
-		self.sub_sock.connect('tcp://localhost:9696')
-		self.sub_sock.subscribe('')
-		self.push_sock.connect('tcp://localhost:9697')
-		self._connected = True
 
 	def on_show_view(self):
 		self.window.background_color = arcade.color.GRAY_BLUE
@@ -183,13 +151,16 @@ class Bomberdude(arcade.View):
 		# self.player_list.append(self.playerone)
 		# self.scene.add_sprite("Player", self.playerone)
 
+		# self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scene['Blocks'], gravity_constant=GRAVITY)
 		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.gui_camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.end_of_map = (self.tile_map.width * self.tile_map.tile_width) * self.tile_map.scaling
 		self.background_color = arcade.color.AMAZON
 		self.manager.enable()
-		self.playerone = Bomberplayer("data/playerone.png",scale=0.9, client_id='101', center_x=128, center_y=128, visible=True)
-		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scene['Blocks'], gravity_constant=GRAVITY)
+		self.playerone = Bomberplayer("data/playerone.png",scale=0.9, client_id='101')
+		doconn = self.client.do_connect()
+		self.client.start()
+		self.client.receiver.start()
 		self.background_color = arcade.color.DARK_BLUE_GRAY
 
 		# self.client.receiver.run()
@@ -199,31 +170,25 @@ class Bomberdude(arcade.View):
 		self.clear()
 		self.camera.use()
 		self.scene.draw()
-		self.netplayers.draw()
-		self.playerone.draw()
-		self.bomb_list.draw()
-		self.particle_list.draw()
-		self.flame_list.draw()
+		if self.game_ready and self.playerone:
+			self.netplayers.draw()
+			self.playerone.draw()
+			self.bomb_list.draw()
+			self.particle_list.draw()
+			self.flame_list.draw()
+			for np in self.netplayers:
+				np.text.draw()
 		self.manager.draw()
 
 		# self.gui_camera.use()
-
-	def send_key_press(self, key, modifiers):
-		pass
+		arcade.draw_rectangle_filled(self.width , 20, self.width, 40, arcade.color.ALMOND)
 
 	def on_key_press(self, key, modifiers):
+		if not self.game_ready:
+			logger.warning(f'game not ready')
+			#return
+		sendmove = False
 		# logger.debug(f'{key} {self} {self.client} {self.client.receiver}')
-		self.player_event.keys[key] = True
-		self.keys_pressed.keys[key] = True
-		if key == arcade.key.ESCAPE or key == arcade.key.Q:
-			arcade.close_window()
-
-	def xoldon_key_press(self, key, modifiers):
-		self.send_key_press(key, modifiers)
-		if key == arcade.key.ESCAPE or key == arcade.key.Q:
-			arcade.close_window()
-
-	def oldkp(self, key, modifiers):
 		if key == arcade.key.ESCAPE or key == arcade.key.Q:
 			arcade.close_window()
 		elif key == arcade.key.UP or key == arcade.key.W:
@@ -240,66 +205,94 @@ class Bomberdude(arcade.View):
 			sendmove = True
 		elif key == arcade.key.SPACE:
 			self.dropbomb()
+		if sendmove:
+			self.client.send_queue.put({'msgtype': 'playermove', 'key': key, 'pos' : self.playerone.position, 'client_id': self.client.client_id})
 
 	def on_key_release(self, key, modifiers):
-		self.player_event.keys[key] = False
-		self.keys_pressed.keys[key] = False
-	def oldon_key_release(self, key, modifiers):
+		if not self.game_ready:
+			return
 		if key == arcade.key.UP or key == arcade.key.DOWN or key == arcade.key.W or key == arcade.key.S:
 			self.playerone.change_y = 0
 		elif key == arcade.key.LEFT or key == arcade.key.RIGHT or key == arcade.key.A or key == arcade.key.D:
 			self.playerone.change_x = 0
 
-	def lerp(self, v0: float, v1: float, t: float):
-		""" L-inear int-ERP-olation"""
-		return (1 - t) * v0 + t * v1
+	def handle_netevent(self, netevent):
+		msgtype = netevent.get('msgtype', 'nonetype')
+		match msgtype:
+			case 'refresh_playerlist':
+				playerlist = netevent.get('playerlist')
+				for np in playerlist:
+					npclid = playerlist[np].get('client_id')
+					npos = playerlist[np].get('pos')
+					# logger.info(f'np: {np} npos:{npos} {playerlist[np]}')
+					text = arcade.Text(f'{npclid} {npos}', npos[0],npos[1], arcade.color.GREEN)
+					[k.setpos(playerlist[np].get('pos')) for k in self.netplayers if k.client_id == np]
+			case 'trigger_netplayers':
+				playerlist = netevent.get('playerlist')
+				newplayer = netevent.get('newplayer')
+				newplayerpos = newplayer.get('pos')
+				if newplayer:
+					netplayer = Bomberplayer("data/netplayer.png",scale=0.9, client_id=newplayer.get('client_id'))
+					netplayer.position = newplayerpos
+					self.netplayers.append(netplayer)
+					logger.debug(f'{msgtype} newplayer: {newplayer} netplayers:{len(self.netplayers)} ')
+					netplayer.visible = True
+			case 'trigger_newplayer':
+				client_id = netevent.get('client_id')
+				pos = netevent.get('setpos')
+				self.playerone = Bomberplayer("data/playerone.png",scale=0.9, client_id=client_id)
+				self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scene['Blocks'], gravity_constant=GRAVITY)
+				#self.playerone.client_id = client_id #  = Bomberplayer("data/playerone.png",scale=0.9, client_id=client_id)
+				# self.playerone.change_x = 0
+				# self.playerone.change_y = 0
+				self.playerone.position = pos
+				# self.playerone.center_x = pos[0]
+				# self.playerone.center_y = pos[1]
+				# self.player_list.append(self.playerone)
+				self.game_ready = True
+				logger.info(f'{msgtype} {self.playerone}')
+				self.playerone.visible = True
+			case 'bombdrop':
+				if self.client.client_id != netevent.get('client_id'):
+					logger.debug(f'{msgtype} {netevent}')
+				# logger.debug(f'{msgtype} {netevent}')
+			case 'playermove':
+				clid = netevent.get('client_id')
+				cx = netevent.get('pos')[0]
+				cy = netevent.get('pos')[1]
+				for player in self.netplayers:
+					if clid == player.client_id:
+						player.position = (cx,cy)
+						player.text = arcade.Text(f'{clid} {player.position}', cx,cy, arcade.color.BLUE)
+						# logger.debug(f'{msgtype} move {player} to {cx} {cy}')
+					# else:
+					# 	player.position = (cx,cy)
+					# 	player.text = arcade.Text(f'{clid} {player.position}', cx,cy, arcade.color.RED)
+					# 	logger.debug(f'{msgtype} move {player} to {cx} {cy}')
 
-	def posupdate(self, dt):
-		# Now calculate the new position based on the server information
-		if len(self.position_buffer) < 2:
-			return
+				#logger.debug(f'{msgtype} {netevent}')
+			case _:
+				logger.warning(f'{self} {netevent}')
 
-		# These are the last two positions. p1 is the latest, p0 is the
-		# one immediately preceding it.
-		p0, t0 = self.position_buffer.pop()
-		p1, t1 = self.position_buffer.pop()
-
-		dtt = t1 - t0
-		if dtt == 0:
-			return
-
-		# Calculate a PREDICTED future position, based on these two.
+	def on_update(self, delta_time):
+		if self.playerone:
+			self.timer.text = f't: {delta_time} {self.playerone.position}'
+		if self.game_ready and self.playerone:
+			try:
+				self.physics_engine.update()
+			except AttributeError as e:
+				logger.error(f'{e} gameready:{self.game_ready} p1: {self.playerone}')
+		self.client.update_run()
+		self.client.update_run_recv()
+		# self.client.send_queue.put({'msgtype': 'on_update', 'delta_time':delta_time, 'pos' : self.playerone.position, 'client_id': self.client.client_id})
+		netevent = None
 		try:
-			velocity = (p1 - p0) / dtt
-			# predicted position
-			predicted_position = velocity * dtt + p1
-		except TypeError as e:
-			logger.error(f'{e} p1: {p1} {type(p1)} p0: {p0} {type(p0)} {dtt} {type(dtt)}')
-			velocity = (0,0)
-			predicted_position = (p0,p1)
-
-
-		x = (self.t - 0) / dtt
-		x = min(x, 1)
-		interp_position = self.lerp(self.player_position_snapshot, predicted_position, x)
-		self.playerone.position = interp_position
-		# self.player.position = p1
-		# self.ghost.position = p1
-
-		self.t += dt
-
-
-	def on_update(self, dt):
-		self.posupdate(dt)
-		# try:
-		# 	if self.connected():
-		# 		self.playerone.position = self.position_buffer.pop()
-		# except Exception as e:
-		# 	logger.error(f'{e} {type(e)} posb:  {self.position_buffer} ppos: {self.playerone.position}')
-		try:
-			self.physics_engine.update()
-		except Exception as e:
-			logger.error(f'{e} {type(e)} posb: {self.position_buffer} ppos: {self.playerone.position}')
+			netevent = self.client.eventq.get(block=False)
+		except Empty:
+			pass
+		if netevent:
+			self.handle_netevent(netevent)
+		# self.bomb_list.update()
 		for b in self.bomb_list:
 			bombflames = b.update()
 			if bombflames: # bomb returns flames when exploding
@@ -351,8 +344,10 @@ class Bomberdude(arcade.View):
 
 		self.particle_list.update()
 		self.flame_list.update()
-		if self.playerone:
+		if self.playerone and self.game_ready:
 			self.camera.center(self.playerone.position)
+		else:
+			logger.warning(f'gameready: {self.game_ready} p1: {self.playerone}')
 
 	def dropbomb(self):
 		# logger.debug(f'p1: {self.playerone} drops bomb...')
@@ -367,52 +362,38 @@ class Bomberdude(arcade.View):
 			self.bomb_list.append(bomb)
 			self.playerone.bombsleft -= 1
 			# logger.info(f'bombdrop {bomb} by plid {self.client.client_id} bl: {len(self.bomb_list)} p1: {self.playerone}')
-			# self.client.send_queue.put({'msgtype': 'bombdrop', 'bomber': self.client.client_id, 'pos': bomb.position, 'timer': bomb.timer})
+			self.client.send_queue.put({'msgtype': 'bombdrop', 'bomber': self.client.client_id, 'pos': bomb.position, 'timer': bomb.timer})
 
-
-async def thread_main(window, mainmenu, game, loop):
-	# todo do connection here
-	async def pusher():
-		"""Push the player's INPUT state 60 times per second"""
-		while True:
-			d = game.player_event.asdict()
-			msg = dict(counter=1, event=d)
-			if game.connected():
-				await game.push_sock.send_json(msg)
-			await asyncio.sleep(1 / UPDATE_TICK)
-
-	async def receive_game_state():
-		while True:
-			gs = await game.sub_sock.recv_string()
-			game.game_state.from_json(gs)
-			ps = game.game_state.player_states[0]
-			t = time.time()
-			game.position_buffer.append(((ps.x, ps.y), t))
-			game.t = 0
-			game.player_position_snapshot = copy.copy(game.playerone.position)
-
-	try:
-		await asyncio.gather(pusher(), receive_game_state())
-	finally:
-		logger.debug('closing sockets')
-		game.sub_sock.close(1)
-		game.push_sock.close(1)
-		game.ctx.destroy(linger=1)
-
-
-def thread_worker(window, mainmenu, game):
-	loop = asyncio.new_event_loop()
-	asyncio.set_event_loop(loop)
-	loop.create_task(thread_main(window, mainmenu, game, loop))
-	loop.run_forever()
-
-
-def main():
-	# window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT)
-	# window.setup()
-
+async def main(args, loop):
+	""" Main function """
 	loop = asyncio.get_event_loop()
+	conn = await DatagramConnection.connect("localhost", 9696)
+	logger.info(f'got conn: {conn}')
+	for msg in conn.iter_messages():
+		while msg:
+			logger.info(f'got msg: {msg}')
+			#msg = await conn.recv_message()
+	await conn.wait_until_disconnected()
 
+	# # connect = loop.create_datagram_endpoint(BombClientProtocol(loop), remote_addr=('127.0.0.1', 9696))
+	# transport, protocol = await loop.create_datagram_endpoint(lambda: BombClientProtocol(loop),family=socket.AF_INET)
+	# #transport, protocol = await connect
+	# conn = cls(protocol)
+	# try:
+	# 	await asyncio.sleep(100000)
+	# except asyncio.CancelledError:
+	# 	transport.close()
+
+	# mainwindow = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+	# # gameview = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+	# #game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+	# mainmenu = MainMenu()
+	# mainwindow.show_view(mainmenu)
+	# #window.setup()
+	# arcade.run()
+
+
+if __name__ == "__main__":
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
 	parser.add_argument('--listen', action='store', dest='listen', default='localhost')
@@ -421,20 +402,7 @@ def main():
 	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()
 
-	mainwindow = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-	game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-	mainmenu = MainMenu(game)
-	thread = Thread(target=thread_worker, args=(mainwindow,mainmenu, game,), daemon=True)
-	thread.start()
-	mainwindow.show_view(mainmenu)
-	arcade.run()
-	# gameview = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-	#game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-	#window.setup()
-
-
-
-
-if __name__ == "__main__":
-	main()
-	# arcade.run()
+	loop = asyncio.get_event_loop()
+	loop.create_task(main(args, loop))
+	loop.run_forever()
+	loop.close()

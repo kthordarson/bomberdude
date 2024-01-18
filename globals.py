@@ -13,6 +13,10 @@ from pygame.event import Event
 from constants import (BLOCK, BLOCKTYPES, BOMBSIZE, DEFAULTFONT, FLAMESIZE, MAXPARTICLES, POWERUPSIZE)
 from constants import USEREVENT, USEREVENT
 
+
+
+
+
 class RepeatedTimer():
 	def __init__(self, interval, function, *args, **kwargs):
 		self._timer     = None
@@ -242,4 +246,6 @@ class Particle(Sprite): # todo fix initial position
 		if pygame.time.get_ticks() - self.start_time >= self.ptimer:
 			# logger.info(f'{self} timeoutkill')
 			self.kill()
+
+
 
