@@ -14,7 +14,7 @@ from arcade.gui import UIManager, UILabel, UIBoxLayout
 from arcade.gui.widgets.layout import UIAnchorLayout
 
 from loguru import logger
-from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState
+from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState, gen_randid
 # from menus import MainMenu
 from constants import *
 from networking import Client
@@ -76,7 +76,7 @@ class Bomberdude(arcade.View):
 		super().__init__()
 		#super().__init__(width, height, title, resizable=True)
 		self.t = 0
-		self.playerone = Bomberplayer("data/playerone.png",scale=0.9, client_id='101', center_x=128, center_y=128, visible=True)
+		self.playerone = Bomberplayer("data/playerone.png",scale=0.9, client_id=gen_randid(), center_x=128, center_y=128, visible=True)
 
 		self.keys_pressed = KeysPressed(self.playerone.client_id)
 		self.player_event = PlayerEvent()
@@ -358,24 +358,40 @@ async def thread_main(window, mainmenu, game, loop):
 			gs = json.loads(_gs)
 			# game.game_state.from_json(gs)
 			game.game_state.jsonupdate(gs)
+			# print(f'_gs: {_gs}')
+			# print(f'gs: {gs}')
 			ps = game.game_state.player_states[0]
+			# print(f'gamestate={game.game_state} ps={ps}')
+			if len(game.game_state.player_states) >= 2:
+				logger.info(f'game.game_state.player_states: {game.game_state.player_states}')
 			t = time.time()
 			try:
-				recvx = [k for k in gs.get('player_states') if k.get('client_id') == game.playerone.client_id][0]['x']
-				recvy = [k for k in gs.get('player_states') if k.get('client_id') == game.playerone.client_id][0]['y']
+				# recvx = [k for k in gs.get('player_states') if k.get('client_id') == game.playerone.client_id][0]['x']
+				# recvy = [k for k in gs.get('player_states') if k.get('client_id') == game.playerone.client_id][0]['y']
+				# recvx = [k.get('x') for k in gs.get('player_states') if k.get('client_id') == game.playerone.client_id]
+				# recvy = [k.get('y') for k in gs.get('player_states') if k.get('client_id') == game.playerone.client_id]
+				# recv_pos = [(k.get('x'), k.get('y')) for k in gs.get('player_states') if k.get('client_id') == game.playerone.client_id][0]
+				for p in gs.get('player_states'):
+					# print(f'p: {p} ')
+					if p.get('client_id') == game.playerone.client_id:
+						recv_pos = (p.get('x'), p.get('y'))
+						game.playerone.setpos(recv_pos)
+						logger.debug(f'recvpos {recv_pos} p: {p}')
+					else:
+						logger.info(f'netplayer: {p}')
+						# logger.debug(f'rx: {recvx} ry:{recvy} newpos: {recv_pos}')
 			except (AttributeError,IndexError) as e:
 				logger.error(f'{e} _gs: {_gs} gs: {gs}')
-				recvx = 0.0
-				recvy = 0.0
-			game.position_buffer.append(((ps.x, ps.y), t))
+			#game.position_buffer.append(((ps.x, ps.y), t))
 			game.t = 0
 			game.player_position_snapshot = copy.copy(game.playerone.position)
-			if ps.client_id == game.playerone.client_id:
-				ox, oy = game.playerone.position
-				#game.playerone.position = (ps.x, ps.y)
-				# game.playerone.setpos((ps.x, ps.y))
-				game.playerone.setpos((recvx, recvy))
-				# logger.debug(f'rx: {recvx} ry:{recvy} ox:{ox} {oy} newpos: {game.playerone.position}\nrecv gs:{_gs}\nps:{ps}\ngamestate: {game.game_state}')
+			# if ps.client_id == game.playerone.client_id:
+			# 	# oldpos = game.playerone.position
+			# 	#game.playerone.position = (ps.x, ps.y)
+			# 	# game.playerone.setpos((ps.x, ps.y))
+			# 	if recv_pos:
+			# 		game.playerone.setpos(recv_pos)
+			# 	# logger.debug(f'rx: {recvx} ry:{recvy} ox:{ox} {oy} newpos: {game.playerone.position}\nrecv gs:{_gs}\nps:{ps}\ngamestate: {game.game_state}')
 
 	try:
 		await asyncio.gather(pusher(), receive_game_state())
