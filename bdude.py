@@ -105,8 +105,10 @@ class Bomberdude(arcade.View):
 		self.height = height
 		self.t = 0
 		self.playerone = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=gen_randid())
-		self.ghost = Rectangle()
+		self.ghost = Rectangle(client_id=self.playerone, color = arcade.color.ORANGE)
+		self.gs_ghost = Rectangle(client_id=self.playerone, color = arcade.color.YELLOW)
 		self.keys_pressed = KeysPressed(self.playerone.client_id)
+		self.hitlist = []
 		self.player_event = PlayerEvent()
 		# ps = PlayerState(self.playerone.client_id)
 		# ps.set_client_id(self.playerone.client_id)
@@ -123,6 +125,7 @@ class Bomberdude(arcade.View):
 		self.bomb_list = None
 		self.particle_list = None
 		self.flame_list = None
+		self.ghost_list = None
 		self.title = title
 		self.eventq = Queue()
 		# self.client = Client(serveraddress=('127.0.0.1', 9696), eventq=self.eventq)
@@ -176,6 +179,10 @@ class Bomberdude(arcade.View):
 		self.sub_sock.subscribe('')
 		self.push_sock.connect('tcp://127.0.0.1:9697')
 		self._connected = True
+		self.ghost.center_x = self.playerone.center_x
+		self.ghost.center_y = self.playerone.center_y
+		self.gs_ghost.center_x = self.playerone.center_x
+		self.gs_ghost.center_y = self.playerone.center_y
 
 	def on_show_view(self):
 		self.window.background_color = arcade.color.GRAY_BLUE
@@ -196,7 +203,9 @@ class Bomberdude(arcade.View):
 		self.particle_list = arcade.SpriteList()
 		self.flame_list = arcade.SpriteList()
 		self.netplayers = arcade.SpriteList()
-
+		self.ghost_list = arcade.SpriteList()
+		self.ghost_list.append(self.ghost)
+		self.ghost_list.append(self.gs_ghost)
 		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.gui_camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.end_of_map = (self.tile_map.width * self.tile_map.tile_width) * self.tile_map.scaling
@@ -213,7 +222,7 @@ class Bomberdude(arcade.View):
 
 		self.netplayers.draw()
 		self.playerone.draw()
-		self.ghost.draw()
+		self.ghost_list.draw()
 
 		self.bomb_list.draw()
 		self.particle_list.draw()
@@ -226,37 +235,32 @@ class Bomberdude(arcade.View):
 		pass
 
 	def on_key_press(self, key, modifiers):
-		self.player_event.keys[key] = True
-		self.keys_pressed.keys[key] = True
+		# todo check collisions before sending keypress...
 		sendmove = False
 		# logger.debug(f'{key} {self} {self.client} {self.client.receiver}')
 		if key == arcade.key.ESCAPE or key == arcade.key.Q:
 			arcade.close_window()
-		elif key == arcade.key.UP or key == arcade.key.W:
-			self.playerone.change_y = PLAYER_MOVEMENT_SPEED
-			sendmove = True
-		elif key == arcade.key.DOWN or key == arcade.key.S:
-			self.playerone.change_y = -PLAYER_MOVEMENT_SPEED
-			sendmove = True
-		elif key == arcade.key.LEFT or key == arcade.key.A:
-			self.playerone.change_x = -PLAYER_MOVEMENT_SPEED
-			sendmove = True
-		elif key == arcade.key.RIGHT or key == arcade.key.D:
-			self.playerone.change_x = PLAYER_MOVEMENT_SPEED
-			sendmove = True
-		elif key == arcade.key.SPACE:
-			self.dropbomb()
-		if sendmove:
-			pass
+			return
+
+		if len(self.hitlist) == 0:
+			#self.player_event.keys[key] = True
+			#self.keys_pressed.keys[key] = True
+
+			if key == arcade.key.UP or key == arcade.key.W:
+				self.playerone.change_y = PLAYER_MOVEMENT_SPEED
+				sendmove = True
+			elif key == arcade.key.DOWN or key == arcade.key.S:
+				self.playerone.change_y = -PLAYER_MOVEMENT_SPEED
+				sendmove = True
+			elif key == arcade.key.LEFT or key == arcade.key.A:
+				self.playerone.change_x = -PLAYER_MOVEMENT_SPEED
+				sendmove = True
+			elif key == arcade.key.RIGHT or key == arcade.key.D:
+				self.playerone.change_x = PLAYER_MOVEMENT_SPEED
+				sendmove = True
+			elif key == arcade.key.SPACE:
+				self.dropbomb()
 			# self.client.send_queue.put({'msgtype': 'playermove', 'key': key, 'pos' : self.playerone.position, 'client_id': self.client.client_id})
-
-
-	def on_key_press_net(self, key, modifiers):
-		self.player_event.keys[key] = True
-		self.keys_pressed.keys[key] = True
-		# logger.debug(f'{key} pek:{self.player_event} skpk:{self.keys_pressed}')
-		if key == arcade.key.ESCAPE or key == arcade.key.Q:
-			arcade.close_window()
 
 	def on_key_release(self, key, modifiers):
 		if key == arcade.key.UP or key == arcade.key.DOWN or key == arcade.key.W or key == arcade.key.S:
@@ -266,28 +270,32 @@ class Bomberdude(arcade.View):
 		self.player_event.keys[key] = False
 		self.keys_pressed.keys[key] = False
 
-	def oldon_key_release(self, key, modifiers):
-		if key == arcade.key.UP or key == arcade.key.DOWN or key == arcade.key.W or key == arcade.key.S:
-			self.playerone.change_y = 0
-		elif key == arcade.key.LEFT or key == arcade.key.RIGHT or key == arcade.key.A or key == arcade.key.D:
-			self.playerone.change_x = 0
 
 	def on_update(self, dt):
 		self.timer.value += dt
 		self.status_label.text = f'{self.playerone.client_id} {self.playerone.position}'
 		self.status_label.fit_content()
-		if len(self.game_state.players) >= 2:
-			for p in self.game_state.players:
-				try:
-					self.ghost.position = self.game_state.players[p].get('position')
-					logger.debug(f'updateghost p={p} self.game_state.players={self.game_state.players}')
-				except AttributeError as e:
-					logger.error(f'{e} p={p} self.game_state.players={self.game_state.players}')
+		self.playerone.ps.set_pos(self.playerone.position)
+		for p in self.game_state.players:
+			try:
+				self.gs_ghost.center_x, self.gs_ghost.center_y = self.game_state.players[p].get('position')
+				self.ghost.center_x, self.ghost.center_y = self.game_state.players[self.playerone.client_id].get('position')
+				self.game_state.players[self.playerone.client_id] = {'position': self.playerone.position}
+			except AttributeError as e:
+				logger.error(f'{e} p={p}')
+				logger.error(f'self.game_state.players={self.game_state.players}')
+				#logger.debug(f'{len(self.ghost_list)} updateghost p={p} self.game_state.players={self.game_state.players}')
+				#except AttributeError as e:
+			#		logger.error(f'{e} p={p} self.game_state.players={self.game_state.players}')
 		# self.game_state = GameState(player_states=[self.playerone.setpos(self.playerone.position)],game_seconds=self.timer.value)
-		try:
-			self.physics_engine.update()
-		except Exception as e:
-			logger.error(f'{e} {type(e)} posb: {self.position_buffer} ppos: {self.playerone}')
+		self.hitlist = self.physics_engine.update()
+		# if len(hitlist) > 0:
+		# 	print(f'hitlist={hitlist}')
+		# 	for key in self.player_event.keys:
+		# 		self.player_event.keys[key] = False
+		# 	for key in self.keys_pressed.keys:
+		# 		self.keys_pressed.keys[key] = False
+
 		for b in self.bomb_list:
 			bombflames = b.update()
 			if bombflames: # bomb returns flames when exploding
@@ -369,6 +377,9 @@ async def thread_main(game, loop):
 			msg = dict(counter=thrmain_cnt, event=d)
 			msg['client_id'] = game.playerone.client_id
 			msg['position'] = game.playerone.position
+			msg['players'] = {}
+			msg['players'][game.playerone.client_id] = {'position':game.playerone.position}
+			game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position}#  .get('position')
 			if game.connected():
 				# logger.info(f'push: {d} msg: {msg}')
 				await game.push_sock.send_json(msg)
@@ -378,10 +389,9 @@ async def thread_main(game, loop):
 		while True:
 			_gs = await game.sub_sock.recv_string()
 			gs = json.loads(_gs)
-			pcount0 = len(game.game_state.players)
 			game.game_state.from_json(gs, game.game_state.players)
-			pcount1 = len(game.game_state.players)
-			logger.info(f'p0: {pcount0} p1:{pcount1} players={game.game_state.players} gs={gs}' )
+			game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position}#  .get('position')
+			# logger.info(f'p0: {pcount0} p1:{pcount1} players={game.game_state.players} gs={gs}' )
 	try:
 		await asyncio.gather(pusher(), receive_game_state())
 	except TypeError as e:

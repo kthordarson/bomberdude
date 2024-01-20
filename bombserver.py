@@ -173,14 +173,13 @@ class BombServer():
 
 		self.sock_recv_player_evts: Socket = self.ctx.socket(zmq.PULL)
 		self.sock_recv_player_evts.bind('tcp://127.0.0.1:9697')
-		self.ps = PlayerState(speed=PLAYER_MOVEMENT_SPEED, client_id='bombserver')
-		self.gs = GameState(player_states=[self.ps], game_seconds=1)
+		self.gs = GameState(player_states=[], game_seconds=1)
 		self.ticker_task = asyncio.create_task(self.ticker(self.sock_push_gamestate, self.sock_recv_player_evts),)
 		self.players = {}
 
 	def update_game_state(self, event: PlayerEvent, clid, msg):
 		# logger.debug(f'gs: {gs} event:{event} from: {clid}')
-		logger.info(f'msg={msg}')
+		# logger.info(f'msg={msg}')
 		plrs = msg.get('players', [])
 		for p in plrs:
 			pos = plrs.get(p).get('position')
@@ -197,8 +196,8 @@ class BombServer():
 			#ps.y = current_position[1]
 			ps.updated = time.time()
 			self.players[clid] = {'position': ps.position}
-			if len(self.players) > 1:
-				logger.info(f'clid:{clid} oldpspos={oldpspos} pspos={ps.position} players: {len(self.players)}')# ps={ps}  gs: {self.gs} event={event}')
+			#if len(self.players) > 1:
+			#	logger.info(f'clid:{clid} oldpspos={oldpspos} pspos={ps.position} players: {len(self.players)}')# ps={ps}  gs: {self.gs} event={event}')
 				# logger.debug(f'players={self.players}')
 
 	async def update_from_client(self, sockrecv):
@@ -231,7 +230,7 @@ class BombServer():
 		# A task to receive keyboard and mouse inputs from players.
 		# This will also update the game state, gs.
 		t = create_task(self.update_from_client(sockrecv))
-		logger.debug(f'gs: {self.gs} ps:{self.ps} t:{t}')
+		logger.debug(f'gs: {self.gs}  t:{t}')
 
 		# Send out the game state to all players 60 times per second.
 		try:

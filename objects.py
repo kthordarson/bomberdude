@@ -84,7 +84,7 @@ class PlayerState:
 	ammo: float = 0.0
 	score: int = 0
 	client_id: str = 'none'
-	position  = [101,101]
+	position  = [222,222]
 
 	def __repr__(self):
 		return f'Playerstate ({self.client_id} pos={self.position} u={self.updated})'
@@ -130,12 +130,14 @@ class GameState:
 		self.game_seconds = game_seconds
 
 	def to_json(self, players):
+		d = dict(player_states=[asdict(p) for p in self.player_states], game_seconds=self.game_seconds)
+		d['players'] = {}
 		for p in players:
 			self.players[p] = {'position': players[p]["position"]}
-		d = dict(player_states=[asdict(p) for p in self.player_states], game_seconds=self.game_seconds)
-		d['players'] = self.players
+			d['players'][p] = {'position': players[p]["position"]}
 		d['gsplayers'] = players
-		logger.info(f'd={d}')
+		#if len(self.players) >= 2:
+		#	logger.info(f'players={players} d={d} ')
 		# logger.debug(f'players={self.players}')
 		# logger.info(f'tojsonplayers={players}')
 		return json.dumps(d)
@@ -172,7 +174,8 @@ class Bomberplayer(arcade.Sprite):
 		super().__init__(image,scale)
 		self.client_id = client_id
 		self.ps = PlayerState(self.client_id, position)
-		self.position = self.ps.position
+		self.ps.set_pos(position)
+		self.position = position
 		self.bombsleft = 3
 		self.text = arcade.Text(f'{self.client_id} {self.position}', 10,10)
 
@@ -199,9 +202,9 @@ class Bomberplayer(arcade.Sprite):
 		return stable_hash(tuple([type(self)] + values))
 
 	def setpos(self, newpos):
-		self.ps.position = newpos
-		self.position = self.ps.position
+		self.position = newpos
 		self.ps = PlayerState(self.client_id, newpos)
+		self.ps.set_pos(newpos)
 		return self.ps
 		# self.center_x = newpos[0]
 		# self.center_x = newpos[1]
@@ -308,13 +311,14 @@ class Flame(arcade.SpriteSolidColor):
 			self.center_y += self.change_y
 
 class Rectangle(arcade.SpriteSolidColor):
-	def __init__(self):
-		color = arcade.color.BLACK
+	def __init__(self, client_id, color):
+		#color = arcade.color.BLACK
 		width = 12
 		height = 12
 		super().__init__(width,height, color)
 		self.center_x = 111
 		self.center_y = 111
 		self.normal_texture = self.texture
+		self.client_id = client_id
 		# super().__init__(image,scale)
-		# Size and rotation
+		# Size and rotation,
