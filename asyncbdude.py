@@ -275,8 +275,7 @@ class Bomberdude(arcade.View):
 				logger.warning(f'{self} {netevent}')
 
 	def on_update(self, delta_time):
-		if self.playerone:
-			self.timer.text = f't: {delta_time} {self.playerone.position}'
+		self.timer.value += delta_time
 		if self.game_ready and self.playerone:
 			try:
 				self.physics_engine.update()

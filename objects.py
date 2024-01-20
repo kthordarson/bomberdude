@@ -1,3 +1,4 @@
+from pyvex.utils import stable_hash
 import arcade
 from arcade.gui import UILabel
 import random
@@ -36,15 +37,25 @@ MOVE_MAP = {
 	100: (PLAYER_MOVEMENT_SPEED, 0),
 }
 
+#class Rectangle:
+#	def __init__(self, x, y, width, height, angle, color):
+
+
+
+
 class KeysPressed:
 	def __init__(self, client_id):
 		self.client_id = client_id
 		self.keys = {k: False for k in MOVE_MAP}
 
+	def __repr__(self):
+		return f'KeyPressed ({self.client_id})'
+
 @dataclass
 class PlayerEvent:
 	keys: Dict = field(default_factory=lambda: {k: False for k in MOVE_MAP})
 	client_id: str = 'pemissing'
+	ufcl_cnt: int = 0
 
 #	def __init__(self, client_id='missing', *args, **kwars):
 #		self.client_id = client_id
@@ -53,9 +64,12 @@ class PlayerEvent:
 	def __post_init__(self):
 		self.keys = {int(k): v for k, v in self.keys.items()}
 
+	def __repr__(self):
+		return f'PlayerEvent ({self.client_id})'
+
 	def asdict(self):
 		return asdict(self)
-	
+
 	def set_client_id(self,clid):
 		self.client_id = clid
 
@@ -63,61 +77,132 @@ class PlayerEvent:
 @dataclass
 class PlayerState:
 	updated: float = 0.0
-	x: float = 123.1
-	y: float = 123.1
+	# x: float = 123.1
+	# y: float = 123.1
 	speed: float = 0.0
 	health: float = 0.0
 	ammo: float = 0.0
 	score: int = 0
 	client_id: str = 'none'
+	position  = [101,101]
+
+	def __repr__(self):
+		return f'Playerstate ({self.client_id} pos={self.position} u={self.updated})'
+
+	def __str__(self):
+		return f'Playerstate ({self.client_id} pos={self.position} u={self.updated})'
 
 	def __init__(self, client_id, *args, **kwars):
 		self.client_id = client_id
+		#self.position = [101,101]
 
 	def asdict(self):
+		ps_dict = asdict(self)
+		ps_dict['position'] = self.position
+		return ps_dict
+
+	def _asdict(self):
 		return asdict(self)
 
 	def set_client_id(self,clid):
 		self.client_id = clid
 
+	def set_pos(self, newpos):
+		self.position = newpos
+
+	def get_pos(self):
+		return self.position
+
 
 @dataclass
 class GameState:
 	player_states: List[PlayerState]
-	game_seconds: int
+	game_seconds: int = 0
+	cjsonupdate: int = 0
 
-	def to_json(self):
+
+	def __repr__(self):
+		return f'Gamestate (gs:{self.game_seconds} cj:{self.cjsonupdate} ps:{len(self.player_states)})'
+
+	def __init__(self, player_states=None, game_seconds=None):
+		self.players = {}
+		self.player_states = player_states
+		self.game_seconds = game_seconds
+
+	def to_json(self, players):
+		for p in players:
+			self.players[p] = {'position': players[p]["position"]}
 		d = dict(player_states=[asdict(p) for p in self.player_states], game_seconds=self.game_seconds)
+		d['players'] = self.players
+		d['gsplayers'] = players
+		logger.info(f'd={d}')
+		# logger.debug(f'players={self.players}')
+		# logger.info(f'tojsonplayers={players}')
 		return json.dumps(d)
 
-	def from_json(self, data):
-		d = json.loads(data)
-		self.game_seconds = d['game_seconds']
-		for i, p in enumerate(d['player_states']):
-			self.player_states[i] = PlayerState(**p)
+	def from_json(self, dgamest, players):
+		# d = json.loads(data)
+		for p in players:
+			self.players[p] = {'position': players[p]["position"]}
+		self.game_seconds += dgamest['game_seconds']
+		plist = dgamest.get('players', [])
+		for p in plist:
+			pos = plist.get(p).get('position')
+			self.players[p] = {'position': pos}
+		# for i, p in enumerate(dgamest['player_states']):
+		# 	ps =  PlayerState(**p)
+		# 	ps.position = player.position
+		# 	self.players[ps.client_id] = ps
+		# 	self.players[player.client_id] = player
+		# 	# self.players[ps.client_id] = {'position': ps.position}
+		# 	if len(self.players) >= 2:
+		# 		# logger.info(f'{i} p={p} ps={ps} updatefrom {player} self.game_seconds={self.game_seconds} d={d}')
+		# 		logger.debug(f'players: {len(self.players)} {self.players}')
 
-	def jsonupdate(self, jsondata):
-		self.game_seconds = jsondata['game_seconds']
-		for i, p in enumerate(jsondata['player_states']):
-			self.player_states[i] = PlayerState(**p)
-
-
-class Bomberplayer(arcade.Sprite):
-	def __init__(self, image=None, scale=1, client_id=None, visible=False,center_x=0.0,center_y=0.0):
-		super().__init__(image,scale,visible=visible,center_x=0.0,center_y=0.0)
-		self.bombsleft = 3
+@dataclass
+class Networkthing(arcade.Sprite):
+	client_id: str = 'none'
+	def __init__(self, client_id, position, *args, **kwars):
 		self.client_id = client_id
-		self.visible = visible
-		self.center_x = center_x
-		self.center_y = center_y
-		self.position = (self.center_x, self.center_y)
+		super().__init__(*args, **kwars)
+
+@dataclass
+class Bomberplayer(arcade.Sprite):
+	def __init__(self, image=None, scale=1, client_id=None,position=[123.3,123.5]):
+		super().__init__(image,scale)
+		self.client_id = client_id
+		self.ps = PlayerState(self.client_id, position)
+		self.position = self.ps.position
+		self.bombsleft = 3
 		self.text = arcade.Text(f'{self.client_id} {self.position}', 10,10)
 
 	def __repr__(self):
-		return f'Bomberplayer(id: {self.client_id} pos={self.center_x},{self.center_y} b:{self.bombsleft})'
+		return f'Bomberplayer ({self.client_id} pos:{self.position} pspos={self.ps.position})'
+
+	def get_ps(self):
+		return PlayerState(self.client_id, self.position)
+
+	def __eq__(self, other):
+		if not isinstance(other, type(self)):
+			return False
+		# compare values in slots
+		for slot in self.__slots__:
+			if getattr(self, slot) != getattr(other, slot):
+				return False
+		return True
+
+	def __hash__(self):
+		values = [getattr(self, slot) for slot in self.__slots__]
+		for i in range(len(values)):
+			if isinstance(values[i], list):
+				values[i] = tuple(values[i])
+		return stable_hash(tuple([type(self)] + values))
 
 	def setpos(self, newpos):
-		self.position = newpos
+		self.ps.position = newpos
+		self.position = self.ps.position
+		self.ps = PlayerState(self.client_id, newpos)
+		return self.ps
 		# self.center_x = newpos[0]
 		# self.center_x = newpos[1]
 
@@ -221,3 +306,15 @@ class Flame(arcade.SpriteSolidColor):
 			self.timer -= FLAME_RATE
 			self.center_x += self.change_x
 			self.center_y += self.change_y
+
+class Rectangle(arcade.SpriteSolidColor):
+	def __init__(self):
+		color = arcade.color.BLACK
+		width = 12
+		height = 12
+		super().__init__(width,height, color)
+		self.center_x = 111
+		self.center_y = 111
+		self.normal_texture = self.texture
+		# super().__init__(image,scale)
+		# Size and rotation
