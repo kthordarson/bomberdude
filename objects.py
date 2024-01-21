@@ -137,14 +137,25 @@ class GameState:
 		dt = time.time()
 		playerscopy = copy.copy(self.players)
 		for p in playerscopy:
-			dt_diff = dt - self.players[p].get('msg_dt')
-			if dt_diff > 10: # player timeout
+			try:
+				dt_diff = dt - self.players[p].get('msg_dt')
+				if dt_diff > 10: # player timeout
+					self.players[p]['timeout'] = True
+					logger.info(f'timout dtdiff: {dt_diff} p:{p} {self.players[p]}')
+					[self.players.pop(k) for k in playerscopy if playerscopy[k]['timeout'] == True]
+				else:
+					self.players[p]['timeout'] = False
+					self.players[p]['msgsource'] = 'check_players'
+			except KeyError as e:
+				logger.warning(f'check_players: {e} p={p}')
 				self.players[p]['timeout'] = True
-				logger.info(f'timout dtdiff: {dt_diff} p:{p} {self.players[p]}')
-				[self.players.pop(k) for k in playerscopy if playerscopy[k]['timeout'] == True]
-			else:
-				self.players[p]['timeout'] = False
-				self.players[p]['msgsource'] = 'check_players'
+				self.players[p]['msgsource'] = f'check_players:{e}'
+				pass
+			except Exception as e:
+				logger.error(f'check_players: {e} p={p}')
+				self.players[p]['timeout'] = True
+				self.players[p]['msgsource'] = f'check_players:{e}'
+				pass
 
 	def update_game_state(self, event: PlayerEvent, clid, msg):
 		if self.debugmode:
@@ -164,8 +175,9 @@ class GameState:
 		msg_gametimer = msg.get('gametimer', 0)
 
 
-	def to_json(self, debugmode=False):
-		dout = {}
+	def to_json(self, event=None, debugmode=False):
+		evtest = {'evtype':'test', 'evdata':'test'}
+		dout = {'events':[], 'players':[]}
 		for p in self.players:
 			playerdict = {
 			'client_id':p,
@@ -174,10 +186,10 @@ class GameState:
 			'timeout': self.players[p].get('timeout'),
 			'msgsource': 'to_json',
 			}
-			dout['players'] = playerdict
+			dout['players'].append(playerdict) #Q = playerdict
 		if debugmode:
 			logger.info(f'tojson dout={dout}')
-		return json.dumps(dout)
+		return dout
 
 	def from_json(self, dgamest, debugmode=False):
 		#players = dgamest.get('players',[])

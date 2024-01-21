@@ -142,31 +142,6 @@ class ServerTUI(Thread):
 				self.stop()
 				break
 
-def apply_movement(speed, dt, curpos , key: KeysPressed):
-	cx = 0
-	cy = 0
-	oldpos = [curpos[0], curpos[1]]
-	newpos = [curpos[0], curpos[1]]
-	# logger.info(f'curpos: {curpos} {type(curpos)} k:{key}')
-	if key == arcade.key.UP or key == arcade.key.W or key == 119  or key.keys[119]:
-		newpos[1] += PLAYER_MOVEMENT_SPEED
-		# logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos} np:{newpos}')
-	elif key == arcade.key.DOWN or key == arcade.key.S or key == 115  or key.keys[115]:
-		newpos[1] -= PLAYER_MOVEMENT_SPEED
-		# logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos} np:{newpos}')
-	elif key == arcade.key.LEFT or key == arcade.key.A or key == 97 or key.keys[97]:
-		newpos[0] -= PLAYER_MOVEMENT_SPEED
-		# logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos} np:{newpos}')
-	elif key == arcade.key.RIGHT or key == arcade.key.D or key == 100  or key.keys[100]:
-		newpos[0] += PLAYER_MOVEMENT_SPEED
-		# logger.debug(f'movement k: {key} op: {oldpos} cp:{curpos} np:{newpos}')
-	elif key == arcade.key.SPACE:
-		pass
-	# logger.info(f'curpos: {curpos} np:{newpos} k:{key} ')
-	return newpos
-	# delta_position = (sum([k for k in kp.keys]),sum([k for k in kp.keys]))
-	#return current_position + delta_position * speed * dt
-
 
 class BombServer():
 	def __init__(self):
@@ -181,53 +156,6 @@ class BombServer():
 		self.gs = GameState(player_states=[], game_seconds=1, debugmode=self.debugmode)
 
 
-	def oldupdate_game_state(self, event: PlayerEvent, clid, msg):
-		for p in plrs:
-			position = plrs.get(p).get('position')
-			gametimer = plrs.get(p).get('gametimer')
-			try:
-				lastcounter = self.players[p].get('counter')
-				lastgametimer = self.players[p].get('lastgametimer')
-			except KeyError as e: # happens when a player is not in our list, like a new player... todo fix this
-				logger.warning(f'{e} {type(e)} for {p}')
-				logger.warning(f'event:{event} from: {clid} msg={msg}')
-				lastcounter = 0
-				lastgametimer = 0
-			#if counter - lastcounter > 1:
-			syncdiff = counter - lastcounter
-			gamedtdiff = gametimer - lastgametimer
-			msg_gametimerdiff = gametimer - msg_gametimer
-			dt_diff = time.time()-in_msgdt
-			self.players[p] = {
-				'position' : position,
-				'counter': counter,
-				'lastcounter': lastcounter,
-				'syncdiff': syncdiff,
-				'ufcl_cnt':event.ufcl_cnt,
-				'game_seconds': self.gs.game_seconds,
-				'gametimer': gametimer,
-				'lastgametimer': lastgametimer,
-				'gamedtdiff':gamedtdiff,
-				'msg_gametimer': msg_gametimer,
-				'msg_gametimerdiff':msg_gametimerdiff,
-				'msgsource': 'updategamestate',
-				'dt_diff': dt_diff,
-				'msg_dt': time.time()}
-		# for ps in self.gs.player_states:
-		# 	if ps.client_id == 'bstmissing':
-		# 		ps.client_id = clid
-		# 		logger.debug(f'bstmissing ps:{ps} setting clid to {clid} gs: {self.gs} event:{event}')
-		# 	dt = time.time() # - (player_state.updated)
-		# 	oldpspos = ps.position
-		# 	# current_position = apply_movement(player_state.speed, dt, current_position, event)
-		# 	current_position = apply_movement(PLAYER_MOVEMENT_SPEED, dt, oldpspos, event)
-		# 	ps.position = current_position # = current_position[0]
-		# 	#ps.y = current_position[1]
-		# 	ps.updated = time.time()
-		# 	self.players[clid] = {'position': ps.position}
-			#if len(self.players) > 1:
-			#	logger.info(f'clid:{clid} oldpspos={oldpspos} pspos={ps.position} players: {len(self.players)}')# ps={ps}  gs: {self.gs} event={event}')
-				# logger.debug(f'players={self.players}')
 
 	async def update_from_client(self, sockrecv):
 		ufcl_cnt = 0
@@ -266,7 +194,8 @@ class BombServer():
 			while True:
 				self.gs.check_players()
 				# await sockpush.send_string(self.gs.to_json(self.debugmode))
-				await sockpush.send_json(self.gs.players)
+				await sockpush.send_json(self.gs.to_json(self.debugmode))
+				# await sockpush.send_json(self.gs.players)
 				# print('.', end='', flush=True)
 				await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
 		except asyncio.CancelledError as e:

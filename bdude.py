@@ -311,14 +311,22 @@ class Bomberdude(arcade.View):
 		self.status_label.fit_content()
 		self.ghost.center_x = self.playerone.center_x
 		self.ghost.center_y = self.playerone.center_y
-		for p in self.game_state.players:
-			if p == 'client_id':
-				pass
-			elif p != self.playerone.client_id:
+		gsp = self.game_state.players.get('players',[])
+		for p in gsp:
+			try:
+				pclid = p['client_id']
+				pclpos = p['position']
+			except Exception as e:
+				logger.error(f'{e} p={p} ')
+				break
+			if pclid != self.playerone.client_id:
 				try:
-					self.gs_ghost.center_x, self.gs_ghost.center_y = self.game_state.players[p].get('position')
+					self.gs_ghost.center_x = pclpos[0]
+					self.gs_ghost.center_y = pclpos[1] # self.game_state.players[pclid]['position']
+				except KeyError as e:
+					logger.error(f'{e} p={p}  gsp={self.game_state.players} p1={self.playerone.client_id} {self.playerone}')
 				except AttributeError as e:
-					logger.error(f'{e} p={p} self.game_state.players[p]={self.game_state.players[p]} gsp={self.game_state.players} p1={self.playerone.client_id} {self.playerone}')
+					logger.error(f'{e} p={p} gsp={self.game_state.players} p1={self.playerone.client_id} {self.playerone}')
 		self.hitlist = self.physics_engine.update()
 
 		for b in self.bomb_list:
