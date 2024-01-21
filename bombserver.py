@@ -108,17 +108,18 @@ class ServerTUI(Thread):
 		return self._stop.is_set()
 
 	def get_serverinfo(self):
-		logger.info(f'players={len(self.server.players)} t:{active_count()}')
+		logger.info(f'players={len(self.server.gs.players)} t:{active_count()}')
 		for t in _enumerate():
 			print(f'\t{t} {t.name} alive: {t.is_alive()}')
-		print(f'gamestate: {self.server.gs}')
-		print(f'gamestateplayers: {self.server.gs.players}')
-		print(f'players: {self.server.players}')
+		# print(f'gamestate: {self.server.gs}')
+		# print(f'gamestateplayers: {self.server.gs.players}')
+		for p in self.server.gs.players:
+			print(f'\tp={p} {self.server.gs.players[p]}')
 
 	def dump_playerlist(self):
-		logger.info(f'players: {len(self.server.players)} ')
-		for p in self.server.players:
-			print(f'\tplayer: {p} pos: {self.server.players[p].get("position")}  b: {self.server.players[p].get("bombsleft")} h: {self.server.players[p].get("health")}  ')
+		logger.info(f'players: {len(self.server.gs.players)} ')
+		for p in self.server.gs.players:
+			print(f'\tplayer: {p} pos: {self.server.gs.players[p].get("position")}  b: {self.server.gs.players[p].get("bombsleft")} h: {self.server.gs.players[p].get("health")}  counter: {self.server.gs.players[p].get("counter")} ')
 
 	def run(self):
 		while not self.stopped():
@@ -175,31 +176,55 @@ class BombServer():
 
 		self.sock_recv_player_evts: Socket = self.ctx.socket(zmq.PULL)
 		self.sock_recv_player_evts.bind('tcp://127.0.0.1:9697')
-		self.gs = GameState(player_states=[], game_seconds=1)
 		self.ticker_task = asyncio.create_task(self.ticker(self.sock_push_gamestate, self.sock_recv_player_evts),)
-		self.players = {}
 		self.debugmode = False
+		self.gs = GameState(player_states=[], game_seconds=1, debugmode=self.debugmode)
 
-	def update_game_state(self, event: PlayerEvent, clid, msg):
-		if self.debugmode:
-			logger.debug(f'event:{event} from: {clid}')
-			logger.info(f'msg={msg}')
-		plrs = msg.get('players', [])
+
+	def oldupdate_game_state(self, event: PlayerEvent, clid, msg):
 		for p in plrs:
-			pos = plrs.get(p).get('position')
-			self.players[p] = {'position' : pos }
-		for ps in self.gs.player_states:
-			if ps.client_id == 'bstmissing':
-				ps.client_id = clid
-				logger.debug(f'bstmissing ps:{ps} setting clid to {clid} gs: {self.gs} event:{event}')
-			dt = time.time() # - (player_state.updated)
-			oldpspos = ps.position
-			# current_position = apply_movement(player_state.speed, dt, current_position, event)
-			current_position = apply_movement(PLAYER_MOVEMENT_SPEED, dt, oldpspos, event)
-			ps.position = current_position # = current_position[0]
-			#ps.y = current_position[1]
-			ps.updated = time.time()
-			self.players[clid] = {'position': ps.position}
+			position = plrs.get(p).get('position')
+			gametimer = plrs.get(p).get('gametimer')
+			try:
+				lastcounter = self.players[p].get('counter')
+				lastgametimer = self.players[p].get('lastgametimer')
+			except KeyError as e: # happens when a player is not in our list, like a new player... todo fix this
+				logger.warning(f'{e} {type(e)} for {p}')
+				logger.warning(f'event:{event} from: {clid} msg={msg}')
+				lastcounter = 0
+				lastgametimer = 0
+			#if counter - lastcounter > 1:
+			syncdiff = counter - lastcounter
+			gamedtdiff = gametimer - lastgametimer
+			msg_gametimerdiff = gametimer - msg_gametimer
+			dt_diff = time.time()-in_msgdt
+			self.players[p] = {
+				'position' : position,
+				'counter': counter,
+				'lastcounter': lastcounter,
+				'syncdiff': syncdiff,
+				'ufcl_cnt':event.ufcl_cnt,
+				'game_seconds': self.gs.game_seconds,
+				'gametimer': gametimer,
+				'lastgametimer': lastgametimer,
+				'gamedtdiff':gamedtdiff,
+				'msg_gametimer': msg_gametimer,
+				'msg_gametimerdiff':msg_gametimerdiff,
+				'msgsource': 'updategamestate',
+				'dt_diff': dt_diff,
+				'msg_dt': time.time()}
+		# for ps in self.gs.player_states:
+		# 	if ps.client_id == 'bstmissing':
+		# 		ps.client_id = clid
+		# 		logger.debug(f'bstmissing ps:{ps} setting clid to {clid} gs: {self.gs} event:{event}')
+		# 	dt = time.time() # - (player_state.updated)
+		# 	oldpspos = ps.position
+		# 	# current_position = apply_movement(player_state.speed, dt, current_position, event)
+		# 	current_position = apply_movement(PLAYER_MOVEMENT_SPEED, dt, oldpspos, event)
+		# 	ps.position = current_position # = current_position[0]
+		# 	#ps.y = current_position[1]
+		# 	ps.updated = time.time()
+		# 	self.players[clid] = {'position': ps.position}
 			#if len(self.players) > 1:
 			#	logger.info(f'clid:{clid} oldpspos={oldpspos} pspos={ps.position} players: {len(self.players)}')# ps={ps}  gs: {self.gs} event={event}')
 				# logger.debug(f'players={self.players}')
@@ -209,18 +234,18 @@ class BombServer():
 		try:
 			while True:
 				msg = await sockrecv.recv_json()
+				clid = msg['client_id']
 				# msg={'counter': 1445, 'event': {'keys': {'65362': False, '119': False, '65364': False, '115': False, '65361': False, '97': False, '65363': False, '100': False, '113': False}, 'client_id': '3187165f87', 'ufcl_cnt': 2286}, 'client_id': '3187165f87', 'position': [111.0, 133]}
 				ufcl_cnt += 1
-				self.gs.game_seconds += 1
-				counter = msg['counter']
 				event_dict = msg['event']
-				clid = msg['client_id']
+				event_dict['counter'] = msg['counter']
 				event_dict['client_id'] = clid
 				event_dict['ufcl_cnt'] = ufcl_cnt
 				# event_dict = await sock.recv_json()
 				event = PlayerEvent(**event_dict)
 				event.set_client_id(clid)
-				self.update_game_state(event, clid, msg)
+
+				self.gs.update_game_state(event, clid, msg)
 				# logger.info(f'msg={msg}')
 		except asyncio.CancelledError as e:
 			logger.error(f'{e} {type(e)}')
@@ -234,12 +259,14 @@ class BombServer():
 		# A task to receive keyboard and mouse inputs from players.
 		# This will also update the game state, gs.
 		t = create_task(self.update_from_client(sockrecv))
-		logger.debug(f'gs: {self.gs}  t:{t}')
+		logger.debug(f't:{t}')
 
 		# Send out the game state to all players 60 times per second.
 		try:
 			while True:
-				await sockpush.send_string(self.gs.to_json(self.players, self.debugmode))
+				self.gs.check_players()
+				# await sockpush.send_string(self.gs.to_json(self.debugmode))
+				await sockpush.send_json(self.gs.players)
 				# print('.', end='', flush=True)
 				await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
 		except asyncio.CancelledError as e:

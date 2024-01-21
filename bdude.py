@@ -72,21 +72,24 @@ class MainMenu(arcade.View):
 	def __init__(self, game):
 		super().__init__()
 		# self.loop = asyncio.get_event_loop()
+		#self.manager = UIManager()
 		self.game = game
-		self.manager = UIManager()
+		self.manager = game.manager
 		#self.game = game
 		#self.manager = game.manager
 		self.sb = arcade.gui.UIFlatButton(text="Start New Game", width=150)
 		self.eb = arcade.gui.UIFlatButton(text="Exit", width=320)
-		self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
-		self.grid.add(self.sb, col_num=1, row_num=0)
-		self.grid.add(self.eb, col_num=0, row_num=2, col_span=2)
-		self.anchor = self.manager.add(arcade.gui.UIAnchorLayout())
-		self.anchor.add(anchor_x="center_x", anchor_y="center_y", child=self.grid,)
+		grid = arcade.gui.UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
+		gridsb = grid.add(self.sb, col_num=1, row_num=0)
+		grideb = grid.add(self.eb, col_num=0, row_num=2, col_span=2)
+		anchor = self.manager.add(arcade.gui.UIAnchorLayout())
+		self.anchor = anchor.add(anchor_x="center_x", anchor_y="center_y", child=grid,)
 
 		@self.sb.event("on_click")
 		def on_click_start_new_game_button(event):
 			self.game.setup()
+			self.sb.visible = False
+			self.eb.visible = False
 			self.window.show_view(self.game)
 
 		@self.eb.event("on_click")
@@ -123,7 +126,8 @@ class Bomberdude(arcade.View):
 		self.player_event = PlayerEvent()
 		# ps = PlayerState(self.playerone.client_id)
 		# ps.set_client_id(self.playerone.client_id)
-		self.game_state = GameState(player_states=[self.playerone.get_ps()],game_seconds=0)
+		self.game_state = GameState(player_states=[],game_seconds=0)
+		self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
 		self.position_buffer = deque(maxlen=3)
 
 		self.ctx = Context()
@@ -142,35 +146,12 @@ class Bomberdude(arcade.View):
 		self.game_ready = False
 		# self.timer = UILabel(text='.', align="right", size_hint_min=(30, 20))
 
-		self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
-		self.connectb = arcade.gui.UIFlatButton(text="Connect", width=150)
-		self.grid.add(self.connectb, col_num=1, row_num=0)
-		self.anchor = self.manager.add(arcade.gui.UIAnchorLayout())
-		self.anchor.add(anchor_x="right", anchor_y="top", child=self.grid,)
-
-		self.timer = UINumberLabel(value=20, align="right", size_hint_min=(30, 10))
-		self.health_label = UILabel(align="right", size_hint_min=(30, 20))
-		self.bombs_label = UILabel(align="right", size_hint_min=(30, 20))
-		self.status_label = UILabel(align="right", size_hint_min=(30, 20))
-
-		self.columns = UIBoxLayout(
-			vertical=False,
-			children=[
-				UIBoxLayout(
-					vertical=True,
-					children=[
-						UILabel(text="Time:", align="left", width=50),
-						UILabel(text="health:", align="left", width=50),
-						UILabel(text="bombs:", align="left", width=50),
-						UILabel(text="status:", align="left", width=150),
-					],
-				),
-				# Create one vertical UIBoxLayout per column and add the labels
-				UIBoxLayout(vertical=True, children=[self.timer, self.health_label, self.bombs_label, self.status_label]),
-			],
-		)
-		self.anchor = self.manager.add(arcade.gui.UIAnchorLayout())
-		self.anchor.add(anchor_x="left", anchor_y="top", child=self.columns,)
+		self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3)#, horizontal_spacing=20, vertical_spacing=20)
+		connectb = arcade.gui.UIFlatButton(text="Connect", width=150)
+		self.connectb = self.grid.add(connectb, col_num=1, row_num=0)
+		anchor = self.manager.add(arcade.gui.UIAnchorLayout())
+		self.anchor = anchor.add(anchor_x="right", anchor_y="top", child=self.grid,)
+		self.timer = UINumberLabel(value=1)
 
 		@self.connectb.event("on_click")
 		def on_connect_to_server(event):
@@ -204,7 +185,31 @@ class Bomberdude(arcade.View):
 		self.manager.disable()
 
 	def setup(self):
+		#self.manager = UIManager()
+		# self.health_label = UILabel(align="right", size_hint_min=(30, 20))
+		# self.bombs_label = UILabel(align="right", size_hint_min=(30, 20))
+		self.status_label = UILabel()#, size_hint_min=(30, 20))
 
+		columns = UIBoxLayout(
+			vertical=False,
+			children=[
+				UIBoxLayout(
+					vertical=True,
+					children=[
+						UILabel(text="Time: "),
+						# UILabel(text="health:", align="left", width=50),
+						# UILabel(text="bombs:", align="left", width=50),
+						UILabel(text="status: "),
+					],
+				),
+				# Create one vertical UIBoxLayout per column and add the labels
+				UIBoxLayout(vertical=True, children=[self.timer, self.status_label]), # self.health_label, self.bombs_label,
+			],
+		)
+
+		anchor = self.manager.add(arcade.gui.UIAnchorLayout())
+		self.columns = anchor.add(child=columns,anchor_x="left", anchor_y="top", align_x=11, align_y=19)
+		# self.anchor.
 		layer_options = {"Blocks": {"use_spatial_hash": True},}
 		self.tile_map = arcade.load_tilemap('data/map3.json', layer_options=layer_options, scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
@@ -217,15 +222,16 @@ class Bomberdude(arcade.View):
 		self.ghost_list.append(self.gs_ghost)
 		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		# self.gui_camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
-		self.end_of_map = (self.tile_map.width * self.tile_map.tile_width) * self.tile_map.scaling
+		# self.end_of_map = (self.tile_map.width * self.tile_map.tile_width) * self.tile_map.scaling
 		self.background_color = arcade.color.AMAZON
 		self.manager.enable()
 		self.background_color = arcade.color.DARK_BLUE_GRAY
 		self.scene.add_sprite_list_after("Player", "Walls")
 		self.scenewalls = arcade.SpriteList()
-		[self.scenewalls.append(k) for k in self.scene['Blocks'].sprite_list]
+		self.sceneblocks = arcade.SpriteList()
+		[self.sceneblocks.append(k) for k in self.scene['Blocks'].sprite_list]
 		[self.scenewalls.append(k) for k in self.scene['Walls'].sprite_list]
-		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scenewalls, gravity_constant=GRAVITY)
+		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scenewalls,platforms=self.sceneblocks, gravity_constant=GRAVITY)
 
 
 	def on_draw(self):
@@ -242,29 +248,9 @@ class Bomberdude(arcade.View):
 		self.particle_list.draw()
 		self.flame_list.draw()
 		self.manager.draw()
-		for p in self.game_state.players:
-			if p == self.playerone.client_id:
-				x,y = self.game_state.players[p].get('position')
-				#arcade.draw_rectangle_filled(x, y,  15, 15, arcade.color.BLUE)
-				#arcade.draw_rectangle_filled(self.playerone.center_x, self.playerone.center_y,  15, 15, arcade.color.GREEN)
-				#arcade.draw_rectangle_filled(self.playerone.position[0], self.playerone.position[1],  15, 15, arcade.color.ORANGE)
-
-				# x,y = self.playerone.position
-				# arcade.draw_rectangle_filled(x, y,  RECT_WIDTH, RECT_HEIGHT, arcade.color.BLUE)
-
-				# x = self.playerone.center_x
-				# y = self.playerone.center_y
-				# arcade.draw_rectangle_filled(x, y,  RECT_WIDTH, RECT_HEIGHT, arcade.color.BROWN)
-
-				# x,y = self.game_state.players[self.playerone.client_id].get('position')
-				# arcade.draw_rectangle_filled(x, y,  RECT_WIDTH, RECT_HEIGHT, arcade.color.YELLOW)
-			else:
-				x,y = self.game_state.players[p].get('position')
-				# arcade.draw_rectangle_filled(x, y,  13, 13, get_random_color())
-
-		# self.gui_camera.use()
 
 	def dumpdebug(self):
+		print(f'scenewalls:{len(self.scenewalls)} sceneblocks:{len(self.sceneblocks)} bombs:{len(self.bomb_list)} particles:{len(self.particle_list)} flames:{len(self.flame_list)}')
 		print(f'playerone: {self.playerone} pos={self.playerone.position} cx={self.playerone.center_x} cy={self.playerone.center_y} gspos={self.game_state.players[self.playerone.client_id]}')
 		print(f'\tghost: {self.ghost} pos={self.ghost.position} cx={self.ghost.center_x} cy={self.ghost.center_y}')
 		print(f'\tgs_ghost: {self.gs_ghost} pos={self.gs_ghost.position} cx={self.gs_ghost.center_x} cy={self.gs_ghost.center_y}')
@@ -320,25 +306,20 @@ class Bomberdude(arcade.View):
 
 	def on_update(self, dt):
 		self.timer.value += dt
+		self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
 		self.status_label.text = f'id {self.playerone.client_id} pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f} gsp {len(self.game_state.players)}'
 		self.status_label.fit_content()
-		self.playerone.ps.set_pos(self.playerone.position)
 		self.ghost.center_x = self.playerone.center_x
 		self.ghost.center_y = self.playerone.center_y
 		for p in self.game_state.players:
-			#self.gs_ghost.center_y = self.game_state.players[p].get('position')
-			if p != self.playerone.client_id:
-				self.gs_ghost.center_x, self.gs_ghost.center_y = self.game_state.players[p].get('position')
-			# self.gs_ghost.center_x, self.gs_ghost.center_y = self.game_state.players[self.playerone.client_id].get('position')
-			# self.game_state.players[self.playerone.client_id] = {'position': self.playerone.position}
-			# self.game_state.players[self.playerone.client_id] = {'position': (self.playerone.center_x, self.playerone.center_y)}
+			if p == 'client_id':
+				pass
+			elif p != self.playerone.client_id:
+				try:
+					self.gs_ghost.center_x, self.gs_ghost.center_y = self.game_state.players[p].get('position')
+				except AttributeError as e:
+					logger.error(f'{e} p={p} self.game_state.players[p]={self.game_state.players[p]} gsp={self.game_state.players} p1={self.playerone.client_id} {self.playerone}')
 		self.hitlist = self.physics_engine.update()
-		# if len(hitlist) > 0:
-		# 	print(f'hitlist={hitlist}')
-		# 	for key in self.player_event.keys:
-		# 		self.player_event.keys[key] = False
-		# 	for key in self.keys_pressed.keys:
-		# 		self.keys_pressed.keys[key] = False
 
 		for b in self.bomb_list:
 			bombflames = b.update()
@@ -350,34 +331,31 @@ class Bomberdude(arcade.View):
 					# logger.info(f'p: {len(bombflames.get("plist"))} pl: {len(self.particle_list)} p1: {self.playerone} b: {b}')
 		for f in self.flame_list:
 			f_hitlist = arcade.check_for_collision_with_list(f, self.scenewalls)
+			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
 			for hit in f_hitlist:
-				if hit.properties.get('tile_id') == 10:
-					# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-					f.remove_from_sprite_lists()
-
-				elif hit.properties.get('tile_id') == 5:
-					# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-					f.remove_from_sprite_lists()
-
-				elif hit.properties.get('tile_id') == 3:
-					# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-					f.remove_from_sprite_lists()
-
-				elif hit.properties.get('tile_id') == 2:
-					# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-					f.remove_from_sprite_lists()
-
-				elif hit.properties.get('tile_id') == 11:
-					# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-					f.remove_from_sprite_lists()
-
-				elif hit.properties.get('tile_id') == 12: # todo create updateblock
-					# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-					f.remove_from_sprite_lists()
-					hit.remove_from_sprite_lists()
-
-				else:
-					logger.info(f'f: {f} hit: {hit.properties.get("tile_id")} {hit}')
+				hitblocktype = hit.properties.get('tile_id')
+				match hitblocktype:
+					case 10:
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+					case 5:
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+					case 3:
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+					case 2:
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+					case 11:
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+					case 12: # todo create updateblock
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+						hit.remove_from_sprite_lists()
+					case _:
+						logger.info(f'f: {f} hit: {hit.properties.get("tile_id")} {hit}')
 
 		for p in self.particle_list:
 			p_hitlist = arcade.check_for_collision_with_list(p, self.scenewalls)
@@ -427,15 +405,18 @@ async def thread_main(game, loop):
 		thrmain_cnt = 0
 		while True:
 			thrmain_cnt += 1
-			d = game.player_event.asdict()
-			msg = dict(counter=thrmain_cnt, event=d)
-			msg['client_id'] = game.playerone.client_id
-			msg['position'] = game.playerone.position
-			msg['players'] = {}
-			msg['players'][game.playerone.client_id] = {'position':game.playerone.position}
-			game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position}#  .get('position')
+			playereventdict = game.player_event.asdict()
+			try:
+				playereventdict['client_id'] = {'client_id': game.playerone.client_id, 'position':game.playerone.position, 'msgsource':'pusher'}
+			except KeyError as e:
+				logger.error(f'{e} playereventdict={playereventdict} ')
+			msg = dict(counter=thrmain_cnt, event=playereventdict, client_id=game.playerone.client_id, position=game.playerone.position, msg_dt=time.time())
+			# msg['players'][game.playerone.client_id] = {'position':game.playerone.position, 'gametimer': game.timer.value, 'msgsource': 'gamepusher'}
+			# game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position, 'gametimer': game.timer.value, 'msgsource': 'gamepushergamestate'}#  .get('position')
+			# msg['msg_dt'] = time.time()
 			if game.connected():
-				# logger.info(f'push: {d} msg: {msg}')
+				if game.debugmode:
+					pass # logger.info(f'push msg: {msg}')
 				await game.push_sock.send_json(msg)
 			await asyncio.sleep(1 / UPDATE_TICK)
 
@@ -443,11 +424,19 @@ async def thread_main(game, loop):
 		while True:
 			_gs = await game.sub_sock.recv_string()
 			gs = json.loads(_gs)
-			game.game_state.from_json(gs, game.game_state.players)
-			game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position}#  .get('position')
+			try:
+				game.game_state.from_json(gs, game.debugmode)
+			except KeyError as e:
+				logger.error(f'{e} gs={gs} ')
+				gs=None
+			# game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position, 'msgsource': 'recvgamestate'}#  .get('position')
+			if game.debugmode:
+				logger.info(f'gs = {gs} gsp = {game.game_state.players}')
 			# logger.info(f'p0: {pcount0} p1:{pcount1} players={game.game_state.players} gs={gs}' )
 	try:
 		await asyncio.gather(pusher(), receive_game_state())
+	except NameError as e:
+		logger.warning(f'{e} {type(e)}')
 	except TypeError as e:
 		logger.warning(f'{e} {type(e)}')
 	except Exception as e:

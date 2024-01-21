@@ -1,4 +1,5 @@
 from pyvex.utils import stable_hash
+import copy
 import arcade
 from arcade.gui import UILabel
 import random
@@ -56,6 +57,7 @@ class PlayerEvent:
 	keys: Dict = field(default_factory=lambda: {k: False for k in MOVE_MAP})
 	client_id: str = 'pemissing'
 	ufcl_cnt: int = 0
+	counter: int = 0
 
 #	def __init__(self, client_id='missing', *args, **kwars):
 #		self.client_id = client_id
@@ -98,7 +100,9 @@ class PlayerState:
 
 	def asdict(self):
 		ps_dict = asdict(self)
+		ps_dict['client_id'] = self.client_id
 		ps_dict['position'] = self.position
+		ps_dict['msgsource'] = 'asdict'
 		return ps_dict
 
 	def _asdict(self):
@@ -120,49 +124,67 @@ class GameState:
 	game_seconds: int = 0
 	cjsonupdate: int = 0
 
-
 	def __repr__(self):
-		return f'Gamestate (gs:{self.game_seconds} cj:{self.cjsonupdate} ps:{len(self.player_states)})'
+		return f'Gamestate (gs:{self.game_seconds} cj:{self.cjsonupdate} pl:{len(self.players)}  ps:{len(self.player_states)} )'
 
-	def __init__(self, player_states=None, game_seconds=None):
+	def __init__(self, player_states=None, game_seconds=None, debugmode=False):
 		self.players = {}
 		self.player_states = player_states
 		self.game_seconds = game_seconds
+		self.debugmode = debugmode
 
-	def to_json(self, players, debugmode=False):
-		d = dict(player_states=[asdict(p) for p in self.player_states], game_seconds=self.game_seconds)
-		d['players'] = {}
-		for p in players:
-			self.players[p] = {'position': players[p]["position"]}
-			d['players'][p] = {'position': players[p]["position"]}
-		d['gsplayers'] = players
-		#if len(self.players) >= 2:
-		#	logger.info(f'players={players} d={d} ')
-		# logger.debug(f'players={self.players}')
-		# logger.info(f'tojsonplayers={players}')
-		dout = json.dumps(d)
+	def check_players(self):
+		dt = time.time()
+		playerscopy = copy.copy(self.players)
+		for p in playerscopy:
+			dt_diff = dt - self.players[p].get('msg_dt')
+			if dt_diff > 10: # player timeout
+				self.players[p]['timeout'] = True
+				logger.info(f'timout dtdiff: {dt_diff} p:{p} {self.players[p]}')
+				[self.players.pop(k) for k in playerscopy if playerscopy[k]['timeout'] == True]
+			else:
+				self.players[p]['timeout'] = False
+				self.players[p]['msgsource'] = 'check_players'
+
+	def update_game_state(self, event: PlayerEvent, clid, msg):
+		if self.debugmode:
+			logger.debug(f'event:{event} from: {clid} msg={msg}')
+		playerdict = {
+			'client_id':clid,
+			'position': msg.get('position'),
+			'msg_dt': msg.get('msg_dt'),
+			'timeout': msg.get('timeout'),
+			'msgsource': 'update_game_state',
+		}
+		self.players[clid] = playerdict
+		self.game_seconds += 1
+		plrs = msg.get('players', [])
+		counter = msg.get('counter', 0)
+		in_msgdt = msg.get('msg_dt', 0)
+		msg_gametimer = msg.get('gametimer', 0)
+
+
+	def to_json(self, debugmode=False):
+		dout = {}
+		for p in self.players:
+			playerdict = {
+			'client_id':p,
+			'position': self.players[p].get('position'),
+			'msg_dt': self.players[p].get('msg_dt'),
+			'timeout': self.players[p].get('timeout'),
+			'msgsource': 'to_json',
+			}
+			dout['players'] = playerdict
 		if debugmode:
 			logger.info(f'tojson dout={dout}')
-		return dout
+		return json.dumps(dout)
 
-	def from_json(self, dgamest, players):
-		# d = json.loads(data)
-		for p in players:
-			self.players[p] = {'position': players[p]["position"]}
-		self.game_seconds += dgamest['game_seconds']
-		plist = dgamest.get('players', [])
-		for p in plist:
-			pos = plist.get(p).get('position')
-			self.players[p] = {'position': pos}
-		# for i, p in enumerate(dgamest['player_states']):
-		# 	ps =  PlayerState(**p)
-		# 	ps.position = player.position
-		# 	self.players[ps.client_id] = ps
-		# 	self.players[player.client_id] = player
-		# 	# self.players[ps.client_id] = {'position': ps.position}
-		# 	if len(self.players) >= 2:
-		# 		# logger.info(f'{i} p={p} ps={ps} updatefrom {player} self.game_seconds={self.game_seconds} d={d}')
-		# 		logger.debug(f'players: {len(self.players)} {self.players}')
+	def from_json(self, dgamest, debugmode=False):
+		#players = dgamest.get('players',[])
+		for p in dgamest:
+			self.players[p] = dgamest[p]
+		if debugmode:
+			logger.debug(f'dgamest={dgamest} gs={self.game_seconds} selfplayers={self.players}')
 
 @dataclass
 class Networkthing(arcade.Sprite):
@@ -186,7 +208,15 @@ class Bomberplayer(arcade.Sprite):
 		return f'Bomberplayer ({self.client_id} pos:{self.position} pspos={self.ps.position})'
 
 	def get_ps(self):
-		return PlayerState(self.client_id, self.position)
+		# {'position':self.playerone.position, 'msgsource': 'onupdate', 'msg_dt': time.time()}#  .get('position')
+		ps = {
+			'client_id': self.client_id,
+			'position': self.position,
+			'msgsource': 'get_ps',
+			'msg_dt': time.time(),
+			'timeout': False,
+		}
+		return json.dumps(ps) # PlayerState(self.client_id, self.position)
 
 	def __eq__(self, other):
 		if not isinstance(other, type(self)):
@@ -204,11 +234,11 @@ class Bomberplayer(arcade.Sprite):
 				values[i] = tuple(values[i])
 		return stable_hash(tuple([type(self)] + values))
 
-	def setpos(self, newpos):
+	def setposx(self, newpos):
 		self.position = newpos
 		self.ps = PlayerState(self.client_id, newpos)
 		self.ps.set_pos(newpos)
-		return self.ps
+		return self.get_ps()
 		# self.center_x = newpos[0]
 		# self.center_x = newpos[1]
 
