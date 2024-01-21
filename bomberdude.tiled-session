@@ -47,8 +47,8 @@
             "scale": 1,
             "selectedLayer": 1,
             "viewCenter": {
-                "x": 446.5,
-                "y": 333
+                "x": 444.5,
+                "y": 330
             }
         },
         "data/map.tmx": {
@@ -57,6 +57,33 @@
             "viewCenter": {
                 "x": 481.0193422487517,
                 "y": 320.6795614991678
+            }
+        },
+        "data/map2.json": {
+            "scale": 0.9074479166666666,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 481.0193422487517,
+                "y": 320.6795614991678
+            }
+        },
+        "data/map2.tmj": {
+            "scale": 0.25,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 930,
+                "y": 1068
+            }
+        },
+        "data/map2tiles.tsx": {
+            "dynamicWrapping": false
+        },
+        "data/map3.json": {
+            "scale": 0.33,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 734.8484848484848,
+                "y": 969.6969696969696
             }
         },
         "map.json": {
@@ -78,14 +105,17 @@
     },
     "last.exportedFilePath": "/home/kth/development/bomberdudearcade/data",
     "last.imagePath": "/home/kth/development/bomberdudearcade/data",
+    "map.height": 64,
     "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
-    "map.lastUsedFormat": "tmx",
+    "map.lastUsedFormat": "json",
+    "map.width": 64,
     "openFiles": [
         "data/map.json"
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
         "data/map.json",
+        "data/map2.json",
         "data/btiles.tsx",
         "data/map.tmx",
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/standard_tileset.json",

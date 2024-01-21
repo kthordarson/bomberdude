@@ -320,5 +320,11 @@ class Rectangle(arcade.SpriteSolidColor):
 		self.center_y = 111
 		self.normal_texture = self.texture
 		self.client_id = client_id
+		self.angle = 0
 		# super().__init__(image,scale)
 		# Size and rotation,
+	def draw(self):
+		if self.filled:
+			arcade.draw_rectangle_filled( self.position.x, self.position.y, self.width, self.height, self.color, self.angle )
+		else:
+			arcade.draw_rectangle_outline( self.position.x, self.position.y, self.width, self.height, self.color, border_width=4, tilt_angle=self.angle )
