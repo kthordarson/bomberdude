@@ -129,7 +129,7 @@ class GameState:
 		self.player_states = player_states
 		self.game_seconds = game_seconds
 
-	def to_json(self, players):
+	def to_json(self, players, debugmode=False):
 		d = dict(player_states=[asdict(p) for p in self.player_states], game_seconds=self.game_seconds)
 		d['players'] = {}
 		for p in players:
@@ -140,7 +140,10 @@ class GameState:
 		#	logger.info(f'players={players} d={d} ')
 		# logger.debug(f'players={self.players}')
 		# logger.info(f'tojsonplayers={players}')
-		return json.dumps(d)
+		dout = json.dumps(d)
+		if debugmode:
+			logger.info(f'tojson dout={dout}')
+		return dout
 
 	def from_json(self, dgamest, players):
 		# d = json.loads(data)
@@ -311,16 +314,17 @@ class Flame(arcade.SpriteSolidColor):
 			self.center_y += self.change_y
 
 class Rectangle(arcade.SpriteSolidColor):
-	def __init__(self, client_id, color):
+	def __init__(self, client_id, color,center_x, center_y, width=12, height=12):
 		#color = arcade.color.BLACK
-		width = 12
-		height = 12
 		super().__init__(width,height, color)
-		self.center_x = 111
-		self.center_y = 111
+		# width = 12
+		# height = 12
+		self.center_x = center_x
+		self.center_y = center_y
 		self.normal_texture = self.texture
 		self.client_id = client_id
 		self.angle = 0
+		self.color = color
 		# super().__init__(image,scale)
 		# Size and rotation,
 	def draw(self):

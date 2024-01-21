@@ -23,7 +23,6 @@ from exceptions import *
 import zmq
 from zmq.asyncio import Context, Socket
 # todo get inital pos from server
-# draw netplayers
 # draw netbombs
 # sync info bewteen Client and Bomberplayer
 # update clients when new player connects
@@ -38,6 +37,17 @@ from zmq.asyncio import Context, Socket
 UPDATE_TICK = 60
 RECT_WIDTH = 32
 RECT_HEIGHT = 32
+
+def get_random_color():
+	acolors = dir(arcade.color)
+	foundcolor = False
+	while not foundcolor:
+		res = eval(f'arcade.color.{random.choice(acolors)}')
+		if isinstance(res, arcade.types.Color):
+			foundcolor = True
+			break
+	#_acol_list = [f'arcade.color.{k}' for k in _acolors]
+	return res
 
 
 class UINumberLabel(UILabel):
@@ -99,14 +109,15 @@ class Bomberdude(arcade.View):
 	def __init__(self, width, height, title):
 		super().__init__()
 		#super().__init__(width, height, title, resizable=True)
+		self.debugmode = False
 		self.manager = UIManager()
 		self.window.center_window() # set_location(0,0)
 		self.width = width
 		self.height = height
 		self.t = 0
 		self.playerone = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=gen_randid())
-		self.ghost = Rectangle(client_id=self.playerone, color = arcade.color.ORANGE)
-		self.gs_ghost = Rectangle(client_id=self.playerone, color = arcade.color.YELLOW)
+		self.ghost = Rectangle(client_id=self.playerone, color = arcade.color.ORANGE, center_x=self.playerone.center_x, center_y=self.playerone.center_y)
+		self.gs_ghost = Rectangle(client_id=self.playerone, color = arcade.color.YELLOW, center_x=self.playerone.center_x, center_y=self.playerone.center_y)
 		self.keys_pressed = KeysPressed(self.playerone.client_id)
 		self.hitlist = []
 		self.player_event = PlayerEvent()
@@ -120,7 +131,6 @@ class Bomberdude(arcade.View):
 		self.push_sock: Socket = self.ctx.socket(zmq.PUSH)
 		self._connected = False
 		# self.player_list = None
-		self.netplayers = []
 		self.physics_engine = None
 		self.bomb_list = None
 		self.particle_list = None
@@ -167,7 +177,7 @@ class Bomberdude(arcade.View):
 			self.do_connect()
 
 	def __repr__(self):
-		return f'Bomberdude( {self.title} np: {len(self.netplayers)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
+		return f'Bomberdude( {self.title} np: {len(self.game_state.players)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
 
 	def connected(self):
 		return self._connected
@@ -202,12 +212,11 @@ class Bomberdude(arcade.View):
 		self.bomb_list = arcade.SpriteList()
 		self.particle_list = arcade.SpriteList()
 		self.flame_list = arcade.SpriteList()
-		self.netplayers = arcade.SpriteList()
 		self.ghost_list = arcade.SpriteList()
 		self.ghost_list.append(self.ghost)
 		self.ghost_list.append(self.gs_ghost)
 		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
-		self.gui_camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
+		# self.gui_camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.end_of_map = (self.tile_map.width * self.tile_map.tile_width) * self.tile_map.scaling
 		self.background_color = arcade.color.AMAZON
 		self.manager.enable()
@@ -223,8 +232,9 @@ class Bomberdude(arcade.View):
 		self.clear()
 		self.camera.use()
 		self.scene.draw()
+		# self.scene.draw_hit_boxes(names=['Walls'])
 
-		self.netplayers.draw()
+
 		self.playerone.draw()
 		self.ghost_list.draw()
 
@@ -235,7 +245,9 @@ class Bomberdude(arcade.View):
 		for p in self.game_state.players:
 			if p == self.playerone.client_id:
 				x,y = self.game_state.players[p].get('position')
-				arcade.draw_rectangle_filled(x, y,  15, 15, arcade.color.GREEN)
+				#arcade.draw_rectangle_filled(x, y,  15, 15, arcade.color.BLUE)
+				#arcade.draw_rectangle_filled(self.playerone.center_x, self.playerone.center_y,  15, 15, arcade.color.GREEN)
+				#arcade.draw_rectangle_filled(self.playerone.position[0], self.playerone.position[1],  15, 15, arcade.color.ORANGE)
 
 				# x,y = self.playerone.position
 				# arcade.draw_rectangle_filled(x, y,  RECT_WIDTH, RECT_HEIGHT, arcade.color.BLUE)
@@ -248,9 +260,20 @@ class Bomberdude(arcade.View):
 				# arcade.draw_rectangle_filled(x, y,  RECT_WIDTH, RECT_HEIGHT, arcade.color.YELLOW)
 			else:
 				x,y = self.game_state.players[p].get('position')
-				arcade.draw_rectangle_filled(x, y,  13, 13, arcade.color.RED)
+				# arcade.draw_rectangle_filled(x, y,  13, 13, get_random_color())
 
 		# self.gui_camera.use()
+
+	def dumpdebug(self):
+		print(f'playerone: {self.playerone} pos={self.playerone.position} cx={self.playerone.center_x} cy={self.playerone.center_y} gspos={self.game_state.players[self.playerone.client_id]}')
+		print(f'\tghost: {self.ghost} pos={self.ghost.position} cx={self.ghost.center_x} cy={self.ghost.center_y}')
+		print(f'\tgs_ghost: {self.gs_ghost} pos={self.gs_ghost.position} cx={self.gs_ghost.center_x} cy={self.gs_ghost.center_y}')
+		# logger.debug(f'player_event: {self.player_event}')
+		# logger.debug(f'keys_pressed: {self.keys_pressed}')
+		# logger.debug(f'game_state: {self.game_state}')
+		print(f'gameplayers: {self.game_state.players}')
+		for p in self.game_state.players:
+			print(f'\tp={p} {self.game_state.players[p]}')
 
 	def send_key_press(self, key, modifiers):
 		pass
@@ -259,6 +282,10 @@ class Bomberdude(arcade.View):
 		# todo check collisions before sending keypress...
 		sendmove = False
 		# logger.debug(f'{key} {self} {self.client} {self.client.receiver}')
+		if key == arcade.key.F1:
+			self.debugmode = not self.debugmode
+		if key == arcade.key.F2:
+			self.dumpdebug()
 		if key == arcade.key.ESCAPE or key == arcade.key.Q:
 			arcade.close_window()
 			return
@@ -300,9 +327,11 @@ class Bomberdude(arcade.View):
 		self.ghost.center_y = self.playerone.center_y
 		for p in self.game_state.players:
 			#self.gs_ghost.center_y = self.game_state.players[p].get('position')
-			#self.gs_ghost.center_x, self.gs_ghost.center_y = self.game_state.players[p].get('position')
-			self.gs_ghost.center_x, self.gs_ghost.center_y = self.game_state.players[self.playerone.client_id].get('position')
-			self.game_state.players[self.playerone.client_id] = {'position': self.playerone.position}
+			if p != self.playerone.client_id:
+				self.gs_ghost.center_x, self.gs_ghost.center_y = self.game_state.players[p].get('position')
+			# self.gs_ghost.center_x, self.gs_ghost.center_y = self.game_state.players[self.playerone.client_id].get('position')
+			# self.game_state.players[self.playerone.client_id] = {'position': self.playerone.position}
+			# self.game_state.players[self.playerone.client_id] = {'position': (self.playerone.center_x, self.playerone.center_y)}
 		self.hitlist = self.physics_engine.update()
 		# if len(hitlist) > 0:
 		# 	print(f'hitlist={hitlist}')
@@ -372,8 +401,8 @@ class Bomberdude(arcade.View):
 
 		self.particle_list.update()
 		self.flame_list.update()
-		if self.playerone:
-			self.camera.center(self.playerone.position)
+
+		self.camera.center(self.playerone.position)
 
 	def dropbomb(self):
 		# logger.debug(f'p1: {self.playerone} drops bomb...')

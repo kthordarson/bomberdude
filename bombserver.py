@@ -111,14 +111,14 @@ class ServerTUI(Thread):
 		logger.info(f'players={len(self.server.players)} t:{active_count()}')
 		for t in _enumerate():
 			print(f'\t{t} {t.name} alive: {t.is_alive()}')
+		print(f'gamestate: {self.server.gs}')
+		print(f'gamestateplayers: {self.server.gs.players}')
+		print(f'players: {self.server.players}')
 
 	def dump_playerlist(self):
-		logger.info(f'players: {len(self.server.players)} clientlist: {len(self.server.clients)}')
+		logger.info(f'players: {len(self.server.players)} ')
 		for p in self.server.players:
-			print(f'\tplayer: {p} pos: {self.server.players[p].get("pos")} gp: {self.server.players[p].get("gridpos")} b: {self.server.players[p].get("bombsleft")} h: {self.server.players[p].get("health")} uc: {self.server.players[p].get("runcounter")} ')
-		for c in self.server.clients:
-			print(f'\tclient: {c.name} id: {c.client_id} connected: {c.connected} hqs: {c.handlerq.qsize()}')
-			c.send_ping()
+			print(f'\tplayer: {p} pos: {self.server.players[p].get("position")}  b: {self.server.players[p].get("bombsleft")} h: {self.server.players[p].get("health")}  ')
 
 	def run(self):
 		while not self.stopped():
@@ -126,11 +126,13 @@ class ServerTUI(Thread):
 				cmd = input(':> ')
 				if cmd[:1] == 's':
 					self.get_serverinfo()
+				if cmd[:1] == 'd':
+					self.server.debugmode = not self.server.debugmode
 				if cmd[:1] == 'p':
 					self.dump_playerlist()
 				elif cmd[:1] == 'q':
 					logger.warning(f'{self} {self.server} tuiquit')
-					self.gq.put({'msgtype':'quit'})
+					# self.gq.put({'msgtype':'quit'})
 					# raise TuiException('tui killed')
 					self.stop()
 				# else:
@@ -176,10 +178,12 @@ class BombServer():
 		self.gs = GameState(player_states=[], game_seconds=1)
 		self.ticker_task = asyncio.create_task(self.ticker(self.sock_push_gamestate, self.sock_recv_player_evts),)
 		self.players = {}
+		self.debugmode = False
 
 	def update_game_state(self, event: PlayerEvent, clid, msg):
-		# logger.debug(f'gs: {gs} event:{event} from: {clid}')
-		# logger.info(f'msg={msg}')
+		if self.debugmode:
+			logger.debug(f'event:{event} from: {clid}')
+			logger.info(f'msg={msg}')
 		plrs = msg.get('players', [])
 		for p in plrs:
 			pos = plrs.get(p).get('position')
@@ -235,7 +239,7 @@ class BombServer():
 		# Send out the game state to all players 60 times per second.
 		try:
 			while True:
-				await sockpush.send_string(self.gs.to_json(self.players))
+				await sockpush.send_string(self.gs.to_json(self.players, self.debugmode))
 				# print('.', end='', flush=True)
 				await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
 		except asyncio.CancelledError as e:
@@ -250,6 +254,8 @@ async def main(args):
 	# app = App(signal=fut)
 	ctx = Context()
 	server = BombServer()
+	tui = ServerTUI(server, debugmode=args.debug)
+	tui.start()
 	logger.info(f'ticker_task:{server.ticker_task}')
 	try:
 		await asyncio.wait([server.ticker_task, fut],return_when=asyncio.FIRST_COMPLETED)
