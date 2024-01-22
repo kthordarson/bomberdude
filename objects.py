@@ -58,11 +58,14 @@ class PlayerEvent:
 	client_id: str = 'pemissing'
 	ufcl_cnt: int = 0
 	counter: int = 0
+	game_events: str = ''
 
 #	def __init__(self, client_id='missing', *args, **kwars):
 #		self.client_id = client_id
 		#self.keys: Dict = field(default_factory=lambda: {k: False for k in MOVE_MAP})
-
+	# def __init__(self,game_events=None, *args, **kwars):
+	# 	self.game_events = game_events
+	# 	logger.debug(f'init game_events:{game_events}')
 	def __post_init__(self):
 		self.keys = {int(k): v for k, v in self.keys.items()}
 
@@ -194,7 +197,11 @@ class GameState:
 	def from_json(self, dgamest, debugmode=False):
 		#players = dgamest.get('players',[])
 		for p in dgamest:
-			self.players[p] = dgamest[p]
+			try:
+				self.players[p] = dgamest[p]
+			except Exception as e:
+				logger.error(f'from_json: {e} p={p}')
+				pass
 		if debugmode:
 			logger.debug(f'dgamest={dgamest} gs={self.game_seconds} selfplayers={self.players}')
 

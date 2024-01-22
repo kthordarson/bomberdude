@@ -159,20 +159,25 @@ class BombServer():
 
 	async def update_from_client(self, sockrecv):
 		ufcl_cnt = 0
+		game_events = None
 		try:
 			while True:
 				msg = await sockrecv.recv_json()
 				clid = msg['client_id']
-				# msg={'counter': 1445, 'event': {'keys': {'65362': False, '119': False, '65364': False, '115': False, '65361': False, '97': False, '65363': False, '100': False, '113': False}, 'client_id': '3187165f87', 'ufcl_cnt': 2286}, 'client_id': '3187165f87', 'position': [111.0, 133]}
+				game_events = msg.get('game_events', None)
 				ufcl_cnt += 1
 				event_dict = msg['event']
 				event_dict['counter'] = msg['counter']
 				event_dict['client_id'] = clid
 				event_dict['ufcl_cnt'] = ufcl_cnt
+				event_dict['game_events'] = ''
+				if game_events:
+					logger.debug(f'game_events:{game_events} msg:{msg}')
+					event_dict['game_events'] = game_events
+				# msg={'counter': 1445, 'event': {'keys': {'65362': False, '119': False, '65364': False, '115': False, '65361': False, '97': False, '65363': False, '100': False, '113': False}, 'client_id': '3187165f87', 'ufcl_cnt': 2286}, 'client_id': '3187165f87', 'position': [111.0, 133]}
 				# event_dict = await sock.recv_json()
 				event = PlayerEvent(**event_dict)
 				event.set_client_id(clid)
-
 				self.gs.update_game_state(event, clid, msg)
 				# logger.info(f'msg={msg}')
 		except asyncio.CancelledError as e:

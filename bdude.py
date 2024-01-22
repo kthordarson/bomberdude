@@ -276,7 +276,7 @@ class Bomberdude(arcade.View):
 			arcade.close_window()
 			return
 		if key == arcade.key.SPACE:
-			self.dropbomb()
+			self.dropbomb(key)
 		if len(self.hitlist) == 0:
 			#self.player_event.keys[key] = True
 			#self.keys_pressed.keys[key] = True
@@ -390,19 +390,21 @@ class Bomberdude(arcade.View):
 
 		self.camera.center(self.playerone.position)
 
-	def dropbomb(self):
+	def dropbomb(self, key):
 		# logger.debug(f'p1: {self.playerone} drops bomb...')
 		# logger.info(f'client: {self.client}')
 		if self.playerone.bombsleft <= 0:
 			logger.debug(f'p1: {self.playerone} has no bombs left...')
 			return
 		else:
+			self.player_event.keys[key] = False
 			bomb = Bomb("data/bomb.png",scale=1, bomber=self.playerone.client_id, timer=1500)
 			bomb.center_x = self.playerone.center_x
 			bomb.center_y = self.playerone.center_y
 			self.bomb_list.append(bomb)
 			self.playerone.bombsleft -= 1
-			# logger.info(f'bombdrop {bomb} by plid {self.client.client_id} bl: {len(self.bomb_list)} p1: {self.playerone}')
+			self.eventq.put({'event':'bombdrop'})
+			logger.info(f'evq: {self.eventq.qsize()} bombdrop {bomb} by plid {self.playerone.client_id} bl: {len(self.bomb_list)} p1: {self.playerone}')
 			# self.client.send_queue.put({'msgtype': 'bombdrop', 'bomber': self.client.client_id, 'pos': bomb.position, 'timer': bomb.timer})
 
 
@@ -411,36 +413,51 @@ async def thread_main(game, loop):
 	async def pusher():
 		"""Push the player's INPUT state 60 times per second"""
 		thrmain_cnt = 0
+		game_events = None
 		while True:
 			thrmain_cnt += 1
+			try:
+				game_events = game.eventq.get_nowait()
+				game.eventq.task_done()
+				# game_events = [game.eventq.get_nowait() for i in range(game.eventq.qsize())]
+			except Empty:
+				game_events = None
+			except Exception as e:
+				logger.error(f'{e} {type(e)}')
+				game_events = None
 			playereventdict = game.player_event.asdict()
 			try:
 				playereventdict['client_id'] = {'client_id': game.playerone.client_id, 'position':game.playerone.position, 'msgsource':'pusher'}
 			except KeyError as e:
 				logger.error(f'{e} playereventdict={playereventdict} ')
-			msg = dict(counter=thrmain_cnt, event=playereventdict, client_id=game.playerone.client_id, position=game.playerone.position, msg_dt=time.time())
+			msg = dict(counter=thrmain_cnt, event=playereventdict, game_events=game_events, client_id=game.playerone.client_id, position=game.playerone.position, msg_dt=time.time())
 			# msg['players'][game.playerone.client_id] = {'position':game.playerone.position, 'gametimer': game.timer.value, 'msgsource': 'gamepusher'}
 			# game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position, 'gametimer': game.timer.value, 'msgsource': 'gamepushergamestate'}#  .get('position')
 			# msg['msg_dt'] = time.time()
 			if game.connected():
 				if game.debugmode:
-					pass # logger.info(f'push msg: {msg}')
+					logger.info(f'push msg: {msg} playereventdict={playereventdict}')
 				await game.push_sock.send_json(msg)
 			await asyncio.sleep(1 / UPDATE_TICK)
 
 	async def receive_game_state():
+		gs = None
 		while True:
 			_gs = await game.sub_sock.recv_string()
-			gs = json.loads(_gs)
 			try:
-				game.game_state.from_json(gs, game.debugmode)
-			except KeyError as e:
-				logger.error(f'{e} gs={gs} ')
-				gs=None
-			# game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position, 'msgsource': 'recvgamestate'}#  .get('position')
-			if game.debugmode:
-				logger.info(f'gs = {gs} gsp = {game.game_state.players}')
-			# logger.info(f'p0: {pcount0} p1:{pcount1} players={game.game_state.players} gs={gs}' )
+				gs = json.loads(_gs)
+			except Exception as e:
+				logger.error(f'{e} {type(e)} _gs={_gs} ')
+			if gs:
+				try:
+					game.game_state.from_json(gs, game.debugmode)
+				except (KeyError, TypeError) as e:
+					logger.error(f'{e} gs={gs} ')
+					gs=None
+				# game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position, 'msgsource': 'recvgamestate'}#  .get('position')
+				if game.debugmode:
+					logger.info(f'gs = {gs} gsp = {game.game_state.players}')
+				# logger.info(f'p0: {pcount0} p1:{pcount1} players={game.game_state.players} gs={gs}' )
 	try:
 		await asyncio.gather(pusher(), receive_game_state())
 	except NameError as e:
