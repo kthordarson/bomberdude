@@ -203,7 +203,7 @@ class GameState:
 				logger.error(f'from_json: {e} p={p}')
 				pass
 		if debugmode:
-			logger.debug(f'dgamest={dgamest} gs={self.game_seconds} selfplayers={self.players}')
+			logger.debug(f'dgamest={dgamest}')# gs={self.game_seconds} selfplayers={self.players}')
 
 @dataclass
 class Networkthing(arcade.Sprite):

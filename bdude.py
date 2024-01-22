@@ -425,6 +425,8 @@ async def thread_main(game, loop):
 			except Exception as e:
 				logger.error(f'{e} {type(e)}')
 				game_events = None
+			if game_events:
+				logger.info(f'game_events:{game_events} ')
 			playereventdict = game.player_event.asdict()
 			try:
 				playereventdict['client_id'] = {'client_id': game.playerone.client_id, 'position':game.playerone.position, 'msgsource':'pusher'}
@@ -436,7 +438,7 @@ async def thread_main(game, loop):
 			# msg['msg_dt'] = time.time()
 			if game.connected():
 				if game.debugmode:
-					logger.info(f'push msg: {msg} playereventdict={playereventdict}')
+					pass # logger.info(f'push msg: {msg} playereventdict={playereventdict}')
 				await game.push_sock.send_json(msg)
 			await asyncio.sleep(1 / UPDATE_TICK)
 
