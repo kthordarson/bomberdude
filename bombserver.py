@@ -175,13 +175,12 @@ class BombServer():
 				event_dict['events'] = events
 				player_event = PlayerEvent(**event_dict)
 				player_event.set_client_id(clid)
-				if game_events:
-					logger.debug(f'playerevent={player_event} game_events:{game_events} msg:{msg}')
-				if events:
-					logger.info(f'events:{events} msg:{msg}')
+				# if game_events:
+				# 	logger.debug(f'playerevent={player_event} game_events:{game_events} msg:{msg}')
+				#if events:
+				#	logger.info(f'events:{events} msg:{msg}')
 				# msg={'counter': 1445, 'event': {'keys': {'65362': False, '119': False, '65364': False, '115': False, '65361': False, '97': False, '65363': False, '100': False, '113': False}, 'client_id': '3187165f87', 'ufcl_cnt': 2286}, 'client_id': '3187165f87', 'position': [111.0, 133]}
 				# event_dict = await sock.recv_json()
-
 				self.gs.update_game_state(player_event, clid, msg)
 				# logger.info(f'msg={msg}')
 		except asyncio.CancelledError as e:

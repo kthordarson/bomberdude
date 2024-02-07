@@ -152,6 +152,8 @@ class Bomberdude(arcade.View):
 		anchor = self.manager.add(arcade.gui.UIAnchorLayout())
 		self.anchor = anchor.add(anchor_x="right", anchor_y="top", child=self.grid,)
 		self.timer = UINumberLabel(value=1)
+		self.connectb.visible = False
+		self.connectb.disabled = True
 
 		@self.connectb.event("on_click")
 		def on_connect_to_server(event):
@@ -174,6 +176,7 @@ class Bomberdude(arcade.View):
 		self.gs_ghost.center_y = self.playerone.center_y
 		self._connected = True
 		self.connectb.text = 'Connected'
+		# self.connectb.visible = False
 		self.connectb.disabled = True
 
 	def on_show_view(self):
@@ -229,9 +232,11 @@ class Bomberdude(arcade.View):
 		self.scene.add_sprite_list_after("Player", "Walls")
 		self.scenewalls = arcade.SpriteList()
 		self.sceneblocks = arcade.SpriteList()
-		[self.sceneblocks.append(k) for k in self.scene['Blocks'].sprite_list]
-		[self.scenewalls.append(k) for k in self.scene['Walls'].sprite_list]
+		_ = [self.sceneblocks.append(k) for k in self.scene['Blocks'].sprite_list]
+		_ = [self.scenewalls.append(k) for k in self.scene['Walls'].sprite_list]
 		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scenewalls,platforms=self.sceneblocks, gravity_constant=GRAVITY)
+		self.connectb.visible = True
+		self.connectb.disabled = False
 
 
 	def on_draw(self):
@@ -239,11 +244,8 @@ class Bomberdude(arcade.View):
 		self.camera.use()
 		self.scene.draw()
 		# self.scene.draw_hit_boxes(names=['Walls'])
-
-
 		self.playerone.draw()
 		self.ghost_list.draw()
-
 		self.bomb_list.draw()
 		self.particle_list.draw()
 		self.flame_list.draw()
@@ -333,7 +335,7 @@ class Bomberdude(arcade.View):
 			self.game_state.event_queue.task_done()
 		self.timer.value += dt
 		self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
-		self.status_label.text = f'id {self.playerone.client_id} pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f} gsp {len(self.game_state.players)}'
+		self.status_label.text = f'id {self.playerone.client_id} pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f} gsp {len(self.game_state.players)} poneh: {self.playerone.health}'
 		self.status_label.fit_content()
 		self.ghost.center_x = self.playerone.center_x
 		self.ghost.center_y = self.playerone.center_y
@@ -364,6 +366,14 @@ class Bomberdude(arcade.View):
 					self.playerone.bombsleft += 1
 					# logger.info(f'p: {len(bombflames.get("plist"))} pl: {len(self.particle_list)} p1: {self.playerone} b: {b}')
 		for f in self.flame_list:
+			if arcade.check_for_collision(f, self.playerone):
+				self.playerone.health -= 1
+				self.playerone.ps.health -= 1
+				if self.playerone.health <= 0 or self.playerone.ps.health <= 0:
+					self.playerone.kill(killer=f)
+					logger.info(f'playerkilled f={f} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
+				else:
+					logger.info(f'playerhit f={f} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
 			f_hitlist = arcade.check_for_collision_with_list(f, self.scenewalls)
 			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
 			for hit in f_hitlist:
@@ -456,10 +466,10 @@ async def thread_main(game, loop):
 				logger.info(f'{game.playerone.client_id} game_events:{game_events} ')
 			playereventdict = game.player_event.asdict()
 			try:
-				playereventdict['client_id'] = {'client_id': game.playerone.client_id, 'position':game.playerone.position, 'msgsource':'pusher'}
+				playereventdict['client_id'] = {'client_id': game.playerone.client_id, 'position':game.playerone.position, 'health': game.playerone.health, 'msgsource':'pusher'}
 			except KeyError as e:
 				logger.error(f'{e} playereventdict={playereventdict} ')
-			msg = dict(counter=thrmain_cnt, event=playereventdict, game_events=game_events, client_id=game.playerone.client_id, position=game.playerone.position, msg_dt=time.time())
+			msg = dict(counter=thrmain_cnt, event=playereventdict, game_events=game_events, client_id=game.playerone.client_id, position=game.playerone.position, health=game.playerone.health, msg_dt=time.time())
 			# msg['players'][game.playerone.client_id] = {'position':game.playerone.position, 'gametimer': game.timer.value, 'msgsource': 'gamepusher'}
 			# game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position, 'gametimer': game.timer.value, 'msgsource': 'gamepushergamestate'}#  .get('position')
 			# msg['msg_dt'] = time.time()

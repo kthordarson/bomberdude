@@ -86,17 +86,17 @@ class PlayerState:
 	# x: float = 123.1
 	# y: float = 123.1
 	speed: float = 0.0
-	health: float = 0.0
+	health: float = 100.1
 	ammo: float = 0.0
 	score: int = 0
 	client_id: str = 'none'
 	position  = [222,222]
 
 	def __repr__(self):
-		return f'Playerstate ({self.client_id} pos={self.position} u={self.updated})'
+		return f'Playerstate_repr ({self.client_id} pos={self.position} h={self.health} u={self.updated})'
 
 	def __str__(self):
-		return f'Playerstate ({self.client_id} pos={self.position} u={self.updated})'
+		return f'Playerstate_str ({self.client_id} pos={self.position} h={self.health} u={self.updated})'
 
 	def __init__(self, client_id, *args, **kwars):
 		self.client_id = client_id
@@ -106,6 +106,7 @@ class PlayerState:
 		ps_dict = asdict(self)
 		ps_dict['client_id'] = self.client_id
 		ps_dict['position'] = self.position
+		ps_dict['health'] = self.health
 		ps_dict['msgsource'] = 'asdict'
 		return ps_dict
 
@@ -167,21 +168,25 @@ class GameState:
 	def update_game_state(self, event: PlayerEvent, clid, msg):
 		if self.debugmode:
 			logger.debug(f'event:{event} from: {clid} msg={msg}')
+		msghealth = msg.get('health', -1)
 		playerdict = {
 			'client_id':clid,
 			'position': msg.get('position'),
+			'health': msghealth,
 			'msg_dt': msg.get('msg_dt'),
 			'timeout': msg.get('timeout'),
 			'msgsource': 'update_game_state',
 
 		}
+		if msghealth == -1:
+			logger.warning(f'missing msghealth from {msg}')
 		events = msg.get('events', None)
 		if events:
-			logger.debug(f'events:{events}')
+			# logger.debug(f'events:{events}')
 			self.events = events
 		game_events = msg.get('game_events', None)
 		if game_events:
-			logger.info(f'game_events:{game_events} clid:{clid} msg={msg}')
+			# logger.info(f'game_events:{game_events} clid:{clid} msg={msg}')
 			self.game_events = game_events
 		self.players[clid] = playerdict
 		self.game_seconds += 1
@@ -197,6 +202,7 @@ class GameState:
 			playerdict = {
 			'client_id':p,
 			'position': self.players[p].get('position'),
+			'health': self.players[p].get('health'),
 			'msg_dt': self.players[p].get('msg_dt'),
 			'timeout': self.players[p].get('timeout'),
 			# 'game_events': self.players[p].get('game_events'),
@@ -246,16 +252,19 @@ class Bomberplayer(arcade.Sprite):
 		self.ps.set_pos(position)
 		self.position = position
 		self.bombsleft = 3
-		self.text = arcade.Text(f'{self.client_id} {self.position}', 10,10)
+		self.health = 100
+		self.killed = False
+		self.text = arcade.Text(f'{self.client_id} h:{self.health} pos:{self.position}', 10,10)
 
 	def __repr__(self):
-		return f'Bomberplayer ({self.client_id} pos:{self.position} pspos={self.ps.position})'
+		return f'Bomberplayer ({self.client_id} h:{self.health} pos:{self.position} pspos={self.ps.position})'
 
 	def get_ps(self):
 		# {'position':self.playerone.position, 'msgsource': 'onupdate', 'msg_dt': time.time()}#  .get('position')
 		ps = {
 			'client_id': self.client_id,
 			'position': self.position,
+			'health': self.health,
 			'msgsource': 'get_ps',
 			'msg_dt': time.time(),
 			'timeout': False,
@@ -277,6 +286,10 @@ class Bomberplayer(arcade.Sprite):
 			if isinstance(values[i], list):
 				values[i] = tuple(values[i])
 		return stable_hash(tuple([type(self)] + values))
+
+	def kill(self, killer):
+		logger.info(f'{self} killed by {killer}')
+		self.killled = True
 
 	def setposx(self, newpos):
 		self.position = newpos
@@ -316,7 +329,7 @@ class Bomb(arcade.Sprite):
 				p.center_y = self.center_y
 				plist.append(p)
 			for k in ['left','right','up','down']:
-				f = Flame(flamespeed=FLAME_SPEED, timer=FLAME_TIME, direction=k)
+				f = Flame(flamespeed=FLAME_SPEED, timer=FLAME_TIME, direction=k, bomber=self.bomber)
 				f.center_x = self.center_x
 				f.center_y = self.center_y
 				flames.append(f)
@@ -354,10 +367,11 @@ class Particle(arcade.SpriteCircle):
 			self.change_y -= PARTICLE_GRAVITY
 
 class Flame(arcade.SpriteSolidColor):
-	def __init__(self, flamespeed=10, timer=3000, direction=''):
+	def __init__(self, flamespeed=10, timer=3000, direction='', bomber=None):
 		color = arcade.color.ORANGE
 		super().__init__(FLAMEX,FLAMEY, color)
 		self.normal_texture = self.texture
+		self.bomber = bomber
 		self.speed = flamespeed
 		self.timer = timer
 		self.direction = direction
@@ -375,7 +389,7 @@ class Flame(arcade.SpriteSolidColor):
 			self.change_x = 0
 
 	def __repr__(self) -> str:
-		return f'Flame(pos={self.center_x},{self.center_y})'
+		return f'Flame(bomber={self.bomber} pos={self.center_x},{self.center_y})'
 
 	def update(self):
 		if self.timer <= 0:
