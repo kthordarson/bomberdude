@@ -2,6 +2,8 @@ from pyvex.utils import stable_hash
 import copy
 import arcade
 from arcade.gui import UILabel
+from arcade.gui import UIManager, UIBoxLayout
+from arcade.gui.widgets.layout import UIAnchorLayout
 import random
 import math
 from loguru import logger
@@ -42,6 +44,41 @@ MOVE_MAP = {
 #	def __init__(self, x, y, width, height, angle, color):
 
 
+
+class UINumberLabel(UILabel):
+	_value: float = 0
+	def __init__(self, value=0, format="Timer: {value:.0f}", *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.format = format
+		self.value = value
+
+	@property
+	def value(self):
+		return self._value
+
+	@value.setter
+	def value(self, value):
+		self._value = value
+		self.text = self.format.format(value=value)
+		self.fit_content()
+
+class UITextLabel(UILabel):
+	_value: str = ''
+	def __init__(self, value='', l_text='', *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.value = value
+		self.l_text = l_text
+		# self.align = 'right'
+
+	@property
+	def value(self):
+		return f'{self.l_text} {self._value}'
+
+	@value.setter
+	def value(self, value):
+		self._value = value
+		self.text = value
+		self.fit_content()
 
 
 class KeysPressed:
@@ -394,6 +431,8 @@ class Rectangle(arcade.SpriteSolidColor):
 		self.color = color
 		# super().__init__(image,scale)
 		# Size and rotation,
+	def __repr__(self):
+		return f'GhostRect({self.client_id})'
 	def draw(self):
 		if self.filled:
 			arcade.draw_rectangle_filled( self.position.x, self.position.y, self.width, self.height, self.color, self.angle )

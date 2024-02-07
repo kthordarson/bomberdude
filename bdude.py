@@ -13,8 +13,7 @@ from arcade.gui import UIManager, UILabel, UIBoxLayout
 from arcade.gui.widgets.layout import UIAnchorLayout
 
 from loguru import logger
-from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState, gen_randid, Rectangle
-# from menus import MainMenu
+from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState, gen_randid, Rectangle, UINumberLabel, UITextLabel
 from constants import *
 
 import zmq
@@ -35,50 +34,6 @@ UPDATE_TICK = 60
 RECT_WIDTH = 32
 RECT_HEIGHT = 32
 
-def get_random_color():
-	acolors = dir(arcade.color)
-	foundcolor = False
-	while not foundcolor:
-		res = eval(f'arcade.color.{random.choice(acolors)}')
-		if isinstance(res, arcade.types.Color):
-			foundcolor = True
-			break
-	return res
-
-class UINumberLabel(UILabel):
-	_value: float = 0
-	def __init__(self, value=0, format="Timer: {value:.0f}", *args, **kwargs):
-		super().__init__(*args, **kwargs)
-		self.format = format
-		self.value = value
-
-	@property
-	def value(self):
-		return self._value
-
-	@value.setter
-	def value(self, value):
-		self._value = value
-		self.text = self.format.format(value=value)
-		self.fit_content()
-
-class UITextLabel(UILabel):
-	_value: str = ''
-	def __init__(self, value='', l_text='', *args, **kwargs):
-		super().__init__(*args, **kwargs)
-		self.value = value
-		self.l_text = l_text
-		# self.align = 'right'
-
-	@property
-	def value(self):
-		return f'{self.l_text} {self._value}'
-
-	@value.setter
-	def value(self, value):
-		self._value = value
-		self.text = value
-		self.fit_content()
 
 class MainMenu(arcade.View):
 	def __init__(self, game):
@@ -126,7 +81,7 @@ class Bomberdude(arcade.View):
 		self.t = 0
 		self.playerone = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=gen_randid())
 		# self.ghost = Rectangle(client_id=self.playerone, color = arcade.color.ORANGE, center_x=self.playerone.center_x, center_y=self.playerone.center_y)
-		self.gs_ghost = Rectangle(client_id=self.playerone, color = arcade.color.YELLOW, center_x=self.playerone.center_x, center_y=self.playerone.center_y)
+		# self.gs_ghost = Rectangle(client_id=self.playerone, color = arcade.color.YELLOW, center_x=self.playerone.center_x, center_y=self.playerone.center_y)
 		self.keys_pressed = KeysPressed(self.playerone.client_id)
 		self.hitlist = []
 		self.player_event = PlayerEvent()
@@ -222,8 +177,8 @@ class Bomberdude(arcade.View):
 		self.flame_list = arcade.SpriteList()
 		self.ghost_list = arcade.SpriteList()
 		# self.ghost_list.append(self.ghost)
-		self.gs_ghost.visible = False
-		self.ghost_list.append(self.gs_ghost)
+		# self.gs_ghost.visible = False
+		# self.ghost_list.append(self.gs_ghost)
 		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.background_color = arcade.color.AMAZON
 		self.manager.enable()
@@ -253,7 +208,7 @@ class Bomberdude(arcade.View):
 		print(f'scenewalls:{len(self.scenewalls)} sceneblocks:{len(self.sceneblocks)} bombs:{len(self.bomb_list)} particles:{len(self.particle_list)} flames:{len(self.flame_list)}')
 		print(f'playerone: {self.playerone} pos={self.playerone.position} ') #  gspos={self.game_state.players[self.playerone.client_id]}')
 		# print(f'ghost: {self.ghost} pos={self.ghost.position} ')
-		print(f'gs_ghost: {self.gs_ghost} pos={self.gs_ghost.position} ')
+		# print(f'gs_ghost: {self.gs_ghost} pos={self.gs_ghost.position} ')
 		gsp = self.game_state.players.get('players')
 		print(f'self.game_state.players = {len(gsp)}')
 		print(f'=============================')
@@ -318,6 +273,28 @@ class Bomberdude(arcade.View):
 			case _:
 				logger.warning(f'unknown game_events: {game_events} ')
 
+	def update_netplayers(self, gsp):
+		for p in gsp:
+			pclid = p['client_id']
+			pclpos = p['position']
+			if pclid == self.playerone.client_id:
+				break
+			if pclid in [k.client_id for k in self.ghost_list]:
+				ghost = [k for k in self.ghost_list if k.client_id == pclid][0]
+				ghost.center_x = pclpos[0]
+				ghost.center_y = pclpos[1]
+				# logger.debug(f'updateghost: {ghost} pos: {pclpos} glist: {len(self.ghost_list)}')
+			else:
+				ghost = Rectangle(client_id=pclid, color = arcade.color.YELLOW, center_x=pclpos[0], center_y=pclpos[1])
+				ghost.center_x = pclpos[0]
+				ghost.center_y = pclpos[1]
+				self.ghost_list.append(ghost)
+				logger.info(f'newghost: {ghost} pos: {pclpos} glist: {len(self.ghost_list)}')
+			#gs_ghost = Rectangle(client_id=pclid, color = arcade.color.YELLOW, center_x=pclpos[0], center_y=pclpos[1])
+			#gs_ghost.center_x = pclpos[0]
+			#gs_ghost.center_y = pclpos[1] # self.game_state.players[pclid]['position']
+
+
 	def on_update(self, dt):
 		game_events = None
 		try:
@@ -333,25 +310,11 @@ class Bomberdude(arcade.View):
 		self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
 		gsp = self.game_state.players.get("players",[])
 		if len(gsp) > 1:
-			self.gs_ghost.visible = True
+			self.update_netplayers(gsp)
+			#self.gs_ghost.visible = True
 		self.status_label.value = f'id {self.playerone.client_id} pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f} gsp {len(gsp)} h: {self.playerone.health}'
 		# self.ghost.center_x = self.playerone.center_x
 		# self.ghost.center_y = self.playerone.center_y
-		for p in gsp:
-			try:
-				pclid = p['client_id']
-				pclpos = p['position']
-			except Exception as e:
-				logger.error(f'{e} p={p} ')
-				break
-			if pclid != self.playerone.client_id:
-				try:
-					self.gs_ghost.center_x = pclpos[0]
-					self.gs_ghost.center_y = pclpos[1] # self.game_state.players[pclid]['position']
-				except KeyError as e:
-					logger.error(f'{e} p={p}  gsp={self.game_state.players} p1={self.playerone.client_id} {self.playerone}')
-				except AttributeError as e:
-					logger.error(f'{e} p={p} gsp={self.game_state.players} p1={self.playerone.client_id} {self.playerone}')
 		self.hitlist = self.physics_engine.update()
 
 		for b in self.bomb_list:
@@ -371,6 +334,7 @@ class Bomberdude(arcade.View):
 					logger.info(f'playerkilled f={f} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
 				else:
 					logger.info(f'playerhit f={f} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
+				f.remove_from_sprite_lists()
 			f_hitlist = arcade.check_for_collision_with_list(f, self.scenewalls)
 			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
 			for hit in f_hitlist:
