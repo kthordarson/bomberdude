@@ -23,9 +23,9 @@ from exceptions import *
 import zmq
 from zmq.asyncio import Context, Socket
 # todo get inital pos from server
-# draw netbombs
-# sync info bewteen Client and Bomberplayer
-# update clients when new player connects
+# done draw netbombs
+# done sync info bewteen Client and Bomberplayer
+# done  update clients when new player connects
 # task 1 send player input to server
 # task 2 receive game state from server
 # task 3 draw game
@@ -46,37 +46,48 @@ def get_random_color():
 		if isinstance(res, arcade.types.Color):
 			foundcolor = True
 			break
-	#_acol_list = [f'arcade.color.{k}' for k in _acolors]
 	return res
 
-
 class UINumberLabel(UILabel):
-    _value: float = 0
+	_value: float = 0
+	def __init__(self, value=0, format="Timer: {value:.0f}", *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.format = format
+		self.value = value
 
-    def __init__(self, value=0, format="{value:.0f}", *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.format = format
-        self.value = value
+	@property
+	def value(self):
+		return self._value
 
-    @property
-    def value(self):
-        return self._value
+	@value.setter
+	def value(self, value):
+		self._value = value
+		self.text = self.format.format(value=value)
+		self.fit_content()
 
-    @value.setter
-    def value(self, value):
-        self._value = value
-        self.text = self.format.format(value=value)
-        self.fit_content()
+class UITextLabel(UILabel):
+	_value: str = ''
+	def __init__(self, value='', l_text='', *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.value = value
+		self.l_text = l_text
+		# self.align = 'right'
+
+	@property
+	def value(self):
+		return f'{self.l_text} {self._value}'
+
+	@value.setter
+	def value(self, value):
+		self._value = value
+		self.text = value
+		self.fit_content()
 
 class MainMenu(arcade.View):
 	def __init__(self, game):
 		super().__init__()
-		# self.loop = asyncio.get_event_loop()
-		#self.manager = UIManager()
 		self.game = game
 		self.manager = game.manager
-		#self.game = game
-		#self.manager = game.manager
 		self.sb = arcade.gui.UIFlatButton(text="Start New Game", width=150)
 		self.eb = arcade.gui.UIFlatButton(text="Exit", width=320)
 		grid = arcade.gui.UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
@@ -105,13 +116,11 @@ class MainMenu(arcade.View):
 		self.manager.draw()
 
 	def on_hide_view(self):
-		# Disable the UIManager when the view is hidden.
 		self.manager.disable() # pass
 
 class Bomberdude(arcade.View):
 	def __init__(self, width, height, title):
 		super().__init__()
-		#super().__init__(width, height, title, resizable=True)
 		self.debugmode = False
 		self.manager = UIManager()
 		self.window.center_window() # set_location(0,0)
@@ -119,13 +128,11 @@ class Bomberdude(arcade.View):
 		self.height = height
 		self.t = 0
 		self.playerone = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=gen_randid())
-		self.ghost = Rectangle(client_id=self.playerone, color = arcade.color.ORANGE, center_x=self.playerone.center_x, center_y=self.playerone.center_y)
+		# self.ghost = Rectangle(client_id=self.playerone, color = arcade.color.ORANGE, center_x=self.playerone.center_x, center_y=self.playerone.center_y)
 		self.gs_ghost = Rectangle(client_id=self.playerone, color = arcade.color.YELLOW, center_x=self.playerone.center_x, center_y=self.playerone.center_y)
 		self.keys_pressed = KeysPressed(self.playerone.client_id)
 		self.hitlist = []
 		self.player_event = PlayerEvent()
-		# ps = PlayerState(self.playerone.client_id)
-		# ps.set_client_id(self.playerone.client_id)
 		self.game_state = GameState(player_states=[],game_seconds=0)
 		self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
 		self.position_buffer = deque(maxlen=3)
@@ -134,7 +141,6 @@ class Bomberdude(arcade.View):
 		self.sub_sock: Socket = self.ctx.socket(zmq.SUB)
 		self.push_sock: Socket = self.ctx.socket(zmq.PUSH)
 		self._connected = False
-		# self.player_list = None
 		self.physics_engine = None
 		self.bomb_list = None
 		self.particle_list = None
@@ -142,9 +148,7 @@ class Bomberdude(arcade.View):
 		self.ghost_list = None
 		self.title = title
 		self.eventq = Queue()
-		# self.client = Client(serveraddress=('127.0.0.1', 9696), eventq=self.eventq)
 		self.game_ready = False
-		# self.timer = UILabel(text='.', align="right", size_hint_min=(30, 20))
 
 		self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3)#, horizontal_spacing=20, vertical_spacing=20)
 		connectb = arcade.gui.UIFlatButton(text="Connect", width=150)
@@ -170,13 +174,12 @@ class Bomberdude(arcade.View):
 		self.sub_sock.connect('tcp://127.0.0.1:9696')
 		self.sub_sock.subscribe('')
 		self.push_sock.connect('tcp://127.0.0.1:9697')
-		self.ghost.center_x = self.playerone.center_x
-		self.ghost.center_y = self.playerone.center_y
-		self.gs_ghost.center_x = self.playerone.center_x
-		self.gs_ghost.center_y = self.playerone.center_y
+		# self.ghost.center_x = self.playerone.center_x
+		# self.ghost.center_y = self.playerone.center_y
+		# self.gs_ghost.center_x = self.playerone.center_x
+		# self.gs_ghost.center_y = self.playerone.center_y
 		self._connected = True
 		self.connectb.text = 'Connected'
-		# self.connectb.visible = False
 		self.connectb.disabled = True
 
 	def on_show_view(self):
@@ -184,35 +187,35 @@ class Bomberdude(arcade.View):
 		self.manager.enable()
 
 	def on_hide_view(self):
-		# Disable the UIManager when the view is hidden.
 		self.manager.disable()
 
 	def setup(self):
-		#self.manager = UIManager()
-		# self.health_label = UILabel(align="right", size_hint_min=(30, 20))
-		# self.bombs_label = UILabel(align="right", size_hint_min=(30, 20))
-		self.status_label = UILabel()#, size_hint_min=(30, 20))
-
+		self.status_label = UITextLabel(l_text='Status: ')# todo fix this, size_hint_min=(30, 20))
 		columns = UIBoxLayout(
+			x=1,
+			align='left',
 			vertical=False,
 			children=[
 				UIBoxLayout(
+					x=2,
+					align='left',
 					vertical=True,
 					children=[
-						UILabel(text="Time: "),
+						self.timer,
+						self.status_label,
+						# UILabel(text="Time: ", align='right'),
 						# UILabel(text="health:", align="left", width=50),
 						# UILabel(text="bombs:", align="left", width=50),
-						UILabel(text="status: "),
+						# UILabel(text="Status: ", align='right'),
 					],
 				),
-				# Create one vertical UIBoxLayout per column and add the labels
-				UIBoxLayout(vertical=True, children=[self.timer, self.status_label]), # self.health_label, self.bombs_label,
+				#UIBoxLayout(x=3,align='left',vertical=True, children=[self.timer, self.status_label]), # self.health_label, self.bombs_label,
 			],
 		)
 
-		anchor = self.manager.add(arcade.gui.UIAnchorLayout())
-		self.columns = anchor.add(child=columns,anchor_x="left", anchor_y="top", align_x=11, align_y=19)
-		# self.anchor.
+		anchor = self.manager.add(arcade.gui.UIAnchorLayout(x=4,align_x=1,anchor_x='left'))#, anchor_y='top'))
+		self.columns = anchor.add(child=columns,anchor_x='left', anchor_y='top',)
+
 		layer_options = {"Blocks": {"use_spatial_hash": True},}
 		self.tile_map = arcade.load_tilemap('data/map3.json', layer_options=layer_options, scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
@@ -221,11 +224,10 @@ class Bomberdude(arcade.View):
 		self.particle_list = arcade.SpriteList()
 		self.flame_list = arcade.SpriteList()
 		self.ghost_list = arcade.SpriteList()
-		self.ghost_list.append(self.ghost)
+		# self.ghost_list.append(self.ghost)
+		self.gs_ghost.visible = False
 		self.ghost_list.append(self.gs_ghost)
 		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
-		# self.gui_camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
-		# self.end_of_map = (self.tile_map.width * self.tile_map.tile_width) * self.tile_map.scaling
 		self.background_color = arcade.color.AMAZON
 		self.manager.enable()
 		self.background_color = arcade.color.DARK_BLUE_GRAY
@@ -238,12 +240,10 @@ class Bomberdude(arcade.View):
 		self.connectb.visible = True
 		self.connectb.disabled = False
 
-
 	def on_draw(self):
 		self.clear()
 		self.camera.use()
 		self.scene.draw()
-		# self.scene.draw_hit_boxes(names=['Walls'])
 		self.playerone.draw()
 		self.ghost_list.draw()
 		self.bomb_list.draw()
@@ -252,16 +252,16 @@ class Bomberdude(arcade.View):
 		self.manager.draw()
 
 	def dumpdebug(self):
+		print(f'=============================')
 		print(f'scenewalls:{len(self.scenewalls)} sceneblocks:{len(self.sceneblocks)} bombs:{len(self.bomb_list)} particles:{len(self.particle_list)} flames:{len(self.flame_list)}')
-		print(f'playerone: {self.playerone} pos={self.playerone.position} cx={self.playerone.center_x} cy={self.playerone.center_y} gspos={self.game_state.players[self.playerone.client_id]}')
-		print(f'\tghost: {self.ghost} pos={self.ghost.position} cx={self.ghost.center_x} cy={self.ghost.center_y}')
-		print(f'\tgs_ghost: {self.gs_ghost} pos={self.gs_ghost.position} cx={self.gs_ghost.center_x} cy={self.gs_ghost.center_y}')
-		# logger.debug(f'player_event: {self.player_event}')
-		# logger.debug(f'keys_pressed: {self.keys_pressed}')
-		# logger.debug(f'game_state: {self.game_state}')
-		print(f'gameplayers: {self.game_state.players}')
-		for p in self.game_state.players:
-			print(f'\tp={p} {self.game_state.players[p]}')
+		print(f'playerone: {self.playerone} pos={self.playerone.position} ') #  gspos={self.game_state.players[self.playerone.client_id]}')
+		# print(f'ghost: {self.ghost} pos={self.ghost.position} ')
+		print(f'gs_ghost: {self.gs_ghost} pos={self.gs_ghost.position} ')
+		gsp = self.game_state.players.get('players')
+		print(f'self.game_state.players = {len(gsp)}')
+		print(f'=============================')
+		for idx,p in enumerate(gsp):
+			print(f"\tp {idx}/{len(gsp)} = {p.get('client_id')} {p.get('health')} {p.get('position')}")
 
 	def send_key_press(self, key, modifiers):
 		pass
@@ -282,7 +282,6 @@ class Bomberdude(arcade.View):
 		if len(self.hitlist) == 0:
 			#self.player_event.keys[key] = True
 			#self.keys_pressed.keys[key] = True
-
 			if key == arcade.key.UP or key == arcade.key.W:
 				self.playerone.change_y = PLAYER_MOVEMENT_SPEED
 				sendmove = True
@@ -335,11 +334,12 @@ class Bomberdude(arcade.View):
 			self.game_state.event_queue.task_done()
 		self.timer.value += dt
 		self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
-		self.status_label.text = f'id {self.playerone.client_id} pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f} gsp {len(self.game_state.players)} poneh: {self.playerone.health}'
-		self.status_label.fit_content()
-		self.ghost.center_x = self.playerone.center_x
-		self.ghost.center_y = self.playerone.center_y
-		gsp = self.game_state.players.get('players',[])
+		gsp = self.game_state.players.get("players",[])
+		if len(gsp) > 1:
+			self.gs_ghost.visible = True
+		self.status_label.value = f'id {self.playerone.client_id} pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f} gsp {len(gsp)} h: {self.playerone.health}'
+		# self.ghost.center_x = self.playerone.center_x
+		# self.ghost.center_y = self.playerone.center_y
 		for p in gsp:
 			try:
 				pclid = p['client_id']
@@ -446,9 +446,8 @@ class Bomberdude(arcade.View):
 
 
 async def thread_main(game, loop):
-	# todo do connection here
 	async def pusher():
-		"""Push the player's INPUT state 60 times per second"""
+		# Push the player's INPUT state 60 times per second
 		thrmain_cnt = 0
 		game_events = None
 		while True:
@@ -456,7 +455,6 @@ async def thread_main(game, loop):
 			try:
 				game_events = game.eventq.get_nowait()
 				game.eventq.task_done()
-				# game_events = [game.eventq.get_nowait() for i in range(game.eventq.qsize())]
 			except Empty:
 				game_events = None
 			except Exception as e:
@@ -470,9 +468,6 @@ async def thread_main(game, loop):
 			except KeyError as e:
 				logger.error(f'{e} playereventdict={playereventdict} ')
 			msg = dict(counter=thrmain_cnt, event=playereventdict, game_events=game_events, client_id=game.playerone.client_id, position=game.playerone.position, health=game.playerone.health, msg_dt=time.time())
-			# msg['players'][game.playerone.client_id] = {'position':game.playerone.position, 'gametimer': game.timer.value, 'msgsource': 'gamepusher'}
-			# game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position, 'gametimer': game.timer.value, 'msgsource': 'gamepushergamestate'}#  .get('position')
-			# msg['msg_dt'] = time.time()
 			if game.connected():
 				if game.debugmode:
 					pass # logger.info(f'push msg: {msg} playereventdict={playereventdict}')
@@ -487,13 +482,12 @@ async def thread_main(game, loop):
 				gs = json.loads(_gs)
 			except Exception as e:
 				logger.error(f'{e} {type(e)} _gs={_gs} ')
-			if gs: # gs = {'events': [], 'players': [{'client_id': '301b7b020d', 'position': [119.3, 299.5], 'msg_dt': 1706039871.6985536, 'timeout': False, 'game_events': {'event': 'bombdrop', 'bomber': '301b7b020d', 'pos': [119.3, 299.5], 'timer': 1500}, 'msgsource': 'to_json'}]}
+			if gs:
 				try:
 					game.game_state.from_json(gs, game.debugmode)
 				except (KeyError, TypeError) as e:
 					logger.error(f'{e} gs={gs} ')
 					gs=None
-				# game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position, 'msgsource': 'recvgamestate'}#  .get('position')
 				if game.debugmode:
 					gsevents = gs.get('events')
 					if len(gsevents) > 0:
@@ -541,12 +535,6 @@ def main():
 	thread.start()
 	mainwindow.show_view(mainmenu)
 	arcade.run()
-	# gameview = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-	#game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-	#window.setup()
-
-
-
 
 if __name__ == "__main__":
 	if sys.platform == 'win32':

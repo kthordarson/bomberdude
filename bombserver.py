@@ -133,15 +133,12 @@ class ServerTUI(Thread):
 					self.dump_playerlist()
 				elif cmd[:1] == 'q':
 					logger.warning(f'{self} {self.server} tuiquit')
-					# self.gq.put({'msgtype':'quit'})
-					# raise TuiException('tui killed')
 					self.stop()
-				# else:
-				#	logger.info(f'[tui] {self} server: {self.server}')
+				else:
+					logger.info(f'[tui] cmds: s=serverinfo, d=debugmode, p=playerlist, q=quit')
 			except KeyboardInterrupt:
 				self.stop()
 				break
-
 
 class BombServer():
 	def __init__(self):
@@ -154,8 +151,6 @@ class BombServer():
 		self.ticker_task = asyncio.create_task(self.ticker(self.sock_push_gamestate, self.sock_recv_player_evts),)
 		self.debugmode = False
 		self.gs = GameState(player_states=[], game_seconds=1, debugmode=self.debugmode)
-
-
 
 	async def update_from_client(self, sockrecv):
 		ufcl_cnt = 0
@@ -175,37 +170,25 @@ class BombServer():
 				event_dict['events'] = events
 				player_event = PlayerEvent(**event_dict)
 				player_event.set_client_id(clid)
+				self.gs.update_game_state(player_event, clid, msg)
 				# if game_events:
 				# 	logger.debug(f'playerevent={player_event} game_events:{game_events} msg:{msg}')
 				#if events:
 				#	logger.info(f'events:{events} msg:{msg}')
-				# msg={'counter': 1445, 'event': {'keys': {'65362': False, '119': False, '65364': False, '115': False, '65361': False, '97': False, '65363': False, '100': False, '113': False}, 'client_id': '3187165f87', 'ufcl_cnt': 2286}, 'client_id': '3187165f87', 'position': [111.0, 133]}
-				# event_dict = await sock.recv_json()
-				self.gs.update_game_state(player_event, clid, msg)
 				# logger.info(f'msg={msg}')
 		except asyncio.CancelledError as e:
 			logger.error(f'{e} {type(e)}')
 
 
 	async def ticker(self, sockpush, sockrecv):
-		logger.debug(f'tickerstart')
-		# s = gs.to_json()
-		# print(f's:{s}')
-
-		# A task to receive keyboard and mouse inputs from players.
-		# This will also update the game state, gs.
 		t = create_task(self.update_from_client(sockrecv))
-		logger.debug(f't:{t}')
-
+		logger.debug(f'tickertask: {t}')
 		# Send out the game state to all players 60 times per second.
 		try:
 			while True:
 				self.gs.check_players()
-				# await sockpush.send_string(self.gs.to_json(self.debugmode))
 				await sockpush.send_json(self.gs.to_json(self.debugmode))
 				self.gs.game_events = []
-				# await sockpush.send_json(self.gs.players)
-				# print('.', end='', flush=True)
 				await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
 		except asyncio.CancelledError as e:
 			logger.error(f'{e} {type(e)}')
@@ -243,7 +226,3 @@ if __name__ == '__main__':
 	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()
 	run(main(args))
-	# loop = asyncio.get_event_loop()
-	# loop.create_task(main(args, loop))
-	# loop.run_forever()
-	# loop.close()

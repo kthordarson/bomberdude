@@ -215,9 +215,6 @@ class GameState:
 		return dout
 
 	def from_json(self, dgamest, debugmode=False):
-		#players = dgamest.get('players',[])
-		# bombdrop
-		# dgamest={'events': [], 'players': [{'client_id': '301b7b020d', 'position': [119.3, 299.5], 'msg_dt': 1706039871.6985536, 'timeout': False, 'game_events': {'event': 'bombdrop', 'bomber': '301b7b020d', 'pos': [119.3, 299.5], 'timer': 1500}, 'msgsource': 'to_json'}]}
 		events = dgamest.get('events')
 		if events:
 			logger.info(f'game_events:{game_events}')
@@ -260,7 +257,6 @@ class Bomberplayer(arcade.Sprite):
 		return f'Bomberplayer ({self.client_id} h:{self.health} pos:{self.position} pspos={self.ps.position})'
 
 	def get_ps(self):
-		# {'position':self.playerone.position, 'msgsource': 'onupdate', 'msg_dt': time.time()}#  .get('position')
 		ps = {
 			'client_id': self.client_id,
 			'position': self.position,
@@ -269,7 +265,7 @@ class Bomberplayer(arcade.Sprite):
 			'msg_dt': time.time(),
 			'timeout': False,
 		}
-		return json.dumps(ps) # PlayerState(self.client_id, self.position)
+		return json.dumps(ps)
 
 	def __eq__(self, other):
 		if not isinstance(other, type(self)):
@@ -290,23 +286,6 @@ class Bomberplayer(arcade.Sprite):
 	def kill(self, killer):
 		logger.info(f'{self} killed by {killer}')
 		self.killled = True
-
-	def setposx(self, newpos):
-		self.position = newpos
-		self.ps = PlayerState(self.client_id, newpos)
-		self.ps.set_pos(newpos)
-		return self.get_ps()
-		# self.center_x = newpos[0]
-		# self.center_x = newpos[1]
-
-	def moveup(self):
-		pass
-	def movedown(self):
-		pass
-	def moveleft(self):
-		pass
-	def moveright(self):
-		pass
 
 class Bomb(arcade.Sprite):
 	def __init__(self, image=None, scale=1, bomber=None, timer=1000):
