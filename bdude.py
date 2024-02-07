@@ -315,6 +315,7 @@ class Bomberdude(arcade.View):
 					bomb = Bomb("data/bomb.png",scale=1, bomber=bomber, timer=1500)
 					bomb.center_x = bombpos[0]
 					bomb.center_y = bombpos[1]
+					self.bomb_list.append(bomb)
 					logger.info(f'{event_type} from {bomber} pos {bombpos} ')
 			case _:
 				logger.warning(f'unknown game_events: {game_events} ')
