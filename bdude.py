@@ -17,7 +17,6 @@ from loguru import logger
 from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState, gen_randid, Rectangle
 # from menus import MainMenu
 from constants import *
-from networking import Client
 from exceptions import *
 
 import zmq
@@ -190,7 +189,7 @@ class Bomberdude(arcade.View):
 		self.manager.disable()
 
 	def setup(self):
-		self.status_label = UITextLabel(l_text='Status: ')# todo fix this, size_hint_min=(30, 20))
+		self.status_label = UITextLabel(l_text='')# todo fix this, size_hint_min=(30, 20))
 		columns = UIBoxLayout(
 			x=1,
 			align='left',

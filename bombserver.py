@@ -39,27 +39,6 @@ class HandlerException(Exception):
 class TuiException(Exception):
 	pass
 
-_MAX_DATAGRAM_BODY = 32000
-
-
-class _NetFlags(enum.IntFlag):
-	DATA = 0x1
-	ACK = 0x2
-	NAK = 0x4
-	EOM = 0x8
-	UNRELIABLE = 0x10
-	CTL = 0x8000
-
-
-_SUPPORTED_FLAG_COMBINATIONS = (
-	_NetFlags.DATA,    # Should work but I don't think it's been seen in the wild
-	_NetFlags.DATA | _NetFlags.EOM,
-	_NetFlags.UNRELIABLE,
-	_NetFlags.ACK,
-)
-
-class DatagramError(Exception):
-	pass
 
 
 class RepeatedTimer():
