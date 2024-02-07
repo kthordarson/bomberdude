@@ -5,7 +5,6 @@ import json
 from collections import deque
 from threading import Thread
 import time
-import copy
 from argparse import ArgumentParser
 import random
 from queue import Queue, Empty
@@ -17,7 +16,6 @@ from loguru import logger
 from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState, gen_randid, Rectangle
 # from menus import MainMenu
 from constants import *
-from exceptions import *
 
 import zmq
 from zmq.asyncio import Context, Socket
