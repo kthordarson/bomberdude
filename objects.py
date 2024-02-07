@@ -288,7 +288,7 @@ class Bomberplayer(arcade.Sprite):
 		self.bombsleft = 3
 		self.health = 100
 		self.killed = False
-		self.text = arcade.Text(f'{self.client_id} h:{self.health} pos:{self.position}', 10,10)
+		# self.text = arcade.Text(f'{self.client_id} h:{self.health} pos:{self.position}', 10,10)
 
 	def __repr__(self):
 		return f'Bomberplayer ({self.client_id} h:{self.health} pos:{self.position} pspos={self.ps.position})'

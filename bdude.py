@@ -53,6 +53,8 @@ class MainMenu(arcade.View):
 			self.game.setup()
 			self.sb.visible = False
 			self.eb.visible = False
+			self.sb.disabled = True
+			self.eb.disabled = True
 			self.window.show_view(self.game)
 
 		@self.eb.event("on_click")
@@ -88,11 +90,10 @@ class Bomberdude(arcade.View):
 		self.player_event = PlayerEvent()
 		self.game_state = GameState(player_states=[],game_seconds=0)
 		self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
-		self.position_buffer = deque(maxlen=3)
 
-		self.ctx = Context()
-		self.sub_sock: Socket = self.ctx.socket(zmq.SUB)
-		self.push_sock: Socket = self.ctx.socket(zmq.PUSH)
+		self.ioctx = Context()
+		self.sub_sock: Socket = self.ioctx.socket(zmq.SUB)
+		self.push_sock: Socket = self.ioctx.socket(zmq.PUSH)
 		self._connected = False
 		self.physics_engine = None
 		self.bomb_list = None
@@ -141,6 +142,12 @@ class Bomberdude(arcade.View):
 
 	def on_hide_view(self):
 		self.manager.disable()
+
+	def on_exit(self, *args, **kwargs):
+		logger.warning(f'{self} onexit args:{args} kwargs:{kwargs}')
+
+	def on_refresh(self, *args, **kwargs):
+		pass # logger.warning(f'{self} on_refresh args:{args} kwargs:{kwargs} ')
 
 	def setup(self):
 		self.status_label = UITextLabel(l_text='')# todo fix this, size_hint_min=(30, 20))
@@ -228,6 +235,7 @@ class Bomberdude(arcade.View):
 		if key == arcade.key.F2:
 			self.dumpdebug()
 		if key == arcade.key.ESCAPE or key == arcade.key.Q:
+			logger.warning(f'quit')
 			arcade.close_window()
 			return
 		if key == arcade.key.SPACE:
@@ -440,27 +448,16 @@ async def thread_main(game, loop):
 		gs = None
 		while True:
 			_gs = await game.sub_sock.recv_string()
-			try:
-				gs = json.loads(_gs)
-			except Exception as e:
-				logger.error(f'{e} {type(e)} _gs={_gs} ')
-			if gs:
-				try:
-					game.game_state.from_json(gs, game.debugmode)
-				except (KeyError, TypeError) as e:
-					logger.error(f'{e} gs={gs} ')
-					gs=None
-				if game.debugmode:
-					gsevents = gs.get('events')
-					if len(gsevents) > 0:
-						logger.info(f'gsevents: {gsevents} gs = {gs} ')
+			gs = json.loads(_gs)
+			game.game_state.from_json(gs, game.debugmode)
+			await asyncio.sleep(1 / UPDATE_TICK)
+			if game.debugmode:
+				gsevents = gs.get('events')
+				if len(gsevents) > 0:
+					logger.info(f'gsevents: {gsevents} gs = {gs} ')
 				# logger.info(f'p0: {pcount0} p1:{pcount1} players={game.game_state.players} gs={gs}' )
 	try:
 		await asyncio.gather(pusher(), receive_game_state())
-	except NameError as e:
-		logger.warning(f'{e} {type(e)}')
-	except TypeError as e:
-		logger.warning(f'{e} {type(e)}')
 	except Exception as e:
 		logger.error(f'{e} {type(e)}')
 	finally:
@@ -475,13 +472,9 @@ def thread_worker(game):
 	looptask = loop.create_task(thread_main(game, loop))
 	logger.info(f'threadworker loop: {loop} lt={looptask}')
 	loop.run_forever()
+	logger.info(f'endloop: {loop} lt={looptask}')
 
 def main():
-	# window = MyGame(SCREEN_WIDTH, SCREEN_HEIGHT)
-	# window.setup()
-
-	# loop = asyncio.get_event_loop()
-
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
 	parser.add_argument('--listen', action='store', dest='listen', default='127.0.0.1')
@@ -490,16 +483,18 @@ def main():
 	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()
 
-	mainwindow = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+	mainwindow = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, gc_mode='context_gc')
 	game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, args)
 	mainmenu = MainMenu(game)
 	thread = Thread(target=thread_worker, args=(game,), daemon=True)
 	thread.start()
 	mainwindow.show_view(mainmenu)
 	arcade.run()
+	logger.debug(f'end of main mainmenu:{mainmenu} mainwindow:{mainwindow} game:{game} thread:{thread} ')
 
 if __name__ == "__main__":
 	if sys.platform == 'win32':
 		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 	main()
+	logger.debug(f'end')
 	# arcade.run()
