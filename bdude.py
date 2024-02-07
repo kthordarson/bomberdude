@@ -252,11 +252,13 @@ class Bomberdude(arcade.View):
 		print(f'playerone: {self.playerone} pos={self.playerone.position} ') #  gspos={self.game_state.players[self.playerone.client_id]}')
 		# print(f'ghost: {self.ghost} pos={self.ghost.position} ')
 		# print(f'gs_ghost: {self.gs_ghost} pos={self.gs_ghost.position} ')
-		gsp = self.game_state.players.get('players')
+		gsp = self.game_state.players.get('players', [])
 		print(f'self.game_state.players = {len(gsp)}')
 		print(f'=============================')
 		for idx,p in enumerate(gsp):
 			print(f"\tp {idx}/{len(gsp)} = {p.get('client_id')} {p.get('health')} {p.get('position')}")
+		arcade.print_timings()
+
 
 	def send_key_press(self, key, modifiers):
 		pass
@@ -271,6 +273,8 @@ class Bomberdude(arcade.View):
 			self.dumpdebug()
 		if key == arcade.key.F3:
 			self.graw_graphs = not self.graw_graphs
+		if key == arcade.key.F4:
+			arcade.clear_timings()
 		if key == arcade.key.ESCAPE or key == arcade.key.Q:
 			logger.warning(f'quit')
 			arcade.close_window()
@@ -528,7 +532,7 @@ def main():
 	arcade.run()
 
 if __name__ == "__main__":
-	arcade.enable_timings()
+	arcade.enable_timings(1000)
 	if sys.platform == 'win32':
 		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 	main()
