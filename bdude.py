@@ -103,9 +103,10 @@ class Bomberdude(arcade.View):
 		self.title = title
 		self.eventq = Queue()
 		self.game_ready = False
+		self.graw_graphs = False
 
 		self.grid = arcade.gui.UIGridLayout(column_count=2, row_count=3)#, horizontal_spacing=20, vertical_spacing=20)
-		connectb = arcade.gui.UIFlatButton(text="Connect", width=150)
+		connectb = arcade.gui.UIFlatButton(text="Connect")
 		self.connectb = self.grid.add(connectb, col_num=1, row_num=0)
 		anchor = self.manager.add(arcade.gui.UIAnchorLayout())
 		self.anchor = anchor.add(anchor_x="right", anchor_y="top", child=self.grid,)
@@ -143,11 +144,11 @@ class Bomberdude(arcade.View):
 	def on_hide_view(self):
 		self.manager.disable()
 
-	def on_exit(self, *args, **kwargs):
-		logger.warning(f'{self} onexit args:{args} kwargs:{kwargs}')
+	# def on_exit(self, *args, **kwargs):
+	# 	logger.warning(f'{self} onexit args:{args} kwargs:{kwargs}')
 
-	def on_refresh(self, *args, **kwargs):
-		pass # logger.warning(f'{self} on_refresh args:{args} kwargs:{kwargs} ')
+	# def on_refresh(self, *args, **kwargs):
+	# 	pass # logger.warning(f'{self} on_refresh args:{args} kwargs:{kwargs} ')
 
 	def setup(self):
 		self.status_label = UITextLabel(l_text='')# todo fix this, size_hint_min=(30, 20))
@@ -199,6 +200,34 @@ class Bomberdude(arcade.View):
 		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scenewalls,platforms=self.sceneblocks, gravity_constant=GRAVITY)
 		self.connectb.visible = True
 		self.connectb.disabled = False
+		self.setup_perf()
+
+	def setup_perf(self):
+		# Create a sprite list to put the performance graphs into
+		self.perf_graph_list = arcade.SpriteList()
+
+		# Calculate position helpers for the row of 3 performance graphs
+		row_y = self.height - GRAPH_HEIGHT / 2
+		starting_x = GRAPH_WIDTH / 2
+		step_x = GRAPH_WIDTH + GRAPH_MARGIN
+
+		# Create the FPS performance graph
+		graph = arcade.PerfGraph(GRAPH_WIDTH, GRAPH_HEIGHT, graph_data="FPS")
+		graph.position = starting_x, row_y
+		self.perf_graph_list.append(graph)
+
+		# Create the on_update graph
+		graph = arcade.PerfGraph(GRAPH_WIDTH, GRAPH_HEIGHT, graph_data="on_update")
+		graph.position = starting_x + step_x, row_y
+		self.perf_graph_list.append(graph)
+
+		# Create the on_draw graph
+		graph = arcade.PerfGraph(GRAPH_WIDTH, GRAPH_HEIGHT, graph_data="on_draw")
+		graph.position = starting_x + step_x * 2, row_y
+		self.perf_graph_list.append(graph)
+
+		# Create a Text object to show the current FPS
+		self.fps_text = arcade.Text(f"FPS: {arcade.get_fps(60):5.1f}",10, 10, arcade.color.BLACK, 22)
 
 	def on_draw(self):
 		self.clear()
@@ -210,6 +239,12 @@ class Bomberdude(arcade.View):
 		self.particle_list.draw()
 		self.flame_list.draw()
 		self.manager.draw()
+		if self.graw_graphs:
+			self.perf_graph_list.draw()
+			# Get & draw the FPS for the last 60 frames
+			if arcade.timings_enabled():
+				self.fps_text.value = f"FPS: {arcade.get_fps(60):5.1f}"
+				self.fps_text.draw()
 
 	def dumpdebug(self):
 		print(f'=============================')
@@ -234,6 +269,8 @@ class Bomberdude(arcade.View):
 			self.debugmode = not self.debugmode
 		if key == arcade.key.F2:
 			self.dumpdebug()
+		if key == arcade.key.F3:
+			self.graw_graphs = not self.graw_graphs
 		if key == arcade.key.ESCAPE or key == arcade.key.Q:
 			logger.warning(f'quit')
 			arcade.close_window()
@@ -342,7 +379,7 @@ class Bomberdude(arcade.View):
 					self.playerone.kill(killer=f)
 					logger.info(f'playerkilled f={f} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
 				else:
-					logger.info(f'playerhit f={f} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
+					pass # logger.info(f'playerhit f={f} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
 				f.remove_from_sprite_lists()
 			f_hitlist = arcade.check_for_collision_with_list(f, self.scenewalls)
 			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
@@ -411,7 +448,7 @@ class Bomberdude(arcade.View):
 			self.playerone.bombsleft -= 1
 			bombevent = {'event':'bombdrop', 'bomber': self.playerone.client_id, 'pos': bomb.position, 'timer': bomb.timer}
 			self.eventq.put(bombevent)
-			logger.info(f'BE={bombevent} evq: {self.eventq.qsize()} bombdrop {bomb} by plid {self.playerone.client_id} bl: {len(self.bomb_list)} p1: {self.playerone}')
+			# logger.info(f'BE={bombevent} evq: {self.eventq.qsize()} bombdrop {bomb} by plid {self.playerone.client_id} bl: {len(self.bomb_list)} p1: {self.playerone}')
 			# self.client.send_queue.put({'msgtype': 'bombdrop', 'bomber': self.client.client_id, 'pos': bomb.position, 'timer': bomb.timer})
 
 
@@ -472,7 +509,6 @@ def thread_worker(game):
 	looptask = loop.create_task(thread_main(game, loop))
 	logger.info(f'threadworker loop: {loop} lt={looptask}')
 	loop.run_forever()
-	logger.info(f'endloop: {loop} lt={looptask}')
 
 def main():
 	parser = ArgumentParser(description='bdude')
@@ -490,11 +526,10 @@ def main():
 	thread.start()
 	mainwindow.show_view(mainmenu)
 	arcade.run()
-	logger.debug(f'end of main mainmenu:{mainmenu} mainwindow:{mainwindow} game:{game} thread:{thread} ')
 
 if __name__ == "__main__":
+	arcade.enable_timings()
 	if sys.platform == 'win32':
 		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 	main()
-	logger.debug(f'end')
 	# arcade.run()
