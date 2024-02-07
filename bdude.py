@@ -278,19 +278,19 @@ class Bomberdude(arcade.View):
 		for p in gsp:
 			pclid = p['client_id']
 			pclpos = p['position']
-			if pclid == self.playerone.client_id:
-				break
+			# if pclid == self.playerone.client_id:
+			#	break
 			if pclid in [k.client_id for k in self.ghost_list]:
-				ghost = [k for k in self.ghost_list if k.client_id == pclid][0]
-				ghost.center_x = pclpos[0]
-				ghost.center_y = pclpos[1]
+				if pclid != self.playerone.client_id:
+					ghost = [k for k in self.ghost_list if k.client_id == pclid][0]
+					ghost.center_x = pclpos[0]
+					ghost.center_y = pclpos[1]
 				# logger.debug(f'updateghost: {ghost} pos: {pclpos} glist: {len(self.ghost_list)}')
 			else:
-				ghost = Rectangle(client_id=pclid, color = arcade.color.YELLOW, center_x=pclpos[0], center_y=pclpos[1])
-				ghost.center_x = pclpos[0]
-				ghost.center_y = pclpos[1]
-				self.ghost_list.append(ghost)
-				logger.info(f'newghost: {ghost} pos: {pclpos} glist: {len(self.ghost_list)}')
+				if pclid != self.playerone.client_id:
+					ghost = Rectangle(client_id=pclid, color = arcade.color.YELLOW, center_x=pclpos[0], center_y=pclpos[1])
+					self.ghost_list.append(ghost)
+					logger.info(f'newghost: {ghost} pos: {pclpos} glist: {len(self.ghost_list)}')
 			#gs_ghost = Rectangle(client_id=pclid, color = arcade.color.YELLOW, center_x=pclpos[0], center_y=pclpos[1])
 			#gs_ghost.center_x = pclpos[0]
 			#gs_ghost.center_y = pclpos[1] # self.game_state.players[pclid]['position']
@@ -313,7 +313,7 @@ class Bomberdude(arcade.View):
 		if len(gsp) > 1:
 			self.update_netplayers(gsp)
 			#self.gs_ghost.visible = True
-		self.status_label.value = f'id {self.playerone.client_id} pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f} gsp {len(gsp)} h: {self.playerone.health}'
+		self.status_label.value = f'id {self.playerone.client_id} pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f} gsp {len(gsp)} h: {self.playerone.health} gl:{len(self.ghost_list)}'
 		# self.ghost.center_x = self.playerone.center_x
 		# self.ghost.center_y = self.playerone.center_y
 		self.hitlist = self.physics_engine.update()
