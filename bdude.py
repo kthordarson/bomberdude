@@ -303,8 +303,33 @@ class Bomberdude(arcade.View):
 		self.player_event.keys[key] = False
 		self.keys_pressed.keys[key] = False
 
+	def handle_game_events(self, game_events):
+		event_type = game_events.get('event')
+		match event_type:
+			case 'bombdrop':
+				bomber = game_events.get('bomber')
+				bombpos = game_events.get('pos')
+				if bomber == self.playerone.client_id:
+					logger.debug(f'ownbomb ... {event_type} from {bomber} pos {bombpos} ')
+				else:
+					bomb = Bomb("data/bomb.png",scale=1, bomber=bomber, timer=1500)
+					bomb.center_x = bombpos[0]
+					bomb.center_y = bombpos[1]
+					logger.info(f'{event_type} from {bomber} pos {bombpos} ')
+			case _:
+				logger.warning(f'unknown game_events: {game_events} ')
 
 	def on_update(self, dt):
+		game_events = None
+		try:
+			game_events = self.game_state.event_queue.get_nowait()
+		except Empty:
+			pass
+		except Exception as e:
+			logger.error(f'{e} {type(e)}')
+		if game_events:
+			self.handle_game_events(game_events)
+			self.game_state.event_queue.task_done()
 		self.timer.value += dt
 		self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
 		self.status_label.text = f'id {self.playerone.client_id} pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f} gsp {len(self.game_state.players)}'
@@ -403,8 +428,9 @@ class Bomberdude(arcade.View):
 			bomb.center_y = self.playerone.center_y
 			self.bomb_list.append(bomb)
 			self.playerone.bombsleft -= 1
-			self.eventq.put({'event':'bombdrop'})
-			logger.info(f'evq: {self.eventq.qsize()} bombdrop {bomb} by plid {self.playerone.client_id} bl: {len(self.bomb_list)} p1: {self.playerone}')
+			bombevent = {'event':'bombdrop', 'bomber': self.playerone.client_id, 'pos': bomb.position, 'timer': bomb.timer}
+			self.eventq.put(bombevent)
+			logger.info(f'BE={bombevent} evq: {self.eventq.qsize()} bombdrop {bomb} by plid {self.playerone.client_id} bl: {len(self.bomb_list)} p1: {self.playerone}')
 			# self.client.send_queue.put({'msgtype': 'bombdrop', 'bomber': self.client.client_id, 'pos': bomb.position, 'timer': bomb.timer})
 
 
@@ -426,7 +452,7 @@ async def thread_main(game, loop):
 				logger.error(f'{e} {type(e)}')
 				game_events = None
 			if game_events:
-				logger.info(f'game_events:{game_events} ')
+				logger.info(f'{game.playerone.client_id} game_events:{game_events} ')
 			playereventdict = game.player_event.asdict()
 			try:
 				playereventdict['client_id'] = {'client_id': game.playerone.client_id, 'position':game.playerone.position, 'msgsource':'pusher'}
@@ -450,7 +476,7 @@ async def thread_main(game, loop):
 				gs = json.loads(_gs)
 			except Exception as e:
 				logger.error(f'{e} {type(e)} _gs={_gs} ')
-			if gs:
+			if gs: # gs = {'events': [], 'players': [{'client_id': '301b7b020d', 'position': [119.3, 299.5], 'msg_dt': 1706039871.6985536, 'timeout': False, 'game_events': {'event': 'bombdrop', 'bomber': '301b7b020d', 'pos': [119.3, 299.5], 'timer': 1500}, 'msgsource': 'to_json'}]}
 				try:
 					game.game_state.from_json(gs, game.debugmode)
 				except (KeyError, TypeError) as e:
@@ -458,7 +484,9 @@ async def thread_main(game, loop):
 					gs=None
 				# game.game_state.players[game.playerone.client_id] = {'position':game.playerone.position, 'msgsource': 'recvgamestate'}#  .get('position')
 				if game.debugmode:
-					logger.info(f'gs = {gs} gsp = {game.game_state.players}')
+					gsevents = gs.get('events')
+					if len(gsevents) > 0:
+						logger.info(f'gsevents: {gsevents} gs = {gs} ')
 				# logger.info(f'p0: {pcount0} p1:{pcount1} players={game.game_state.players} gs={gs}' )
 	try:
 		await asyncio.gather(pusher(), receive_game_state())

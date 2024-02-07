@@ -8,7 +8,7 @@ from loguru import logger
 from constants import *
 import time
 import hashlib
-
+from queue import Queue
 from typing import List, Dict
 import json
 from dataclasses import dataclass, asdict, field
@@ -59,6 +59,7 @@ class PlayerEvent:
 	ufcl_cnt: int = 0
 	counter: int = 0
 	game_events: str = ''
+	events: str = ''
 
 #	def __init__(self, client_id='missing', *args, **kwars):
 #		self.client_id = client_id
@@ -70,7 +71,7 @@ class PlayerEvent:
 		self.keys = {int(k): v for k, v in self.keys.items()}
 
 	def __repr__(self):
-		return f'PlayerEvent ({self.client_id})'
+		return f'PlayerEvent ({self.client_id} GE={self.game_events})'
 
 	def asdict(self):
 		return asdict(self)
@@ -135,6 +136,9 @@ class GameState:
 		self.player_states = player_states
 		self.game_seconds = game_seconds
 		self.debugmode = debugmode
+		self.events = []
+		self.game_events = []
+		self.event_queue = Queue()
 
 	def check_players(self):
 		dt = time.time()
@@ -169,26 +173,36 @@ class GameState:
 			'msg_dt': msg.get('msg_dt'),
 			'timeout': msg.get('timeout'),
 			'msgsource': 'update_game_state',
+
 		}
+		events = msg.get('events', None)
+		if events:
+			logger.debug(f'events:{events}')
+			self.events = events
+		game_events = msg.get('game_events', None)
+		if game_events:
+			logger.info(f'game_events:{game_events} clid:{clid} msg={msg}')
+			self.game_events = game_events
 		self.players[clid] = playerdict
 		self.game_seconds += 1
-		plrs = msg.get('players', [])
-		counter = msg.get('counter', 0)
-		in_msgdt = msg.get('msg_dt', 0)
-		msg_gametimer = msg.get('gametimer', 0)
+		# plrs = msg.get('players', [])
+		# counter = msg.get('counter', 0)
+		# in_msgdt = msg.get('msg_dt', 0)
+		# msg_gametimer = msg.get('gametimer', 0)
 
 
 	def to_json(self, event=None, debugmode=False):
-		evtest = {'evtype':'test', 'evdata':'test'}
-		dout = {'events':[], 'players':[]}
+		dout = {'events':[], 'players':[], 'game_events': self.game_events}
 		for p in self.players:
 			playerdict = {
 			'client_id':p,
 			'position': self.players[p].get('position'),
 			'msg_dt': self.players[p].get('msg_dt'),
 			'timeout': self.players[p].get('timeout'),
+			# 'game_events': self.players[p].get('game_events'),
 			'msgsource': 'to_json',
 			}
+			# dout['events'].append(self.players[p].get('game_events'))
 			dout['players'].append(playerdict) #Q = playerdict
 		if debugmode:
 			logger.info(f'tojson dout={dout}')
@@ -196,6 +210,17 @@ class GameState:
 
 	def from_json(self, dgamest, debugmode=False):
 		#players = dgamest.get('players',[])
+		# bombdrop
+		# dgamest={'events': [], 'players': [{'client_id': '301b7b020d', 'position': [119.3, 299.5], 'msg_dt': 1706039871.6985536, 'timeout': False, 'game_events': {'event': 'bombdrop', 'bomber': '301b7b020d', 'pos': [119.3, 299.5], 'timer': 1500}, 'msgsource': 'to_json'}]}
+		events = dgamest.get('events')
+		if events:
+			logger.info(f'game_events:{game_events}')
+			self.event_queue.put_nowait(game_events)
+		game_events = dgamest.get('game_events')
+		if game_events:
+			logger.info(f'game_events:{game_events}') # todo handle and clear events ....
+			#self.game_events = game_events
+			self.event_queue.put_nowait(game_events)
 		for p in dgamest:
 			try:
 				self.players[p] = dgamest[p]
@@ -203,7 +228,7 @@ class GameState:
 				logger.error(f'from_json: {e} p={p}')
 				pass
 		if debugmode:
-			logger.debug(f'dgamest={dgamest}')# gs={self.game_seconds} selfplayers={self.players}')
+			pass # logger.debug(f'dgamest={dgamest}')# gs={self.game_seconds} selfplayers={self.players}')
 
 @dataclass
 class Networkthing(arcade.Sprite):

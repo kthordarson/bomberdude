@@ -165,20 +165,24 @@ class BombServer():
 				msg = await sockrecv.recv_json()
 				clid = msg['client_id']
 				game_events = msg.get('game_events', None)
+				events = msg.get('events', None)
 				ufcl_cnt += 1
 				event_dict = msg['event']
 				event_dict['counter'] = msg['counter']
 				event_dict['client_id'] = clid
 				event_dict['ufcl_cnt'] = ufcl_cnt
-				event_dict['game_events'] = ''
+				event_dict['game_events'] = game_events
+				event_dict['events'] = events
+				player_event = PlayerEvent(**event_dict)
+				player_event.set_client_id(clid)
 				if game_events:
-					logger.debug(f'game_events:{game_events} msg:{msg}')
-					event_dict['game_events'] = game_events
+					logger.debug(f'playerevent={player_event} game_events:{game_events} msg:{msg}')
+				if events:
+					logger.info(f'events:{events} msg:{msg}')
 				# msg={'counter': 1445, 'event': {'keys': {'65362': False, '119': False, '65364': False, '115': False, '65361': False, '97': False, '65363': False, '100': False, '113': False}, 'client_id': '3187165f87', 'ufcl_cnt': 2286}, 'client_id': '3187165f87', 'position': [111.0, 133]}
 				# event_dict = await sock.recv_json()
-				event = PlayerEvent(**event_dict)
-				event.set_client_id(clid)
-				self.gs.update_game_state(event, clid, msg)
+
+				self.gs.update_game_state(player_event, clid, msg)
 				# logger.info(f'msg={msg}')
 		except asyncio.CancelledError as e:
 			logger.error(f'{e} {type(e)}')
@@ -200,6 +204,7 @@ class BombServer():
 				self.gs.check_players()
 				# await sockpush.send_string(self.gs.to_json(self.debugmode))
 				await sockpush.send_json(self.gs.to_json(self.debugmode))
+				self.gs.game_events = []
 				# await sockpush.send_json(self.gs.players)
 				# print('.', end='', flush=True)
 				await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
