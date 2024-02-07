@@ -71,8 +71,9 @@ class MainMenu(arcade.View):
 		self.manager.disable() # pass
 
 class Bomberdude(arcade.View):
-	def __init__(self, width, height, title):
+	def __init__(self, width, height, title, args):
 		super().__init__()
+		self.args = args
 		self.debugmode = False
 		self.manager = UIManager()
 		self.window.center_window() # set_location(0,0)
@@ -123,9 +124,9 @@ class Bomberdude(arcade.View):
 
 	def do_connect(self):
 		logger.info(f'{self} do_connect')
-		self.sub_sock.connect('tcp://127.0.0.1:9696')
+		self.sub_sock.connect(f'tcp://{self.args.server}:9696')
 		self.sub_sock.subscribe('')
-		self.push_sock.connect('tcp://127.0.0.1:9697')
+		self.push_sock.connect(f'tcp://{self.args.server}:9697')
 		# self.ghost.center_x = self.playerone.center_x
 		# self.ghost.center_y = self.playerone.center_y
 		# self.gs_ghost.center_x = self.playerone.center_x
@@ -490,7 +491,7 @@ def main():
 	args = parser.parse_args()
 
 	mainwindow = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
-	game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+	game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, args)
 	mainmenu = MainMenu(game)
 	thread = Thread(target=thread_worker, args=(game,), daemon=True)
 	thread.start()

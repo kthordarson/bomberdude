@@ -109,13 +109,14 @@ class ServerTUI(Thread):
 				break
 
 class BombServer():
-	def __init__(self):
+	def __init__(self, args):
+		self.args = args
 		self.ctx = Context()
 		self.sock_push_gamestate: Socket = self.ctx.socket(zmq.PUB)
-		self.sock_push_gamestate.bind('tcp://127.0.0.1:9696')
+		self.sock_push_gamestate.bind(f'tcp://{args.listen}:9696')
 
 		self.sock_recv_player_evts: Socket = self.ctx.socket(zmq.PULL)
-		self.sock_recv_player_evts.bind('tcp://127.0.0.1:9697')
+		self.sock_recv_player_evts.bind(f'tcp://{args.listen}:9697')
 		self.ticker_task = asyncio.create_task(self.ticker(self.sock_push_gamestate, self.sock_recv_player_evts),)
 		self.debugmode = False
 		self.gs = GameState(player_states=[], game_seconds=1, debugmode=self.debugmode)
@@ -169,7 +170,7 @@ async def main(args):
 	fut = asyncio.Future()
 	# app = App(signal=fut)
 	ctx = Context()
-	server = BombServer()
+	server = BombServer(args)
 	tui = ServerTUI(server, debugmode=args.debug)
 	tui.start()
 	logger.info(f'ticker_task:{server.ticker_task}')
