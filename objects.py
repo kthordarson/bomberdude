@@ -279,7 +279,7 @@ class Networkthing(arcade.Sprite):
 
 @dataclass
 class Bomberplayer(arcade.Sprite):
-	def __init__(self, image=None, scale=1, client_id=None,position=[123.3,123.5]):
+	def __init__(self, image=None, scale=1, client_id=None, position=[123.3,123.5]):
 		super().__init__(image,scale)
 		self.client_id = client_id
 		self.ps = PlayerState(self.client_id, position)

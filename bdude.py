@@ -229,8 +229,12 @@ class Bomberdude(arcade.View):
 		# Create a Text object to show the current FPS
 		self.fps_text = arcade.Text(f"FPS: {arcade.get_fps(60):5.1f}",10, 10, arcade.color.BLACK, 22)
 
+	def draw_player_panel(self):
+		arcade.draw_rectangle_filled(111, 111, 11, 11, arcade.color.WHITE)
+
 	def on_draw(self):
 		self.clear()
+		self.draw_player_panel()
 		self.camera.use()
 		self.scene.draw()
 		self.playerone.draw()
@@ -239,6 +243,7 @@ class Bomberdude(arcade.View):
 		self.particle_list.draw()
 		self.flame_list.draw()
 		self.manager.draw()
+
 		if self.graw_graphs:
 			self.perf_graph_list.draw()
 			# Get & draw the FPS for the last 60 frames
@@ -331,15 +336,17 @@ class Bomberdude(arcade.View):
 			#	break
 			if pclid in [k.client_id for k in self.ghost_list]:
 				if pclid != self.playerone.client_id:
-					ghost = [k for k in self.ghost_list if k.client_id == pclid][0]
-					ghost.center_x = pclpos[0]
-					ghost.center_y = pclpos[1]
+					netplayer = [k for k in self.ghost_list if k.client_id == pclid][0]
+					netplayer.position = pclpos
+					# ghost.center_x = pclpos[0]
+					# ghost.center_y = pclpos[1]
 				# logger.debug(f'updateghost: {ghost} pos: {pclpos} glist: {len(self.ghost_list)}')
 			else:
 				if pclid != self.playerone.client_id:
-					ghost = Rectangle(client_id=pclid, color = arcade.color.YELLOW, center_x=pclpos[0], center_y=pclpos[1])
-					self.ghost_list.append(ghost)
-					logger.info(f'newghost: {ghost} pos: {pclpos} glist: {len(self.ghost_list)}')
+					# ghost = Rectangle(client_id=pclid, color = arcade.color.YELLOW, center_x=pclpos[0], center_y=pclpos[1])
+					newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=pclpos)
+					self.ghost_list.append(newplayer)
+					logger.info(f'newplayer: {newplayer} pos: {pclpos} glist: {len(self.ghost_list)}')
 			#gs_ghost = Rectangle(client_id=pclid, color = arcade.color.YELLOW, center_x=pclpos[0], center_y=pclpos[1])
 			#gs_ghost.center_x = pclpos[0]
 			#gs_ghost.center_y = pclpos[1] # self.game_state.players[pclid]['position']
