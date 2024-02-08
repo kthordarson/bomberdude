@@ -204,7 +204,7 @@ class GameState:
 				dt_diff = dt - self.players[p].get('msg_dt')
 				if dt_diff > 10: # player timeout
 					self.players[p]['timeout'] = True
-					logger.info(f'timout dtdiff: {dt_diff} p:{p} {self.players[p]}')
+					logger.info(f'timout p:{p} dtdiff: {dt_diff} ')
 					[self.players.pop(k) for k in playerscopy if playerscopy[k]['timeout'] == True]
 				else:
 					self.players[p]['timeout'] = False
@@ -235,14 +235,41 @@ class GameState:
 		}
 		if msghealth == -1:
 			logger.warning(f'missing msghealth from {msg}')
+
 		events = msg.get('events', None)
 		if events:
-			logger.debug(f'events:{events}')
-			self.events = events
+			logger.warning(f'events:{events}')
+			# event_type = events.get('event', None)
+			# match event_type:
+			# 	case 'blkxplode': # todo make upgradeblock here....
+			# 		logger.debug(f'events:{events}')
+			# 	case 'bombdrop': # decide on somethingsomething..
+			# 		logger.debug(f'{event_type} from {events.get("bomber")} pos:{events.get("pos")}')
+			# 	case _: #
+			# 		logger.warning(f'unknown event {events}')
+			# self.events = events
+
 		game_events = msg.get('game_events', None)
 		if game_events:
-			logger.info(f'game_events:{game_events} clid:{clid} msg={msg}')
-			self.game_events = game_events
+			for game_event in game_events:
+				if game_event is None:
+					# logger.warning(f'game_event is None')
+					break
+				# logger.info(f'gevent:{game_event} game_events:{game_events}')
+				self.game_events.append(game_event)
+				event_type = game_event.get('event', None)
+				match event_type:
+					case 'blkxplode': # todo make upgradeblock here....
+						uptype = random.choice([1,2,3])
+						# logger.debug(f'self.game_events={self.game_events}')
+						self.game_events.append({'event': 'upgradeblock', 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame')})
+						logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
+					case 'bombdrop': # decide on somethingsomething..
+						logger.debug(f'{event_type} from {game_event.get("bomber")} pos:{game_event.get("pos")}')
+					case _: #
+						logger.warning(f'unknown game_events {game_events}')
+
+
 		self.players[clid] = playerdict
 		self.game_seconds += 1
 		# plrs = msg.get('players', [])
@@ -260,10 +287,8 @@ class GameState:
 			'health': self.players[p].get('health'),
 			'msg_dt': self.players[p].get('msg_dt'),
 			'timeout': self.players[p].get('timeout'),
-			# 'game_events': self.players[p].get('game_events'),
 			'msgsource': 'to_json',
 			}
-			# dout['events'].append(self.players[p].get('game_events'))
 			dout['players'].append(playerdict) #Q = playerdict
 		if debugmode:
 			logger.info(f'tojson dout={dout}')
@@ -272,13 +297,15 @@ class GameState:
 	def from_json(self, dgamest, debugmode=False):
 		events = dgamest.get('events')
 		if events:
-			logger.info(f'game_events:{game_events}')
-			self.event_queue.put_nowait(game_events)
+			logger.warning(f'events:{events}')
+			self.event_queue.put_nowait(events)
+
 		game_events = dgamest.get('game_events')
 		if game_events:
-			logger.info(f'game_events:{game_events}') # todo handle and clear events ....
+			# logger.info(f'game_events:{game_events}') # todo handle and clear events ....
 			#self.game_events = game_events
 			self.event_queue.put_nowait(game_events)
+
 		for p in dgamest:
 			try:
 				self.players[p] = dgamest[p]
@@ -353,7 +380,7 @@ class Bomb(arcade.Sprite):
 
 	def update(self):
 		if self.timer <= 0:
-			logger.debug(f'{self} timeout ')
+			# logger.debug(f'{self} timeout ')
 			self.remove_from_sprite_lists()
 			plist = []
 			flames = []

@@ -122,12 +122,12 @@ class Bomberdude(arcade.View):
 		return self._connected
 
 	def do_connect(self):
-		logger.info(f'{self} do_connect')
+		logger.info(f'Connecting to {self.args.server}')
 		self.sub_sock.connect(f'tcp://{self.args.server}:9696')
 		self.sub_sock.subscribe('')
 		self.push_sock.connect(f'tcp://{self.args.server}:9697')
 		self._connected = True
-		self.connectb.text = 'Connected'
+		self.connectb.text = f'{self.args.server}'
 		self.connectb.disabled = True
 
 	def on_show_view(self):
@@ -280,21 +280,26 @@ class Bomberdude(arcade.View):
 		self.keys_pressed.keys[key] = False
 
 	def handle_game_events(self, game_events):
-		event_type = game_events.get('event')
-		match event_type:
-			case 'bombdrop':
-				bomber = game_events.get('bomber')
-				bombpos = game_events.get('pos')
-				if bomber == self.playerone.client_id:
-					logger.debug(f'ownbomb ... {event_type} from {bomber} pos {bombpos} ')
-				else:
-					bomb = Bomb("data/bomb.png",scale=1, bomber=bomber, timer=1500)
-					bomb.center_x = bombpos[0]
-					bomb.center_y = bombpos[1]
-					self.bomb_list.append(bomb)
-					logger.info(f'{event_type} from {bomber} pos {bombpos} ')
-			case _:
-				logger.warning(f'unknown game_events: {game_events} ')
+		for game_event in game_events:
+			event_type = game_event.get('event')
+			match event_type:
+				case 'upgradeblock':
+					logger.info(f'{event_type} upgradetype {game_event.get("upgradetype")}')
+				case 'blkxplode':
+					logger.info(f'{event_type} from {game_event.get("fbomber")}')
+				case 'bombdrop':
+					bomber = game_event.get('bomber')
+					bombpos = game_event.get('pos')
+					if bomber == self.playerone.client_id:
+						pass # logger.debug(f'ownbomb ... {event_type} from {bomber} pos {bombpos} ')
+					else:
+						bomb = Bomb("data/bomb.png",scale=1, bomber=bomber, timer=1500)
+						bomb.center_x = bombpos[0]
+						bomb.center_y = bombpos[1]
+						self.bomb_list.append(bomb)
+						logger.info(f'{event_type} from {bomber} pos {bombpos} ')
+				case _:
+					logger.warning(f'unknown type:{event_type} gameevents={game_events} ')
 
 	def update_netplayers(self):
 		for p in self.gsp:
@@ -454,13 +459,13 @@ async def thread_main(game, loop):
 				logger.error(f'{e} {type(e)}')
 				game_events = None
 			if game_events:
-				logger.info(f'{game.playerone.client_id} game_events:{game_events} ')
+				pass # logger.info(f'{game.playerone.client_id} game_events:{game_events} ')
 			playereventdict = game.player_event.asdict()
 			try:
 				playereventdict['client_id'] = {'client_id': game.playerone.client_id, 'position':game.playerone.position, 'health': game.playerone.health, 'msgsource':'pusher'}
 			except KeyError as e:
 				logger.error(f'{e} playereventdict={playereventdict} ')
-			msg = dict(counter=thrmain_cnt, event=playereventdict, game_events=game_events, client_id=game.playerone.client_id, position=game.playerone.position, health=game.playerone.health, msg_dt=time.time())
+			msg = dict(counter=thrmain_cnt, event=playereventdict, game_events=[game_events,], client_id=game.playerone.client_id, position=game.playerone.position, health=game.playerone.health, msg_dt=time.time())
 			if game.connected():
 				if game.debugmode:
 					pass # logger.info(f'push msg: {msg} playereventdict={playereventdict}')

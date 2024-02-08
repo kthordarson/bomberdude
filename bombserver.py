@@ -123,12 +123,11 @@ class BombServer():
 
 	async def update_from_client(self, sockrecv):
 		ufcl_cnt = 0
-		game_events = None
 		try:
 			while True:
 				msg = await sockrecv.recv_json()
 				clid = msg['client_id']
-				game_events = msg.get('game_events', None)
+				game_events = msg.get('game_events', [])
 				events = msg.get('events', None)
 				ufcl_cnt += 1
 				event_dict = msg['event']
