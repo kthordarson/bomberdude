@@ -390,6 +390,7 @@ class Bomberdude(arcade.View):
 						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
 						f.remove_from_sprite_lists()
 						hit.remove_from_sprite_lists()
+						self.eventq.put({'event':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber})
 					case _:
 						logger.info(f'f: {f} hit: {hit.properties.get("tile_id")} {hit}')
 

@@ -237,11 +237,11 @@ class GameState:
 			logger.warning(f'missing msghealth from {msg}')
 		events = msg.get('events', None)
 		if events:
-			# logger.debug(f'events:{events}')
+			logger.debug(f'events:{events}')
 			self.events = events
 		game_events = msg.get('game_events', None)
 		if game_events:
-			# logger.info(f'game_events:{game_events} clid:{clid} msg={msg}')
+			logger.info(f'game_events:{game_events} clid:{clid} msg={msg}')
 			self.game_events = game_events
 		self.players[clid] = playerdict
 		self.game_seconds += 1
