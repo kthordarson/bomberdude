@@ -2,8 +2,7 @@ from pyvex.utils import stable_hash
 import copy
 import arcade
 from arcade.gui import UILabel
-from arcade.gui import UIManager, UIBoxLayout
-from arcade.gui.widgets.layout import UIAnchorLayout
+
 import random
 import math
 from loguru import logger
@@ -78,6 +77,25 @@ class UITextLabel(UILabel):
 	def value(self, value):
 		self._value = value
 		self.text = value
+		self.fit_content()
+
+class UIPlayerLabel(UILabel):
+	_value: str = ''
+	def __init__(self, client_id, value='', l_text='', *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		self.client_id = client_id
+		self.value = f'{self.client_id} '
+		self.l_text = l_text
+		# self.align = 'right'
+
+	@property
+	def value(self):
+		return f'{self.client_id} {self._value}'
+
+	@value.setter
+	def value(self, value):
+		self._value = f'{self.client_id} {value}'
+		self.text = f'{self.client_id} {value}'
 		self.fit_content()
 
 
