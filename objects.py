@@ -199,56 +199,51 @@ class GameState:
 	def check_players(self):
 		dt = time.time()
 		playerscopy = copy.copy(self.players)
+		old_len = len(self.players)
+		pops = []
 		for p in playerscopy:
 			try:
-				dt_diff = dt - self.players[p].get('msg_dt')
-				if dt_diff > 10: # player timeout
+				dt_diff = dt - self.players[p].get('msg_dt', 9999)
+				playerhealth = self.players[p].get('health', 0)
+				if dt_diff > 10:# player timeout
 					self.players[p]['timeout'] = True
-					logger.info(f'timout p:{p} dtdiff: {dt_diff} ')
-					[self.players.pop(k) for k in playerscopy if playerscopy[k]['timeout'] == True]
-				else:
-					self.players[p]['timeout'] = False
-					self.players[p]['msgsource'] = 'check_players'
-			except KeyError as e:
-				logger.warning(f'check_players: {e} p={p}')
-				self.players[p]['timeout'] = True
-				self.players[p]['msgsource'] = f'check_players:{e}'
-				pass
+					# self.players[p]['msgsource'] = 'timeout'
+					# pops.append(p)
+					# break
 			except Exception as e:
-				logger.error(f'check_players: {e} p={p}')
-				self.players[p]['timeout'] = True
-				self.players[p]['msgsource'] = f'check_players:{e}'
-				pass
+				logger.error(f'{type(e)} {e} {p} selfplayers={self.players}')
+		# for p in pops:
+		# 	logger.debug(f'{len(self.players)} {len(pops)} self.players={self.players}')
+		# 	logger.info(f'popping {p} {self.players.get(p)}')
+		# 	self.players.pop(p)
+		# 	logger.debug(f'{len(self.players)} {len(pops)} self.players={self.players}')
 
 	def update_game_state(self, event: PlayerEvent, clid, msg):
 		if self.debugmode:
 			logger.debug(f'event:{event} from: {clid} msg={msg}')
-		msghealth = msg.get('health', -1)
-		playerdict = {
-			'client_id':clid,
-			'position': msg.get('position'),
-			'health': msghealth,
-			'msg_dt': msg.get('msg_dt'),
-			'timeout': msg.get('timeout'),
-			'msgsource': 'update_game_state',
+		msghealth = msg.get('health')
+		msgtimeout = msg.get('timeout')
+		msgkilled = msg.get('killed')
+		if msgtimeout:
+			logger.warning(f'timeout: {clid} {msg}')
+			self.players.pop(clid)
+			# self.players[clid] = {}
+			return
+		else:
+			playerdict = {
+				'client_id':clid,
+				'position': msg.get('position'),
+				'health': msghealth,
+				'msg_dt': msg.get('msg_dt'),
+				'timeout': msgtimeout,
+				'killed': msgkilled,
+				'msgsource': 'update_game_state',
 
-		}
-		if msghealth == -1:
-			logger.warning(f'missing msghealth from {msg}')
-
+			}
+			self.players[clid] = playerdict
 		events = msg.get('events', None)
 		if events:
 			logger.warning(f'events:{events}')
-			# event_type = events.get('event', None)
-			# match event_type:
-			# 	case 'blkxplode': # todo make upgradeblock here....
-			# 		logger.debug(f'events:{events}')
-			# 	case 'bombdrop': # decide on somethingsomething..
-			# 		logger.debug(f'{event_type} from {events.get("bomber")} pos:{events.get("pos")}')
-			# 	case _: #
-			# 		logger.warning(f'unknown event {events}')
-			# self.events = events
-
 		game_events = msg.get('game_events', None)
 		if game_events:
 			for game_event in game_events:
@@ -268,18 +263,10 @@ class GameState:
 						logger.debug(f'{event_type} from {game_event.get("bomber")} pos:{game_event.get("pos")}')
 					case _: #
 						logger.warning(f'unknown game_events {game_events}')
-
-
-		self.players[clid] = playerdict
 		self.game_seconds += 1
-		# plrs = msg.get('players', [])
-		# counter = msg.get('counter', 0)
-		# in_msgdt = msg.get('msg_dt', 0)
-		# msg_gametimer = msg.get('gametimer', 0)
-
 
 	def to_json(self, event=None, debugmode=False):
-		dout = {'events':[], 'players':[], 'game_events': self.game_events}
+		dout = {'events':[], 'players':{}, 'game_events': self.game_events}
 		for p in self.players:
 			playerdict = {
 			'client_id':p,
@@ -287,31 +274,37 @@ class GameState:
 			'health': self.players[p].get('health'),
 			'msg_dt': self.players[p].get('msg_dt'),
 			'timeout': self.players[p].get('timeout'),
+			'killed': self.players[p].get('killed'),
 			'msgsource': 'to_json',
 			}
-			dout['players'].append(playerdict) #Q = playerdict
+
+			if playerdict.get('timeout'):
+				pass # logger.warning(f'timeouttojson: playerdict:{playerdict} selfplayers={self.players}')
+			else:
+				dout['players'][p] = playerdict #Q = playerdict
 		if debugmode:
 			logger.info(f'tojson dout={dout}')
 		return dout
 
 	def from_json(self, dgamest, debugmode=False):
-		events = dgamest.get('events')
-		if events:
-			logger.warning(f'events:{events}')
-			self.event_queue.put_nowait(events)
-
-		game_events = dgamest.get('game_events')
+		# events = dgamest.get('events')
+		# if events:
+		# 	logger.warning(f'events:{events}')
+		# 	self.event_queue.put_nowait(events)
+		game_events = dgamest.get('game_events',[])
+		# logger.info(f'dgamest={dgamest}')
 		if game_events:
-			# logger.info(f'game_events:{game_events}') # todo handle and clear events ....
+			logger.info(f'game_events:{game_events}') # todo handle and clear events ....
 			#self.game_events = game_events
 			self.event_queue.put_nowait(game_events)
 
-		for p in dgamest:
-			try:
-				self.players[p] = dgamest[p]
-			except Exception as e:
-				logger.error(f'from_json: {e} p={p}')
-				pass
+		plist = dgamest.get('players',[])
+		for player in plist:
+			if plist.get(player).get('timeout'):
+				logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
+			else:
+				self.players[plist.get(player).get('client_id')] = plist.get(player)
+				# logger.info(f'player={player} dgamest={dgamest} selfplayers={self.players}')
 		if debugmode:
 			pass # logger.debug(f'dgamest={dgamest}')# gs={self.game_seconds} selfplayers={self.players}')
 
@@ -333,6 +326,7 @@ class Bomberplayer(arcade.Sprite):
 		self.bombsleft = 3
 		self.health = 100
 		self.killed = False
+		self.timeout = False
 		# self.text = arcade.Text(f'{self.client_id} h:{self.health} pos:{self.position}', 10,10)
 
 	def __repr__(self):
@@ -345,9 +339,10 @@ class Bomberplayer(arcade.Sprite):
 			'health': self.health,
 			'msgsource': 'get_ps',
 			'msg_dt': time.time(),
-			'timeout': False,
+			'timeout': self.timeout,
+			'killed': self.killed,
 		}
-		return json.dumps(ps)
+		return json.dumps({self.client_id: ps})
 
 	def __eq__(self, other):
 		if not isinstance(other, type(self)):
@@ -367,7 +362,7 @@ class Bomberplayer(arcade.Sprite):
 
 	def kill(self, killer):
 		logger.info(f'{self} killed by {killer}')
-		self.killled = True
+		self.killed = True
 
 class Bomb(arcade.Sprite):
 	def __init__(self, image=None, scale=1, bomber=None, timer=1000):
