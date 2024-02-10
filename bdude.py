@@ -41,26 +41,43 @@ class MainMenu(arcade.View):
 		super().__init__()
 		self.game = game
 		self.manager = game.manager
-		self.sb = UIFlatButton(text="Start New Game", width=150)
-		self.eb = UIFlatButton(text="Exit", width=320)
-		grid = UIGridLayout(column_count=2, row_count=3, horizontal_spacing=20, vertical_spacing=20)
-		gridsb = grid.add(self.sb, col_num=1, row_num=0)
-		grideb = grid.add(self.eb, col_num=0, row_num=2, col_span=2)
-		anchor = self.manager.add(UIAnchorLayout())
-		self.anchor = anchor.add(anchor_x="center_x", anchor_y="center_y", child=grid,)
+		self.startbtn = UIFlatButton(text="Start New Game", width=150)
+		self.connectb = UIFlatButton(text="Connect", width=150)
+		self.exitbtn = UIFlatButton(text="Exit", width=150)
+		self.grid = UIGridLayout(column_count=2, row_count=3)
+		gridsb = self.grid.add(self.startbtn, col_num=0, row_num=0)
+		gridcb = self.grid.add(self.connectb, col_num=0, row_num=1)
+		grideb = self.grid.add(self.exitbtn, col_num=0, row_num=2)
+		self.anchor = self.manager.add(UIAnchorLayout())
+		self.anchor.add(anchor_x="center_x", anchor_y="center_y", child=self.grid,)
 
-		@self.sb.event("on_click")
+		@self.startbtn.event("on_click")
 		def on_click_start_new_game_button(event):
 			self.game.setup()
-			self.sb.visible = False
-			self.eb.visible = False
-			self.sb.disabled = True
-			self.eb.disabled = True
+			self.startbtn.visible = False
+			self.exitbtn.visible = False
+			self.startbtn.disabled = True
+			self.exitbtn.disabled = True
 			self.window.show_view(self.game)
 
-		@self.eb.event("on_click")
+		@self.exitbtn.event("on_click")
 		def on_click_exit_button(event):
 			arcade.exit()
+
+		@self.connectb.event("on_click")
+		def on_connect_to_server(event):
+			self.game.setup()
+			self.startbtn.visible = False
+			self.exitbtn.visible = False
+			self.startbtn.disabled = True
+			self.exitbtn.disabled = True
+			self.window.show_view(self.game)
+			self.game.do_connect()
+			self.game._connected = True
+			self.connectb.text = f'{self.game.args.server}'
+			self.connectb.disabled = True
+			self.connectb.visible = False
+
 
 	def on_show_view(self):
 		self.window.background_color = arcade.color.GRAY_ASPARAGUS
@@ -74,7 +91,7 @@ class MainMenu(arcade.View):
 		self.manager.disable() # pass
 
 class Bomberdude(arcade.View):
-	def __init__(self, width, height, title, args):
+	def __init__(self, width=None, height=None, title='foobar', args=None):
 		super().__init__()
 		self.args = args
 		self.debugmode = False
@@ -88,8 +105,6 @@ class Bomberdude(arcade.View):
 		self.hitlist = []
 		self.player_event = PlayerEvent()
 		self.game_state = GameState(player_states=[],game_seconds=0)
-		# self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
-
 		self.ioctx = Context()
 		self.sub_sock: Socket = self.ioctx.socket(zmq.SUB)
 		self.push_sock: Socket = self.ioctx.socket(zmq.PUSH)
@@ -101,21 +116,8 @@ class Bomberdude(arcade.View):
 		self.netplayers = None
 		self.title = title
 		self.eventq = Queue()
-		self.game_ready = False
 		self.graw_graphs = False
-
-		self.grid = UIGridLayout(column_count=2, row_count=3)#, horizontal_spacing=20, vertical_spacing=20)
-		self.connectb = self.grid.add(UIFlatButton(text="Connect"), col_num=1, row_num=0)
-		anchor = self.manager.add(UIAnchorLayout())
-		self.anchor = anchor.add(anchor_x="right", anchor_y="top", child=self.grid,)
-		self.connectb.visible = False
-		self.connectb.disabled = True
 		self.poplist = []
-		# self.gsp = []
-
-		@self.connectb.event("on_click")
-		def on_connect_to_server(event):
-			self.do_connect()
 
 	def __repr__(self):
 		return f'Bomberdude( {self.title} np: {len(self.game_state.players)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
@@ -129,8 +131,6 @@ class Bomberdude(arcade.View):
 		self.sub_sock.subscribe('')
 		self.push_sock.connect(f'tcp://{self.args.server}:9697')
 		self._connected = True
-		self.connectb.text = f'{self.args.server}'
-		self.connectb.disabled = True
 		self.window.set_caption(f'{self.title} connected to {self.args.server} playerid: {self.playerone.client_id}')
 
 	def on_show_view(self):
@@ -160,8 +160,6 @@ class Bomberdude(arcade.View):
 		_ = [self.sceneblocks.append(k) for k in self.scene['Blocks'].sprite_list]
 		_ = [self.scenewalls.append(k) for k in self.scene['Walls'].sprite_list]
 		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scenewalls,platforms=self.sceneblocks, gravity_constant=GRAVITY)
-		self.connectb.visible = True
-		self.connectb.disabled = False
 		self.manager.enable()
 
 	def setup_perf(self):
@@ -198,14 +196,6 @@ class Bomberdude(arcade.View):
 		self.anchor = self.manager.add(UIAnchorLayout())#, anchor_y='top'))
 		self.anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
 
-
-		#anchor = self.manager.add(arcade.gui.UIBoxLayout())
-		#self.anchor.add(child=panel_text)
-		# self.manager.add(arcade.gui.UIAnchorLayout(anchor_x='center_x', anchor_y='center_y', child=v_box), index=None, layer=99)
-		# columns = UIBoxLayout(align='left', vertical=False, children=[UIBoxLayout(align='left',vertical=True,children=[ ], ), ], )
-		# anchor = self.manager.add(arcade.gui.UIAnchorLayout(x=4,align_x=1,anchor_x='left'))#, anchor_y='top'))
-		# self.columns = anchor.add(child=columns,anchor_x='left', anchor_y='top',)
-
 	def on_draw(self):
 		self.clear()
 		# self.draw_player_panel()
@@ -226,15 +216,16 @@ class Bomberdude(arcade.View):
 				self.fps_text.draw()
 
 	def dumpdebug(self):
-		print(f'=============================')
+		print('='*80)
 		print(f'scenewalls:{len(self.scenewalls)} sceneblocks:{len(self.sceneblocks)} bombs:{len(self.bomb_list)} particles:{len(self.particle_list)} flames:{len(self.flame_list)}')
 		print(f'playerone: {self.playerone} pos={self.playerone.position} ') #  gspos={self.game_state.players[self.playerone.client_id]}')
 		print(f'self.game_state.players = {len(self.game_state.players)}')
-		print(f'=============================')
+		print('='*80)
 		for idx,p in enumerate(self.game_state.players):
 			print(f"\t{idx}/{len(self.game_state.players)} p={p} | {self.game_state.players.get(p)} | {self.game_state.players}")
+		print('='*80)
 		arcade.print_timings()
-
+		print('='*80)
 
 	def send_key_press(self, key, modifiers):
 		pass
@@ -317,32 +308,47 @@ class Bomberdude(arcade.View):
 	def update_netplayers(self):
 		# gspcopy = copy.copy(self.game_state.players)
 		for pclid in self.game_state.players:
-			if pclid in [k.client_id for k in self.netplayers]:
-				if self.game_state.players[pclid].get('timeout'): # add to pop list
-					logger.info(f'timeout pclid={pclid} gsp={self.game_state.players}')
-					self.poplist.append(pclid)
-				elif pclid != self.playerone.client_id:
-					netplayer = [k for k in self.netplayers if k.client_id == pclid][0]
-					npl = [k for k in self.columns.children if isinstance(k, UIPlayerLabel) and k.client_id == pclid][0]
-					pclpos = self.game_state.players[pclid].get('position')
-					if self.game_state.players[pclid].get('killed'): # add to pop list
-						netplayer.killed = True
-						npl.value = f'pos: {pclpos} killed'
-					else:
-						npl.value = f'pos: {pclpos}'
-						netplayer.position = pclpos
-			else:
-				if pclid != self.playerone.client_id: # newplayer connected ...
-					pclpos = self.game_state.players[pclid].get('position')
-					newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=pclpos)
-					self.netplayers.append(newplayer)
-					logger.info(f'newplayer: {newplayer} pos: {pclpos} players: {len(self.netplayers)}')
-					playerlabel = UIPlayerLabel(client_id=pclid)
-					playerlabel.value = f'pos: {pclpos}'
-					self.columns_list.append(playerlabel)
-					self.columns = UIBoxLayout(align='left',vertical=True,children=self.columns_list,)
-					self.anchor = self.manager.add(UIAnchorLayout())#, anchor_y='top'))
-					self.anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
+			# logger.info(f'pclid={pclid} gsp={self.game_state.players}')
+			try:
+				if pclid in [k.client_id for k in self.netplayers]:
+					# logger.info(f'pclid={pclid} gsp={self.game_state.players}')
+					if self.game_state.players[pclid].get('timeout'): # add to pop list
+						logger.info(f'timeout pclid={pclid} gsp={self.game_state.players}')
+						self.poplist.append(pclid)
+					elif pclid != self.playerone.client_id:
+
+						netplayer = [k for k in self.netplayers if k.client_id == pclid][0]
+						npl = [k for k in self.columns.children if isinstance(k, UIPlayerLabel) and k.client_id == pclid][0]
+						pclpos = self.game_state.players[pclid].get('position')
+						if self.game_state.players[pclid].get('killed'): # add to pop list
+							# logger.info(f'killed pclid={pclid} gsp={self.game_state.players}')
+							# netplayer.append_texture(arcade.load_texture("data/netplayerdead.png"))
+							# netplayer.set_texture(1)
+							# netplayer.changed = True
+							netplayer.killed = True
+							npl.value = f'pos: {pclpos} killed'
+							netplayer.texture = arcade.load_texture('data/netplayerdead.png')
+							netplayer.changed = True
+						else:
+							npl.value = f'pos: {pclpos}'
+							netplayer.position = pclpos
+				else:
+					if pclid != self.playerone.client_id: # newplayer connected ...
+						logger.info(f'pclid={pclid} gsp={self.game_state.players}')
+						pclpos = self.game_state.players[pclid].get('position')
+						newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=pclpos)
+						self.netplayers.append(newplayer)
+						logger.info(f'newplayer: {newplayer} pos: {pclpos} players: {len(self.netplayers)}')
+						playerlabel = UIPlayerLabel(client_id=pclid)
+						playerlabel.value = f'pos: {pclpos}'
+						self.columns_list.append(playerlabel)
+						self.columns = UIBoxLayout(align='left',vertical=True,children=self.columns_list,)
+						self.anchor = self.manager.add(UIAnchorLayout())#, anchor_y='top'))
+						self.anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
+			except KeyError as e:
+				logger.warning(f'{e} {type(e)} pclid={pclid} gsp={self.game_state.players} netplayers={self.netplayers} ')
+			except Exception as e:
+				logger.error(f'{e} {type(e)} pclid={pclid} gsp={self.game_state.players} netplayers={self.netplayers} ')
 
 	def update_poplist(self):
 		for p in self.poplist:
@@ -369,6 +375,8 @@ class Bomberdude(arcade.View):
 			try:
 				self.update_netplayers()
 			except TypeError as e:
+				logger.warning(f'{e} {type(e)} in update_netplayers self.game_state.players={self.game_state.players}')
+			except KeyError as e:
 				logger.warning(f'{e} {type(e)} in update_netplayers self.game_state.players={self.game_state.players}')
 			except Exception as e:
 				logger.error(f'{e} {type(e)} in update_netplayers self.game_state.players={self.game_state.players}')
@@ -399,11 +407,15 @@ class Bomberdude(arcade.View):
 				if self.playerone.health <= 0:
 					self.playerone.kill(killer=f)
 					self.game_state.players[self.playerone.client_id]['killed'] = True
+					self.playerone.texture = arcade.load_texture('data/netplayerdead.png')
+					self.playerone.changed = True
 					logger.info(f'playerkilled f={f} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
 				if self.playerone.ps.health <= 0:
 					self.playerone.kill(killer=f)
 					self.game_state.players[self.playerone.client_id]['killed'] = True
 					logger.warning(f'psplayerkilled f={f} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
+					self.playerone.texture = arcade.load_texture('data/netplayerdead2.png')
+					self.playerone.changed = True
 				f.remove_from_sprite_lists()
 			f_hitlist = arcade.check_for_collision_with_list(f, self.scenewalls)
 			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
