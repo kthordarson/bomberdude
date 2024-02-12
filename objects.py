@@ -46,10 +46,11 @@ MOVE_MAP = {
 
 class UINumberLabel(UILabel):
 	_value: float = 0
-	def __init__(self, value=0, format="Timer: {value:.0f}", *args, **kwargs):
-		super().__init__(*args, **kwargs)
+	def __init__(self, value=0, format="Timer: {value:.0f}", text_color=arcade.color.BLACK, *args, **kwargs):
+		super().__init__(text_color=text_color, *args, **kwargs)
 		self.format = format
 		self.value = value
+		self.text_color = text_color
 
 	@property
 	def value(self):
@@ -63,10 +64,11 @@ class UINumberLabel(UILabel):
 
 class UITextLabel(UILabel):
 	_value: str = ''
-	def __init__(self, value='', l_text='', *args, **kwargs):
-		super().__init__(*args, **kwargs)
+	def __init__(self, value='', l_text='', text_color=arcade.color.BLACK, *args, **kwargs):
+		super().__init__(text_color=text_color, *args, **kwargs)
 		self.value = value
 		self.l_text = l_text
+		self.text_color = text_color
 		# self.align = 'right'
 
 	@property
@@ -81,8 +83,8 @@ class UITextLabel(UILabel):
 
 class UIPlayerLabel(UILabel):
 	_value: str = ''
-	def __init__(self, client_id, value='', l_text='', *args, **kwargs):
-		super().__init__(*args, **kwargs)
+	def __init__(self, client_id, value='', l_text='', text_color=arcade.color.HAN_BLUE, *args, **kwargs):
+		super().__init__(text_color=text_color, *args, **kwargs)
 		self.client_id = client_id
 		self.value = f'{self.client_id} '
 		self.l_text = l_text
@@ -112,21 +114,15 @@ class PlayerEvent:
 	keys: Dict = field(default_factory=lambda: {k: False for k in MOVE_MAP})
 	client_id: str = 'pemissing'
 	ufcl_cnt: int = 0
-	counter: int = 0
-	game_events: str = ''
-	events: str = ''
+	pe_counter: int = 0
+	# game_events: None
+	# events: None
 
-#	def __init__(self, client_id='missing', *args, **kwars):
-#		self.client_id = client_id
-		#self.keys: Dict = field(default_factory=lambda: {k: False for k in MOVE_MAP})
-	# def __init__(self,game_events=None, *args, **kwars):
-	# 	self.game_events = game_events
-	# 	logger.debug(f'init game_events:{game_events}')
 	def __post_init__(self):
 		self.keys = {int(k): v for k, v in self.keys.items()}
 
 	def __repr__(self):
-		return f'PlayerEvent ({self.client_id} GE={self.game_events})'
+		return f'PlayerEvent ({self.client_id} )'
 
 	def asdict(self):
 		return asdict(self)
@@ -143,7 +139,7 @@ class PlayerState:
 	speed: float = 0.0
 	health: float = 100.1
 	ammo: float = 0.0
-	score: int = 0
+	# score: int = 0
 	client_id: str = 'none'
 	position  = [222,222]
 
@@ -180,123 +176,166 @@ class PlayerState:
 
 @dataclass
 class GameState:
-	player_states: List[PlayerState]
+	# player_states: List[PlayerState]
 	game_seconds: int = 0
 	cjsonupdate: int = 0
 
 	def __repr__(self):
-		return f'Gamestate (gs:{self.game_seconds} cj:{self.cjsonupdate} pl:{len(self.players)}  ps:{len(self.player_states)} )'
+		return f'Gamestate (gs:{self.game_seconds} events:{len(self.game_events)} counters = chkpc: {self.chkp_counter} ugsc: {self.ugs_counter} tojc: {self.toj_counter} fjc: {self.fj_counter} players:{len(self.players)})'
 
-	def __init__(self, player_states=None, game_seconds=None, debugmode=False):
+	def __init__(self,  game_seconds=None, debugmode=False):
 		self.players = {}
-		self.player_states = player_states
+		# self.player_states = player_states
 		self.game_seconds = game_seconds
 		self.debugmode = debugmode
-		self.events = []
 		self.game_events = []
-		self.event_queue = Queue()
+		# self.event_queue = Queue()
+		# debugstuff
+		self.chkp_counter = 0
+		self.ugs_counter = 0
+		self.toj_counter = 0
+		self.fj_counter = 0
+
+	def check_events(self):
+		#eventcopy = copy.copy(self.game_events)
+		for event in self.game_events:
+			event['event_time'] += 1
+			if event.get('handled') == True:
+				logger.info(f'removing event {event} {self} sge={self.game_events}')
+				self.game_events.remove(event)
+			elif event.get('event_time') > 10:
+				logger.warning(f'eventtimeout={event} {self} sge={self.game_events}')
+				self.game_events.remove(event)
+		if len(self.game_events) > 2:
+			logger.warning(f'unhandledevents {self} sge={self.game_events}' )
 
 	def check_players(self):
+		self.chkp_counter += 1
 		dt = time.time()
 		playerscopy = copy.copy(self.players)
 		old_len = len(self.players)
 		pops = []
 		for p in playerscopy:
 			try:
-				dt_diff = dt - self.players[p].get('msg_dt', 9999)
-				playerhealth = self.players[p].get('health', 0)
-				if dt_diff > 10:# player timeout
+				dt_diff = dt - self.players[p].get('msg_dt')
+				playerhealth = self.players[p].get('health')
+				if dt_diff > 10: # player timeout
 					self.players[p]['timeout'] = True
-					# self.players[p]['msgsource'] = 'timeout'
-					# pops.append(p)
-					# break
 			except Exception as e:
-				logger.error(f'{type(e)} {e} {p} selfplayers={self.players}')
-		# for p in pops:
-		# 	logger.debug(f'{len(self.players)} {len(pops)} self.players={self.players}')
-		# 	logger.info(f'popping {p} {self.players.get(p)}')
-		# 	self.players.pop(p)
-		# 	logger.debug(f'{len(self.players)} {len(pops)} self.players={self.players}')
+				logger.error(f'{self} {type(e)} {e} {p} selfplayers={self.players}')
 
-	def update_game_state(self, event: PlayerEvent, clid, msg):
+	def update_game_state(self, clid, msg):
+		self.ugs_counter += 1
+		self.game_seconds += 1
 		if self.debugmode:
-			logger.debug(f'event:{event} from: {clid} msg={msg}')
+			logger.debug(f'gsge={len(self.game_events)}  from: {clid} msg={msg}')
 		msghealth = msg.get('health')
 		msgtimeout = msg.get('timeout')
 		msgkilled = msg.get('killed')
-		if msgtimeout:
-			logger.warning(f'timeout: {clid} {msg}')
-			self.players.pop(clid)
-			# self.players[clid] = {}
-			return
-		else:
-			playerdict = {
-				'client_id':clid,
-				'position': msg.get('position'),
-				'health': msghealth,
-				'msg_dt': msg.get('msg_dt'),
-				'timeout': msgtimeout,
-				'killed': msgkilled,
-				'msgsource': 'update_game_state',
+		playerdict = {
+			'client_id':clid,
+			'position': msg.get('position'),
+			'score': msg.get('score'),
+			'health': msghealth,
+			'msg_dt': msg.get('msg_dt'),
+			'timeout': msgtimeout,
+			'killed': msgkilled,
+			'msgsource': 'update_game_state',
 
-			}
-			self.players[clid] = playerdict
-		events = msg.get('events', None)
-		if events:
-			logger.warning(f'events:{events}')
-		game_events = msg.get('game_events', None)
-		if game_events:
-			for game_event in game_events:
-				if game_event is None:
-					# logger.warning(f'game_event is None')
-					break
-				# logger.info(f'gevent:{game_event} game_events:{game_events}')
-				self.game_events.append(game_event)
-				event_type = game_event.get('event', None)
+		}
+		self.players[clid] = playerdict
+		# game_events = msg.get('game_events', None)
+		# if game_events:
+		# self.game_events = []
+	def update_game_events(self, msg):
+		for game_event in msg.get('game_events'):
+			game_event['event_time'] += 1
+			event_type = game_event.get('event_type')
+			eventid = game_event.get('eventid')
+			evntchk =  [k for k in self.game_events if k.get('eventid') == eventid]
+			if len(evntchk) > 0:
+				continue # logger.warning(f'dupeevntchk {len(evntchk)} eventid {eventid} {game_event} already in game_events')# :  msg={msg} selfgameevents:{self.game_events}')
+				# r = [self.game_events.remove(k) for k in evntchk]
+			else:
 				match event_type:
+					# logger.debug(f'self.game_events={self.game_events}')
 					case 'blkxplode': # todo make upgradeblock here....
+						# game_event['handled'] = True
 						uptype = random.choice([1,2,3])
-						# logger.debug(f'self.game_events={self.game_events}')
-						self.game_events.append({'event': 'upgradeblock', 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame')})
-						logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
+						newevent = {'event_time':0, 'event_type': 'upgradeblock', 'client_id': game_event.get("client_id"), 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
+						self.game_events.append(newevent)
+						if self.debugmode:
+							logger.info(f'gsge={len(self.game_events)} {event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
 					case 'bombdrop': # decide on somethingsomething..
-						logger.debug(f'{event_type} from {game_event.get("bomber")} pos:{game_event.get("pos")}')
+						game_event['handledby'] = f'ugsbomb'
+						self.game_events.append(game_event)
+						if self.debugmode:
+							logger.debug(f'gsge={len(self.game_events)} {event_type} from {game_event.get("bomber")} pos:{game_event.get("pos")}')
+					case 'upgradeblock': # decide on somethingsomething..
+						game_event['handled'] = True
+						game_event['handledby'] = f'ugsupgr'
+						self.game_events.append(game_event)
+						if self.debugmode:
+							logger.debug(f'gsge={len(self.game_events)} {event_type} {game_event.get("upgradetype")} pos:{game_event.get("fpos")} from {game_event.get("client_id")}')
+					case 'playerkilled': # increase score for killer
+						self.players[game_event.get("killer")]['score'] += 1
+						game_event['handled'] = True
+						game_event['handledby'] = f'ugskill'
+						self.game_events.append(game_event)
+						if self.debugmode:
+							logger.debug(f'gsge={len(self.game_events)} {event_type}  killer:{game_event.get("killer")} gamevent={game_event}')
 					case _: #
-						logger.warning(f'unknown game_events {game_events}')
-		self.game_seconds += 1
+						logger.warning(f'gsge={len(self.game_events)} unknown game_event:{event_type} from msg={msg}')
+				#elif game_event.get('handled') == True:
+				#	logger.warning(f'game_event already handled: {game_event} msg={msg}')
 
-	def to_json(self, event=None, debugmode=False):
-		dout = {'events':[], 'players':{}, 'game_events': self.game_events}
-		for p in self.players:
+
+	def to_json(self):
+		self.toj_counter += 1
+		dout = {'players':{}, 'game_events': []}
+		for ge in self.game_events:
+			ge['event_time'] += 1
+			if ge['handled'] == False:
+				dout['game_events'].append(ge)
+			else:
+				logger.warning(f'unhandled {ge} sge={self.game_events}')
+
+		for player in self.players:
 			playerdict = {
-			'client_id':p,
-			'position': self.players[p].get('position'),
-			'health': self.players[p].get('health'),
-			'msg_dt': self.players[p].get('msg_dt'),
-			'timeout': self.players[p].get('timeout'),
-			'killed': self.players[p].get('killed'),
+			'client_id':player,
+			'position': self.players[player].get('position'),
+			'health': self.players[player].get('health'),
+			'msg_dt': self.players[player].get('msg_dt'),
+			'timeout': self.players[player].get('timeout'),
+			'killed': self.players[player].get('killed'),
+			'score': self.players[player].get('score'),
 			'msgsource': 'to_json',
 			}
-
-			if playerdict.get('timeout'):
-				pass # logger.warning(f'timeouttojson: playerdict:{playerdict} selfplayers={self.players}')
-			else:
-				dout['players'][p] = playerdict #Q = playerdict
-		if debugmode:
-			logger.info(f'tojson dout={dout}')
+			dout['players'][player] = playerdict #Q = playerdict
+		if self.debugmode:
+			logger.info(f'gsge={len(self.game_events)} tojson dout={dout}')
+		# self.game_events = [] # clear events
 		return dout
 
-	def from_json(self, dgamest, debugmode=False):
-		# events = dgamest.get('events')
-		# if events:
-		# 	logger.warning(f'events:{events}')
-		# 	self.event_queue.put_nowait(events)
-		game_events = dgamest.get('game_events',[])
-		# logger.info(f'dgamest={dgamest}')
-		if game_events:
-			logger.info(f'game_events:{game_events}') # todo handle and clear events ....
-			#self.game_events = game_events
-			self.event_queue.put_nowait(game_events)
+	def from_json(self, dgamest):
+		self.fj_counter += 1
+		for ge in dgamest.get('game_events', []):
+			# logger.info(f'dgamest={dgamest}')
+			# self.game_events = []
+			#for ge in game_events:
+			if len(self.game_events) > 1:
+				logger.warning(f'self.game_events: {len(self.game_events)} dgamest={dgamest}  game_events={self.game_events}')
+			if ge.get('handled') == False:
+				self.game_events.append(ge)
+			else:
+				logger.warning(f'game_event already handled: {ge}')
+			if self.debugmode:
+				logger.info(f"ge={ge} sge:{len(self.game_events)} game_events={dgamest.get('game_events')}")
+			ge['handledby'] = 'fromjson'
+			ge['event_time'] += 1
+
+				##self.game_events = game_events
+				# self.event_queue.put_nowait(game_events)
 
 		plist = dgamest.get('players',[])
 		for player in plist:
@@ -305,7 +344,7 @@ class GameState:
 			else:
 				self.players[plist.get(player).get('client_id')] = plist.get(player)
 				# logger.info(f'player={player} dgamest={dgamest} selfplayers={self.players}')
-		if debugmode:
+		if self.debugmode:
 			pass # logger.debug(f'dgamest={dgamest}')# gs={self.game_seconds} selfplayers={self.players}')
 
 @dataclass
@@ -320,29 +359,35 @@ class Bomberplayer(arcade.Sprite):
 	def __init__(self, image=None, scale=1, client_id=None, position=[123.3,123.5]):
 		super().__init__(image,scale)
 		self.client_id = client_id
-		self.ps = PlayerState(self.client_id, position)
-		self.ps.set_pos(position)
+		# self.ps = PlayerState(self.client_id, position)
+		# self.ps.set_pos(position)
 		self.position = position
 		self.bombsleft = 3
 		self.health = 100
 		self.killed = False
 		self.timeout = False
+		self.score = 0
 		# self.text = arcade.Text(f'{self.client_id} h:{self.health} pos:{self.position}', 10,10)
 
 	def __repr__(self):
-		return f'Bomberplayer ({self.client_id} h:{self.health} pos:{self.position} pspos={self.ps.position})'
+		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} )'
 
-	def get_ps(self):
-		ps = {
+	def addscore(self, score):
+		self.score += score
+		logger.info(f'{self} score:{self.score}')
+
+	def get_playerstate(self):
+		playerstate = {
 			'client_id': self.client_id,
 			'position': self.position,
 			'health': self.health,
-			'msgsource': 'get_ps',
+			'msgsource': 'get_playerstate',
 			'msg_dt': time.time(),
 			'timeout': self.timeout,
 			'killed': self.killed,
+			'score': self.score,
 		}
-		return json.dumps({self.client_id: ps})
+		return json.dumps({self.client_id: playerstate})
 
 	def __eq__(self, other):
 		if not isinstance(other, type(self)):

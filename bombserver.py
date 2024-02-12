@@ -76,18 +76,27 @@ class ServerTUI(Thread):
 		return self._stop.is_set()
 
 	def get_serverinfo(self):
-		logger.info(f'players={len(self.server.gs.players)} t:{active_count()}')
-		for t in _enumerate():
-			print(f'\t{t} {t.name} alive: {t.is_alive()}')
-		# print(f'gamestate: {self.server.gs}')
-		# print(f'gamestateplayers: {self.server.gs.players}')
-		for p in self.server.gs.players:
-			print(f'\tp={p} {self.server.gs.players[p]}')
+		print(f'players={len(self.server.game_state.players)} t:{active_count()}')
+		print(f'gamestate: {self.server.game_state}')
+		# print(f'gamestate: {self.server.game_state}')
+		# print(f'gamestateplayers: {self.server.game_state.players}')
+		for p in self.server.game_state.players:
+			print(f'p={p} {self.server.game_state.players[p]}')
 
 	def dump_playerlist(self):
-		logger.info(f'players: {len(self.server.gs.players)} ')
-		for p in self.server.gs.players:
-			print(f'\tplayer: {p} pos: {self.server.gs.players[p].get("position")}  b: {self.server.gs.players[p].get("bombsleft")} h: {self.server.gs.players[p].get("health")}  counter: {self.server.gs.players[p].get("counter")} ')
+		print(f'players: {len(self.server.game_state.players)} ')
+		print(f'gamestate: {self.server.game_state}')
+		for p in self.server.game_state.players:
+			print(f'player: {p} pos: {self.server.game_state.players[p].get("position")}  b: {self.server.game_state.players[p].get("bombsleft")} h: {self.server.game_state.players[p].get("health")}  counter: {self.server.game_state.players[p].get("counter")} ')
+
+	def dumpgameevents(self):
+		print(f'gamestate: {self.server.game_state} events: {len(self.server.game_state.game_events)}')
+		for e in self.server.game_state.game_events:
+			print(f'event: {e}')
+
+	def cleargameevents(self):
+		print(f'clearevents gamestate: {self.server.game_state} events: {len(self.server.game_state.game_events)}')
+		self.server.game_state.game_events = []
 
 	def run(self):
 		while not self.stopped():
@@ -95,15 +104,23 @@ class ServerTUI(Thread):
 				cmd = input(':> ')
 				if cmd[:1] == 's':
 					self.get_serverinfo()
+				if cmd[:1] == 'e':
+					self.dumpgameevents()
+				if cmd[:2] == 'ec':
+					self.cleargameevents()
 				if cmd[:1] == 'd':
 					self.server.debugmode = not self.server.debugmode
+					logger.debug(f'sdbg={self.server.debugmode} {self.server.game_state.debugmode}')
+				if cmd[:1] == 'ds':
+					self.server.game_state.debugmode = not self.server.game_state.debugmode
+					logger.debug(f'sdbg={self.server.debugmode} {self.server.game_state.debugmode}')
 				if cmd[:1] == 'p':
 					self.dump_playerlist()
 				elif cmd[:1] == 'q':
 					logger.warning(f'{self} {self.server} tuiquit')
 					self.stop()
 				else:
-					logger.info(f'[tui] cmds: s=serverinfo, d=debugmode, p=playerlist, q=quit')
+					pass # logger.info(f'[tui] cmds: s=serverinfo, d=debugmode, p=playerlist, q=quit')
 			except KeyboardInterrupt:
 				self.stop()
 				break
@@ -119,34 +136,31 @@ class BombServer():
 		self.sock_recv_player_evts.bind(f'tcp://{args.listen}:9697')
 		self.ticker_task = asyncio.create_task(self.ticker(self.sock_push_gamestate, self.sock_recv_player_evts),)
 		self.debugmode = False
-		self.gs = GameState(player_states=[], game_seconds=1, debugmode=self.debugmode)
+		self.game_state = GameState(game_seconds=1, debugmode=self.debugmode)
+		# debugstuff
+		self.ufc_counter = 0
+		self.tick_count = 0
 
 	async def update_from_client(self, sockrecv):
-		ufcl_cnt = 0
 		try:
 			while True:
+				self.ufc_counter += 1
 				msg = await sockrecv.recv_json()
+				if self.debugmode:
+					logger.info(f'msg: {msg}')
 				clid = msg['client_id']
-				game_events = msg.get('game_events', [])
-				events = msg.get('events', None)
-				ufcl_cnt += 1
-				event_dict = msg['event']
-				event_dict['counter'] = msg['counter']
-				event_dict['client_id'] = clid
-				event_dict['ufcl_cnt'] = ufcl_cnt
-				event_dict['game_events'] = game_events
-				event_dict['events'] = events
-				player_event = PlayerEvent(**event_dict)
-				player_event.set_client_id(clid)
-				self.gs.update_game_state(player_event, clid, msg)
-				# if game_events:
-				# 	logger.debug(f'playerevent={player_event} game_events:{game_events} msg:{msg}')
-				#if events:
-				#	logger.info(f'events:{events} msg:{msg}')
-				# logger.info(f'msg={msg}')
+				# game_events = msg.get('game_events', [])
+				# event_dict = msg['event']
+				# event_dict['counter'] = msg['counter']
+				# event_dict['client_id'] = clid
+				# event_dict['ufcl_cnt'] = self.ufc_counter
+				# event_dict['game_events'] = game_events
+				# player_event = PlayerEvent(**event_dict)
+				# player_event.set_client_id(clid)
+				self.game_state.update_game_state(clid, msg)
+				self.game_state.update_game_events(msg)
 		except asyncio.CancelledError as e:
 			logger.error(f'{e} {type(e)}')
-
 
 	async def ticker(self, sockpush, sockrecv):
 		t = create_task(self.update_from_client(sockrecv))
@@ -154,16 +168,16 @@ class BombServer():
 		# Send out the game state to all players 60 times per second.
 		try:
 			while True:
-				self.gs.check_players()
-				await sockpush.send_json(self.gs.to_json(self.debugmode))
-				self.gs.game_events = []
+				self.tick_count += 1
+				self.game_state.check_players()
+				self.game_state.check_events()
+				await sockpush.send_json(self.game_state.to_json())
 				await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
+				# self.game_state.game_events = []
 		except asyncio.CancelledError as e:
 			logger.error(f'{e} {type(e)}')
 			t.cancel()
 			await t
-
-
 
 async def main(args):
 	fut = asyncio.Future()
