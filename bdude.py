@@ -296,16 +296,42 @@ class Bomberdude(arcade.View):
 				case 'blkxplode':
 					if self.debugmode:
 						logger.info(f'{event_type} from {game_event.get("fbomber")}')
-				case 'playerkilled':
+				case 'playerkilled' | 'dmgkill':
 					#if self.debugmode:
 					killer = game_event.get("killer")
 					killed = game_event.get("killed")
+					kill_score = 1
+					[k.set_texture(arcade.load_texture('data/netplayerdead.png')) for k in self.netplayers if k.client_id == killed]#[0]
+					[k.addscore(kill_score) for k in self.netplayers if k.client_id == killer]
 					logger.info(f'{event_type} from {killer=}  {killed=}')
-					try:
-						[k.set_texture(arcade.load_texture('data/netplayerdead.png')) for k in self.netplayers if k.client_id == killed]#[0]
-						# netplayer.texture = arcade.load_texture('data/netplayerdead.png')
-					except IndexError as e:
-						logger.error(f'{e} {self.netplayers=}')
+					if killed == self.playerone.client_id:
+						kill_score += self.playerone.kill(killer)
+						logger.debug(f'{event_type} from {killer=}  {killed=} {self.playerone=} {kill_score=}')
+					if killer == self.playerone.client_id:
+						self.playerone.score += kill_score
+						logger.debug(f'{event_type} from {killer=}  {killed=} {self.playerone=} {kill_score=}')
+					self.game_state.players[killed]['score'] += kill_score
+				case 'takedamage':
+					#if self.debugmode:
+					killer = game_event.get("killer")
+					killed = game_event.get("killed")
+					damage = game_event.get("damage")
+					score = sum([k.take_damage(damage, killer) for k in self.netplayers if k.client_id == killed])
+					logger.info(f'{event_type} from {killer=}  {killed=} {score=}')
+					if killed == self.playerone.client_id:
+						score += self.playerone.take_damage(damage, killer)
+						logger.debug(f'{event_type} from {killer=}  {killed=} {self.playerone=} {score=}')
+					self.game_state.players[killed]['score'] += score
+				case 'acktakedamage':
+					#if self.debugmode:
+					killer = game_event.get("killer")
+					killed = game_event.get("killed")
+					damage = game_event.get("damage")
+					logger.info(f'{event_type} from {killer=}  {killed=} ')
+					if killed == self.playerone.client_id:
+						score = self.playerone.take_damage(damage, killer)
+						logger.debug(f'{event_type} from {killer=}  {killed=} {self.playerone=} {score=}')
+						self.game_state.players[killed]['score'] += score
 				case 'bombdrop':
 					bomber = game_event.get('bomber')
 					bombpos = game_event.get('pos')
@@ -329,47 +355,32 @@ class Bomberdude(arcade.View):
 		# gspcopy = copy.copy(self.game_state.players)
 		for pclid in self.game_state.players:
 			# logger.info(f'pclid={pclid} gsp={self.game_state.players}')
-			try:
-				if pclid in [k.client_id for k in self.netplayers]:
-					# logger.info(f'pclid={pclid} gsp={self.game_state.players}')
-					if self.game_state.players[pclid].get('timeout'): # add to pop list
-						logger.info(f'timeout pclid={pclid} gsp={self.game_state.players}')
-						self.poplist.append(pclid)
-					elif pclid != self.playerone.client_id:
-						netplayer = [k for k in self.netplayers if k.client_id == pclid][0]
-						npl = [k for k in self.columns.children if isinstance(k, UIPlayerLabel) and k.client_id == pclid][0]
-						pclpos = self.game_state.players[pclid].get('position')
-						score = self.game_state.players[pclid].get('score')
-						if self.game_state.players[pclid].get('killed'): # add to pop list
-							logger.info(f'killed pclid={pclid} gsp={self.game_state.players}')
-							# netplayer.append_texture(arcade.load_texture("data/netplayerdead.png"))
-							# netplayer.set_texture(1)
-							# netplayer.changed = True
-							# netplayer.killed = True
-							# npl.value = f'pos: {pclpos} killed score: {score}'
-							# netplayer.texture = arcade.load_texture('data/netplayerdead.png')
-							# netplayer.changed = True
-						else:
-							npl.value = f'pos: {pclpos} score: {score}'
-							netplayer.position = pclpos
-				else:
-					if pclid != self.playerone.client_id: # newplayer connected ...
-						pclpos = self.game_state.players[pclid].get('position')
-						score = self.game_state.players[pclid].get('score')
-						newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=pclpos)
-						self.netplayers.append(newplayer)
-						logger.info(f'newplayer: {newplayer} pos: {pclpos} players: {len(self.netplayers)}')
-						playerlabel = UIPlayerLabel(client_id=pclid)
-						playerlabel.value = f'pos: {pclpos} score: {score}'
-						self.columns_list.append(playerlabel)
-						self.columns = UIBoxLayout(align='left',vertical=True,children=self.columns_list,)
-						self.anchor = self.manager.add(UIAnchorLayout())#, anchor_y='top'))
-						self.anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
-			except KeyError as e:
-				logger.warning(f'{e} {type(e)} pclid={pclid} gsp={self.game_state.players} netplayers={self.netplayers} ')
-			except Exception as e:
-				logger.error(f'{e} {type(e)} pclid={pclid} gsp={self.game_state.players} netplayers={self.netplayers} ')
-
+			if pclid == self.playerone.client_id:
+				continue
+			if self.game_state.players[pclid].get('killed'): # add to pop list
+				logger.info(f'killed pclid={pclid} gsp={self.game_state.players}')
+			if pclid in [k.client_id for k in self.netplayers]:
+				# logger.info(f'pclid={pclid} gsp={self.game_state.players}')
+				if pclid != self.playerone.client_id:
+					netplayer = [k for k in self.netplayers if k.client_id == pclid][0]
+					npl = [k for k in self.columns.children if isinstance(k, UIPlayerLabel) and k.client_id == pclid][0]
+					pclpos = self.game_state.players[pclid].get('position')
+					score = self.game_state.players[pclid].get('score')
+					npscore = netplayer.score
+					npl.value = f'pos: {pclpos} score: {score} npscore: {npscore}'
+					netplayer.position = pclpos
+			else:
+				pclpos = self.game_state.players[pclid].get('position')
+				score = self.game_state.players[pclid].get('score')
+				newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=pclpos)
+				self.netplayers.append(newplayer)
+				logger.info(f'newplayer: {newplayer} pos: {pclpos} players: {len(self.netplayers)}')
+				playerlabel = UIPlayerLabel(client_id=pclid)
+				playerlabel.value = f'pos: {pclpos} score: {score}'
+				self.columns_list.append(playerlabel)
+				self.columns = UIBoxLayout(align='left',vertical=True,children=self.columns_list,)
+				self.anchor = self.manager.add(UIAnchorLayout())#, anchor_y='top'))
+				self.anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
 	def update_poplist(self):
 		for p in self.poplist:
 			logger.info(f'plist={self.poplist} popping {p} gsp={self.game_state.players}')
@@ -411,15 +422,18 @@ class Bomberdude(arcade.View):
 					# logger.info(f'p: {len(bombflames.get("plist"))} pl: {len(self.particle_list)} p1: {self.playerone} b: {b}')
 		for f in self.flame_list:
 			if arcade.check_for_collision(f, self.playerone):
-				self.playerone.health -= 123
-				if self.playerone.health <= 0:
-					self.playerone.kill(killer=f)
-					self.game_state.players[self.playerone.client_id]['killed'] = True
-					event = {'event_time':0, 'event_type':'playerkilled', 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
-					#self.game_state.game_events.append(event)
-					self.eventq.put(event)
-					if self.debugmode:
-						logger.info(f'playerkilled f={f} pone={self.playerone} gsp={self.game_state.players}')
+				# self.playerone.health -= 123
+				event = {'event_time':0, 'event_type':'takedamage', 'damage': 101, 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+				#self.game_state.game_events.append(event)
+				self.eventq.put(event)
+				# if self.playerone.health <= 0:
+				# 	self.playerone.kill(killer=f)
+				# 	self.game_state.players[self.playerone.client_id]['killed'] = True
+				# 	event = {'event_time':0, 'event_type':'playerkilled', 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+				# 	#self.game_state.game_events.append(event)
+				# 	self.eventq.put(event)
+				# 	if self.debugmode:
+				# 		logger.info(f'playerkilled f={f} pone={self.playerone} gsp={self.game_state.players}')
 					# [k.addscore(1) for k in self.netplayers if k.client_id == f.bomber]
 					# killerid = [k for k in self.game_state.players if k == f.bomber][0]
 					# logger.info(f'playerkilled f={f} killerid={killerid}  pone={self.playerone} gsp={self.game_state.players}')

@@ -269,12 +269,29 @@ class GameState:
 						if self.debugmode:
 							logger.debug(f'gsge={len(self.game_events)} {event_type} {game_event.get("upgradetype")} pos:{game_event.get("fpos")} from {game_event.get("client_id")}')
 					case 'playerkilled': # increase score for killer
-						self.players[game_event.get("killer")]['score'] += 1
+						killer = game_event.get("killer")
+						killed = game_event.get("killed")
+						self.players[killer]['score'] += 1
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugskill'
 						self.event_queue.put_nowait(game_event)
-						if self.debugmode:
-							logger.debug(f'gsge={len(self.game_events)} {event_type}  killer:{game_event.get("killer")} gamevent={game_event}')
+						#if self.debugmode:
+						logger.debug(f'{event_type} {killer=} {killed=} {self.players[killer]}')
+					case 'takedamage': # increase score for killer
+						killer = game_event.get("killer")
+						killed = game_event.get("killed")
+						damage = game_event.get("damage")
+						self.players[killed]['health'] -= damage
+						game_event['handled'] = True
+						game_event['handledby'] = f'ugskill'
+						if self.players[killed]['health'] > 0:
+							game_event['event_type'] = 'acktakedamage'
+						else:
+							self.players[killer]['score'] += 1
+							game_event['event_type'] = 'dmgkill'
+						self.event_queue.put_nowait(game_event)
+						#if self.debugmode:
+						logger.debug(f'{event_type} {killer=} {killed=} {self.players[killer]}')
 					case _: #
 						logger.warning(f'gsge={len(self.game_events)} unknown game_event:{event_type} from msg={msg}')
 				#elif game_event.get('handled') == True:
@@ -349,6 +366,22 @@ class Bomberplayer(arcade.Sprite):
 	def __repr__(self):
 		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} )'
 
+	def __eq__(self, other):
+		if not isinstance(other, type(self)):
+			return False
+		# compare values in slots
+		for slot in self.__slots__:
+			if getattr(self, slot) != getattr(other, slot):
+				return False
+		return True
+
+	def __hash__(self):
+		values = [getattr(self, slot) for slot in self.__slots__]
+		for i in range(len(values)):
+			if isinstance(values[i], list):
+				values[i] = tuple(values[i])
+		return stable_hash(tuple([type(self)] + values))
+
 	def set_texture(self, texture):
 		self.texture = texture
 
@@ -369,27 +402,21 @@ class Bomberplayer(arcade.Sprite):
 		}
 		return json.dumps({self.client_id: playerstate})
 
-	def __eq__(self, other):
-		if not isinstance(other, type(self)):
-			return False
-		# compare values in slots
-		for slot in self.__slots__:
-			if getattr(self, slot) != getattr(other, slot):
-				return False
-		return True
-
-	def __hash__(self):
-		values = [getattr(self, slot) for slot in self.__slots__]
-		for i in range(len(values)):
-			if isinstance(values[i], list):
-				values[i] = tuple(values[i])
-		return stable_hash(tuple([type(self)] + values))
+	def take_damage(self, damage, killer):
+		self.health -= damage
+		logger.info(f'{self} health:{self.health} {damage=} {killer=}')
+		if self.health <= 0:
+			self.killed = True
+			self.kill(killer)
+			return 1
+		return 0
 
 	def kill(self, killer):
 		logger.info(f'{self} killed by {killer}')
 		self.killed = True
 		self.texture = arcade.load_texture('data/netplayerdead.png')
 		self.changed = True
+		return 1
 
 class Bomb(arcade.Sprite):
 	def __init__(self, image=None, scale=1, bomber=None, timer=1000):
