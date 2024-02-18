@@ -204,15 +204,12 @@ class GameState:
 		old_len = len(self.players)
 		pops = []
 		for p in playerscopy:
-			try:
-				dt_diff = dt - self.players[p].get('msg_dt')
-				playerhealth = self.players[p].get('health')
-				if dt_diff > 10: # player timeout
-					self.players[p]['timeout'] = True
-					if not self.players[p]['timeout']:
-						logger.info(f'player timeout {p} dt_diff={dt_diff} selfplayers={self.players}')
-			except Exception as e:
-				logger.error(f'{self} {type(e)} {e} {p} selfplayers={self.players}')
+			dt_diff = dt - self.players[p].get('msg_dt')
+			playerhealth = self.players[p].get('health')
+			if dt_diff > 10: # player timeout
+				self.players[p]['timeout'] = True
+				if not self.players[p]['timeout']:
+					logger.info(f'player timeout {p} dt_diff={dt_diff} selfplayers={self.players}')
 
 	def update_game_state(self, clid, msg):
 		self.ugs_counter += 1

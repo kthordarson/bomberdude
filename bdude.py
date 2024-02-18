@@ -149,16 +149,16 @@ class Bomberdude(arcade.View):
 		self.tile_map = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
-		self.bomb_list = arcade.SpriteList()
-		self.particle_list = arcade.SpriteList()
-		self.flame_list = arcade.SpriteList()
-		self.netplayers = arcade.SpriteList()
+		self.bomb_list = arcade.SpriteList(use_spatial_hash=True)
+		self.particle_list = arcade.SpriteList(use_spatial_hash=True)
+		self.flame_list = arcade.SpriteList(use_spatial_hash=True)
+		self.netplayers = arcade.SpriteList(use_spatial_hash=True)
 		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.background_color = arcade.color.AMAZON
 		self.background_color = arcade.color.DARK_BLUE_GRAY
 		self.scene.add_sprite_list_after("Player", "Walls")
-		self.scenewalls = arcade.SpriteList()
-		self.sceneblocks = arcade.SpriteList()
+		self.scenewalls = arcade.SpriteList(use_spatial_hash=True)
+		self.sceneblocks = arcade.SpriteList(use_spatial_hash=True)
 		_ = [self.sceneblocks.append(k) for k in self.scene['Blocks'].sprite_list]
 		_ = [self.scenewalls.append(k) for k in self.scene['Walls'].sprite_list]
 		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scenewalls,platforms=self.sceneblocks, gravity_constant=GRAVITY)
@@ -317,7 +317,8 @@ class Bomberdude(arcade.View):
 					bomb.center_x = bombpos[0]
 					bomb.center_y = bombpos[1]
 					self.bomb_list.append(bomb)
-					logger.info(f'{game_event} from {bomber} pos {bombpos} ')
+					if self.debugmode:
+						logger.info(f'{game_event} from {bomber} pos {bombpos} ')
 				case _:
 					# game_events.remove(game_event)
 					logger.warning(f'unknown type:{event_type} gameevents={game_events} gse:{game_events}')
@@ -391,29 +392,12 @@ class Bomberdude(arcade.View):
 		except Exception as e:
 			logger.error(f'{e} {type(e)}')
 		if game_events:
-			print(f'{game_events=}')
 			self.handle_game_events([game_events,])
-		#self.game_state.game_events = []
 
 		self.timer.value += dt
-		# self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
-		# self.gsp = self.game_state.players.get("players",[])
 		if len(self.game_state.players) > 0:
-			try:
-				self.update_netplayers()
-			except TypeError as e:
-				logger.warning(f'{e} {type(e)} in update_netplayers self.game_state.players={self.game_state.players}')
-			except KeyError as e:
-				logger.warning(f'{e} {type(e)} in update_netplayers self.game_state.players={self.game_state.players}')
-			except Exception as e:
-				logger.error(f'{e} {type(e)} in update_netplayers self.game_state.players={self.game_state.players}')
-			try:
-				self.update_poplist()
-			except TypeError as e:
-				logger.warning(f'{e} {type(e)} in update_poplist self.game_state.players={self.game_state.players}')
-			except Exception as e:
-				logger.error(f'{e} {type(e)} in update_poplist self.game_state.players={self.game_state.players}')
-			#self.gs_ghost.visible = True
+			self.update_netplayers()
+			self.update_poplist()
 		if self.debugmode or self.game_state.debugmode:
 			self.status_label.value = f'id {self.playerone.client_id} score: {self.playerone.score} netplayers: {len(self.game_state.players)} dbg:{self.debugmode} gsdbg:{self.game_state.debugmode} '
 		else:
@@ -492,19 +476,8 @@ class Bomberdude(arcade.View):
 						p.left = hit.right
 				if len(p_hitlist) > 0:
 					p.change_x *= -1
-			p_hitlist = arcade.check_for_collision_with_list(p, self.scenewalls)
-			if p_hitlist:
-				for hit in p_hitlist:
-					if p.change_y > 0:
-						p.top = hit.bottom
-					elif p.change_y < 0:
-						p.bottom = hit.top
-				if len(p_hitlist) > 0:
-					p.change_y *= -1
-
 		self.particle_list.update()
 		self.flame_list.update()
-
 		self.camera.center(self.playerone.position)
 
 	def dropbomb(self, key):
@@ -538,16 +511,6 @@ async def thread_main(game, loop):
 				game.eventq.task_done()
 			except Empty:
 				game_events = []
-			# except Exception as e:
-			# 	logger.error(f'{e} {type(e)}')
-			# 	game_events = []
-			# if game_events:
-			# 	pass # logger.info(f'{game.playerone.client_id} game_events:{game_events} ')
-			# playereventdict = game.player_event.asdict()
-			# try:
-			# 	playereventdict['client_id'] = {'client_id': game.playerone.client_id, 'score': game.playerone.score, 'position':game.playerone.position, 'health': game.playerone.health, 'msgsource':'playereventdict'}
-			# except KeyError as e:
-			# 	logger.error(f'{e} playereventdict={playereventdict} ')
 			msg = dict(
 				thrmain_cnt=thrmain_cnt,
 				# event=playereventdict,
@@ -561,13 +524,7 @@ async def thread_main(game, loop):
 				msgsource='pushermsgdict',
 				msg_dt=time.time())
 			if game.connected():
-				if game.debugmode:
-					if len(game.game_state.game_events) > 1:
-						logger.info(f'push msg: {msg} gameevents={game.game_state.game_events}')
-					#pass # logger.info(f'push msg: {msg} playereventdict={playereventdict}')
-				# game.game_events = [] # clear events after sending
 				await game.push_sock.send_json(msg)
-
 			await asyncio.sleep(1 / UPDATE_TICK)
 
 	async def receive_game_state():
@@ -575,30 +532,20 @@ async def thread_main(game, loop):
 		while True:
 			_gs = await game.sub_sock.recv_string()
 			gs = json.loads(_gs)
-			try:
-				game.game_state.from_json(gs)
-			except TypeError as e:
-				logger.warning(f'{e} {type(e)} gs={_gs}')
-			except AttributeError as e:
-				logger.warning(f'{e} {type(e)} gs={_gs}')
-			except NameError as e:
-				logger.warning(f'{e} {type(e)} gs={_gs}')
-			except Exception as e:
-				logger.error(f'{e} {type(e)} gs={_gs}')
+			game.game_state.from_json(gs)
 			await asyncio.sleep(1 / UPDATE_TICK)
-	try:
-		await asyncio.gather(pusher(), receive_game_state())
-	except AttributeError as e:
-		logger.error(f'{e} {type(e)}')
-	except TypeError as e:
-		logger.error(f'{e} {type(e)}')
-	except Exception as e:
-		logger.error(f'{e} {type(e)}')
-	finally:
-		logger.debug('closing sockets')
-		game.sub_sock.close(1)
-		game.push_sock.close(1)
-		game.ctx.destroy(linger=1)
+			# try:
+			# 	game.game_state.from_json(gs)
+			# except TypeError as e:
+			# 	logger.warning(f'{e} {type(e)} gs={_gs}')
+			# except AttributeError as e:
+			# 	logger.warning(f'{e} {type(e)} gs={_gs}')
+			# except NameError as e:
+			# 	logger.warning(f'{e} {type(e)} gs={_gs}')
+			# except Exception as e:
+			# 	logger.error(f'{e} {type(e)} gs={_gs}')
+			# await asyncio.sleep(1 / UPDATE_TICK)
+	await asyncio.gather(pusher(), receive_game_state())
 
 def thread_worker(game):
 	loop = asyncio.new_event_loop()
