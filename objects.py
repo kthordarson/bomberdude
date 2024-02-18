@@ -289,9 +289,21 @@ class GameState:
 						else:
 							self.players[killer]['score'] += 1
 							game_event['event_type'] = 'dmgkill'
+							game_event['killtimer'] = 5
+							game_event['killstart'] = game_event.get("msg_dt")
 						self.event_queue.put_nowait(game_event)
 						#if self.debugmode:
 						logger.debug(f'{event_type} {killer=} {killed=} {self.players[killer]}')
+					case 'respawn': # increase score for killer
+						clid = game_event.get("client_id")
+						self.players[clid]['health'] = 100
+						self.players[clid]['killed'] = False
+						game_event['handled'] = True
+						game_event['handledby'] = f'ugsrspwn'
+						game_event['event_type'] = 'ackrespawn'
+						self.event_queue.put_nowait(game_event)
+						#if self.debugmode:
+						logger.debug(f'{event_type} {clid=} {self.players[clid]}')
 					case _: #
 						logger.warning(f'gsge={len(self.game_events)} unknown game_event:{event_type} from msg={msg}')
 				#elif game_event.get('handled') == True:
@@ -381,6 +393,16 @@ class Bomberplayer(arcade.Sprite):
 			if isinstance(values[i], list):
 				values[i] = tuple(values[i])
 		return stable_hash(tuple([type(self)] + values))
+
+	def respawn(self):
+		self.killed = False
+		self.health = 100
+		self.position = [123.3,123.5]
+		self.bombsleft = 3
+		self.score = 0
+		self.timeout = False
+		self.set_texture(arcade.load_texture('data/playerone.png'))
+		logger.info(f'{self} respawned')
 
 	def set_texture(self, texture):
 		self.texture = texture

@@ -31,9 +31,9 @@ from zmq.asyncio import Context, Socket
 # taks 2 a. receive player input b. update game state
 # task 3 send game state to clients
 
-UPDATE_TICK = 60
-RECT_WIDTH = 32
-RECT_HEIGHT = 32
+UPDATE_TICK:int = 60
+RECT_WIDTH:int = 32
+RECT_HEIGHT:int = 32
 
 
 class MainMenu(arcade.View):
@@ -123,12 +123,29 @@ class Bomberdude(arcade.View):
 		self.netplayers = arcade.SpriteList(use_spatial_hash=True)
 		self.scenewalls = arcade.SpriteList(use_spatial_hash=True)
 		self.sceneblocks = arcade.SpriteList(use_spatial_hash=True)
+		self._show_kill_screen = False
+		self.show_kill_timer = 1
+		self.show_kill_timer_start = 1
 
 	def __repr__(self):
 		return f'Bomberdude( {self.title} np: {len(self.game_state.players)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
 
 	def connected(self):
 		return self._connected
+
+	def show_kill_screen(self):
+		self.show_kill_timer -= 1/UPDATE_TICK
+		self.window.set_caption(f'{self.title} killed {self.show_kill_timer:.1f}')
+		if self.show_kill_timer <= 0:
+			self._show_kill_screen = False
+			self.respawn_playerone()
+			self.window.set_caption(f'{self.title} respawned')
+		return self._show_kill_screen
+
+	def respawn_playerone(self):
+		repawnevent = {'event_time':0, 'event_type': 'respawn', 'client_id' : self.playerone.client_id, 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
+		self.eventq.put(repawnevent)
+		# self.playerone.respawn()
 
 	def do_connect(self):
 		logger.info(f'Connecting to {self.args.server}')
@@ -184,6 +201,7 @@ class Bomberdude(arcade.View):
 		self.fps_text = arcade.Text(f"FPS: {arcade.get_fps(60):5.1f}",10, 10, arcade.color.BLACK, 22)
 
 	def setup_panels(self):
+		self.showkilltext = arcade.Text(f"kill: {self.show_kill_timer:.1f}",100, 100, arcade.color.RED, 22)
 		self.timer = UINumberLabel(value=1)
 		self.status_label = UITextLabel(l_text='')
 		self.pos_label = UITextLabel(l_text='')
@@ -206,7 +224,11 @@ class Bomberdude(arcade.View):
 		self.particle_list.draw()
 		self.flame_list.draw()
 		self.manager.draw()
-
+		if self._show_kill_screen:
+			self.show_kill_screen()
+			#self.show_kill_timer = self.show_kill_timer_start-time.time()
+			self.showkilltext.value = f"kill: {self.show_kill_timer:.1f}"
+			self.showkilltext.draw()
 		if self.graw_graphs:
 			self.perf_graph_list.draw()
 			# Get & draw the FPS for the last 60 frames
@@ -290,6 +312,12 @@ class Bomberdude(arcade.View):
 			if self.debugmode:
 				logger.info(f'{event_type=} {game_event=} {game_events=}')
 			match event_type:
+				case 'ackrespawn':
+					clid = game_event.get("client_id")
+					[k.set_texture(arcade.load_texture('data/netplayer.png')) for k in self.netplayers if k.client_id == clid]#[0]
+					logger.debug(f'{event_type} from {clid}')
+					if clid == self.playerone.client_id:
+						self.playerone.respawn()
 				case 'upgradeblock':
 					if self.debugmode:
 						logger.info(f'{event_type} upgradetype {game_event.get("upgradetype")}')
@@ -307,10 +335,14 @@ class Bomberdude(arcade.View):
 					if killed == self.playerone.client_id:
 						kill_score += self.playerone.kill(killer)
 						logger.debug(f'{event_type} from {killer=}  {killed=} {self.playerone=} {kill_score=}')
+						self._show_kill_screen = True
+						self.show_kill_timer = game_event.get('killtimer')
+						self.show_kill_timer_start = game_event.get('killstart')
 					if killer == self.playerone.client_id:
 						self.playerone.score += kill_score
 						logger.debug(f'{event_type} from {killer=}  {killed=} {self.playerone=} {kill_score=}')
 					self.game_state.players[killed]['score'] += kill_score
+
 				case 'takedamage':
 					#if self.debugmode:
 					killer = game_event.get("killer")
