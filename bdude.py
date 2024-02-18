@@ -93,7 +93,7 @@ class MainMenu(arcade.View):
 		self.manager.disable() # pass
 
 class Bomberdude(arcade.View):
-	def __init__(self, width=None, height=None, title='foobar', args=None):
+	def __init__(self, width, height, title='foobar', args=None):
 		super().__init__()
 		self.args = args
 		self.debugmode = False
@@ -107,19 +107,22 @@ class Bomberdude(arcade.View):
 		self.hitlist = []
 		self.player_event = PlayerEvent()
 		self.game_state = GameState(game_seconds=0)
-		self.ioctx = zmq.asyncio.Context()
+		self.ioctx = Context()
 		self.sub_sock: Socket = self.ioctx.socket(zmq.SUB)
 		self.push_sock: Socket = self.ioctx.socket(zmq.PUSH)
 		self._connected = False
 		self.physics_engine = None
-		self.bomb_list = None
-		self.particle_list = None
-		self.flame_list = None
-		self.netplayers = None
+		self.netplayers = []
 		self.title = title
 		self.eventq = Queue()
 		self.graw_graphs = False
 		self.poplist = []
+		self.bomb_list = arcade.SpriteList(use_spatial_hash=True)
+		self.particle_list = arcade.SpriteList(use_spatial_hash=True)
+		self.flame_list = arcade.SpriteList(use_spatial_hash=True)
+		self.netplayers = arcade.SpriteList(use_spatial_hash=True)
+		self.scenewalls = arcade.SpriteList(use_spatial_hash=True)
+		self.sceneblocks = arcade.SpriteList(use_spatial_hash=True)
 
 	def __repr__(self):
 		return f'Bomberdude( {self.title} np: {len(self.game_state.players)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
@@ -149,16 +152,10 @@ class Bomberdude(arcade.View):
 		self.tile_map = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
-		self.bomb_list = arcade.SpriteList(use_spatial_hash=True)
-		self.particle_list = arcade.SpriteList(use_spatial_hash=True)
-		self.flame_list = arcade.SpriteList(use_spatial_hash=True)
-		self.netplayers = arcade.SpriteList(use_spatial_hash=True)
 		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.background_color = arcade.color.AMAZON
 		self.background_color = arcade.color.DARK_BLUE_GRAY
 		self.scene.add_sprite_list_after("Player", "Walls")
-		self.scenewalls = arcade.SpriteList(use_spatial_hash=True)
-		self.sceneblocks = arcade.SpriteList(use_spatial_hash=True)
 		_ = [self.sceneblocks.append(k) for k in self.scene['Blocks'].sprite_list]
 		_ = [self.scenewalls.append(k) for k in self.scene['Walls'].sprite_list]
 		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scenewalls,platforms=self.sceneblocks, gravity_constant=GRAVITY)
@@ -290,27 +287,26 @@ class Bomberdude(arcade.View):
 		# [self.game_state.game_events.remove(game_event) for game_event in self.game_state.game_events if game_event.get('handled')]
 		for game_event in game_events:
 			event_type = game_event.get('event_type')
-			game_event['event_time'] += 1
 			if self.debugmode:
-				logger.info(f'event_type: {event_type} ge={game_event} gse:{game_events}')
+				logger.info(f'{event_type=} {game_event=} {game_events=}')
 			match event_type:
 				case 'upgradeblock':
 					if self.debugmode:
 						logger.info(f'{event_type} upgradetype {game_event.get("upgradetype")}')
-					game_event['handled'] = True
-					game_event['handledby'] = self.playerone.client_id
 				case 'blkxplode':
 					if self.debugmode:
 						logger.info(f'{event_type} from {game_event.get("fbomber")}')
-					game_event['handled'] = True
-					game_event['handledby'] = self.playerone.client_id
 				case 'playerkilled':
-					if self.debugmode:
-						logger.info(f'{event_type} from {game_event.get("killer")}')
-					game_event['handled'] = True
-					game_event['handledby'] = self.playerone.client_id
+					#if self.debugmode:
+					killer = game_event.get("killer")
+					killed = game_event.get("killed")
+					logger.info(f'{event_type} from {killer=}  {killed=}')
+					try:
+						[k.set_texture(arcade.load_texture('data/netplayerdead.png')) for k in self.netplayers if k.client_id == killed]#[0]
+						# netplayer.texture = arcade.load_texture('data/netplayerdead.png')
+					except IndexError as e:
+						logger.error(f'{e} {self.netplayers=}')
 				case 'bombdrop':
-					game_event['handled'] = True
 					bomber = game_event.get('bomber')
 					bombpos = game_event.get('pos')
 					bomb = Bomb("data/bomb.png",scale=1, bomber=bomber, timer=1500)
@@ -321,7 +317,7 @@ class Bomberdude(arcade.View):
 						logger.info(f'{game_event} from {bomber} pos {bombpos} ')
 				case _:
 					# game_events.remove(game_event)
-					logger.warning(f'unknown type:{event_type} gameevents={game_events} gse:{game_events}')
+					logger.warning(f'unknown type:{event_type} {game_events=} ')
 
 	def update_gamestate_players(self):
 		for pclid in self.game_state.players:
@@ -340,20 +336,19 @@ class Bomberdude(arcade.View):
 						logger.info(f'timeout pclid={pclid} gsp={self.game_state.players}')
 						self.poplist.append(pclid)
 					elif pclid != self.playerone.client_id:
-
 						netplayer = [k for k in self.netplayers if k.client_id == pclid][0]
 						npl = [k for k in self.columns.children if isinstance(k, UIPlayerLabel) and k.client_id == pclid][0]
 						pclpos = self.game_state.players[pclid].get('position')
 						score = self.game_state.players[pclid].get('score')
 						if self.game_state.players[pclid].get('killed'): # add to pop list
-							# logger.info(f'killed pclid={pclid} gsp={self.game_state.players}')
+							logger.info(f'killed pclid={pclid} gsp={self.game_state.players}')
 							# netplayer.append_texture(arcade.load_texture("data/netplayerdead.png"))
 							# netplayer.set_texture(1)
 							# netplayer.changed = True
-							netplayer.killed = True
-							npl.value = f'pos: {pclpos} killed score: {score}'
-							netplayer.texture = arcade.load_texture('data/netplayerdead.png')
-							netplayer.changed = True
+							# netplayer.killed = True
+							# npl.value = f'pos: {pclpos} killed score: {score}'
+							# netplayer.texture = arcade.load_texture('data/netplayerdead.png')
+							# netplayer.changed = True
 						else:
 							npl.value = f'pos: {pclpos} score: {score}'
 							netplayer.position = pclpos
@@ -420,8 +415,6 @@ class Bomberdude(arcade.View):
 				if self.playerone.health <= 0:
 					self.playerone.kill(killer=f)
 					self.game_state.players[self.playerone.client_id]['killed'] = True
-					self.playerone.texture = arcade.load_texture('data/netplayerdead.png')
-					self.playerone.changed = True
 					event = {'event_time':0, 'event_type':'playerkilled', 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
 					#self.game_state.game_events.append(event)
 					self.eventq.put(event)
@@ -468,6 +461,7 @@ class Bomberdude(arcade.View):
 
 		for p in self.particle_list:
 			p_hitlist = arcade.check_for_collision_with_list(p, self.scenewalls)
+			p_hitlist.extend(arcade.check_for_collision_with_list(p, self.sceneblocks))
 			if p_hitlist:
 				for hit in p_hitlist:
 					if p.change_x > 0:

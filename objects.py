@@ -183,7 +183,7 @@ class GameState:
 	def __repr__(self):
 		return f'Gamestate (gs:{self.game_seconds} events:{len(self.game_events)} counters = chkpc: {self.chkp_counter} ugsc: {self.ugs_counter} tojc: {self.toj_counter} fjc: {self.fj_counter} players:{len(self.players)})'
 
-	def __init__(self,  game_seconds=None, debugmode=False):
+	def __init__(self,  game_seconds=0, debugmode=False):
 		self.players = {}
 		# self.player_states = player_states
 		self.game_seconds = game_seconds
@@ -333,7 +333,7 @@ class Networkthing(arcade.Sprite):
 
 @dataclass
 class Bomberplayer(arcade.Sprite):
-	def __init__(self, image=None, scale=1, client_id=None, position=[123.3,123.5]):
+	def __init__(self, image=None, scale=1.0, client_id=None, position=[123.3,123.5]):
 		super().__init__(image,scale)
 		self.client_id = client_id
 		# self.ps = PlayerState(self.client_id, position)
@@ -348,6 +348,9 @@ class Bomberplayer(arcade.Sprite):
 
 	def __repr__(self):
 		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} )'
+
+	def set_texture(self, texture):
+		self.texture = texture
 
 	def addscore(self, score):
 		self.score += score
@@ -385,6 +388,8 @@ class Bomberplayer(arcade.Sprite):
 	def kill(self, killer):
 		logger.info(f'{self} killed by {killer}')
 		self.killed = True
+		self.texture = arcade.load_texture('data/netplayerdead.png')
+		self.changed = True
 
 class Bomb(arcade.Sprite):
 	def __init__(self, image=None, scale=1, bomber=None, timer=1000):
@@ -447,7 +452,7 @@ class Particle(arcade.SpriteCircle):
 class Flame(arcade.SpriteSolidColor):
 	def __init__(self, flamespeed=10, timer=3000, direction='', bomber=None):
 		color = arcade.color.ORANGE
-		super().__init__(FLAMEX,FLAMEY, color)
+		super().__init__(FLAMEX,FLAMEY, color=color)
 		self.normal_texture = self.texture
 		self.bomber = bomber
 		self.speed = flamespeed
@@ -491,6 +496,7 @@ class Rectangle(arcade.SpriteSolidColor):
 		self.client_id = client_id
 		self.angle = 0
 		self.color = color
+		self.filled = True
 		# super().__init__(image,scale)
 		# Size and rotation,
 	def __repr__(self):

@@ -5,7 +5,7 @@ from contextlib import suppress
 import sys
 import json
 from argparse import ArgumentParser
-from threading import Thread, current_thread, Timer, active_count, _enumerate, Event
+from threading import Thread, current_thread, Timer, active_count, Event
 from queue import Queue, Empty
 from loguru import logger
 from constants import *
@@ -147,7 +147,7 @@ class ServerTUI(Thread):
 class BombServer():
 	def __init__(self, args):
 		self.args = args
-		self.ctx = zmq.asyncio.Context()
+		self.ctx = Context()
 		self.sock_push_gamestate: Socket = self.ctx.socket(zmq.PUB)
 		self.sock_push_gamestate.bind(f'tcp://{args.listen}:9696')
 
