@@ -5,8 +5,8 @@
     },
     "activeFile": "data/map3.json",
     "expandedProjectPaths": [
-        ".",
-        "data"
+        "data",
+        "."
     ],
     "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
@@ -84,8 +84,8 @@
             "scale": 0.5,
             "selectedLayer": 2,
             "viewCenter": {
-                "x": 503,
-                "y": 1482
+                "x": 1099,
+                "y": 1012
             }
         },
         "map.json": {
@@ -113,16 +113,17 @@
     "map.width": 64,
     "openFiles": [
         "data/map3.json",
-        "data/map2tiles.tsx"
+        "data/map2tiles.tsx",
+        "data/btiles.tsx"
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
+        "data/btiles.tsx",
         "data/map2tiles.tsx",
         "data/map3.json",
         "data/map2.tmj",
         "data/map.json",
         "data/map2.json",
-        "data/btiles.tsx",
         "data/map.tmx",
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/standard_tileset.json",
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/level_2.json",

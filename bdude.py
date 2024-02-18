@@ -44,7 +44,7 @@ class MainMenu(arcade.View):
 		self.startbtn = UIFlatButton(text="Start New Game", width=150)
 		self.connectb = UIFlatButton(text="Connect", width=150)
 		self.exitbtn = UIFlatButton(text="Exit", width=150)
-		self.grid = UIGridLayout(column_count=2, row_count=3)
+		self.grid = UIGridLayout(column_count=2, row_count=3, vertical_spacing=5)
 		gridsb = self.grid.add(self.startbtn, col_num=0, row_num=0)
 		gridcb = self.grid.add(self.connectb, col_num=0, row_num=1)
 		grideb = self.grid.add(self.exitbtn, col_num=0, row_num=2)
@@ -58,6 +58,8 @@ class MainMenu(arcade.View):
 			self.exitbtn.visible = False
 			self.startbtn.disabled = True
 			self.exitbtn.disabled = True
+			self.connectb.disabled = True
+			self.connectb.visible = False
 			self.window.show_view(self.game)
 
 		@self.exitbtn.event("on_click")
@@ -105,7 +107,7 @@ class Bomberdude(arcade.View):
 		self.hitlist = []
 		self.player_event = PlayerEvent()
 		self.game_state = GameState(game_seconds=0)
-		self.ioctx = Context()
+		self.ioctx = zmq.asyncio.Context()
 		self.sub_sock: Socket = self.ioctx.socket(zmq.SUB)
 		self.push_sock: Socket = self.ioctx.socket(zmq.PUSH)
 		self._connected = False
@@ -283,14 +285,14 @@ class Bomberdude(arcade.View):
 		self.player_event.keys[key] = False
 		self.keys_pressed.keys[key] = False
 
-	def handle_game_events(self):
+	def handle_game_events(self, game_events):
 		# gspcopy = copy.copy(self.game_state.game_events)
-		[self.game_state.game_events.remove(game_event) for game_event in self.game_state.game_events if game_event.get('handled')]
-		for game_event in self.game_state.game_events:
+		# [self.game_state.game_events.remove(game_event) for game_event in self.game_state.game_events if game_event.get('handled')]
+		for game_event in game_events:
 			event_type = game_event.get('event_type')
 			game_event['event_time'] += 1
 			if self.debugmode:
-				logger.info(f'event_type: {event_type} ge={game_event} gse:{self.game_state.game_events}')
+				logger.info(f'event_type: {event_type} ge={game_event} gse:{game_events}')
 			match event_type:
 				case 'upgradeblock':
 					if self.debugmode:
@@ -317,8 +319,8 @@ class Bomberdude(arcade.View):
 					self.bomb_list.append(bomb)
 					logger.info(f'{game_event} from {bomber} pos {bombpos} ')
 				case _:
-					# self.game_state.game_events.remove(game_event)
-					logger.warning(f'unknown type:{event_type} gameevents={game_events} gse:{self.game_state.game_events}')
+					# game_events.remove(game_event)
+					logger.warning(f'unknown type:{event_type} gameevents={game_events} gse:{game_events}')
 
 	def update_gamestate_players(self):
 		for pclid in self.game_state.players:
@@ -380,17 +382,19 @@ class Bomberdude(arcade.View):
 		self.poplist = []
 
 	def on_update(self, dt):
-		# game_events = None
-		# try:
-		# 	game_events = self.game_state.event_queue.get_nowait()
-		# except Empty:
-		# 	pass
-		# except Exception as e:
-		# 	logger.error(f'{e} {type(e)}')
-		# if game_events:
-		self.handle_game_events()
-		self.game_state.game_events = []
-		#self.game_state.event_queue.task_done()
+		game_events = None
+		try:
+			game_events = self.game_state.event_queue.get_nowait()
+			self.game_state.event_queue.task_done()
+		except Empty:
+			pass
+		except Exception as e:
+			logger.error(f'{e} {type(e)}')
+		if game_events:
+			print(f'{game_events=}')
+			self.handle_game_events([game_events,])
+		#self.game_state.game_events = []
+
 		self.timer.value += dt
 		# self.game_state.players[self.playerone.client_id] = self.playerone.get_ps()
 		# self.gsp = self.game_state.players.get("players",[])
@@ -435,8 +439,8 @@ class Bomberdude(arcade.View):
 					self.playerone.texture = arcade.load_texture('data/netplayerdead.png')
 					self.playerone.changed = True
 					event = {'event_time':0, 'event_type':'playerkilled', 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
-					self.game_state.game_events.append(event)
-					# self.eventq.put(event)
+					#self.game_state.game_events.append(event)
+					self.eventq.put(event)
 					if self.debugmode:
 						logger.info(f'playerkilled f={f} pone={self.playerone} gsp={self.game_state.players}')
 					# [k.addscore(1) for k in self.netplayers if k.client_id == f.bomber]
@@ -473,8 +477,8 @@ class Bomberdude(arcade.View):
 						f.remove_from_sprite_lists()
 						hit.remove_from_sprite_lists()
 						event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
-						self.game_state.game_events.append(event)
-						#self.eventq.put(event)
+						#self.game_state.game_events.append(event)
+						self.eventq.put(event)
 					case _:
 						logger.info(f'f: {f} hit: {hit.properties.get("tile_id")} {hit}')
 
@@ -506,19 +510,18 @@ class Bomberdude(arcade.View):
 	def dropbomb(self, key):
 		# logger.debug(f'p1: {self.playerone} drops bomb...')
 		# logger.info(f'client: {self.client}')
+		self.player_event.keys[key] = False
 		if self.playerone.bombsleft <= 0:
-			logger.debug(f'p1: {self.playerone} has no bombs left...')
-			return
+			logger.warning(f'p1: {self.playerone} has no bombs left...')
 		else:
-			self.player_event.keys[key] = False
 			bomb = Bomb("data/bomb.png",scale=1, bomber=self.playerone.client_id, timer=1500)
 			bomb.center_x = self.playerone.center_x
 			bomb.center_y = self.playerone.center_y
 			# self.bomb_list.append(bomb)
 			self.playerone.bombsleft -= 1
 			bombevent = {'event_time':0, 'event_type':'bombdrop', 'bomber': self.playerone.client_id, 'pos': bomb.position, 'timer': bomb.timer, 'handled': False, 'handledby': self.playerone.client_id, 'eventid': gen_randid()}
-			self.game_state.game_events.append(bombevent)
-			# self.eventq.put(bombevent)
+			# self.game_state.game_events.append(bombevent)
+			self.eventq.put(bombevent)
 			# logger.info(f'BE={bombevent} evq: {self.eventq.qsize()} bombdrop {bomb} by plid {self.playerone.client_id} bl: {len(self.bomb_list)} p1: {self.playerone}')
 			# self.client.send_queue.put({'msgtype': 'bombdrop', 'bomber': self.client.client_id, 'pos': bomb.position, 'timer': bomb.timer})
 
@@ -530,11 +533,11 @@ async def thread_main(game, loop):
 		# game_events = []
 		while True:
 			thrmain_cnt += 1
-			# try:
-			# 	game_events = game.eventq.get_nowait()
-			# 	game.eventq.task_done()
-			# except Empty:
-			# 	game_events = []
+			try:
+				game_events = game.eventq.get_nowait()
+				game.eventq.task_done()
+			except Empty:
+				game_events = []
 			# except Exception as e:
 			# 	logger.error(f'{e} {type(e)}')
 			# 	game_events = []
@@ -545,12 +548,11 @@ async def thread_main(game, loop):
 			# 	playereventdict['client_id'] = {'client_id': game.playerone.client_id, 'score': game.playerone.score, 'position':game.playerone.position, 'health': game.playerone.health, 'msgsource':'playereventdict'}
 			# except KeyError as e:
 			# 	logger.error(f'{e} playereventdict={playereventdict} ')
-			game.game_state.check_events()
 			msg = dict(
 				thrmain_cnt=thrmain_cnt,
 				# event=playereventdict,
 				score=game.playerone.score,
-				game_events=game.game_state.game_events,
+				game_events=[game_events,], #game.game_state.game_events,
 				client_id=game.playerone.client_id,
 				position=game.playerone.position,
 				health=game.playerone.health,

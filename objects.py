@@ -9,7 +9,7 @@ from loguru import logger
 from constants import *
 import time
 import hashlib
-from queue import Queue
+from queue import Queue, Empty
 from typing import List, Dict
 import json
 from dataclasses import dataclass, asdict, field
@@ -188,26 +188,14 @@ class GameState:
 		# self.player_states = player_states
 		self.game_seconds = game_seconds
 		self.debugmode = debugmode
+		self.debugmode_trace = False
 		self.game_events = []
-		# self.event_queue = Queue()
+		self.event_queue = Queue()
 		# debugstuff
 		self.chkp_counter = 0
 		self.ugs_counter = 0
 		self.toj_counter = 0
 		self.fj_counter = 0
-
-	def check_events(self):
-		#eventcopy = copy.copy(self.game_events)
-		for event in self.game_events:
-			event['event_time'] += 1
-			if event.get('handled') == True:
-				logger.info(f'removing event {event} {self} sge={self.game_events}')
-				self.game_events.remove(event)
-			elif event.get('event_time') > 10:
-				logger.warning(f'eventtimeout={event} {self} sge={self.game_events}')
-				self.game_events.remove(event)
-		if len(self.game_events) > 2:
-			logger.warning(f'unhandledevents {self} sge={self.game_events}' )
 
 	def check_players(self):
 		self.chkp_counter += 1
@@ -221,13 +209,15 @@ class GameState:
 				playerhealth = self.players[p].get('health')
 				if dt_diff > 10: # player timeout
 					self.players[p]['timeout'] = True
+					if not self.players[p]['timeout']:
+						logger.info(f'player timeout {p} dt_diff={dt_diff} selfplayers={self.players}')
 			except Exception as e:
 				logger.error(f'{self} {type(e)} {e} {p} selfplayers={self.players}')
 
 	def update_game_state(self, clid, msg):
 		self.ugs_counter += 1
 		self.game_seconds += 1
-		if self.debugmode:
+		if self.debugmode_trace:
 			logger.debug(f'gsge={len(self.game_events)}  from: {clid} msg={msg}')
 		msghealth = msg.get('health')
 		msgtimeout = msg.get('timeout')
@@ -249,6 +239,10 @@ class GameState:
 		# self.game_events = []
 	def update_game_events(self, msg):
 		for game_event in msg.get('game_events'):
+			if game_event == []:
+				break
+			if self.debugmode:
+				logger.info(f'{game_event=}')
 			game_event['event_time'] += 1
 			event_type = game_event.get('event_type')
 			eventid = game_event.get('eventid')
@@ -263,25 +257,25 @@ class GameState:
 						# game_event['handled'] = True
 						uptype = random.choice([1,2,3])
 						newevent = {'event_time':0, 'event_type': 'upgradeblock', 'client_id': game_event.get("client_id"), 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
-						self.game_events.append(newevent)
+						self.event_queue.put_nowait(newevent)
 						if self.debugmode:
 							logger.info(f'gsge={len(self.game_events)} {event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
 					case 'bombdrop': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
-						self.game_events.append(game_event)
+						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
 							logger.debug(f'gsge={len(self.game_events)} {event_type} from {game_event.get("bomber")} pos:{game_event.get("pos")}')
 					case 'upgradeblock': # decide on somethingsomething..
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugsupgr'
-						self.game_events.append(game_event)
+						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
 							logger.debug(f'gsge={len(self.game_events)} {event_type} {game_event.get("upgradetype")} pos:{game_event.get("fpos")} from {game_event.get("client_id")}')
 					case 'playerkilled': # increase score for killer
 						self.players[game_event.get("killer")]['score'] += 1
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugskill'
-						self.game_events.append(game_event)
+						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
 							logger.debug(f'gsge={len(self.game_events)} {event_type}  killer:{game_event.get("killer")} gamevent={game_event}')
 					case _: #
@@ -293,13 +287,12 @@ class GameState:
 	def to_json(self):
 		self.toj_counter += 1
 		dout = {'players':{}, 'game_events': []}
-		for ge in self.game_events:
-			ge['event_time'] += 1
-			if ge['handled'] == False:
-				dout['game_events'].append(ge)
-			else:
-				logger.warning(f'unhandled {ge} sge={self.game_events}')
-
+		try:
+			pending_event = self.event_queue.get_nowait()
+			self.event_queue.task_done()
+			dout['game_events'].append(pending_event)
+		except Empty:
+			pending_events = []
 		for player in self.players:
 			playerdict = {
 			'client_id':player,
@@ -312,35 +305,22 @@ class GameState:
 			'msgsource': 'to_json',
 			}
 			dout['players'][player] = playerdict #Q = playerdict
-		if self.debugmode:
-			logger.info(f'gsge={len(self.game_events)} tojson dout={dout}')
-		# self.game_events = [] # clear events
 		return dout
 
 	def from_json(self, dgamest):
 		self.fj_counter += 1
 		for ge in dgamest.get('game_events', []):
-			# logger.info(f'dgamest={dgamest}')
-			# self.game_events = []
-			#for ge in game_events:
-			if len(self.game_events) > 1:
-				logger.warning(f'self.game_events: {len(self.game_events)} dgamest={dgamest}  game_events={self.game_events}')
-			if ge.get('handled') == False:
-				self.game_events.append(ge)
-			else:
-				logger.warning(f'game_event already handled: {ge}')
+			if ge == []:
+				break
 			if self.debugmode:
-				logger.info(f"ge={ge} sge:{len(self.game_events)} game_events={dgamest.get('game_events')}")
-			ge['handledby'] = 'fromjson'
-			ge['event_time'] += 1
-
-				##self.game_events = game_events
-				# self.event_queue.put_nowait(game_events)
-
+				logger.info(f'ge={ge} dgamest={dgamest=}')
+			self.event_queue.put_nowait(ge)
 		plist = dgamest.get('players',[])
 		for player in plist:
 			if plist.get(player).get('timeout'):
-				logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
+				pass # logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
+			elif plist.get(player).get('killed'):
+				pass # logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
 			else:
 				self.players[plist.get(player).get('client_id')] = plist.get(player)
 				# logger.info(f'player={player} dgamest={dgamest} selfplayers={self.players}')

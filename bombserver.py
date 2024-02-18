@@ -75,19 +75,18 @@ class ServerTUI(Thread):
 	def stopped(self):
 		return self._stop.is_set()
 
+	def dump_players(self):
+		for p in self.server.game_state.players:
+			# print(f'p={p} pos = {self.server.game_state.players[p]["position"]} score: {self.server.game_state.players[p]["score"]} msgdt:{self.server.game_state.players[p]["msg_dt"]}')
+			print(f'p={p} {self.server.game_state.players[p]}')
+
 	def get_serverinfo(self):
-		print(f'players={len(self.server.game_state.players)} t:{active_count()}')
-		print(f'gamestate: {self.server.game_state}')
+		print(f'players={len(self.server.game_state.players)} threads:{active_count()}')
+		print(f'{self.server.game_state}')
 		# print(f'gamestate: {self.server.game_state}')
 		# print(f'gamestateplayers: {self.server.game_state.players}')
 		for p in self.server.game_state.players:
-			print(f'p={p} {self.server.game_state.players[p]}')
-
-	def dump_playerlist(self):
-		print(f'players: {len(self.server.game_state.players)} ')
-		print(f'gamestate: {self.server.game_state}')
-		for p in self.server.game_state.players:
-			print(f'player: {p} pos: {self.server.game_state.players[p].get("position")}  b: {self.server.game_state.players[p].get("bombsleft")} h: {self.server.game_state.players[p].get("health")}  counter: {self.server.game_state.players[p].get("counter")} ')
+			print(f"p={p} pos = {self.server.game_state.players[p]['position']} score: {self.server.game_state.players[p]['score']} msgdt:{self.server.game_state.players[p]['msg_dt']} timeout:{self.server.game_state.players[p]['timeout']}")
 
 	def dumpgameevents(self):
 		print(f'gamestate: {self.server.game_state} events: {len(self.server.game_state.game_events)}')
@@ -98,12 +97,29 @@ class ServerTUI(Thread):
 		print(f'clearevents gamestate: {self.server.game_state} events: {len(self.server.game_state.game_events)}')
 		self.server.game_state.game_events = []
 
+	def printhelp(self):
+		help = f'''
+		cmds:
+		s = show server info
+		d = toggle debugmode {self.server.debugmode}
+		ds = toggle debugmode for gamestate {self.server.game_state.debugmode}
+		dst = toggle debugmode for gamestate {self.server.game_state.debugmode_trace}
+		pd = toggle packetdebugmode {self.server.packetdebugmode}
+		e = dump game events {len(self.server.game_state.game_events)}
+		ec = clear game events
+		'''
+		print(help)
+
 	def run(self):
 		while not self.stopped():
 			try:
 				cmd = input(':> ')
+				if cmd[:1] == '?' or cmd[:1] == 'h':
+					self.printhelp()
 				if cmd[:1] == 's':
 					self.get_serverinfo()
+				if cmd[:1] == 'l':
+					self.dump_players()
 				if cmd[:1] == 'e':
 					self.dumpgameevents()
 				if cmd[:2] == 'ec':
@@ -111,11 +127,14 @@ class ServerTUI(Thread):
 				if cmd[:1] == 'd':
 					self.server.debugmode = not self.server.debugmode
 					logger.debug(f'sdbg={self.server.debugmode} {self.server.game_state.debugmode}')
-				if cmd[:1] == 'ds':
+				if cmd[:2] == 'ds':
 					self.server.game_state.debugmode = not self.server.game_state.debugmode
 					logger.debug(f'sdbg={self.server.debugmode} {self.server.game_state.debugmode}')
-				if cmd[:1] == 'p':
-					self.dump_playerlist()
+				if cmd[:3] == 'dst':
+					self.server.game_state.debugmode_trace = not self.server.game_state.debugmode_trace
+					logger.debug(f'trace sdbg={self.server.debugmode} {self.server.game_state.debugmode} {self.server.game_state.debugmode_trace}')
+				if cmd[:2] == 'pd':
+					self.server.packetdebugmode = not self.server.packetdebugmode
 				elif cmd[:1] == 'q':
 					logger.warning(f'{self} {self.server} tuiquit')
 					self.stop()
@@ -128,7 +147,7 @@ class ServerTUI(Thread):
 class BombServer():
 	def __init__(self, args):
 		self.args = args
-		self.ctx = Context()
+		self.ctx = zmq.asyncio.Context()
 		self.sock_push_gamestate: Socket = self.ctx.socket(zmq.PUB)
 		self.sock_push_gamestate.bind(f'tcp://{args.listen}:9696')
 
@@ -136,6 +155,7 @@ class BombServer():
 		self.sock_recv_player_evts.bind(f'tcp://{args.listen}:9697')
 		self.ticker_task = asyncio.create_task(self.ticker(self.sock_push_gamestate, self.sock_recv_player_evts),)
 		self.debugmode = False
+		self.packetdebugmode = False
 		self.game_state = GameState(game_seconds=1, debugmode=self.debugmode)
 		# debugstuff
 		self.ufc_counter = 0
@@ -146,7 +166,7 @@ class BombServer():
 			while True:
 				self.ufc_counter += 1
 				msg = await sockrecv.recv_json()
-				if self.debugmode:
+				if self.packetdebugmode:
 					logger.info(f'msg: {msg}')
 				clid = msg['client_id']
 				# game_events = msg.get('game_events', [])
@@ -170,7 +190,6 @@ class BombServer():
 			while True:
 				self.tick_count += 1
 				self.game_state.check_players()
-				self.game_state.check_events()
 				await sockpush.send_json(self.game_state.to_json())
 				await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
 				# self.game_state.game_events = []
