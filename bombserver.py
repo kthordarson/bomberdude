@@ -1,4 +1,7 @@
 #!/usr/bin/python
+from flask import Flask
+import zlib
+import pickle
 import asyncio
 from typing import Dict, Tuple
 from contextlib import suppress
@@ -11,10 +14,14 @@ from loguru import logger
 from constants import *
 from objects import gen_randid
 from objects import PlayerEvent, PlayerState, GameState,KeysPressed
+from objects import pack, unpack, send_zipped_pickle, recv_zipped_pickle
 from asyncio import run, create_task, CancelledError
-
+from api import ApiServer
 import zmq
 from zmq.asyncio import Context, Socket
+
+
+
 SERVER_UPDATE_TICK_HZ = 10
 def generate_grid(gsz=GRIDSIZE):
 	return json.loads(open('data/map.json','r').read())
@@ -147,19 +154,35 @@ class ServerTUI(Thread):
 class BombServer():
 	def __init__(self, args):
 		self.args = args
-		self.ctx = Context()
-		self.sock_push_gamestate: Socket = self.ctx.socket(zmq.PUB)
-		self.sock_push_gamestate.bind(f'tcp://{args.listen}:9696')
-
-		self.sock_recv_player_evts: Socket = self.ctx.socket(zmq.PULL)
-		self.sock_recv_player_evts.bind(f'tcp://{args.listen}:9697')
-		self.ticker_task = asyncio.create_task(self.ticker(self.sock_push_gamestate, self.sock_recv_player_evts),)
-		self.debugmode = False
-		self.packetdebugmode = False
-		self.game_state = GameState(game_seconds=1, debugmode=self.debugmode)
-		# debugstuff
 		self.ufc_counter = 0
 		self.tick_count = 0
+		self.debugmode = self.args.debugmode
+		self.game_state = GameState(game_seconds=1, debugmode=self.debugmode)
+
+
+		self.ctx = Context()
+		self.pushsock: Socket = self.ctx.socket(zmq.PUB)
+		self.pushsock.bind(f'tcp://{args.listen}:9696')
+
+		# self.datasock: Socket = self.ctx.socket(zmq.PUB)
+		# self.datasock.bind(f'tcp://{args.listen}:9699')
+
+		self.recvsock: Socket = self.ctx.socket(zmq.PULL)
+		self.recvsock.bind(f'tcp://{args.listen}:9697')
+		self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock, ),)
+		self.packetdebugmode = self.args.packetdebugmode
+		# debugstuff
+		# self.app = Flask(import_name='bombserver')
+		# self.app.run(host=args.listen, port=args.port)
+
+	async def get_game_state(self):
+		return self.game_state.to_json()
+
+	async def get_tile_map(self):
+		mapname = self.game_state.tile_map.tiled_map.map_file
+		#tile_map = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=1)
+		#tm = pickle.dumps(self.game_state.tile_map)
+		return str(mapname)
 
 	async def update_from_client(self, sockrecv):
 		try:
@@ -184,11 +207,14 @@ class BombServer():
 
 	async def ticker(self, sockpush, sockrecv):
 		t = create_task(self.update_from_client(sockrecv))
-		logger.debug(f'tickertask: {t}')
+		# apitsk =  create_task(self.apiserver._run(host=self.args.listen, port=9699),)
+		logger.debug(f'tickertask: {t} ')
 		# Send out the game state to all players 60 times per second.
 		try:
 			while True:
 				self.tick_count += 1
+				if self.packetdebugmode:
+					logger.info(f'tick_count: {self.tick_count}')
 				self.game_state.check_players()
 				await sockpush.send_json(self.game_state.to_json())
 				await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
@@ -203,9 +229,15 @@ async def main(args):
 	# app = App(signal=fut)
 	ctx = Context()
 	server = BombServer(args)
-	tui = ServerTUI(server, debugmode=args.debug)
+	tui = ServerTUI(server, debugmode=args.debugmode)
 	tui.start()
 	logger.info(f'ticker_task:{server.ticker_task}')
+	apiserver = ApiServer('bombserver')
+	apiserver.add_url_rule('/get_game_state', view_func=server.get_game_state, methods=['GET'])
+	apiserver.add_url_rule('/get_tile_map', view_func=server.get_tile_map, methods=['GET'])
+	apithread = Thread(target=apiserver.run, args=(args.listen, 9699), daemon=True)
+	apithread.start()
+
 	try:
 		await asyncio.wait([server.ticker_task, fut],return_when=asyncio.FIRST_COMPLETED)
 	except CancelledError as e:
@@ -213,8 +245,8 @@ async def main(args):
 	finally:
 		server.ticker_task.cancel()
 		await server.ticker_task
-		server.sock_push_gamestate.close(1)
-		server.sock_recv_player_evts.close(1)
+		server.pushsock.close(1)
+		server.recvsock.close(1)
 		ctx.destroy(linger=1000)
 
 
@@ -224,6 +256,7 @@ if __name__ == '__main__':
 	parser = ArgumentParser(description='server')
 	parser.add_argument('--listen', action='store', dest='listen', default='127.0.0.1')
 	parser.add_argument('--port', action='store', dest='port', default=9696, type=int)
-	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
+	parser.add_argument('-d','--debug', action='store_true', dest='debugmode', default=False)
+	parser.add_argument('-dp','--debugpacket', action='store_true', dest='packetdebugmode', default=False)
 	args = parser.parse_args()
 	run(main(args))

@@ -1,4 +1,6 @@
 #!/usr/bin/python
+import zlib
+import pickle
 import sys
 import copy
 import asyncio
@@ -15,8 +17,9 @@ from arcade.gui.widgets.layout import UIAnchorLayout
 
 from loguru import logger
 from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState, gen_randid, Rectangle, UINumberLabel, UITextLabel, UIPlayerLabel
+from objects import pack, unpack, send_zipped_pickle, recv_zipped_pickle
 from constants import *
-
+import requests
 import zmq
 from zmq.asyncio import Context, Socket
 # todo get inital pos from server
@@ -68,7 +71,6 @@ class MainMenu(arcade.View):
 
 		@self.connectb.event("on_click")
 		def on_connect_to_server(event):
-			self.game.setup()
 			self.startbtn.visible = False
 			self.exitbtn.visible = False
 			self.startbtn.disabled = True
@@ -96,12 +98,13 @@ class Bomberdude(arcade.View):
 	def __init__(self, width, height, title='foobar', args=None):
 		super().__init__()
 		self.args = args
-		self.debugmode = False
+		self.debugmode = self.args.debugmode
 		self.manager = UIManager()
 		self.window.center_window() # set_location(0,0)
 		self.width = width
 		self.height = height
 		self.t = 0
+		self._gotmap = False
 		self.playerone = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=gen_randid())
 		self.keys_pressed = KeysPressed(self.playerone.client_id)
 		self.hitlist = []
@@ -109,6 +112,7 @@ class Bomberdude(arcade.View):
 		self.game_state = GameState(game_seconds=0)
 		self.ioctx = Context()
 		self.sub_sock: Socket = self.ioctx.socket(zmq.SUB)
+		# self.data_sock: Socket = self.ioctx.socket(zmq.SUB)
 		self.push_sock: Socket = self.ioctx.socket(zmq.PUSH)
 		self._connected = False
 		self.physics_engine = None
@@ -126,6 +130,7 @@ class Bomberdude(arcade.View):
 		self._show_kill_screen = False
 		self.show_kill_timer = 1
 		self.show_kill_timer_start = 1
+		self.timer = UINumberLabel(value=1)
 
 	def __repr__(self):
 		return f'Bomberdude( {self.title} np: {len(self.game_state.players)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
@@ -148,9 +153,12 @@ class Bomberdude(arcade.View):
 		# self.playerone.respawn()
 
 	def do_connect(self):
-		logger.info(f'Connecting to {self.args.server}')
 		self.sub_sock.connect(f'tcp://{self.args.server}:9696')
 		self.sub_sock.subscribe('')
+		#self.data_sock.connect(f'tcp://{self.args.server}:9699')
+		#self.data_sock.subscribe('gamedata')
+		#self.data_sock.setsockopt(zmq.SUBSCRIBE, b'gamedata')
+		# logger.info(f'{self.data_sock=}')
 		self.push_sock.connect(f'tcp://{self.args.server}:9697')
 		connection_event = {
 			'event_time':0,
@@ -161,6 +169,7 @@ class Bomberdude(arcade.View):
 			'eventid': gen_randid()}
 		self.eventq.put(connection_event)
 		self._connected = True
+		self.network_setup()
 		self.window.set_caption(f'{self.title} connected to {self.args.server} playerid: {self.playerone.client_id}')
 
 	def on_resize(self, width, height):
@@ -175,20 +184,29 @@ class Bomberdude(arcade.View):
 	def on_hide_view(self):
 		self.manager.disable()
 
+	def network_setup(self):
+		# get tilemap and scene from server
+		#request = {'event_time':0, 'event_type': 'getmap', 'client_id' : self.playerone.client_id, 'handled': False, 'handledby': 'network_setup', 'eventid': gen_randid()}
+		#self.eventq.put(request)
+		resp = requests.get(f'http://{self.args.server}:9699/get_tile_map')
+		self.game_state.load_tile_map(resp.text)
+		self._gotmap = True
+		logger.info(f'{self} {resp=} {self._gotmap=} {self.connected()=}')
+		self.setup()
+
 	def setup(self):
-		self.setup_panels()
-		self.setup_perf()
 
-		self.tile_map = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
-		self.scene = arcade.Scene.from_tilemap(self.tile_map)
-
+		# self.tile_map = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
+		# self.game_state.scene = arcade.Scene.from_tilemap(self.game_state.tile_map)
 		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		self.background_color = arcade.color.AMAZON
 		self.background_color = arcade.color.DARK_BLUE_GRAY
-		self.scene.add_sprite_list_after("Player", "Walls")
-		_ = [self.sceneblocks.append(k) for k in self.scene['Blocks'].sprite_list]
-		_ = [self.scenewalls.append(k) for k in self.scene['Walls'].sprite_list]
+		self.game_state.scene.add_sprite_list_after("Player", "Walls")
+		_ = [self.sceneblocks.append(k) for k in self.game_state.scene['Blocks'].sprite_list]
+		_ = [self.scenewalls.append(k) for k in self.game_state.scene['Walls'].sprite_list]
 		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scenewalls,platforms=self.sceneblocks, gravity_constant=GRAVITY)
+		self.setup_panels()
+		self.setup_perf()
 		self.manager.enable()
 
 	def setup_perf(self):
@@ -215,13 +233,7 @@ class Bomberdude(arcade.View):
 
 	def setup_panels(self):
 		self.showkilltext = arcade.Text(f"kill: {self.show_kill_timer:.1f}",100, 100, arcade.color.RED, 22)
-
-		self.timer = UINumberLabel(value=1)
-		# self.status_label = UITextLabel(l_text='')
-		# self.pos_label = UITextLabel(l_text='')
 		self.health_label = UITextLabel(l_text='')
-		# self.panel = UITextArea(text='')
-		# self.test_label = UITextLabel(l_text='')
 		self.score_label = UITextLabel(l_text='')
 		self.bombs_label = UITextLabel(l_text='')
 
@@ -236,10 +248,12 @@ class Bomberdude(arcade.View):
 			sb.draw_hit_box(arcade.color.RED)
 
 	def on_draw(self):
+		if not self._gotmap:
+			return
 		self.clear()
 		# self.draw_player_panel()
 		self.camera.use()
-		self.scene.draw()
+		self.game_state.scene.draw()
 		self.playerone.draw()
 		self.netplayers.draw()
 		self.bomb_list.draw()
@@ -341,6 +355,8 @@ class Bomberdude(arcade.View):
 	def handle_game_events(self, game_events):
 		# gspcopy = copy.copy(self.game_state.game_events)
 		# [self.game_state.game_events.remove(game_event) for game_event in self.game_state.game_events if game_event.get('handled')]
+		if not self._gotmap:
+			self.network_setup()
 		for game_event in game_events:
 			event_type = game_event.get('event_type')
 			if self.debugmode:
@@ -470,7 +486,9 @@ class Bomberdude(arcade.View):
 			logger.error(f'{e} {type(e)}')
 		if game_events:
 			self.handle_game_events([game_events,])
-
+		if not self._gotmap:
+			# self.network_setup()
+			return
 		self.timer.value += dt
 		if len(self.game_state.players) > 0:
 			self.update_netplayers()
@@ -603,18 +621,25 @@ async def thread_main(game, loop):
 				timeout=game.playerone.timeout,
 				killed=game.playerone.killed,
 				bombsleft=game.playerone.bombsleft,
+				gotmap=game._gotmap,
 				msgsource='pushermsgdict',
 				msg_dt=time.time())
 			if game.connected():
 				await game.push_sock.send_json(msg)
-			await asyncio.sleep(1 / UPDATE_TICK)
+				await asyncio.sleep(1 / UPDATE_TICK)
+			else:
+				await asyncio.sleep(1)
+
 
 	async def receive_game_state():
 		gs = None
 		while True:
-			_gs = await game.sub_sock.recv_string()
-			gs = json.loads(_gs)
-			game.game_state.from_json(gs)
+			_gs = await game.sub_sock.recv_json()
+			#gs = json.loads(_gs)
+			game.game_state.from_json(_gs)
+			#if game.debugmode:
+			#	logger.info(f'_gs: {_gs.keys()=} {_gs=} ')
+#			game.game_state.from_json(gs)
 			await asyncio.sleep(1 / UPDATE_TICK)
 			# try:
 			# 	game.game_state.from_json(gs)
@@ -627,7 +652,7 @@ async def thread_main(game, loop):
 			# except Exception as e:
 			# 	logger.error(f'{e} {type(e)} gs={_gs}')
 			# await asyncio.sleep(1 / UPDATE_TICK)
-	await asyncio.gather(pusher(), receive_game_state())
+	await asyncio.gather(pusher(), receive_game_state(), )
 
 def thread_worker(game):
 	loop = asyncio.new_event_loop()
@@ -642,7 +667,8 @@ def main():
 	parser.add_argument('--listen', action='store', dest='listen', default='127.0.0.1')
 	parser.add_argument('--server', action='store', dest='server', default='127.0.0.1')
 	parser.add_argument('--port', action='store', dest='port', default=9696)
-	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
+	parser.add_argument('-d','--debug', action='store_true', dest='debugmode', default=False)
+	parser.add_argument('-dp','--debugpacket', action='store_true', dest='packetdebugmode', default=False)
 	args = parser.parse_args()
 
 	mainwindow = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')

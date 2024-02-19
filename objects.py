@@ -13,7 +13,8 @@ from queue import Queue, Empty
 from typing import List, Dict
 import json
 from dataclasses import dataclass, asdict, field
-
+import zlib
+import pickle
 
 def gen_randid() -> str:
 	hashid = hashlib.sha1()
@@ -188,11 +189,19 @@ class GameState:
 		self.debugmode_trace = False
 		self.game_events = []
 		self.event_queue = Queue()
+		self.raw_event_queue = Queue()
 		# debugstuff
 		self.chkp_counter = 0
 		self.ugs_counter = 0
 		self.toj_counter = 0
 		self.fj_counter = 0
+		self.tile_map = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
+		self.scene = arcade.Scene.from_tilemap(self.tile_map)
+
+	def load_tile_map(self, mapname):
+		self.tile_map = arcade.load_tilemap(mapname, layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
+		self.scene = arcade.Scene.from_tilemap(self.tile_map)
+
 
 	def check_players(self):
 		self.chkp_counter += 1
@@ -254,7 +263,7 @@ class GameState:
 						game_event['event_type'] = 'acknewconn'
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
-							logger.info(f'gsge={len(self.game_events)} {event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
+							logger.info(f'{event_type} ')
 					case 'blkxplode': # todo make upgradeblock here....
 						# game_event['handled'] = True
 						uptype = random.choice([1,2,3])
@@ -309,6 +318,14 @@ class GameState:
 						self.event_queue.put_nowait(game_event)
 						#if self.debugmode:
 						logger.debug(f'{event_type} {clid=} {self.players[clid]}')
+					case 'getmap': # send map to client
+						clid = game_event.get("client_id")
+						payload = {'msgtype': 'scenedata', 'payload':self.scene}
+						logger.info(f'{event_type} from {clid} {len(payload)} {game_event=}')
+						#await sockpush.send(payload)
+						# game_event['event_type'] = 'ackgetmap'
+						# game_event['payload'] = pickle.dumps(self.scene)
+						# self.raw_event_queue.put_nowait(pickle.dumps(self.tile_map))
 					case _: #
 						logger.warning(f'gsge={len(self.game_events)} unknown game_event:{event_type} from msg={msg}')
 				#elif game_event.get('handled') == True:
@@ -562,3 +579,40 @@ class Rectangle(arcade.SpriteSolidColor):
 			arcade.draw_rectangle_filled( self.position.x, self.position.y, self.width, self.height, self.color, self.angle )
 		else:
 			arcade.draw_rectangle_outline( self.position.x, self.position.y, self.width, self.height, self.color, border_width=4, tilt_angle=self.angle )
+
+
+def pack(data):
+	dtypes, shapes, buffers = [], [], []
+	items = sorted(data.items(), key=lambda x: x[0])
+	keys, vals = zip(*items)
+	dtypes = [v.dtype.name for v in vals]
+	shapes = [v.shape for v in vals]
+	buffers = [v.tobytes() for v in vals]
+	meta = (keys, dtypes, shapes)
+	parts = [pickle.dumps(meta), *buffers]
+	return parts
+
+
+def unpack(parts):
+	meta, *buffers = parts
+	keys, dtypes, shapes = pickle.loads(meta)
+	vals = [
+		np.frombuffer(b, d).reshape(s)
+		for i, (d, s, b) in enumerate(zip(dtypes, shapes, buffers))]
+	data = dict(zip(keys, vals))
+	return data
+
+
+async def send_zipped_pickle(socket, obj, flags=0, protocol=-1):
+    """pickle an object, and zip the pickle before sending it"""
+    p = pickle.dumps(obj, protocol)
+    z = zlib.compress(p)
+    return await socket.send(z, flags=flags)
+
+async def recv_zipped_pickle(socket, flags=0, protocol=-1):
+	"""inverse of send_zipped_pickle"""
+	z = await socket.recv(flags)
+	# print(f'{z=}')
+	p = zlib.decompress(z)
+	return pickle.loads(p)
+
