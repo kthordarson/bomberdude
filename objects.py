@@ -451,7 +451,7 @@ class Bomberplayer(arcade.Sprite):
 
 	def take_damage(self, damage, killer):
 		self.health -= damage
-		logger.info(f'{self} health:{self.health} {damage=} {killer=}')
+		# logger.info(f'{self} health:{self.health} {damage=} {killer=}')
 		if self.health <= 0:
 			self.killed = True
 			self.kill(killer)

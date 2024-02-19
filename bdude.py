@@ -41,14 +41,12 @@ RECT_WIDTH:int = 32
 RECT_HEIGHT:int = 32
 
 
-class MainMenu(Page):
-	def __init__(self, game, window, name, title):
-		super().__init__(window, name, title)
+class MainMenu(arcade.View):
+	def __init__(self, game, window, *args, **kwargs):#, game, window, name, title):
+		super().__init__()
 		self.window = window
-		self.name = name
-		self.title = title
 		self.game = game
-		self.manager = game.manager
+		self.manager = arcade.gui.UIManager()
 		self.startbtn = UIFlatButton(text="Start New Game", width=150)
 		self.connectb = UIFlatButton(text="Connect", width=150)
 		self.exitbtn = UIFlatButton(text="Exit", width=150)
@@ -87,6 +85,10 @@ class MainMenu(Page):
 			self.connectb.disabled = True
 			self.connectb.visible = False
 
+	def draw(self):
+		imgui.begin("bdudemainmenu")
+		imgui.text("welcome to bomberdude mainmenu")        
+		imgui.end()
 
 	def on_show_view(self):
 		self.window.background_color = arcade.color.GRAY_ASPARAGUS
@@ -365,7 +367,7 @@ class Bomberdude(arcade.View):
 		for game_event in game_events:
 			event_type = game_event.get('event_type')
 			if self.debugmode:
-				logger.info(f'{event_type=} {game_event=} {game_events=}')
+				pass # logger.info(f'{event_type=} {game_event=} {game_events=}')
 			match event_type:
 				case 'ackrespawn':
 					clid = game_event.get("client_id")
@@ -666,6 +668,18 @@ def thread_worker(game):
 	logger.info(f'threadworker loop: {loop} lt={looptask}')
 	loop.run_forever()
 
+class MainPage(Page):
+	def draw(self):
+		imgui.begin("MainPage")
+		imgui.text("welcome to the main page")        
+		imgui.end()
+
+class BomberdudePage(Page):
+	def draw(self):
+		imgui.begin("bdude")
+		imgui.text("welcome to bomberdude")        
+		imgui.end()
+
 def main():
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
@@ -676,15 +690,17 @@ def main():
 	parser.add_argument('-dp','--debugpacket', action='store_true', dest='packetdebugmode', default=False)
 	args = parser.parse_args()
 
-	# mainwindow = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')
-	mainwindow = App(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True)
+	mainwindow = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')
+	# mainwindow = App(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True)
 	game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, args)
 	mainmenu = MainMenu(game, window=mainwindow, name='mainmenu', title='Main Menu')
-	mainwindow.add_page(mainmenu, name='mainmenu', title='Main Menu')
+	#mainwindow.add_page(MainPage, name='mainpage', title='Main Page')
+	#mainwindow.add_page(MainMenu, name='mainmenu', title='Main Menu')
+	#mainwindow.add_page(BomberdudePage, name='bdude', title='bdude')
 	thread = Thread(target=thread_worker, args=(game,), daemon=True)
 	thread.start()
-	mainwindow.show('mainmenu')
-	#mainwindow.show_view(mainmenu)
+	#mainwindow.show('mainpage')
+	mainwindow.show_view(mainmenu)
 	arcade.run()
 
 if __name__ == "__main__":

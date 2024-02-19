@@ -353,7 +353,7 @@ class App(arcade.Window):
 
 class Page(arcade.View):
     def __init__(self, window, name, title):
-        super().__init__(window)
+        super().__init__(window=window)
         self.name = name
         self.title = title
 
@@ -445,8 +445,6 @@ class Page(arcade.View):
 class Index(Page):
     def draw(self):
         imgui.begin("Index")
-
-        imgui.text("Welcome to the Arcade ImGui Demo!")
-        
+        imgui.text("Welcome to the Arcade ImGui Demo!")        
         imgui.end()
 
