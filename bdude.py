@@ -75,7 +75,7 @@ class MainMenu(arcade.View):
 			self.exitbtn.disabled = True
 			self.window.show_view(self.game)
 			self.game.do_connect()
-			self.game._connected = True
+			# self.game._connected = True
 			self.connectb.text = f'{self.game.args.server}'
 			self.connectb.disabled = True
 			self.connectb.visible = False
@@ -152,8 +152,21 @@ class Bomberdude(arcade.View):
 		self.sub_sock.connect(f'tcp://{self.args.server}:9696')
 		self.sub_sock.subscribe('')
 		self.push_sock.connect(f'tcp://{self.args.server}:9697')
+		connection_event = {
+			'event_time':0,
+			'event_type': 'newconn',
+			'client_id' : self.playerone.client_id,
+			'handled': False,
+			'handledby': 'do_connect',
+			'eventid': gen_randid()}
+		self.eventq.put(connection_event)
 		self._connected = True
 		self.window.set_caption(f'{self.title} connected to {self.args.server} playerid: {self.playerone.client_id}')
+
+	def on_resize(self, width, height):
+		self.width = width
+		self.height = height
+		self.camera.resize(width, height)
 
 	def on_show_view(self):
 		self.window.background_color = arcade.color.GRAY_BLUE
@@ -202,16 +215,25 @@ class Bomberdude(arcade.View):
 
 	def setup_panels(self):
 		self.showkilltext = arcade.Text(f"kill: {self.show_kill_timer:.1f}",100, 100, arcade.color.RED, 22)
+
 		self.timer = UINumberLabel(value=1)
-		self.status_label = UITextLabel(l_text='')
-		self.pos_label = UITextLabel(l_text='')
+		# self.status_label = UITextLabel(l_text='')
+		# self.pos_label = UITextLabel(l_text='')
 		self.health_label = UITextLabel(l_text='')
-		self.panel = UITextArea(text='panel')
-		self.test_label = UITextLabel(l_text='')
-		self.columns_list = [self.timer, self.status_label, self.pos_label, self.health_label, self.panel,self.test_label,]
+		# self.panel = UITextArea(text='')
+		# self.test_label = UITextLabel(l_text='')
+		self.score_label = UITextLabel(l_text='')
+		self.bombs_label = UITextLabel(l_text='')
+
+		self.columns_list = [self.timer, self.health_label, self.score_label, self.bombs_label,]
 		self.columns = UIBoxLayout(align='left',vertical=True,children=self.columns_list,)
 		self.anchor = self.manager.add(UIAnchorLayout())#, anchor_y='top'))
 		self.anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
+
+	def draw_debug(self):
+		self.camera.use()
+		for sb in self.sceneblocks:
+			sb.draw_hit_box(arcade.color.RED)
 
 	def on_draw(self):
 		self.clear()
@@ -224,6 +246,8 @@ class Bomberdude(arcade.View):
 		self.particle_list.draw()
 		self.flame_list.draw()
 		self.manager.draw()
+		if self.debugmode:
+			self.draw_debug()
 		if self._show_kill_screen:
 			self.show_kill_screen()
 			#self.show_kill_timer = self.show_kill_timer_start-time.time()
@@ -270,6 +294,16 @@ class Bomberdude(arcade.View):
 			self.graw_graphs = not self.graw_graphs
 		elif key == arcade.key.F5:
 			arcade.clear_timings()
+		elif key == arcade.key.F6:
+			self.window.set_fullscreen(not self.window.fullscreen)
+			width, height = self.window.get_size()
+			self.window.set_viewport(0, width, 0, height)
+			self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
+		elif key == arcade.key.F7:
+			self.window.set_fullscreen(not self.window.fullscreen)
+			# width, height = self.window.get_size()
+			self.window.set_viewport(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT)
+			self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		elif key == arcade.key.ESCAPE or key == arcade.key.Q:
 			logger.warning(f'quit')
 			arcade.close_window()
@@ -321,6 +355,9 @@ class Bomberdude(arcade.View):
 				case 'upgradeblock':
 					if self.debugmode:
 						logger.info(f'{event_type} upgradetype {game_event.get("upgradetype")}')
+				case 'acknewconn':
+					if self.debugmode:
+						logger.info(f'{event_type} {game_event}')
 				case 'blkxplode':
 					if self.debugmode:
 						logger.info(f'{event_type} from {game_event.get("fbomber")}')
@@ -398,8 +435,9 @@ class Bomberdude(arcade.View):
 					npl = [k for k in self.columns.children if isinstance(k, UIPlayerLabel) and k.client_id == pclid][0]
 					pclpos = self.game_state.players[pclid].get('position')
 					score = self.game_state.players[pclid].get('score')
-					npscore = netplayer.score
-					npl.value = f'pos: {pclpos} score: {score} npscore: {npscore}'
+					health = self.game_state.players[pclid].get('health')
+					bombsleft = self.game_state.players[pclid].get('bombsleft')
+					npl.value = f'{health=} {score=} {bombsleft=}'
 					netplayer.position = pclpos
 			else:
 				pclpos = self.game_state.players[pclid].get('position')
@@ -408,11 +446,12 @@ class Bomberdude(arcade.View):
 				self.netplayers.append(newplayer)
 				logger.info(f'newplayer: {newplayer} pos: {pclpos} players: {len(self.netplayers)}')
 				playerlabel = UIPlayerLabel(client_id=pclid)
-				playerlabel.value = f'pos: {pclpos} score: {score}'
+				playerlabel.value = f'newplayer' # pos: {pclpos} score: {score}'
 				self.columns_list.append(playerlabel)
 				self.columns = UIBoxLayout(align='left',vertical=True,children=self.columns_list,)
 				self.anchor = self.manager.add(UIAnchorLayout())#, anchor_y='top'))
 				self.anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
+
 	def update_poplist(self):
 		for p in self.poplist:
 			logger.info(f'plist={self.poplist} popping {p} gsp={self.game_state.players}')
@@ -436,12 +475,14 @@ class Bomberdude(arcade.View):
 		if len(self.game_state.players) > 0:
 			self.update_netplayers()
 			self.update_poplist()
-		if self.debugmode or self.game_state.debugmode:
-			self.status_label.value = f'id {self.playerone.client_id} score: {self.playerone.score} netplayers: {len(self.game_state.players)} dbg:{self.debugmode} gsdbg:{self.game_state.debugmode} '
-		else:
-			self.status_label.value = f'id {self.playerone.client_id} score: {self.playerone.score} netplayers: {len(self.game_state.players)} '
-		self.pos_label.value = f'pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f}'
+		# if self.debugmode or self.game_state.debugmode:
+		# 	self.status_label.value = f'id {self.playerone.client_id} score: {self.playerone.score} netplayers: {len(self.game_state.players)} dbg:{self.debugmode} gsdbg:{self.game_state.debugmode} '
+		# else:
+		# 	self.status_label.value = f'id {self.playerone.client_id} score: {self.playerone.score} netplayers: {len(self.game_state.players)} '
+		# self.pos_label.value = f'pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f}'
 		self.health_label.value = f'health {self.playerone.health}'
+		self.score_label.value = f'score {self.playerone.score}'
+		self.bombs_label.value = f'bombs {self.playerone.bombsleft}'
 		self.hitlist = self.physics_engine.update()
 
 		for b in self.bomb_list:
@@ -455,7 +496,7 @@ class Bomberdude(arcade.View):
 		for f in self.flame_list:
 			if arcade.check_for_collision(f, self.playerone):
 				# self.playerone.health -= 123
-				event = {'event_time':0, 'event_type':'takedamage', 'damage': 101, 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+				event = {'event_time':0, 'event_type':'takedamage', 'damage': 10, 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
 				#self.game_state.game_events.append(event)
 				self.eventq.put(event)
 				# if self.playerone.health <= 0:
@@ -561,6 +602,7 @@ async def thread_main(game, loop):
 				health=game.playerone.health,
 				timeout=game.playerone.timeout,
 				killed=game.playerone.killed,
+				bombsleft=game.playerone.bombsleft,
 				msgsource='pushermsgdict',
 				msg_dt=time.time())
 			if game.connected():
@@ -603,7 +645,7 @@ def main():
 	parser.add_argument('-d','--debug', action='store_true', dest='debug', default=False)
 	args = parser.parse_args()
 
-	mainwindow = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, gc_mode='context_gc')
+	mainwindow = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')
 	game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, args)
 	mainmenu = MainMenu(game)
 	thread = Thread(target=thread_worker, args=(game,), daemon=True)

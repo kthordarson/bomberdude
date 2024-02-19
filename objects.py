@@ -84,20 +84,17 @@ class UITextLabel(UILabel):
 class UIPlayerLabel(UILabel):
 	_value: str = ''
 	def __init__(self, client_id, value='', l_text='', text_color=arcade.color.HAN_BLUE, *args, **kwargs):
-		super().__init__(text_color=text_color, *args, **kwargs)
+		super().__init__(text_color=text_color, multiline=True, *args, **kwargs)
 		self.client_id = client_id
-		self.value = f'{self.client_id} '
-		self.l_text = l_text
-		# self.align = 'right'
 
 	@property
 	def value(self):
-		return f'{self.client_id} {self._value}'
+		return f'\\n{self._value}'
 
 	@value.setter
 	def value(self, value):
-		self._value = f'{self.client_id} {value}'
-		self.text = f'{self.client_id} {value}'
+		self._value = f'{value}'
+		self.text = f'{self.client_id} {self._value}' # self._value # f'{self.client_id}\\n{value}'
 		self.fit_content()
 
 
@@ -228,6 +225,7 @@ class GameState:
 			'timeout': msgtimeout,
 			'killed': msgkilled,
 			'msgsource': 'update_game_state',
+			'bombsleft': msg.get('bombsleft'),
 
 		}
 		self.players[clid] = playerdict
@@ -250,6 +248,13 @@ class GameState:
 			else:
 				match event_type:
 					# logger.debug(f'self.game_events={self.game_events}')
+					case 'newconn':
+						game_event['handled'] = True
+						game_event['handledby'] = f'ugsnc'
+						game_event['event_type'] = 'acknewconn'
+						self.event_queue.put_nowait(game_event)
+						if self.debugmode:
+							logger.info(f'gsge={len(self.game_events)} {event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
 					case 'blkxplode': # todo make upgradeblock here....
 						# game_event['handled'] = True
 						uptype = random.choice([1,2,3])
@@ -328,6 +333,7 @@ class GameState:
 			'timeout': self.players[player].get('timeout'),
 			'killed': self.players[player].get('killed'),
 			'score': self.players[player].get('score'),
+			'bombsleft': self.players[player].get('bombsleft'),
 			'msgsource': 'to_json',
 			}
 			dout['players'][player] = playerdict #Q = playerdict
@@ -421,6 +427,7 @@ class Bomberplayer(arcade.Sprite):
 			'timeout': self.timeout,
 			'killed': self.killed,
 			'score': self.score,
+			'bombsleft': self.bombsleft,
 		}
 		return json.dumps({self.client_id: playerstate})
 
