@@ -22,8 +22,6 @@ from constants import *
 import requests
 import zmq
 from zmq.asyncio import Context, Socket
-import imgui
-from imguirenderer import ArcadeGLRenderer, ArcadeRenderer, App, Page
 # todo get inital pos from server
 # done draw netbombs
 # done sync info bewteen Client and Bomberplayer
@@ -87,7 +85,7 @@ class MainMenu(arcade.View):
 
 	def draw(self):
 		imgui.begin("bdudemainmenu")
-		imgui.text("welcome to bomberdude mainmenu")        
+		imgui.text("welcome to bomberdude mainmenu")
 		imgui.end()
 
 	def on_show_view(self):
@@ -668,17 +666,6 @@ def thread_worker(game):
 	logger.info(f'threadworker loop: {loop} lt={looptask}')
 	loop.run_forever()
 
-class MainPage(Page):
-	def draw(self):
-		imgui.begin("MainPage")
-		imgui.text("welcome to the main page")        
-		imgui.end()
-
-class BomberdudePage(Page):
-	def draw(self):
-		imgui.begin("bdude")
-		imgui.text("welcome to bomberdude")        
-		imgui.end()
 
 def main():
 	parser = ArgumentParser(description='bdude')
