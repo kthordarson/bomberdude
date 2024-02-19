@@ -82,10 +82,10 @@
         },
         "data/map3.json": {
             "scale": 0.5,
-            "selectedLayer": 2,
+            "selectedLayer": 3,
             "viewCenter": {
-                "x": 1099,
-                "y": 1012
+                "x": 363,
+                "y": 1526
             }
         },
         "map.json": {
