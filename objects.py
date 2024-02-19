@@ -199,6 +199,7 @@ class GameState:
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
 	def load_tile_map(self, mapname):
+		logger.debug(f'loading {mapname}')
 		self.tile_map = arcade.load_tilemap(mapname, layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 

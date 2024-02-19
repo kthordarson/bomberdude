@@ -22,6 +22,8 @@ from constants import *
 import requests
 import zmq
 from zmq.asyncio import Context, Socket
+import imgui
+from imguirenderer import ArcadeGLRenderer, ArcadeRenderer, App, Page
 # todo get inital pos from server
 # done draw netbombs
 # done sync info bewteen Client and Bomberplayer
@@ -39,9 +41,12 @@ RECT_WIDTH:int = 32
 RECT_HEIGHT:int = 32
 
 
-class MainMenu(arcade.View):
-	def __init__(self, game):
-		super().__init__()
+class MainMenu(Page):
+	def __init__(self, game, window, name, title):
+		super().__init__(window, name, title)
+		self.window = window
+		self.name = name
+		self.title = title
 		self.game = game
 		self.manager = game.manager
 		self.startbtn = UIFlatButton(text="Start New Game", width=150)
@@ -671,12 +676,15 @@ def main():
 	parser.add_argument('-dp','--debugpacket', action='store_true', dest='packetdebugmode', default=False)
 	args = parser.parse_args()
 
-	mainwindow = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')
+	# mainwindow = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')
+	mainwindow = App(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True)
 	game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, args)
-	mainmenu = MainMenu(game)
+	mainmenu = MainMenu(game, window=mainwindow, name='mainmenu', title='Main Menu')
+	mainwindow.add_page(mainmenu, name='mainmenu', title='Main Menu')
 	thread = Thread(target=thread_worker, args=(game,), daemon=True)
 	thread.start()
-	mainwindow.show_view(mainmenu)
+	mainwindow.show('mainmenu')
+	#mainwindow.show_view(mainmenu)
 	arcade.run()
 
 if __name__ == "__main__":
