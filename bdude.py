@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import math
 import zlib
 import pickle
 import sys
@@ -12,9 +13,11 @@ from argparse import ArgumentParser
 import random
 from queue import Queue, Empty
 import arcade
+from arcade.draw_commands import draw_line
 from arcade.gui import UIManager, UIBoxLayout, UITextArea,UIFlatButton,UIGridLayout
 from arcade.gui.widgets.layout import UIAnchorLayout
-
+from arcade.types import Point
+from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
 from loguru import logger
 from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState, gen_randid, Rectangle, UINumberLabel, UITextLabel, UIPlayerLabel
 from objects import pack, unpack, send_zipped_pickle, recv_zipped_pickle
@@ -34,9 +37,6 @@ from zmq.asyncio import Context, Socket
 # taks 2 a. receive player input b. update game state
 # task 3 send game state to clients
 
-UPDATE_TICK:int = 60
-RECT_WIDTH:int = 32
-RECT_HEIGHT:int = 32
 
 
 class MainMenu(arcade.View):
@@ -83,11 +83,6 @@ class MainMenu(arcade.View):
 			self.connectb.disabled = True
 			self.connectb.visible = False
 
-	def draw(self):
-		imgui.begin("bdudemainmenu")
-		imgui.text("welcome to bomberdude mainmenu")
-		imgui.end()
-
 	def on_show_view(self):
 		self.window.background_color = arcade.color.GRAY_ASPARAGUS
 		self.manager.enable()
@@ -105,6 +100,7 @@ class Bomberdude(arcade.View):
 		self.args = args
 		self.debugmode = self.args.debugmode
 		self.manager = UIManager()
+		self.panel = UIManager()
 		self.window.center_window() # set_location(0,0)
 		self.width = width
 		self.height = height
@@ -126,16 +122,23 @@ class Bomberdude(arcade.View):
 		self.eventq = Queue()
 		self.graw_graphs = False
 		self.poplist = []
+
 		self.bomb_list = arcade.SpriteList(use_spatial_hash=True)
+		self.bullet_list = arcade.SpriteList(use_spatial_hash=True)
 		self.particle_list = arcade.SpriteList(use_spatial_hash=True)
 		self.flame_list = arcade.SpriteList(use_spatial_hash=True)
+		self.sprite_items = [self.bomb_list, self.bullet_list, self.particle_list, self.flame_list,]
 		self.netplayers = arcade.SpriteList(use_spatial_hash=True)
 		self.scenewalls = arcade.SpriteList(use_spatial_hash=True)
 		self.sceneblocks = arcade.SpriteList(use_spatial_hash=True)
+
 		self._show_kill_screen = False
 		self.show_kill_timer = 1
 		self.show_kill_timer_start = 1
 		self.timer = UINumberLabel(value=1)
+		self.view_bottom = 0
+		self.view_left = 0
+		self.mouse_pos = 0,0
 
 	def __repr__(self):
 		return f'Bomberdude( {self.title} np: {len(self.game_state.players)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
@@ -174,7 +177,7 @@ class Bomberdude(arcade.View):
 			'eventid': gen_randid()}
 		self.eventq.put(connection_event)
 		self._connected = True
-		self.network_setup()
+		self.setup_network()
 		self.window.set_caption(f'{self.title} connected to {self.args.server} playerid: {self.playerone.client_id}')
 
 	def on_resize(self, width, height):
@@ -185,25 +188,33 @@ class Bomberdude(arcade.View):
 	def on_show_view(self):
 		self.window.background_color = arcade.color.GRAY_BLUE
 		self.manager.enable()
+		self.panel.enable()
+
 
 	def on_hide_view(self):
 		self.manager.disable()
+		self.panel.disable()
 
-	def network_setup(self):
+	def setup_network(self):
 		# get tilemap and scene from server
-		#request = {'event_time':0, 'event_type': 'getmap', 'client_id' : self.playerone.client_id, 'handled': False, 'handledby': 'network_setup', 'eventid': gen_randid()}
+		#request = {'event_time':0, 'event_type': 'getmap', 'client_id' : self.playerone.client_id, 'handled': False, 'handledby': 'setup_network', 'eventid': gen_randid()}
 		#self.eventq.put(request)
-		resp = requests.get(f'http://{self.args.server}:9699/get_tile_map')
-		self.game_state.load_tile_map(resp.text)
+		resp = json.loads(requests.get(f'http://{self.args.server}:9699/get_tile_map').text)
+		logger.debug(f'{resp}')
+		position = resp.get('position')
+		self.game_state.load_tile_map(resp.get('mapname'))
 		self._gotmap = True
-		logger.info(f'{self} {resp=} {self._gotmap=} {self.connected()=}')
-		self.setup()
+		# resp = requests.get(f'http://{self.args.server}:9699/get_position')
+		# pos = resp.text
+		# logger.info(f'{self} {resp=} {self._gotmap=} {self.connected()=} {pos=}')
+		self.setup(position)
 
-	def setup(self):
+	def setup(self,position=(99,99)):
 
 		# self.tile_map = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
 		# self.game_state.scene = arcade.Scene.from_tilemap(self.game_state.tile_map)
-		self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
+		#self.manager.adjust_mouse_coordinates = self.camera.mouse_coordinates_to_world
+
 		self.background_color = arcade.color.AMAZON
 		self.background_color = arcade.color.DARK_BLUE_GRAY
 		self.game_state.scene.add_sprite_list_after("Player", "Walls")
@@ -212,7 +223,17 @@ class Bomberdude(arcade.View):
 		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scenewalls,platforms=self.sceneblocks, gravity_constant=GRAVITY)
 		self.setup_panels()
 		self.setup_perf()
-		self.manager.enable()
+		self.setup_labels()
+		# self.manager.enable()
+		self.panel.enable()
+		self.playerone.position = position
+		self.camera = arcade.Camera()
+		self.guicamera = arcade.Camera()
+
+	def setup_labels(self):
+		self.showkilltext = arcade.Text(f"kill: {self.show_kill_timer:.1f}",100, 100, arcade.color.RED, 22)
+		self.mousepostext = arcade.Text(f'{self.mouse_pos} ', 0, 70, arcade.color.RED, font_size=12)
+		self.ponepostext = arcade.Text(f'{self.playerone.center_x} {self.playerone.center_y} ', 0, 100, arcade.color.RED, font_size=12)
 
 	def setup_perf(self):
 		# Create a sprite list to put the performance graphs into
@@ -237,42 +258,79 @@ class Bomberdude(arcade.View):
 		self.fps_text = arcade.Text(f"FPS: {arcade.get_fps(60):5.1f}",10, 10, arcade.color.BLACK, 22)
 
 	def setup_panels(self):
-		self.showkilltext = arcade.Text(f"kill: {self.show_kill_timer:.1f}",100, 100, arcade.color.RED, 22)
+
 		self.health_label = UITextLabel(l_text='')
 		self.score_label = UITextLabel(l_text='')
 		self.bombs_label = UITextLabel(l_text='')
 
-		self.columns_list = [self.timer, self.health_label, self.score_label, self.bombs_label,]
-		self.columns = UIBoxLayout(align='left',vertical=True,children=self.columns_list,)
-		self.anchor = self.manager.add(UIAnchorLayout())#, anchor_y='top'))
-		self.anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
+		self.labels = [self.timer, self.health_label, self.score_label, self.bombs_label,]
+		self.columns = UIBoxLayout(align='left',vertical=True,children=self.labels,)
+		anchor = self.panel.add(UIAnchorLayout())#, anchor_y='top'))
+		anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
+		self.panel.add(anchor)
+
+	def draw_panel(self):
+		self.guicamera.use()
+		for label in self.labels:
+			label.draw()
 
 	def draw_debug(self):
-		self.camera.use()
-		for sb in self.sceneblocks:
-			sb.draw_hit_box(arcade.color.RED)
+		draw_line(start_x=self.playerone.center_x, start_y=self.playerone.center_y, end_x=self.mouse_pos[0], end_y=self.mouse_pos[1], color=arcade.color.RED)
+		draw_line(start_x=self.playerone.position[0], start_y=self.playerone.position[1], end_x=self.mouse_pos[0], end_y=self.mouse_pos[1], color=arcade.color.YELLOW)
+		# self.camera.use()
+		# draw_line(end_x=self.playerone.center_x, end_y=self.playerone.center_y, start_x=0, start_y=0, color=arcade.color.YELLOW)
+		# draw_line(end_x=self.playerone.center_x, end_y=self.playerone.center_y, start_x=self.width, start_y=self.height, color=arcade.color.YELLOW)
+		# draw_line(start_x=self.playerone.center_x, start_y=self.playerone.center_y, end_x=self.width, end_y=self.height, color=arcade.color.YELLOW)
+		self.guicamera.use()
+		self.mousepostext.value = f'mouse {self.mouse_pos} '
+		self.ponepostext.value = f'pos: {self.playerone.position}'
+		self.mousepostext.draw()
+		self.ponepostext.draw()
+		arcade.draw_circle_filled(self.mouse_pos[0], self.mouse_pos[1], 4, arcade.color.RED)
+		# arcade.draw_circle_filled(self.playerone.position[0], self.playerone.position[1], 4, arcade.color.RED)
+
+	def center_camera_on_player(self, speed=0.2):
+		screen_center_x = 1 * (self.playerone.center_x - (self.camera.viewport_width / 2))
+		screen_center_y = 1 * (self.playerone.center_y - (self.camera.viewport_height / 2))
+		if screen_center_x < 0:
+			screen_center_x = 0
+		if screen_center_y < 0:
+			screen_center_y = 0
+		player_centered = (screen_center_x, screen_center_y)
+		self.camera.move_to(player_centered, speed)
 
 	def on_draw(self):
 		if not self._gotmap:
 			return
-		self.clear()
+		arcade.start_render()
 		# self.draw_player_panel()
+		#self.camera.use()
+		#self.camera.center(self.playerone.position)
+		#self.guicamera.center(self.playerone.position)
+		#self.clear()
 		self.camera.use()
 		self.game_state.scene.draw()
+		for sprite_list in self.sprite_items:
+			sprite_list.draw()
 		self.playerone.draw()
-		self.netplayers.draw()
-		self.bomb_list.draw()
-		self.particle_list.draw()
-		self.flame_list.draw()
-		self.manager.draw()
+		self.panel.draw()
+		# self.manager.draw()
+		#self.bomb_list.draw()
+		#self.particle_list.draw()
+		#self.flame_list.draw()
+		#self.bullet_list.draw()
+		#self.netplayers.draw()
+
 		if self.debugmode:
 			self.draw_debug()
 		if self._show_kill_screen:
+			self.guicamera.use()
 			self.show_kill_screen()
 			#self.show_kill_timer = self.show_kill_timer_start-time.time()
 			self.showkilltext.value = f"kill: {self.show_kill_timer:.1f}"
 			self.showkilltext.draw()
 		if self.graw_graphs:
+			self.guicamera.use()
 			self.perf_graph_list.draw()
 			# Get & draw the FPS for the last 60 frames
 			if arcade.timings_enabled():
@@ -297,6 +355,51 @@ class Bomberdude(arcade.View):
 	def send_key_press(self, key, modifiers):
 		pass
 
+	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
+		#self.mouse_pos = self.manager.adjust_mouse_coordinates(x,y)
+		self.mouse_pos = (x,y)
+		mouse_angle = get_angle_degrees( self.playerone.center_x, self.playerone.center_y, x, y)
+		mouse_angle += 180
+		angle_change = mouse_angle - self.playerone.angle
+		self.playerone.rotate_around_point(self.playerone.position, angle_change)
+
+	def on_mouse_press(self, x, y, button, modifiers):
+		#self.mouse_pos = self.manager.adjust_mouse_coordinates(x,y)
+		# x,y = self.manager.adjust_mouse_coordinates(x,y)
+		self.mouse_pos = (x,y)
+		bullet = arcade.Sprite(":resources:images/space_shooter/laserBlue01.png", scale=1)
+		start_x = self.playerone.center_x
+		start_y = self.playerone.center_y
+		bullet.center_x = start_x
+		bullet.center_y = start_y
+
+		# Get from the mouse the destination location for the bullet
+		# IMPORTANT! If you have a scrolling screen, you will also need
+		# to add in self.view_bottom and self.view_left.
+		dest_x = x #+ self.view_bottom
+		dest_y = y #+ self.view_left
+
+		# Do math to calculate how to get the bullet to the destination.
+		# Calculation the angle in radians between the start points
+		# and end points. This is the angle the bullet will travel.
+		x_diff = dest_x - start_x
+		y_diff = dest_y - start_y
+		angle = math.atan2(y_diff, x_diff)
+
+		# Angle the bullet sprite so it doesn't look like it is flying
+		# sideways.
+		size = max(self.playerone.width, self.playerone.height) / 2
+		bullet.center_x += size * math.cos(angle)
+		bullet.center_y += size * math.sin(angle)
+		bullet.angle = math.degrees(angle)
+		xm,ym = self.manager.adjust_mouse_coordinates(x,y)
+		logger.info(f"Bullet angle: {bullet.angle:.2f} {x=} {y=} {button=} {modifiers=} {xm=} {ym=}")
+		bullet.change_x = math.cos(angle) * BULLET_SPEED
+		bullet.change_y = math.sin(angle) * BULLET_SPEED
+
+		# Add the bullet to the appropriate lists
+		self.bullet_list.append(bullet)
+
 	def on_key_press(self, key, modifiers):
 		# todo check collisions before sending keypress...
 		sendmove = False
@@ -317,12 +420,12 @@ class Bomberdude(arcade.View):
 			self.window.set_fullscreen(not self.window.fullscreen)
 			width, height = self.window.get_size()
 			self.window.set_viewport(0, width, 0, height)
-			self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
+			#self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		elif key == arcade.key.F7:
 			self.window.set_fullscreen(not self.window.fullscreen)
 			# width, height = self.window.get_size()
 			self.window.set_viewport(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT)
-			self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
+			#self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
 		elif key == arcade.key.ESCAPE or key == arcade.key.Q:
 			logger.warning(f'quit')
 			arcade.close_window()
@@ -361,7 +464,7 @@ class Bomberdude(arcade.View):
 		# gspcopy = copy.copy(self.game_state.game_events)
 		# [self.game_state.game_events.remove(game_event) for game_event in self.game_state.game_events if game_event.get('handled')]
 		if not self._gotmap:
-			self.network_setup()
+			self.setup_network()
 		for game_event in game_events:
 			event_type = game_event.get('event_type')
 			if self.debugmode:
@@ -480,7 +583,51 @@ class Bomberdude(arcade.View):
 			logger.info(f'aftergsp={self.game_state.players}')
 		self.poplist = []
 
+	def update_viewport(self, dt):
+		# --- Manage Scrolling ---
+		# Track if we need to change the viewport
+		changed = False
+		# Scroll left
+		left_bndry = self.view_left + VIEWPORT_MARGIN
+		if self.playerone.left < left_bndry:
+			self.view_left -= left_bndry - self.playerone.left
+			changed = True
+
+		# Scroll right
+		right_bndry = self.view_left + SCREEN_WIDTH - VIEWPORT_MARGIN
+		if self.playerone.right > right_bndry:
+			self.view_left += self.playerone.right - right_bndry
+			changed = True
+
+		# Scroll up
+		top_bndry = self.view_bottom + SCREEN_HEIGHT - VIEWPORT_MARGIN
+		if self.playerone.top > top_bndry:
+			self.view_bottom += self.playerone.top - top_bndry
+			changed = True
+
+		# Scroll down
+		bottom_bndry = self.view_bottom + VIEWPORT_MARGIN
+		if self.playerone.bottom < bottom_bndry:
+			self.view_bottom -= bottom_bndry - self.playerone.bottom
+			changed = True
+
+		if changed:
+			arcade.set_viewport(self.view_left, SCREEN_WIDTH + self.view_left, self.view_bottom, SCREEN_HEIGHT + self.view_bottom)
+
+		# Save the time it took to do this.
+		# self.processing_time = timeit.default_timer() - start_time
+
+	def update_labels(self):
+		self.health_label.value = f'health {self.playerone.health}'
+		self.score_label.value = f'score {self.playerone.score}'
+		self.bombs_label.value = f'bombs {self.playerone.bombsleft}'
+
 	def on_update(self, dt):
+		if not self._gotmap:
+			return
+		self.update_viewport(dt)
+		self.update_labels()
+		self.bullet_list.update()
 		game_events = None
 		try:
 			game_events = self.game_state.event_queue.get_nowait()
@@ -491,21 +638,11 @@ class Bomberdude(arcade.View):
 			logger.error(f'{e} {type(e)}')
 		if game_events:
 			self.handle_game_events([game_events,])
-		if not self._gotmap:
-			# self.network_setup()
-			return
 		self.timer.value += dt
 		if len(self.game_state.players) > 0:
 			self.update_netplayers()
 			self.update_poplist()
-		# if self.debugmode or self.game_state.debugmode:
-		# 	self.status_label.value = f'id {self.playerone.client_id} score: {self.playerone.score} netplayers: {len(self.game_state.players)} dbg:{self.debugmode} gsdbg:{self.game_state.debugmode} '
-		# else:
-		# 	self.status_label.value = f'id {self.playerone.client_id} score: {self.playerone.score} netplayers: {len(self.game_state.players)} '
-		# self.pos_label.value = f'pos {self.playerone.position[0]:.2f} {self.playerone.position[1]:.2f}'
-		self.health_label.value = f'health {self.playerone.health}'
-		self.score_label.value = f'score {self.playerone.score}'
-		self.bombs_label.value = f'bombs {self.playerone.bombsleft}'
+
 		self.hitlist = self.physics_engine.update()
 
 		for b in self.bomb_list:
@@ -522,22 +659,6 @@ class Bomberdude(arcade.View):
 				event = {'event_time':0, 'event_type':'takedamage', 'damage': 10, 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
 				#self.game_state.game_events.append(event)
 				self.eventq.put(event)
-				# if self.playerone.health <= 0:
-				# 	self.playerone.kill(killer=f)
-				# 	self.game_state.players[self.playerone.client_id]['killed'] = True
-				# 	event = {'event_time':0, 'event_type':'playerkilled', 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
-				# 	#self.game_state.game_events.append(event)
-				# 	self.eventq.put(event)
-				# 	if self.debugmode:
-				# 		logger.info(f'playerkilled f={f} pone={self.playerone} gsp={self.game_state.players}')
-					# [k.addscore(1) for k in self.netplayers if k.client_id == f.bomber]
-					# killerid = [k for k in self.game_state.players if k == f.bomber][0]
-					# logger.info(f'playerkilled f={f} killerid={killerid}  pone={self.playerone} gsp={self.game_state.players}')
-					# killer = [self.game_state.players.get(k) for k in self.game_state.players if self.game_state.players.get(k).get('client_id')  == killerid][0]
-					# killer['score'] += 1
-					# logger.info(f'playerkilled f={f.bomber} killer:{killer} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
-					#if f.bomber == self.playerone.client_id:
-					#	logger.info(f'playerselfkilled f={f.bomber} pone={self.playerone} self.playerone.ps={self.playerone.ps}')
 				f.remove_from_sprite_lists()
 			f_hitlist = arcade.check_for_collision_with_list(f, self.scenewalls)
 			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
@@ -550,8 +671,9 @@ class Bomberdude(arcade.View):
 					case 5:
 						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
 						f.remove_from_sprite_lists()
-					case 3:
+					case 3 | 4:
 						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						hit.remove_from_sprite_lists()
 						f.remove_from_sprite_lists()
 					case 2:
 						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
@@ -582,7 +704,8 @@ class Bomberdude(arcade.View):
 					p.change_x *= -1
 		self.particle_list.update()
 		self.flame_list.update()
-		self.camera.center(self.playerone.position)
+		self.center_camera_on_player()
+
 
 	def dropbomb(self, key):
 		# logger.debug(f'p1: {self.playerone} drops bomb...')

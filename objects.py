@@ -2,7 +2,7 @@ from pyvex.utils import stable_hash
 import copy
 import arcade
 from arcade.gui import UILabel
-
+from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
 import random
 import math
 from loguru import logger
@@ -15,7 +15,7 @@ import json
 from dataclasses import dataclass, asdict, field
 import zlib
 import pickle
-
+from arcade.types import Point
 def gen_randid() -> str:
 	hashid = hashlib.sha1()
 	hashid.update(str(time.time()).encode("utf-8"))
@@ -418,6 +418,22 @@ class Bomberplayer(arcade.Sprite):
 				values[i] = tuple(values[i])
 		return stable_hash(tuple([type(self)] + values))
 
+	def rotate_around_point(self, point: Point, degrees: float):
+		"""
+		Rotate the sprite around a point by the set amount of degrees
+
+		:param point: The point that the sprite will rotate about
+		:param degrees: How many degrees to rotate the sprite
+		"""
+
+		# Make the sprite turn as its position is moved
+		self.angle += degrees
+
+		# Move the sprite along a circle centered around the passed point
+		self.position = rotate_point( self.center_x, self.center_y, point[0], point[1], degrees)
+
+
+
 	def respawn(self):
 		self.killed = False
 		self.health = 100
@@ -462,7 +478,6 @@ class Bomberplayer(arcade.Sprite):
 		logger.info(f'{self} killed by {killer}')
 		self.killed = True
 		self.texture = arcade.load_texture('data/netplayerdead.png')
-		self.changed = True
 		return 1
 
 class Bomb(arcade.Sprite):
@@ -605,10 +620,10 @@ def unpack(parts):
 
 
 async def send_zipped_pickle(socket, obj, flags=0, protocol=-1):
-    """pickle an object, and zip the pickle before sending it"""
-    p = pickle.dumps(obj, protocol)
-    z = zlib.compress(p)
-    return await socket.send(z, flags=flags)
+	"""pickle an object, and zip the pickle before sending it"""
+	p = pickle.dumps(obj, protocol)
+	z = zlib.compress(p)
+	return await socket.send(z, flags=flags)
 
 async def recv_zipped_pickle(socket, flags=0, protocol=-1):
 	"""inverse of send_zipped_pickle"""

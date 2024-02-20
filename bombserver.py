@@ -11,6 +11,7 @@ from argparse import ArgumentParser
 from threading import Thread, current_thread, Timer, active_count, Event
 from queue import Queue, Empty
 from loguru import logger
+import random
 from constants import *
 from objects import gen_randid
 from objects import PlayerEvent, PlayerState, GameState,KeysPressed
@@ -182,7 +183,29 @@ class BombServer():
 		mapname = self.game_state.tile_map.tiled_map.map_file
 		#tile_map = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=1)
 		#tm = pickle.dumps(self.game_state.tile_map)
-		return str(mapname)
+		position = self.get_position()
+		return {'mapname': str(mapname), 'position': position}
+
+	def get_position(self, retas='int'):
+		foundpos = False
+		walls = self.game_state.tile_map.get_tilemap_layer('Walls')
+		blocks = self.game_state.tile_map.get_tilemap_layer('Walls')
+		x = 0
+		y = 0
+		while not foundpos:
+			x = random.randint(1, int(self.game_state.tile_map.width)-1)
+			y = random.randint(1, int(self.game_state.tile_map.height)-1)
+			# print(f'checking {x} {y}')
+			if walls.data[x][y] == 0 and blocks.data[x][y] == 0:
+				foundpos = True
+				x1 = x * BLOCK # self.game_state.tile_map.width
+				y1 = y * BLOCK # self.game_state.tile_map.width
+				logger.debug(f'foundpos {x}/{x1} {y}/{y1}')
+				if retas == 'int':
+					return (x1,y1)
+				else:
+					return str(f'{x1},{y1}')
+
 
 	async def update_from_client(self, sockrecv):
 		try:
@@ -235,6 +258,7 @@ async def main(args):
 	apiserver = ApiServer('bombserver')
 	apiserver.add_url_rule('/get_game_state', view_func=server.get_game_state, methods=['GET'])
 	apiserver.add_url_rule('/get_tile_map', view_func=server.get_tile_map, methods=['GET'])
+	apiserver.add_url_rule('/get_position', view_func=server.get_position, methods=['GET'])
 	apithread = Thread(target=apiserver.run, args=(args.listen, 9699), daemon=True)
 	apithread.start()
 
