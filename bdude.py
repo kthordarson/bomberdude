@@ -13,8 +13,9 @@ from argparse import ArgumentParser
 import random
 from queue import Queue, Empty
 import arcade
+from arcade import get_window
 from arcade.draw_commands import draw_line
-from arcade.gui import UIManager, UIBoxLayout, UITextArea,UIFlatButton,UIGridLayout
+from arcade.gui import UIManager, UIBoxLayout, UITextArea, UIFlatButton, UIGridLayout
 from arcade.gui.widgets.layout import UIAnchorLayout
 from arcade.types import Point
 from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
@@ -39,21 +40,22 @@ from zmq.asyncio import Context, Socket
 
 
 
-class MainMenu(arcade.View):
-	def __init__(self, game, window, *args, **kwargs):#, game, window, name, title):
+class MainView(arcade.View):
+	def __init__(self, window, args, **kwargs):#, game, window, name, title):
 		super().__init__()
 		self.window = window
-		self.game = game
-		self.manager = arcade.gui.UIManager()
+		self.game = Bomberdude(args)
+		self.manager = UIManager()
 		self.startbtn = UIFlatButton(text="Start New Game", width=150)
 		self.connectb = UIFlatButton(text="Connect", width=150)
 		self.exitbtn = UIFlatButton(text="Exit", width=150)
-		self.grid = UIGridLayout(column_count=2, row_count=3, vertical_spacing=5)
+		self.grid = UIGridLayout(x=100,y=100,column_count=2, row_count=3, vertical_spacing=5)
 		gridsb = self.grid.add(self.startbtn, col_num=0, row_num=0)
 		gridcb = self.grid.add(self.connectb, col_num=0, row_num=1)
 		grideb = self.grid.add(self.exitbtn, col_num=0, row_num=2)
-		self.anchor = self.manager.add(UIAnchorLayout())
-		self.anchor.add(anchor_x="center_x", anchor_y="center_y", child=self.grid,)
+		self.manager.add(self.grid)
+		# self.anchor = self.manager.add(UIAnchorLayout())
+		# self.anchor.add( child=self.grid,)
 
 		@self.startbtn.event("on_click")
 		def on_click_start_new_game_button(event):
@@ -72,16 +74,16 @@ class MainMenu(arcade.View):
 
 		@self.connectb.event("on_click")
 		def on_connect_to_server(event):
+			self.game.do_connect()
 			self.startbtn.visible = False
 			self.exitbtn.visible = False
 			self.startbtn.disabled = True
 			self.exitbtn.disabled = True
-			self.window.show_view(self.game)
-			self.game.do_connect()
 			# self.game._connected = True
 			self.connectb.text = f'{self.game.args.server}'
 			self.connectb.disabled = True
 			self.connectb.visible = False
+			self.window.show_view(self.game)
 
 	def on_show_view(self):
 		self.window.background_color = arcade.color.GRAY_ASPARAGUS
@@ -90,20 +92,36 @@ class MainMenu(arcade.View):
 	def on_draw(self):
 		self.clear()
 		self.manager.draw()
+		if self.game.debugmode:
+			arcade.draw_rectangle_outline( self.grid.x, self.grid.y,self.grid.width, self.grid.height, arcade.color.RED, border_width=1 )
+			# k = self.anchor.parent.children[0][0].children[0]
+			# arcade.draw_rectangle_outline(k.x, k.y, k.width, k.height, arcade.color.YELLOW, border_width=1 )
+			items = [k for k in self.grid._children]
+			for item in items:
+				if isinstance(item, arcade.gui.widgets._ChildEntry):
+					for c in item.child:
+						arcade.draw_rectangle_outline( c.x, c.y, c.width, c.height, arcade.color.GREEN, border_width=1 )
+				elif not isinstance(items[0], arcade.gui.widgets._ChildEntry):
+					arcade.draw_rectangle_outline( item.x, item.y,item.width, item.height, arcade.color.RED, border_width=1 )
+				else:
+					print(f'item: {item} {type(item)}')
+			# [arcade.draw_rectangle_outline( item.x, item.y,item.width, item.height, arcade.color.RED, border_width=1 ) for item in self.grid._children if not isinstance(item, arcade.gui.widgets._ChildEntry)]
+			# arcade.draw_rectangle_outline( self.grid.children[0].children[0].x, self.grid.children[0].children[0].y,self.grid.children[0].children[0].width, self.grid.children[0].children[0].height, arcade.color.RED, border_width=1 )
 
 	def on_hide_view(self):
 		self.manager.disable() # pass
 
 class Bomberdude(arcade.View):
-	def __init__(self, width, height, title='foobar', args=None):
+	def __init__(self, args):
 		super().__init__()
+		self.title = "Bomberdude"
 		self.args = args
+		self.window = get_window()
 		self.debugmode = self.args.debugmode
-		self.manager = UIManager()
-		self.panel = UIManager()
-		self.window.center_window() # set_location(0,0)
-		self.width = width
-		self.height = height
+		self.panel_manager = UIManager()
+		# self.window.center_window() # set_location(0,0)
+		self.width = self.window.width
+		self.height = self.window.height
 		self.t = 0
 		self._gotmap = False
 		self.playerone = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=gen_randid())
@@ -118,7 +136,6 @@ class Bomberdude(arcade.View):
 		self._connected = False
 		self.physics_engine = None
 		self.netplayers = []
-		self.title = title
 		self.eventq = Queue()
 		self.graw_graphs = False
 		self.poplist = []
@@ -187,13 +204,11 @@ class Bomberdude(arcade.View):
 
 	def on_show_view(self):
 		self.window.background_color = arcade.color.GRAY_BLUE
-		self.manager.enable()
-		self.panel.enable()
+		self.panel_manager.enable()
 
 
 	def on_hide_view(self):
-		self.manager.disable()
-		self.panel.disable()
+		self.panel_manager.disable()
 
 	def setup_network(self):
 		# get tilemap and scene from server
@@ -225,7 +240,7 @@ class Bomberdude(arcade.View):
 		self.setup_perf()
 		self.setup_labels()
 		# self.manager.enable()
-		self.panel.enable()
+		self.panel_manager.enable()
 		self.playerone.position = position
 		self.camera = arcade.Camera()
 		self.guicamera = arcade.Camera()
@@ -234,6 +249,7 @@ class Bomberdude(arcade.View):
 		self.showkilltext = arcade.Text(f"kill: {self.show_kill_timer:.1f}",100, 100, arcade.color.RED, 22)
 		self.mousepostext = arcade.Text(f'{self.mouse_pos} ', 0, 70, arcade.color.RED, font_size=12)
 		self.ponepostext = arcade.Text(f'{self.playerone.center_x} {self.playerone.center_y} ', 0, 100, arcade.color.RED, font_size=12)
+		self.netplayer_labels = []
 
 	def setup_perf(self):
 		# Create a sprite list to put the performance graphs into
@@ -258,16 +274,23 @@ class Bomberdude(arcade.View):
 		self.fps_text = arcade.Text(f"FPS: {arcade.get_fps(60):5.1f}",10, 10, arcade.color.BLACK, 22)
 
 	def setup_panels(self):
+		#self.grid = UIGridLayout(x=123,y=123,column_count=2, row_count=3, vertical_spacing=5)
+		self.grid = self.panel_manager.add(UIGridLayout(column_count=2, row_count=2, vertical_spacing=5, align_horizontal='left', align_vertical='top'))
+		# gridsb = self.grid.add(self.startbtn, col_num=0, row_num=0)
 
 		self.health_label = UITextLabel(l_text='')
 		self.score_label = UITextLabel(l_text='')
 		self.bombs_label = UITextLabel(l_text='')
 
 		self.labels = [self.timer, self.health_label, self.score_label, self.bombs_label,]
-		self.columns = UIBoxLayout(align='left',vertical=True,children=self.labels,)
-		anchor = self.panel.add(UIAnchorLayout())#, anchor_y='top'))
-		anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
-		self.panel.add(anchor)
+		columns = UIBoxLayout(align='left',vertical=True,children=self.labels,)
+		anchor = self.panel_manager.add(UIAnchorLayout())#, anchor_y='top'))
+		anchor.add(child=columns, anchor_x='left', anchor_y='top')
+		self.grid.add(anchor, col_num=0, row_num=0)
+
+		self.test_text = UITextLabel(text_color=arcade.color.RED, l_text='test')
+		self.grid.add(self.test_text, col_num=1, row_num=1)
+		# self.anchor.add(anchor_x="center_x", anchor_y="center_y", child=self.grid,)
 
 	def draw_panel(self):
 		self.guicamera.use()
@@ -275,18 +298,42 @@ class Bomberdude(arcade.View):
 			label.draw()
 
 	def draw_debug(self):
-		draw_line(start_x=self.playerone.center_x, start_y=self.playerone.center_y, end_x=self.mouse_pos[0], end_y=self.mouse_pos[1], color=arcade.color.RED)
-		draw_line(start_x=self.playerone.position[0], start_y=self.playerone.position[1], end_x=self.mouse_pos[0], end_y=self.mouse_pos[1], color=arcade.color.YELLOW)
+		#draw_line(start_x=self.playerone.center_x, start_y=self.playerone.center_y, end_x=self.mouse_pos[0], end_y=self.mouse_pos[1], color=arcade.color.RED)
+		#draw_line(start_x=self.playerone.position[0], start_y=self.playerone.position[1], end_x=self.mouse_pos[0], end_y=self.mouse_pos[1], color=arcade.color.YELLOW)
 		# self.camera.use()
 		# draw_line(end_x=self.playerone.center_x, end_y=self.playerone.center_y, start_x=0, start_y=0, color=arcade.color.YELLOW)
 		# draw_line(end_x=self.playerone.center_x, end_y=self.playerone.center_y, start_x=self.width, start_y=self.height, color=arcade.color.YELLOW)
 		# draw_line(start_x=self.playerone.center_x, start_y=self.playerone.center_y, end_x=self.width, end_y=self.height, color=arcade.color.YELLOW)
 		self.guicamera.use()
+		# draw_line(start_x=self.playerone.center_x-self.view_left, start_y=self.playerone.center_y-self.view_bottom, end_x=self.mouse_pos[0], end_y=self.mouse_pos[1], color=arcade.color.BLUE)
+		# draw_line(start_x=self.playerone.position[0]-self.view_left, start_y=self.playerone.position[1]-self.view_bottom, end_x=self.mouse_pos[0], end_y=self.mouse_pos[1], color=arcade.color.GREEN)
+		# draw_line(start_x=self.playerone.position[0], start_y=self.playerone.position[1], end_x=self.mouse_pos[0]+self.view_left, end_y=self.mouse_pos[1]+self.view_bottom, color=arcade.color.YELLOW)
 		self.mousepostext.value = f'mouse {self.mouse_pos} '
+		self.test_text.value = f'mouse {self.mouse_pos} '
 		self.ponepostext.value = f'pos: {self.playerone.position}'
 		self.mousepostext.draw()
 		self.ponepostext.draw()
-		arcade.draw_circle_filled(self.mouse_pos[0], self.mouse_pos[1], 4, arcade.color.RED)
+		arcade.draw_rectangle_outline( self.grid.children[0].children[0].x, self.grid.children[0].children[0].y,self.grid.children[0].children[0].width, self.grid.children[0].children[0].height, arcade.color.RED, border_width=1 )
+		arcade.draw_rectangle_outline( self.grid.children[0].children[0].children[0].x, self.grid.children[0].children[0].children[0].y,self.grid.children[0].children[0].children[0].width, self.grid.children[0].children[0].children[0].height, arcade.color.RED, border_width=1 )
+		arcade.draw_rectangle_outline( self.grid.x, self.grid.y,self.grid.width, self.grid.height, arcade.color.RED, border_width=1 )
+		items = [k for k in self.grid._children]
+		[arcade.draw_rectangle_outline( item.x, item.y,item.width, item.height, arcade.color.RED, border_width=1 ) for item in self.labels]
+		for item in items:
+			if not isinstance(items[0], arcade.gui.widgets._ChildEntry):
+				arcade.draw_rectangle_outline( item.x, item.y,item.width, item.height, arcade.color.RED, border_width=1 )
+		items = [k for k in self.grid._children]
+		for item in items:
+			if isinstance(item, arcade.gui.widgets._ChildEntry):
+				for c in item.child:
+					arcade.draw_rectangle_outline( c.x, c.y, c.width, c.height, arcade.color.GREEN, border_width=1 )
+			elif not isinstance(items[0], arcade.gui.widgets._ChildEntry):
+				arcade.draw_rectangle_outline( item.x, item.y,item.width, item.height, arcade.color.RED, border_width=1 )
+			else:
+				print(f'item: {item} {type(item)}')
+		#self.grid.children[0].children[0].children[0]
+		#arcade.draw_circle_filled(self.mouse_pos[0], self.mouse_pos[1], 4, arcade.color.RED)
+		#arcade.draw_circle_filled(self.playerone.center_x-self.view_left, self.playerone.center_y-self.view_bottom, 4, arcade.color.GREEN)
+		#arcade.draw_circle_filled(self.playerone.position[0]-self.view_left, self.playerone.position[1]-self.view_bottom, 6, arcade.color.RED)
 		# arcade.draw_circle_filled(self.playerone.position[0], self.playerone.position[1], 4, arcade.color.RED)
 
 	def center_camera_on_player(self, speed=0.2):
@@ -313,7 +360,7 @@ class Bomberdude(arcade.View):
 		for sprite_list in self.sprite_items:
 			sprite_list.draw()
 		self.playerone.draw()
-		self.panel.draw()
+		self.panel_manager.draw()
 		# self.manager.draw()
 		#self.bomb_list.draw()
 		#self.particle_list.draw()
@@ -356,9 +403,13 @@ class Bomberdude(arcade.View):
 		pass
 
 	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
-		#self.mouse_pos = self.manager.adjust_mouse_coordinates(x,y)
+		#self.mouse_pos = self.panel_manager.adjust_mouse_coordinates(x,y)
+		#x,y = self.mouse_pos = self.panel_manager.adjust_mouse_coordinates(x,y)
 		self.mouse_pos = (x,y)
-		mouse_angle = get_angle_degrees( self.playerone.center_x, self.playerone.center_y, x, y)
+		#self.mouse_pos = (x+self.view_left,y+self.view_bottom)
+		x = x+self.view_left
+		y = y+self.view_bottom
+		mouse_angle = get_angle_degrees( self.playerone.center_x-self.view_left, self.playerone.center_y-self.view_bottom, x, y)
 		mouse_angle += 180
 		angle_change = mouse_angle - self.playerone.angle
 		self.playerone.rotate_around_point(self.playerone.position, angle_change)
@@ -366,8 +417,9 @@ class Bomberdude(arcade.View):
 	def on_mouse_press(self, x, y, button, modifiers):
 		#self.mouse_pos = self.manager.adjust_mouse_coordinates(x,y)
 		# x,y = self.manager.adjust_mouse_coordinates(x,y)
-		self.mouse_pos = (x,y)
-		bullet = arcade.Sprite(":resources:images/space_shooter/laserBlue01.png", scale=1)
+
+		lzrsprt=arcade.load_texture("data/laserBlue01.png")
+		bullet = arcade.Sprite(lzrsprt, scale=1)
 		start_x = self.playerone.center_x
 		start_y = self.playerone.center_y
 		bullet.center_x = start_x
@@ -376,8 +428,8 @@ class Bomberdude(arcade.View):
 		# Get from the mouse the destination location for the bullet
 		# IMPORTANT! If you have a scrolling screen, you will also need
 		# to add in self.view_bottom and self.view_left.
-		dest_x = x #+ self.view_bottom
-		dest_y = y #+ self.view_left
+		dest_x = x + self.view_bottom
+		dest_y = y + self.view_left
 
 		# Do math to calculate how to get the bullet to the destination.
 		# Calculation the angle in radians between the start points
@@ -392,8 +444,8 @@ class Bomberdude(arcade.View):
 		bullet.center_x += size * math.cos(angle)
 		bullet.center_y += size * math.sin(angle)
 		bullet.angle = math.degrees(angle)
-		xm,ym = self.manager.adjust_mouse_coordinates(x,y)
-		logger.info(f"Bullet angle: {bullet.angle:.2f} {x=} {y=} {button=} {modifiers=} {xm=} {ym=}")
+		# xm,ym = self.manager.adjust_mouse_coordinates(x,y)#
+		logger.info(f"Bullet angle: {bullet.angle:.2f} x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
 		bullet.change_x = math.cos(angle) * BULLET_SPEED
 		bullet.change_y = math.sin(angle) * BULLET_SPEED
 
@@ -420,12 +472,12 @@ class Bomberdude(arcade.View):
 			self.window.set_fullscreen(not self.window.fullscreen)
 			width, height = self.window.get_size()
 			self.window.set_viewport(0, width, 0, height)
-			#self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
+			self.camera = arcade.Camera(viewport=(0, 0, self.width, self.height))
 		elif key == arcade.key.F7:
 			self.window.set_fullscreen(not self.window.fullscreen)
 			# width, height = self.window.get_size()
 			self.window.set_viewport(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT)
-			#self.camera = arcade.SimpleCamera(viewport=(0, 0, self.width, self.height))
+			self.camera = arcade.Camera(viewport=(0, 0, self.width, self.height))
 		elif key == arcade.key.ESCAPE or key == arcade.key.Q:
 			logger.warning(f'quit')
 			arcade.close_window()
@@ -556,12 +608,12 @@ class Bomberdude(arcade.View):
 				# logger.info(f'pclid={pclid} gsp={self.game_state.players}')
 				if pclid != self.playerone.client_id:
 					netplayer = [k for k in self.netplayers if k.client_id == pclid][0]
-					npl = [k for k in self.columns.children if isinstance(k, UIPlayerLabel) and k.client_id == pclid][0]
+					player_label = [k for k in self.netplayer_labels if isinstance(k, UIPlayerLabel) and k.client_id == pclid][0]
 					pclpos = self.game_state.players[pclid].get('position')
 					score = self.game_state.players[pclid].get('score')
 					health = self.game_state.players[pclid].get('health')
 					bombsleft = self.game_state.players[pclid].get('bombsleft')
-					npl.value = f'{health=} {score=} {bombsleft=}'
+					player_label.value = f'{health=} {score=} {bombsleft=}'
 					netplayer.position = pclpos
 			else:
 				pclpos = self.game_state.players[pclid].get('position')
@@ -571,10 +623,10 @@ class Bomberdude(arcade.View):
 				logger.info(f'newplayer: {newplayer} pos: {pclpos} players: {len(self.netplayers)}')
 				playerlabel = UIPlayerLabel(client_id=pclid)
 				playerlabel.value = f'newplayer' # pos: {pclpos} score: {score}'
-				self.columns_list.append(playerlabel)
-				self.columns = UIBoxLayout(align='left',vertical=True,children=self.columns_list,)
-				self.anchor = self.manager.add(UIAnchorLayout())#, anchor_y='top'))
-				self.anchor.add(child=self.columns, anchor_x='left', anchor_y='top')
+				self.netplayer_labels.append(playerlabel)
+				columns = UIBoxLayout(align='left',vertical=True,children=self.netplayer_labels,space_between=10)
+				anchor = self.panel_manager.add(UIAnchorLayout(x=45,y=111))#, anchor_y='top'))
+				anchor.add(child=columns, anchor_x='right')
 
 	def update_poplist(self):
 		for p in self.poplist:
@@ -586,7 +638,7 @@ class Bomberdude(arcade.View):
 	def update_viewport(self, dt):
 		# --- Manage Scrolling ---
 		# Track if we need to change the viewport
-		changed = False
+		changed = True
 		# Scroll left
 		left_bndry = self.view_left + VIEWPORT_MARGIN
 		if self.playerone.left < left_bndry:
@@ -610,7 +662,7 @@ class Bomberdude(arcade.View):
 		if self.playerone.bottom < bottom_bndry:
 			self.view_bottom -= bottom_bndry - self.playerone.bottom
 			changed = True
-
+#
 		if changed:
 			arcade.set_viewport(self.view_left, SCREEN_WIDTH + self.view_left, self.view_bottom, SCREEN_HEIGHT + self.view_bottom)
 
@@ -625,7 +677,7 @@ class Bomberdude(arcade.View):
 	def on_update(self, dt):
 		if not self._gotmap:
 			return
-		self.update_viewport(dt)
+		# self.update_viewport(dt)
 		self.update_labels()
 		self.bullet_list.update()
 		game_events = None
@@ -800,17 +852,17 @@ def main():
 	parser.add_argument('-dp','--debugpacket', action='store_true', dest='packetdebugmode', default=False)
 	args = parser.parse_args()
 
-	mainwindow = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')
+	app = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')
 	# mainwindow = App(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True)
-	game = Bomberdude(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, args)
-	mainmenu = MainMenu(game, window=mainwindow, name='mainmenu', title='Main Menu')
+
+	mainview = MainView(window=app, name='bomberdue', title='Bomberdude Main Menu', args=args)
 	#mainwindow.add_page(MainPage, name='mainpage', title='Main Page')
 	#mainwindow.add_page(MainMenu, name='mainmenu', title='Main Menu')
 	#mainwindow.add_page(BomberdudePage, name='bdude', title='bdude')
-	thread = Thread(target=thread_worker, args=(game,), daemon=True)
+	thread = Thread(target=thread_worker, args=(mainview.game,), daemon=True)
 	thread.start()
 	#mainwindow.show('mainpage')
-	mainwindow.show_view(mainmenu)
+	app.show_view(mainview)
 	arcade.run()
 
 if __name__ == "__main__":

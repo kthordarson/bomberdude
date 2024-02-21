@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import copy
 from flask import Flask
 import zlib
 import pickle
@@ -105,10 +106,12 @@ class ServerTUI(Thread):
 		print(f'clearevents gamestate: {self.server.game_state} events: {len(self.server.game_state.game_events)}')
 		self.server.game_state.game_events = []
 
+
 	def printhelp(self):
 		help = f'''
 		cmds:
 		s = show server info
+		r = remove timedout players
 		d = toggle debugmode {self.server.debugmode}
 		ds = toggle debugmode for gamestate {self.server.game_state.debugmode}
 		dst = toggle debugmode for gamestate {self.server.game_state.debugmode_trace}
@@ -126,6 +129,8 @@ class ServerTUI(Thread):
 					self.printhelp()
 				if cmd[:1] == 's':
 					self.get_serverinfo()
+				if cmd[:1] == 'r':
+					self.server.remove_timedout_players()
 				if cmd[:1] == 'l':
 					self.dump_players()
 				if cmd[:1] == 'e':
@@ -186,6 +191,13 @@ class BombServer():
 		position = self.get_position()
 		return {'mapname': str(mapname), 'position': position}
 
+	def remove_timedout_players(self):
+		pcopy = copy.copy(self.game_state.players)
+		for p in pcopy:
+			if self.game_state.players[p]['timeout']:
+				logger.warning(f'remove_timedout_players {p} {self.game_state.players[p]}')
+				self.game_state.players.pop(p)
+
 	def get_position(self, retas='int'):
 		foundpos = False
 		walls = self.game_state.tile_map.get_tilemap_layer('Walls')
@@ -239,6 +251,7 @@ class BombServer():
 				if self.packetdebugmode:
 					logger.info(f'tick_count: {self.tick_count}')
 				self.game_state.check_players()
+				self.remove_timedout_players()
 				await sockpush.send_json(self.game_state.to_json())
 				await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
 				# self.game_state.game_events = []

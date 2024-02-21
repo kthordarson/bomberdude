@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "data/map3.json",
+    "activeFile": "",
     "expandedProjectPaths": [
         "data",
         "."
@@ -82,10 +82,10 @@
         },
         "data/map3.json": {
             "scale": 0.5,
-            "selectedLayer": 3,
+            "selectedLayer": 2,
             "viewCenter": {
-                "x": 363,
-                "y": 1526
+                "x": 1161,
+                "y": 1582
             }
         },
         "map.json": {
@@ -112,9 +112,6 @@
     "map.lastUsedFormat": "json",
     "map.width": 64,
     "openFiles": [
-        "data/map3.json",
-        "data/map2tiles.tsx",
-        "data/btiles.tsx"
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
