@@ -101,8 +101,8 @@ class MainView(arcade.View):
 			self.connectb.visible = False
 			self.window.show_view(self.game)
 
-	#def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
-	#	self.mouse_pos = (x,y)
+	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
+		self.mouse_pos = (x,y)
 
 	def on_key_press(self, key, modifiers):
 		if self.debugmode:
@@ -474,11 +474,14 @@ class Bomberdude(arcade.View):
 	def on_key_press(self, key, modifiers):
 		# todo check collisions before sending keypress...
 		sendmove = False
+		if self.playerone.killed:
+			logger.warning(f'playerone killed')
+			return
 		# logger.debug(f'{key} {self} {self.client} {self.client.receiver}')
-		if key == arcade.key.F1:
+		elif key == arcade.key.F1:
 			self.debugmode = not self.debugmode
 			logger.debug(f'debugmode: {self.debugmode}')
-		if key == arcade.key.F2:
+		elif key == arcade.key.F2:
 			self.game_state.debugmode = not self.game_state.debugmode
 			logger.debug(f'gsdebugmode: {self.game_state.debugmode} debugmode: {self.debugmode}')
 		elif key == arcade.key.F3:
@@ -502,24 +505,25 @@ class Bomberdude(arcade.View):
 			logger.warning(f'quit')
 			arcade.close_window()
 			return
-		if self.playerone.killed:
-			logger.warning(f'playerone killed')
-			return
-		if key == arcade.key.SPACE:
+		elif key == arcade.key.SPACE:
 			self.dropbomb(key)
-		if len(self.hitlist) == 0:
-			#self.player_event.keys[key] = True
-			#self.keys_pressed.keys[key] = True
-			if key == arcade.key.UP or key == arcade.key.W:
+
+		#self.player_event.keys[key] = True
+		#self.keys_pressed.keys[key] = True
+		elif key == arcade.key.UP or key == arcade.key.W:
+			if len(self.hitlist) == 0:
 				self.playerone.change_y = PLAYER_MOVEMENT_SPEED
 				sendmove = True
-			elif key == arcade.key.DOWN or key == arcade.key.S:
+		elif key == arcade.key.DOWN or key == arcade.key.S:
+			if len(self.hitlist) == 0:
 				self.playerone.change_y = -PLAYER_MOVEMENT_SPEED
 				sendmove = True
-			elif key == arcade.key.LEFT or key == arcade.key.A:
+		elif key == arcade.key.LEFT or key == arcade.key.A:
+			if len(self.hitlist) == 0:
 				self.playerone.change_x = -PLAYER_MOVEMENT_SPEED
 				sendmove = True
-			elif key == arcade.key.RIGHT or key == arcade.key.D:
+		elif key == arcade.key.RIGHT or key == arcade.key.D:
+			if len(self.hitlist) == 0:
 				self.playerone.change_x = PLAYER_MOVEMENT_SPEED
 				sendmove = True
 			# self.client.send_queue.put({'msgtype': 'playermove', 'key': key, 'pos' : self.playerone.position, 'client_id': self.client.client_id})

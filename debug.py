@@ -143,7 +143,7 @@ def draw_debug_view(view):
 		# item_text = f'idx:{idx} {item.name} '
 		# item_textpos = f' {item.x} {item.y} w: {item.width} h: {item.height} '
 		color = arcade.color.Color(0, 0, idx*10, 255)# random.choice(PARTICLE_COLORS)
-		arcade.draw_rectangle_outline( item.center_x, item.center_y, item.width, item.height, color, border_width=3 )
+		arcade.draw_rectangle_outline( item.center_x, item.center_y, item.width, item.height, color, border_width=1 )
 		# arcade.draw_rectangle_outline( item.center_x, item.center_y ,item.width-10, item.height-10, random.choice(PARTICLE_COLORS), border_width=1 )
 		# text_items.append(item_text)
 		# item_text.draw()
@@ -151,19 +151,19 @@ def draw_debug_view(view):
 		# arcade.Text(f'{item.x} {item.y}', tx+10, ty, arcade.color.CYAN, font_size=10).draw()
 		arcade.Text(f'{idx} {item.name} {item.x} {item.y}', item.x+13, item.y+11, arcade.color.BROWN, font_size=10).draw()
 		#arcade.Text(f'CENTER {item.name} ', item.center_x, item.center_y, arcade.color.PINK, font_size=10).draw()
-		arcade.Text(f' {item.center_x} {item.center_y}', item.center_x, item.center_y, arcade.color.PINK, font_size=10).draw()
+		# arcade.Text(f' {item.center_x} {item.center_y}', item.center_x, item.center_y, arcade.color.PINK, font_size=10).draw()
 		#draw_line(start_x=tx, start_y=ty, end_x=view.mouse_pos[0], end_y=view.mouse_pos[1], color=color)
-		draw_line(start_x=item.x, start_y=item.y, end_x=view.mouse_pos[0], end_y=view.mouse_pos[1], color=arcade.color.DARK_GREEN)
+		# draw_line(start_x=item.x, start_y=item.y, end_x=view.mouse_pos[0], end_y=view.mouse_pos[1], color=arcade.color.DARK_GREEN)
 
-		draw_line(start_x=item.center_x, start_y=item.center_y, end_x=view.mouse_pos[0], end_y=view.mouse_pos[1], color=arcade.color.GREEN) # mouse
+		# draw_line(start_x=item.center_x, start_y=item.center_y, end_x=view.mouse_pos[0], end_y=view.mouse_pos[1], color=arcade.color.GREEN) # mouse
 
-		draw_line(start_x=item.x, start_y=item.y, end_x=item.x+item.width, end_y=item.y, color=arcade.color.ORANGE) # bottom line
-		draw_line(start_x=item.x, start_y=item.y+item.height, end_x=item.x+item.width, end_y=item.y+item.height, color=arcade.color.ORANGE) # top line
-		draw_line(start_x=item.x, start_y=item.y, end_x=item.x, end_y=item.y+item.height, color=arcade.color.ORANGE) # left line
-		draw_line(start_x=item.x+item.width, start_y=item.y, end_x=item.x+item.width, end_y=item.y+item.height, color=arcade.color.ORANGE) # right line
+		draw_line(start_x=item.x, start_y=item.y, end_x=item.x+item.width, end_y=item.y, color=arcade.color.LIGHT_MOSS_GREEN) # bottom line
+		draw_line(start_x=item.x, start_y=item.y+item.height, end_x=item.x+item.width, end_y=item.y+item.height, color=arcade.color.LIGHT_MOSS_GREEN) # top line
+		draw_line(start_x=item.x, start_y=item.y, end_x=item.x, end_y=item.y+item.height, color=arcade.color.LIGHT_MOSS_GREEN) # left line
+		draw_line(start_x=item.x+item.width, start_y=item.y, end_x=item.x+item.width, end_y=item.y+item.height, color=arcade.color.LIGHT_MOSS_GREEN) # right line
 
-		draw_line(start_x=item.x, start_y=item.y, end_x=item.x+item.width, end_y=item.y+item.height, color=arcade.color.ORANGE) # xline
-		draw_line(start_x=item.x, start_y=item.y+item.height, end_x=item.x+item.width, end_y=item.y, color=arcade.color.ORANGE) # xline
+		# draw_line(start_x=item.x, start_y=item.y, end_x=item.x+item.width, end_y=item.y+item.height, color=arcade.color.ORANGE) # xline
+		# draw_line(start_x=item.x, start_y=item.y+item.height, end_x=item.x+item.width, end_y=item.y, color=arcade.color.ORANGE) # xline
 
 
 		draw_circle_filled(center_x=item.x, center_y=item.y, radius=2,  color=arcade.color.ORANGE) # .
