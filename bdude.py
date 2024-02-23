@@ -1,4 +1,7 @@
 #!/usr/bin/python
+from typing import List, Optional, Tuple, Union
+from pyglet.math import Mat4, Vec2, Vec3
+from pymunk import Vec2d
 import math
 import zlib
 import pickle
@@ -67,7 +70,7 @@ class MainView(arcade.View):
 		# self.manager.add(self.grid)
 		self.anchor = self.manager.add(UIAnchorLayout(name='anchormenu')) # anchor_x='left', anchor_y='top',
 		self.anchor.add( child=self.grid,)
-		self.mouse_pos = (0,0)
+		self.mouse_pos = Vec2d(x=0,y=0)
 
 		@self.testbtn.event('on_click')
 		def on_testbtn_click(event):
@@ -102,7 +105,7 @@ class MainView(arcade.View):
 			self.window.show_view(self.game)
 
 	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
-		self.mouse_pos = (x,y)
+		self.mouse_pos = Vec2d(x=x,y=y)
 
 	def on_key_press(self, key, modifiers):
 		if self.debugmode:
@@ -208,7 +211,7 @@ class Bomberdude(arcade.View):
 		self.timer = 0
 		self.view_bottom = 0
 		self.view_left = 0
-		self.mouse_pos = 0,0
+		self.mouse_pos = Vec2d(x=0,y=0)
 
 	def __repr__(self):
 		return f'Bomberdude( {self.title} np: {len(self.game_state.players)}  {len(self.bomb_list)} {len(self.particle_list)} {len(self.flame_list)})'
@@ -375,6 +378,37 @@ class Bomberdude(arcade.View):
 		self.camera.move_to(player_centered, speed)
 		# self.guicamera.move_to(player_centered, speed)
 
+	def xadjust_mouse_coordinates(self, x, y):
+		"""
+		This method is used, to translate mouse coordinates to coordinates
+		respecting the viewport and projection of cameras.
+		The implementation should work in most common cases.
+
+		If you use scrolling in the :py:class:`arcade.experimental.camera.Camera2D` you have to reset scrolling
+		or overwrite this method using the camera conversion: `ui_manager.adjust_mouse_coordinates = camera.mouse_coordinates_to_world`
+		"""
+		vx, vy, vw, vh = self.window.ctx.viewport
+		pl, pr, pb, pt = self.window.ctx.projection_2d
+		proj_width, proj_height = pr - pl, pt - pb
+		dx, dy = proj_width / vw, proj_height / vh
+		return (x - vx) * dx, (y - vy) * dy
+
+	def adjust_mouse_coordinates(self, x, y):
+		"""
+		This method is used, to translate mouse coordinates to coordinates
+		respecting the viewport and projection of cameras.
+		The implementation should work in most common cases.
+
+		If you use scrolling in the :py:class:`arcade.experimental.camera.Camera2D` you have to reset scrolling
+		or overwrite this method using the camera conversion:   `ui_manager.adjust_mouse_coordinates = camera.mouse_coordinates_to_world`
+		"""
+		# vx, vy, vw, vh = self.window.ctx.viewport
+		vx, vy, vw, vh = self.window.get_viewport()
+		pl, pr, pb, pt = self.window.ctx.projection_2d
+		proj_width, proj_height = pr - pl, pt - pb
+		dx, dy = proj_width / (vw+1), proj_height / (vh+1)
+		return (x + vx) * dx, (y + vy) * dy # only works if dx and dy = 1
+
 	def on_draw(self):
 		if not self._gotmap:
 			return
@@ -389,6 +423,7 @@ class Bomberdude(arcade.View):
 			sprite_list.draw()
 		self.playerone.draw()
 		self.manager.draw()
+		self.bullet_list.draw()
 		if self.draw_labels:
 			for label in self.labels:
 				label.draw()
@@ -396,14 +431,23 @@ class Bomberdude(arcade.View):
 		#self.bomb_list.draw()
 		#self.particle_list.draw()
 		#self.flame_list.draw()
-		#self.bullet_list.draw()
+
 		#self.netplayers.draw()
+			# draw_line(start_x=self.mouse_pos.x, start_y=self.mouse_pos.y, end_x=self.playerone.center_x, end_y=self.playerone.center_y, color=arcade.color.RED, line_width=1)
+			# draw_line(start_x=self.mouse_pos.x, start_y=self.playerone.center_y, end_x=self.playerone.center_x, end_y=self.mouse_pos.y, color=arcade.color.RED, line_width=1)
 
 		if self.debugmode:
 			arcade.Text(f'p1center: {self.playerone.center_x} {self.playerone.center_y} ', 23, 109, arcade.color.RED, font_size=12).draw()
+			draw_line(start_x=self.mouse_pos[0], end_x=self.playerone.center_x, start_y=self.mouse_pos[1], end_y=self.playerone.center_y, color=arcade.color.BLACK, line_width=1)
+			cgmpr = self.get_map_coordinates_rev(self.playerone.position)
+			draw_line(start_x=cgmpr.x, start_y=cgmpr.y,end_x=self.mouse_pos.x, end_y=self.mouse_pos.y, color=arcade.color.VIOLET_BLUE, line_width=1)
+
 			# arcade.Text(f'GRID x={self.grid.x} y={self.grid.y} ', int(self.grid.x), int(self.grid.y), arcade.color.BLACK, font_size=10).draw()
 			# draw_debug_view(self)
 			draw_debug_widgets([self.grid,  self.netplayer_grid, self.anchor,])
+			for bullet in self.bullet_list.sprite_list:
+				draw_line(start_x=bullet.center_x, start_y=bullet.center_y, end_x=cgmpr.x, end_y=cgmpr.y, color=arcade.color.BLUE, line_width=1)
+				#bullet.draw()
 		if self._show_kill_screen:
 			self.guicamera.use()
 			self.show_kill_screen()
@@ -426,15 +470,40 @@ class Bomberdude(arcade.View):
 	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
 		#self.mouse_pos = self.manager.adjust_mouse_coordinates(x,y)
 		#x,y = self.mouse_pos = self.manager.adjust_mouse_coordinates(x,y)
-		self.mouse_pos = (x,y)
+		self.mouse_pos = Vec2d(x=x,y=y)
 		#self.mouse_pos = (x+self.view_left,y+self.view_bottom)
-		x = x+self.view_left
-		y = y+self.view_bottom
+		cgmpr = self.get_map_coordinates_rev(self.playerone.position)
+		#x = x#+self.view_left
+		#y = y#+self.view_bottom
 		# mouse_angle = get_angle_degrees( self.playerone.center_x-self.view_left, self.playerone.center_y-self.view_bottom, x, y)
-		mouse_angle = get_angle_degrees( self.playerone.center_x , self.playerone.center_y , x, y)
+		mouse_angle = get_angle_degrees( cgmpr.x , cgmpr.y , x, y)
 		# mouse_angle += 180
 		angle_change = mouse_angle - self.playerone.angle
 		self.playerone.rotate_around_point(self.playerone.position, angle_change)
+
+		angle = get_angle_radians(cgmpr.x, cgmpr.y, self.mouse_pos.x, self.mouse_pos.y)
+		y_diff = self.mouse_pos.y-cgmpr.y
+		x_diff = self.mouse_pos.x-cgmpr.x
+		target_angle_radians = math.atan2(y_diff, x_diff)
+		if target_angle_radians < 0:
+			target_angle_radians += 2 * math.pi
+		actual_angle_radians = math.radians(self.playerone.angle - IMAGE_ROTATION)
+		if actual_angle_radians > 2 * math.pi:
+			actual_angle_radians -= 2 * math.pi
+		elif actual_angle_radians < 0:
+			actual_angle_radians += 2 * math.pi
+		self.playerone.angle = math.degrees(actual_angle_radians) + IMAGE_ROTATION
+
+
+	def flipyv(self, v):
+		return Vec2d(x=int(v.x), y=int(-v.y + self.window.height))
+
+	def get_map_coordinates_rev(self, camera_vector: Union[Vec2, tuple]) -> Vec2:
+		"""
+		* reversed Returns map coordinates in pixels from screen coordinates based on the camera position
+		:param camera_vector: Vector captured from the camera viewport
+		"""
+		return Vec2(*camera_vector) - Vec2(*self.camera.position)
 
 	def on_mouse_press(self, x, y, button, modifiers):
 		#self.mouse_pos = self.manager.adjust_mouse_coordinates(x,y)
@@ -445,42 +514,65 @@ class Bomberdude(arcade.View):
 		# print(f'{self.camera.viewport} {screen_center_x=} {screen_center_y=} {self.playerone.center_x=} {self.playerone.center_y=} {self.playerone.position=}')
 		# print(f'{left=} {screen_width=} {bottom=} {screen_height=}')
 
+		if self.debugmode:
+			pxm,pym = self.adjust_mouse_coordinates(x=self.playerone.center_x, y=self.playerone.center_y)
+			mx,my = self.adjust_mouse_coordinates(x=self.mouse_pos[0], y=self.mouse_pos[1])
+			draw_circle_filled(x,y,1,arcade.color.YELLOW)
+			draw_circle_filled(pxm,pym,2,arcade.color.RED)
+			draw_circle_filled(mx,my,2,arcade.color.BLUE)
+			draw_circle_filled(self.mouse_pos[0],self.mouse_pos[1],2,arcade.color.GREEN)
+			logger.info(f'{x=} {y=} p1c=({self.playerone.center_x},{self.playerone.center_y}) -- {mx=} {pxm=} -  {my=}  {pym=}')
+			#draw_line(start_x=self.mouse_pos.x, start_y=self.mouse_pos.y, end_x=self.playerone.position[0], end_y=self.playerone.position[1], color=arcade.color.RED, line_width=1)
+			#draw_line(start_x=self.mouse_pos.x, start_y=self.mouse_pos.y, end_x=x, end_y=y, color=arcade.color.BLUE, line_width=1)
+			#draw_line(start_x=self.mouse_pos.x, start_y=self.mouse_pos.y, end_x=mx, end_y=my, color=arcade.color.GREEN, line_width=1)
+			cgmp = self.camera.get_map_coordinates(self.playerone.position)
+			cgmpr = self.get_map_coordinates_rev(self.playerone.position)
+			# draw_line(start_x=cgmp.x, start_y=cgmp.y,end_x=self.mouse_pos.x, end_y=self.mouse_pos.y, color=arcade.color.VIOLET_BLUE, line_width=1)
+			logger.debug(f'position {self.playerone.position} --- {cgmp=} --- {cgmpr=}')
+
+			cgmp = self.camera.get_map_coordinates(Vec2d(x=screen_center_x, y=screen_center_y))
+			cgmpr = self.get_map_coordinates_rev(Vec2d(x=screen_center_x, y=screen_center_y))
+			logger.debug(f'screen_center {screen_center_x} {screen_center_y} --- {cgmp=} --- {cgmpr=}')
+
 		lzrsprt=arcade.load_texture("data/laserBlue01.png")
-		bullet = Bullet(lzrsprt, scale=1)
-		start_x = self.playerone.center_x # screen_center_x
-		start_y = self.playerone.center_y # screen_center_y
-		bullet.center_x = start_x
-		bullet.center_y = start_y
+		cgmpr = self.get_map_coordinates_rev(self.playerone.position)
+		start_x = cgmpr.x # self.playerone.center_x # screen_center_x
+		start_y = cgmpr.y # self.playerone.center_y # screen_center_y
+		if button == 1:
+			bullet = Bullet(lzrsprt, scale=1)
+			bullet.center_x = start_x
+			bullet.center_y = start_y
+			dest_x = x #+ self.view_left
+			dest_y = y #+ self.view_bottom
+			x_diff = dest_x - start_x
+			y_diff = dest_y - start_y
+			angle = math.atan2(y_diff, x_diff)
+			# print(f'{dest_x=} {x_diff=} {dest_y=} {y_diff=} {angle=} {self.playerone.angle=}')
+			size = max(self.playerone.width, self.playerone.height) / 2
+			bullet.center_x += size * math.cos(angle)
+			bullet.center_y += size * math.sin(angle)
+			bullet.angle = math.degrees(angle)
+			# xm,ym = self.manager.adjust_mouse_coordinates(x,y)#
+			logger.info(f"Bullet angle: {bullet.angle:.2f} x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
+			bullet.change_x = math.cos(angle) * BULLET_SPEED
+			bullet.change_y = math.sin(angle) * BULLET_SPEED
+			self.bullet_list.append(bullet)
 
-		# Get from the mouse the destination location for the bullet
-		# IMPORTANT! If you have a scrolling screen, you will also need
-		# to add in self.view_bottom and self.view_left.
-		dest_x = x + self.view_left
-		dest_y = y + self.view_bottom
+		elif button == 4:
+			bullet = Bullet(lzrsprt, scale=1)
+			bp = Vec2d(x=cgmpr.x,y=cgmpr.y)
+			bullet.center_x = bp.x
+			bullet.center_y = bp.y
+			p = self.flipyv(self.mouse_pos)# - bp
+			bullet.change_x = p.x//100
+			bullet.change_y = p.y//100
+			self.bullet_list.append(bullet)
+			#p = p.normalized()
+			logger.info(f"Bullet angle: {bullet.angle:.2f} x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
+		else:
+			logger.warning(f'{x=} {y=} {button=} {modifiers=}')
+			return
 
-		# Do math to calculate how to get the bullet to the destination.
-		# Calculation the angle in radians between the start points
-		# and end points. This is the angle the bullet will travel.
-		x_diff = dest_x - start_x
-		y_diff = dest_y - start_y
-		# angle = self.playerone.angle # math.atan2(y_diff, x_diff)
-		angle = get_angle_radians(self.playerone.center_y, self.playerone.center_x, self.mouse_pos[1], self.mouse_pos[0])
-		print(f'{dest_x=} {x_diff=} {dest_y=} {y_diff=} {angle=} {self.playerone.angle=}')
-		#angle = math.atan2(dest_x, dest_y)
-
-		# Angle the bullet sprite so it doesn't look like it is flying
-		# sideways.
-		size = max(self.playerone.width, self.playerone.height) / 2
-		bullet.center_x += size * math.cos(angle)
-		bullet.center_y += size * math.sin(angle)
-		bullet.angle = math.degrees(angle)
-		# xm,ym = self.manager.adjust_mouse_coordinates(x,y)#
-		logger.info(f"Bullet angle: {bullet.angle:.2f} x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
-		bullet.change_x = math.cos(angle) * BULLET_SPEED
-		bullet.change_y = math.sin(angle) * BULLET_SPEED
-
-		# Add the bullet to the appropriate lists
-		self.bullet_list.append(bullet)
 
 	def on_key_press(self, key, modifiers):
 		# todo check collisions before sending keypress...
@@ -673,7 +765,7 @@ class Bomberdude(arcade.View):
 	def update_viewport(self, dt):
 		# --- Manage Scrolling ---
 		# Track if we need to change the viewport
-		changed = True
+		changed = False
 		# Scroll left
 		left_bndry = self.view_left + VIEWPORT_MARGIN
 		if self.playerone.left < left_bndry:
