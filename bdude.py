@@ -22,9 +22,9 @@ from arcade.gui.widgets.layout import UIAnchorLayout
 from arcade.types import Point
 from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
 from loguru import logger
-from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState, gen_randid, UIPlayerLabel
+from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState, gen_randid, UIPlayerLabel, Bullet
 from objects import pack, unpack, send_zipped_pickle, recv_zipped_pickle
-from debug import draw_debug_manager, draw_debug_game, draw_debug_view,debug_dump_game
+from debug import draw_debug_manager, draw_debug_game, draw_debug_view,debug_dump_game, draw_debug_widgets
 from constants import *
 import requests
 import zmq
@@ -158,7 +158,8 @@ class MainView(arcade.View):
 		self.clear()
 		self.manager.draw()
 		if self.debugmode:
-			draw_debug_view(self)
+			# draw_debug_view(self)
+			draw_debug_widgets([self.grid,])
 
 	def on_hide_view(self):
 		self.manager.disable() # pass
@@ -181,10 +182,10 @@ class Bomberdude(arcade.View):
 		self.hitlist = []
 		self.player_event = PlayerEvent()
 		self.game_state = GameState(game_seconds=0)
-		self.ioctx = Context()
-		self.sub_sock: Socket = self.ioctx.socket(zmq.SUB)
+		self.ioctx = Context.instance()
+		self.sub_sock = self.ioctx.socket(zmq.SUB) # : Socket
 		# self.data_sock: Socket = self.ioctx.socket(zmq.SUB)
-		self.push_sock: Socket = self.ioctx.socket(zmq.PUSH)
+		self.push_sock = self.ioctx.socket(zmq.PUSH) # : Socket
 		self._connected = False
 		self.physics_engine = None
 		self.netplayers = []
@@ -372,7 +373,7 @@ class Bomberdude(arcade.View):
 			screen_center_y = 0
 		player_centered = (screen_center_x, screen_center_y)
 		self.camera.move_to(player_centered, speed)
-		self.guicamera.move_to(player_centered, speed)
+		# self.guicamera.move_to(player_centered, speed)
 
 	def on_draw(self):
 		if not self._gotmap:
@@ -381,7 +382,6 @@ class Bomberdude(arcade.View):
 		arcade.start_render()
 		# self.draw_player_panel()
 		#self.camera.use()
-		self.camera.center(self.playerone.position)
 		# self.guicamera.center(self.playerone.position)
 		#self.clear()
 		self.game_state.scene.draw()
@@ -400,9 +400,10 @@ class Bomberdude(arcade.View):
 		#self.netplayers.draw()
 
 		if self.debugmode:
-			arcade.Text(f'p1center: {self.playerone.center_x} {self.playerone.center_y} ', self.grid.width, self.grid.height-20, arcade.color.RED, font_size=12).draw()
-			arcade.Text(f'GRID x={self.grid.x} y={self.grid.y} ', self.grid.x, self.grid.y, arcade.color.BALL_BLUE, font_size=10).draw()
-			draw_debug_view(self)
+			arcade.Text(f'p1center: {self.playerone.center_x} {self.playerone.center_y} ', 23, 109, arcade.color.RED, font_size=12).draw()
+			# arcade.Text(f'GRID x={self.grid.x} y={self.grid.y} ', int(self.grid.x), int(self.grid.y), arcade.color.BLACK, font_size=10).draw()
+			# draw_debug_view(self)
+			draw_debug_widgets([self.grid,  self.netplayer_grid, self.anchor,])
 		if self._show_kill_screen:
 			self.guicamera.use()
 			self.show_kill_screen()
@@ -416,6 +417,7 @@ class Bomberdude(arcade.View):
 			if arcade.timings_enabled():
 				self.fps_text.value = f"FPS: {arcade.get_fps(60):5.1f}"
 				self.fps_text.draw()
+		self.camera.center(self.playerone.position)
 
 
 	def send_key_press(self, key, modifiers):
@@ -428,34 +430,43 @@ class Bomberdude(arcade.View):
 		#self.mouse_pos = (x+self.view_left,y+self.view_bottom)
 		x = x+self.view_left
 		y = y+self.view_bottom
-		mouse_angle = get_angle_degrees( self.playerone.center_x-self.view_left, self.playerone.center_y-self.view_bottom, x, y)
-		mouse_angle += 180
+		# mouse_angle = get_angle_degrees( self.playerone.center_x-self.view_left, self.playerone.center_y-self.view_bottom, x, y)
+		mouse_angle = get_angle_degrees( self.playerone.center_x , self.playerone.center_y , x, y)
+		# mouse_angle += 180
 		angle_change = mouse_angle - self.playerone.angle
-		# self.playerone.rotate_around_point(self.mouse_pos, angle_change)
+		self.playerone.rotate_around_point(self.playerone.position, angle_change)
 
 	def on_mouse_press(self, x, y, button, modifiers):
 		#self.mouse_pos = self.manager.adjust_mouse_coordinates(x,y)
 		# x,y = self.manager.adjust_mouse_coordinates(x,y)
+		# left, screen_width, bottom, screen_height = self.window.get_viewport()
+		screen_center_x = self.camera.viewport_width // 2
+		screen_center_y = self.camera.viewport_height // 2
+		# print(f'{self.camera.viewport} {screen_center_x=} {screen_center_y=} {self.playerone.center_x=} {self.playerone.center_y=} {self.playerone.position=}')
+		# print(f'{left=} {screen_width=} {bottom=} {screen_height=}')
 
 		lzrsprt=arcade.load_texture("data/laserBlue01.png")
-		bullet = arcade.Sprite(lzrsprt, scale=1)
-		start_x = self.playerone.center_x
-		start_y = self.playerone.center_y
+		bullet = Bullet(lzrsprt, scale=1)
+		start_x = self.playerone.center_x # screen_center_x
+		start_y = self.playerone.center_y # screen_center_y
 		bullet.center_x = start_x
 		bullet.center_y = start_y
 
 		# Get from the mouse the destination location for the bullet
 		# IMPORTANT! If you have a scrolling screen, you will also need
 		# to add in self.view_bottom and self.view_left.
-		dest_x = x + self.view_bottom
-		dest_y = y + self.view_left
+		dest_x = x + self.view_left
+		dest_y = y + self.view_bottom
 
 		# Do math to calculate how to get the bullet to the destination.
 		# Calculation the angle in radians between the start points
 		# and end points. This is the angle the bullet will travel.
 		x_diff = dest_x - start_x
 		y_diff = dest_y - start_y
-		angle = math.atan2(y_diff, x_diff)
+		# angle = self.playerone.angle # math.atan2(y_diff, x_diff)
+		angle = get_angle_radians(self.playerone.center_y, self.playerone.center_x, self.mouse_pos[1], self.mouse_pos[0])
+		print(f'{dest_x=} {x_diff=} {dest_y=} {y_diff=} {angle=} {self.playerone.angle=}')
+		#angle = math.atan2(dest_x, dest_y)
 
 		# Angle the bullet sprite so it doesn't look like it is flying
 		# sideways.

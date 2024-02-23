@@ -21,7 +21,7 @@ from asyncio import run, create_task, CancelledError
 from api import ApiServer
 import zmq
 from zmq.asyncio import Context, Socket
-
+import pytiled_parser
 
 
 SERVER_UPDATE_TICK_HZ = 10
@@ -121,7 +121,7 @@ class ServerTUI(Thread):
 		'''
 		print(help)
 
-	def run(self):
+	def run(self) -> None:
 		while not self.stopped():
 			try:
 				cmd = input(':> ')
@@ -167,13 +167,13 @@ class BombServer():
 
 
 		self.ctx = Context()
-		self.pushsock: Socket = self.ctx.socket(zmq.PUB)
+		self.pushsock = self.ctx.socket(zmq.PUB) # : Socket
 		self.pushsock.bind(f'tcp://{args.listen}:9696')
 
 		# self.datasock: Socket = self.ctx.socket(zmq.PUB)
 		# self.datasock.bind(f'tcp://{args.listen}:9699')
 
-		self.recvsock: Socket = self.ctx.socket(zmq.PULL)
+		self.recvsock = self.ctx.socket(zmq.PULL) # : Socket
 		self.recvsock.bind(f'tcp://{args.listen}:9697')
 		self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock, ),)
 		self.packetdebugmode = self.args.packetdebugmode
@@ -200,8 +200,8 @@ class BombServer():
 
 	def get_position(self, retas='int'):
 		foundpos = False
-		walls = self.game_state.tile_map.get_tilemap_layer('Walls')
-		blocks = self.game_state.tile_map.get_tilemap_layer('Walls')
+		walls:pytiled_parser.Layer = self.game_state.tile_map.get_tilemap_layer('Walls')
+		blocks:pytiled_parser.Layer = self.game_state.tile_map.get_tilemap_layer('Walls')
 		x = 0
 		y = 0
 		while not foundpos:
@@ -219,7 +219,7 @@ class BombServer():
 					return str(f'{x1},{y1}')
 
 
-	async def update_from_client(self, sockrecv):
+	async def update_from_client(self, sockrecv) -> None:
 		try:
 			while True:
 				self.ufc_counter += 1
@@ -240,7 +240,7 @@ class BombServer():
 		except asyncio.CancelledError as e:
 			logger.error(f'{e} {type(e)}')
 
-	async def ticker(self, sockpush, sockrecv):
+	async def ticker(self, sockpush, sockrecv) -> None:
 		t = create_task(self.update_from_client(sockrecv))
 		# apitsk =  create_task(self.apiserver._run(host=self.args.listen, port=9699),)
 		logger.debug(f'tickertask: {t} ')
@@ -260,7 +260,7 @@ class BombServer():
 			t.cancel()
 			await t
 
-async def main(args):
+async def main(args) -> None:
 	fut = asyncio.Future()
 	# app = App(signal=fut)
 	ctx = Context()

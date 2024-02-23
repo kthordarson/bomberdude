@@ -79,8 +79,8 @@ def draw_debug_manager(manager):
 		arcade.Text(f'{item_text}', tx, ty, arcade.color.BLUE, font_size=10).draw()
 		ty -= idx+19
 		arcade.Text(f'{item_textpos}', tx+10, ty, arcade.color.CYAN, font_size=10).draw()
-		arcade.Text(f'XY {item.name} {item_textpos}', item.x+5, item.y+5, arcade.color.BROWN, font_size=10).draw()
-		arcade.Text(f'CENTER {item.name} {item_textpos}', item.center_x, item.center_y, arcade.color.PINK, font_size=10).draw()
+		arcade.Text(f'XY {item.name} {item_textpos}', int(item.x+5), int(item.y+5), arcade.color.BROWN, font_size=10).draw()
+		arcade.Text(f'CENTER {item.name} {item_textpos}', int(item.center_x), int(item.center_y), arcade.color.PINK, font_size=10).draw()
 		#draw_line(start_x=tx, start_y=ty, end_x=game.mouse_pos[0], end_y=game.mouse_pos[1], color=color)
 		# draw_line(start_x=item.x, start_y=item.y, end_x=game.mouse_pos[0], end_y=game.mouse_pos[1], color=arcade.color.GREEN)
 
@@ -134,14 +134,24 @@ def draw_debug_manager(manager):
 	# 		draw_line(start_x=item.x+item.width, start_y=item.y, end_x=item.x+item.width, end_y=item.y+item.height, color=arcade.color.ORANGE) # left line
 	# 		ty -= idx+15
 
-
+def draw_debug_widgets(widgets):
+	tx = 33
+	ty = 333
+	for idx,w in enumerate(widgets):
+		render_widget_debug(idx,w,tx,ty)
+		ty -= idx+15
+		# arcade.draw_rectangle_outline( w.center_x, w.center_y, w.width, w.height, arcade.color.RED, border_width=1 )
 
 def draw_debug_view(view):
 	tx = 33
 	ty = view.window.height-20
 	for idx,item in enumerate(view.manager.walk_widgets()):
+		render_widget_debug(idx, item,tx,ty)
+		ty -= idx+15
 		# item_text = f'idx:{idx} {item.name} '
 		# item_textpos = f' {item.x} {item.y} w: {item.width} h: {item.height} '
+
+def render_widget_debug(idx, item,tx,ty):
 		color = arcade.color.Color(0, 0, idx*10, 255)# random.choice(PARTICLE_COLORS)
 		arcade.draw_rectangle_outline( item.center_x, item.center_y, item.width, item.height, color, border_width=1 )
 		# arcade.draw_rectangle_outline( item.center_x, item.center_y ,item.width-10, item.height-10, random.choice(PARTICLE_COLORS), border_width=1 )
@@ -170,7 +180,7 @@ def draw_debug_view(view):
 		draw_circle_filled(center_x=item.x+item.width, center_y=item.y, radius=2,  color=arcade.color.ORANGE) # .
 		draw_circle_filled(center_x=item.x+item.width, center_y=item.y+item.height, radius=2,  color=arcade.color.ORANGE) # .
 		draw_circle_filled(center_x=item.x, center_y=item.y+item.height, radius=2,  color=arcade.color.ORANGE) # .
-		ty -= idx+15
+
 
 
 
@@ -188,30 +198,7 @@ def debug_dump_game(game):
 	# print('='*80)
 	# arcade.print_timings()
 	# print('='*80)
-	griditems = []
-	for k,data in game.grid._children:
-		print(f'_sgc {k=} {data=}')
-		if isinstance(k, _ChildEntry):
-			for sub in k.children:
-				print(f'\tsgc {k=} {sub=}')
-	for k,data in game.netplayer_anchor._children:
-		print(f'NPA {k=} {data=}')
-		if isinstance(k, _ChildEntry):
-			for sub in k.children:
-				print(f'\tnpasgc {k=} {sub=}')
-		if isinstance(k, UIGridLayout):
-			for sub in k.children:
-				print(f'\tnpasgcg {k=} {sub=}')
-	for k,data in game.netplayer_grid._children:
-		print(f'NPG {k=} {data=}')
-		if isinstance(k, _ChildEntry):
-			for sub in k.children:
-				print(f'\tsgc {k=} {sub=}')
-	#items.extend([k for k in game.grid._children])
-	#items.extend([k for k in game.manager.walk_widgets()])
-	#items.extend(grid_items)
-	# griditems = [k for k in game.grid._children]
-	# _ = [print(f'walk {k}') for k in game.manager.walk_widgets()]
+	print('='*80)
 	for k in game.manager.walk_widgets():
 		print(f'widgetwalk {k.name} {k=}')
 		if isinstance(k, UIGridLayout):
@@ -227,11 +214,13 @@ def debug_dump_game(game):
 	#items = []
 	#items.extend([k for k in game.manager.walk_widgets()])
 	#items.extend([k.children for k in items])
+	print('='*80)
 	for item in game.manager.walk_widgets():
 		print(f'{item.name} {item=} {item.position} {item.x} {item.y}')
 		for sub in item.children:
 			print(f'\tsubitem {sub.name} {sub} {sub.position} {sub.x} {sub.y}')
 			for subsub in sub.children:
 				print(f'\t - SUBsubitem {subsub.name} {subsub} {subsub.position} {subsub.x} {subsub.y}')
+	print('='*80)
 
 	# text_items = []

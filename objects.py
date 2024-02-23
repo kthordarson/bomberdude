@@ -1,6 +1,7 @@
 from pyvex.utils import stable_hash
 import copy
 import arcade
+from arcade.tilemap import TileMap
 from arcade.gui import UIManager, UIBoxLayout, UITextArea, UIFlatButton, UIGridLayout
 from arcade.gui import UILabel
 from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
@@ -158,7 +159,7 @@ class GameState:
 		self.ugs_counter = 0
 		self.toj_counter = 0
 		self.fj_counter = 0
-		self.tile_map = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
+		self.tile_map:TileMap = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
 	def load_tile_map(self, mapname):
@@ -326,7 +327,7 @@ class GameState:
 			if ge == []:
 				break
 			if self.debugmode:
-				logger.info(f'ge={ge} dgamest={dgamest=}')
+				logger.info(f'ge={ge.get("event_type")} dgamest={dgamest=}')
 			self.event_queue.put_nowait(ge)
 		plist = dgamest.get('players',[])
 		for player in plist:
@@ -473,6 +474,26 @@ class Bomb(arcade.Sprite):
 			# Update
 			self.timer -= BOMBTICKER
 			return []
+
+class Bullet(arcade.Sprite):
+	def __init__(self, image=None, scale=1, shooter=None, timer=1000, cx=1,cy=1):
+		super().__init__(image,scale)
+		self.shooter = shooter
+		self.timer = timer
+		self.cx = cx
+		self.cy = cy
+
+	def __repr__(self):
+		return f'Bullet(pos={self.center_x},{self.center_y} shooter={self.shooter} t:{self.timer})'
+
+	def update(self):
+		self.center_x += self.change_x
+		self.center_y += self.change_y
+		if self.timer <= 0:
+			# logger.debug(f'{self} timeout ')
+			self.remove_from_sprite_lists()
+		else:
+			self.timer -= BULLET_TIMER
 
 class Particle(arcade.SpriteCircle):
 	def __init__(self, my_list=None):
