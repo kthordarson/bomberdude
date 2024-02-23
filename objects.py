@@ -1,6 +1,7 @@
 from pyvex.utils import stable_hash
 import copy
 import arcade
+from arcade.gui import UIManager, UIBoxLayout, UITextArea, UIFlatButton, UIGridLayout
 from arcade.gui import UILabel
 from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
 import random
@@ -40,62 +41,24 @@ MOVE_MAP = {
 	100: (PLAYER_MOVEMENT_SPEED, 0),
 }
 
-#class Rectangle:
-#	def __init__(self, x, y, width, height, angle, color):
 
-
-
-class UINumberLabel(UILabel):
-	_value: float = 0
-	def __init__(self, value=0, format="Timer: {value:.0f}", text_color=arcade.color.BLACK, *args, **kwargs):
-		super().__init__(text_color=text_color, *args, **kwargs)
-		self.format = format
-		self.value = value
-		self.text_color = text_color
-
-	@property
-	def value(self):
-		return self._value
-
-	@value.setter
-	def value(self, value):
-		self._value = value
-		self.text = self.format.format(value=value)
-		self.fit_content()
-
-class UITextLabel(UILabel):
-	_value: str = ''
-	def __init__(self, value='', l_text='', text_color=arcade.color.BLACK, *args, **kwargs):
-		super().__init__(text_color=text_color, *args, **kwargs)
-		self.value = value
-		self.l_text = l_text
-		self.text_color = text_color
-		# self.align = 'right'
-
-	@property
-	def value(self):
-		return f'{self.l_text} {self._value}'
-
-	@value.setter
-	def value(self, value):
-		self._value = value
-		self.text = value
-		self.fit_content()
 
 class UIPlayerLabel(UILabel):
 	_value: str = ''
 	def __init__(self, client_id, value='', l_text='', text_color=arcade.color.HAN_BLUE, *args, **kwargs):
-		super().__init__(text_color=text_color, multiline=True, *args, **kwargs)
+		super().__init__(width=120,text=client_id,text_color=text_color, multiline=False, name=client_id, *args, **kwargs)
 		self.client_id = client_id
+		self.name = client_id
+		self.button = UIFlatButton(text=f'{self.client_id}', height=20, width=120,name=self.name)
 
 	@property
 	def value(self):
-		return f'\\n{self._value}'
+		return f'{self._value}'
 
 	@value.setter
 	def value(self, value):
 		self._value = f'{value}'
-		self.text = f'{self.client_id} {self._value}' # self._value # f'{self.client_id}\\n{value}'
+		self.text = f'{self._value}' # self._value # f'{self.client_id}\\n{value}'
 		self.fit_content()
 
 
@@ -572,29 +535,6 @@ class Flame(arcade.SpriteSolidColor):
 			self.timer -= FLAME_RATE
 			self.center_x += self.change_x
 			self.center_y += self.change_y
-
-class Rectangle(arcade.SpriteSolidColor):
-	def __init__(self, client_id, color,center_x, center_y, width=12, height=12):
-		#color = arcade.color.BLACK
-		super().__init__(width,height, color)
-		# width = 12
-		# height = 12
-		self.center_x = center_x
-		self.center_y = center_y
-		self.normal_texture = self.texture
-		self.client_id = client_id
-		self.angle = 0
-		self.color = color
-		self.filled = True
-		# super().__init__(image,scale)
-		# Size and rotation,
-	def __repr__(self):
-		return f'GhostRect({self.client_id})'
-	def draw(self):
-		if self.filled:
-			arcade.draw_rectangle_filled( self.position.x, self.position.y, self.width, self.height, self.color, self.angle )
-		else:
-			arcade.draw_rectangle_outline( self.position.x, self.position.y, self.width, self.height, self.color, border_width=4, tilt_angle=self.angle )
 
 
 def pack(data):
