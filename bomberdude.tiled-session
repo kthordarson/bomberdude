@@ -14,6 +14,17 @@
             "scaleInDock": 1,
             "scaleInEditor": 1
         },
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/dirt.json": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/grass.json": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/items.json": {
+            "dynamicWrapping": true,
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/level_2.json": {
             "scale": 0.272234375,
             "selectedLayer": 0,
@@ -31,6 +42,18 @@
             }
         },
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map2_level_1.json#tileset": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map_with_ladders.json": {
+            "scale": 0.34029296875,
+            "selectedLayer": 3,
+            "viewCenter": {
+                "x": 894.817195660908,
+                "y": 1436.9970728347587
+            }
+        },
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/more_tiles.json": {
+            "dynamicWrapping": true,
             "scaleInDock": 1
         },
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/standard_tileset.json": {
@@ -84,8 +107,24 @@
             "scale": 0.5,
             "selectedLayer": 2,
             "viewCenter": {
-                "x": 1161,
-                "y": 1582
+                "x": 1509,
+                "y": 428
+            }
+        },
+        "data/map4.json": {
+            "scale": 0.41655273437499996,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 1026.280623608018,
+                "y": 1025.0802953932714
+            }
+        },
+        "data/maptest.json": {
+            "scale": 1,
+            "selectedLayer": 8,
+            "viewCenter": {
+                "x": 224.5,
+                "y": 224
             }
         },
         "map.json": {
@@ -107,14 +146,17 @@
     },
     "last.exportedFilePath": "/home/kth/development/bomberdude/data",
     "last.imagePath": "/home/kth/development/bomberdude/data",
-    "map.height": 64,
+    "map.height": 16,
     "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
     "map.lastUsedFormat": "json",
-    "map.width": 64,
+    "map.width": 16,
     "openFiles": [
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map_with_ladders.json",
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/items.json",
+        "data/map4.json",
         "data/btiles.tsx",
         "data/map2tiles.tsx",
         "data/map3.json",
@@ -123,10 +165,7 @@
         "data/map2.json",
         "data/map.tmx",
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/standard_tileset.json",
-        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/level_2.json",
-        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map2_level_1.json",
-        "/home/kth/development2/games/donk-tiled/tileset_oink.tsx",
-        "map.json"
+        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/level_2.json"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1

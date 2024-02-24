@@ -1,4 +1,5 @@
 from pyvex.utils import stable_hash
+from pymunk import Vec2d
 import copy
 import arcade
 from arcade.tilemap import TileMap
@@ -63,6 +64,7 @@ class UIPlayerLabel(UILabel):
 		self.fit_content()
 
 	def set_value(self, value):
+		logger.debug(f'old={self._value} new={value}')
 		self._value = f'{value}'
 		self.text = f'{self._value}' # self._value # f'{self.client_id}\\n{value}'
 		self.fit_content()
@@ -164,7 +166,7 @@ class GameState:
 		self.ugs_counter = 0
 		self.toj_counter = 0
 		self.fj_counter = 0
-		self.tile_map:TileMap = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
+		self.tile_map:TileMap = arcade.load_tilemap('data/maptest.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
 	def load_tile_map(self, mapname):
@@ -356,7 +358,7 @@ class Networkthing(arcade.Sprite):
 
 @dataclass
 class Bomberplayer(arcade.Sprite):
-	def __init__(self, image=None, scale=1.0, client_id=None, position=[123.3,123.5]):
+	def __init__(self, image=None, scale=1.0, client_id=None, position=Vec2d(x=99,y=99)):
 		super().__init__(image,scale)
 		self.client_id = client_id
 		# self.ps = PlayerState(self.client_id, position)
@@ -454,8 +456,10 @@ class Bomberplayer(arcade.Sprite):
 		return 1
 
 	def set_pos(self, newpos):
+		# logger.debug(f'setpos {newpos=} oldc={self.center_x},{self.center_y} selfposition={self.position}')
 		self.center_x = newpos.x
 		self.center_y = newpos.y
+		self.update()
 
 class Bomb(arcade.Sprite):
 	def __init__(self, image=None, scale=1, bomber=None, timer=1000):
@@ -497,7 +501,7 @@ class Bullet(arcade.Sprite):
 		self.cy = cy
 
 	def __repr__(self):
-		return f'Bullet(pos={self.center_x},{self.center_y} shooter={self.shooter} t:{self.timer})'
+		return f'Bullet(pos={self.center_x:.2f},{self.center_y:.2f} shooter={self.shooter} t:{self.timer})'
 
 	def rotate_around_point(self, point: Point, degrees: float):
 		"""
