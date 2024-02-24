@@ -204,6 +204,7 @@ class Bomberdude(arcade.View):
 		self.netplayers = arcade.SpriteList(use_spatial_hash=True)
 		self.scenewalls = arcade.SpriteList(use_spatial_hash=True)
 		self.sceneblocks = arcade.SpriteList(use_spatial_hash=True)
+		self.walls = arcade.SpriteList(use_spatial_hash=True)
 
 		self._show_kill_screen = False
 		self.show_kill_timer = 1
@@ -288,10 +289,13 @@ class Bomberdude(arcade.View):
 
 		self.background_color = arcade.color.AMAZON
 		self.background_color = arcade.color.DARK_BLUE_GRAY
-		self.game_state.scene.add_sprite_list_after("Player", "Walls")
-		_ = [self.sceneblocks.append(k) for k in self.game_state.scene['Blocks'].sprite_list]
-		_ = [self.scenewalls.append(k) for k in self.game_state.scene['Walls'].sprite_list]
-		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.scenewalls,platforms=self.sceneblocks, gravity_constant=GRAVITY)
+		#self.walls = []
+		self.walls.extend(self.game_state.scene['Blocks'].sprite_list)
+		self.walls.extend(self.game_state.scene['Walls'].sprite_list)
+		logger.debug(f'wallsprites={len(self.walls.sprite_list)}')
+		#_ = [self.sceneblocks.append(k) for k in self.game_state.scene['Blocks'].sprite_list]
+		#_ = [self.scenewalls.append(k) for k in self.game_state.scene['Walls'].sprite_list]
+		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.walls, gravity_constant=GRAVITY)
 		self.setup_panels()
 		self.setup_perf()
 		self.setup_labels()
@@ -300,6 +304,7 @@ class Bomberdude(arcade.View):
 		self.playerone.position = position
 		self.camera = arcade.Camera()
 		self.guicamera = arcade.Camera()
+		self.game_state.scene.add_sprite_list_after("Player", "Walls")
 
 	def setup_labels(self):
 		self.draw_labels = False
@@ -423,7 +428,7 @@ class Bomberdude(arcade.View):
 			sprite_list.draw()
 		self.playerone.draw()
 		self.manager.draw()
-		self.bullet_list.draw()
+		#self.bullet_list.draw()
 		if self.draw_labels:
 			for label in self.labels:
 				label.draw()
@@ -535,7 +540,7 @@ class Bomberdude(arcade.View):
 		# 	cgmpr = self.get_map_coordinates_rev(Vec2d(x=screen_center_x, y=screen_center_y))
 		# 	logger.debug(f'screen_center {screen_center_x} {screen_center_y} --- {cgmp=} --- {cgmpr=}')
 
-		lzrsprt=arcade.load_texture("data/laserBlue01vv.png")
+		lzrsprt=arcade.load_texture("data/laserBlue01vv32.png")
 		cgmpr = self.get_map_coordinates_rev(self.playerone.position)
 		# start_x = cgmpr.x # self.playerone.center_x # screen_center_x
 		# start_y = cgmpr.y # self.playerone.center_y # screen_center_y
@@ -551,16 +556,18 @@ class Bomberdude(arcade.View):
 			angle = math.atan2(x_diff, y_diff)  + 3.14 / 2
 			# angle = get_angle_radians(cgmpr.x, cgmpr.y, self.mouse_pos.x, self.mouse_pos.y)
 		# print(f'{dest_x=} {x_diff=} {dest_y=} {y_diff=} {angle=} {self.playerone.angle=}')
-			size = max(self.playerone.width, self.playerone.height) / 4
-			bullet.center_x += size * math.cos(angle)
-			bullet.center_y += size * math.sin(angle)
+			#size = max(self.playerone.width, self.playerone.height) / 4
+			#bullet.center_x += size * math.cos(angle)
+			#bullet.center_y += size * math.sin(angle)
 			# angle = cgmpr.get_angle_between(self.mouse_pos)
 			bullet.angle = math.degrees(angle) #- 180
 			# xm,ym = self.manager.adjust_mouse_coordinates(x,y)#
 			bullet.change_x = 1-math.cos(angle) * BULLET_SPEED
 			bullet.change_y = math.sin(angle) * BULLET_SPEED
 			# bullet.rotate_around_point(bullet.position, angle)
-			self.bullet_list.append(bullet)
+			bullet.center_x = self.playerone.center_x
+			bullet.center_y = self.playerone.center_y
+			self.bullet_list.extend([bullet,])
 			logger.info(f"Bullet angle: {bullet.angle:.2f} p1a= {self.playerone.angle} a={angle} bcx={bullet.change_x} bcy={bullet.change_y}  x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
 
 		elif button == 4:
@@ -571,7 +578,7 @@ class Bomberdude(arcade.View):
 			p = self.flipyv(self.mouse_pos)# - bp
 			bullet.change_x = p.x//100
 			bullet.change_y = p.y//100
-			self.bullet_list.append(bullet)
+			self.bullet_list.extend([bullet,])
 			#p = p.normalized()
 			logger.info(f"Bullet angle: {bullet.angle:.2f} x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
 		else:
@@ -829,6 +836,18 @@ class Bomberdude(arcade.View):
 			self.update_poplist()
 
 		self.hitlist = self.physics_engine.update()
+		for b in self.bullet_list:
+			b_hitlist = arcade.check_for_collision_with_list(b, self.walls)
+			#b_hitlist.extend(arcade.check_for_collision_with_list(b, self.sceneblocks))
+			for hit in b_hitlist:
+				if self.debugmode:
+					arcade.draw_rectangle_outline(center_x=hit.center_x, center_y=hit.center_y, width=hit.width-1, height=hit.height-1,color=arcade.color.RED)
+					draw_circle_filled(center_x=hit.center_x, center_y=hit.center_y, radius=2, color=arcade.color.BLUE)
+					draw_circle_filled(center_x=b.center_x, center_y=b.center_y, radius=2, color=arcade.color.ORANGE)
+				hitblocktype = hit.properties.get('tile_id')
+				#if hitblocktype == 12:
+				logger.debug(f'{b} hit {hit} {hitblocktype=} hl={len(self.hitlist)}')
+				b.remove_from_sprite_lists()
 
 		for b in self.bomb_list:
 			bombflames = b.update()
@@ -845,8 +864,8 @@ class Bomberdude(arcade.View):
 				#self.game_state.game_events.append(event)
 				self.eventq.put(event)
 				f.remove_from_sprite_lists()
-			f_hitlist = arcade.check_for_collision_with_list(f, self.scenewalls)
-			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
+			f_hitlist = arcade.check_for_collision_with_list(f, self.walls)
+			#f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
 			for hit in f_hitlist:
 				hitblocktype = hit.properties.get('tile_id')
 				match hitblocktype:
@@ -877,8 +896,8 @@ class Bomberdude(arcade.View):
 						logger.info(f'f: {f} hit: {hit.properties.get("tile_id")} {hit}')
 
 		for p in self.particle_list:
-			p_hitlist = arcade.check_for_collision_with_list(p, self.scenewalls)
-			p_hitlist.extend(arcade.check_for_collision_with_list(p, self.sceneblocks))
+			p_hitlist = arcade.check_for_collision_with_list(p, self.walls)
+			#p_hitlist.extend(arcade.check_for_collision_with_list(p, self.sceneblocks))
 			if p_hitlist:
 				for hit in p_hitlist:
 					if p.change_x > 0:
