@@ -438,7 +438,6 @@ class Bomberdude(arcade.View):
 
 		if self.debugmode:
 			arcade.Text(f'p1center: {self.playerone.center_x} {self.playerone.center_y} ', 23, 109, arcade.color.RED, font_size=12).draw()
-			draw_line(start_x=self.mouse_pos[0], end_x=self.playerone.center_x, start_y=self.mouse_pos[1], end_y=self.playerone.center_y, color=arcade.color.BLACK, line_width=1)
 			cgmpr = self.get_map_coordinates_rev(self.playerone.position)
 			draw_line(start_x=cgmpr.x, start_y=cgmpr.y,end_x=self.mouse_pos.x, end_y=self.mouse_pos.y, color=arcade.color.VIOLET_BLUE, line_width=1)
 
@@ -481,31 +480,33 @@ class Bomberdude(arcade.View):
 		angle_change = mouse_angle - self.playerone.angle
 		self.playerone.rotate_around_point(self.playerone.position, angle_change)
 
-		angle = get_angle_radians(cgmpr.x, cgmpr.y, self.mouse_pos.x, self.mouse_pos.y)
 		y_diff = self.mouse_pos.y-cgmpr.y
 		x_diff = self.mouse_pos.x-cgmpr.x
 		target_angle_radians = math.atan2(y_diff, x_diff)
 		if target_angle_radians < 0:
 			target_angle_radians += 2 * math.pi
-		actual_angle_radians = math.radians(self.playerone.angle - IMAGE_ROTATION)
+		actual_angle_radians = math.radians(self.playerone.angle-90) #-90#  - IMAGE_ROTATION
 		if actual_angle_radians > 2 * math.pi:
 			actual_angle_radians -= 2 * math.pi
 		elif actual_angle_radians < 0:
 			actual_angle_radians += 2 * math.pi
-		self.playerone.angle = math.degrees(actual_angle_radians) + IMAGE_ROTATION
+		self.playerone.angle = math.degrees(actual_angle_radians) +90 # + IMAGE_ROTATION
+		if self.playerone.angle > 360:
+			self.playerone.angle = 0
 
 
 	def flipyv(self, v):
 		return Vec2d(x=int(v.x), y=int(-v.y + self.window.height))
 
-	def get_map_coordinates_rev(self, camera_vector: Union[Vec2, tuple]) -> Vec2:
+	def get_map_coordinates_rev(self, camera_vector: Union[Vec2d, tuple]) -> Vec2d:
 		"""
 		* reversed Returns map coordinates in pixels from screen coordinates based on the camera position
 		:param camera_vector: Vector captured from the camera viewport
 		"""
-		return Vec2(*camera_vector) - Vec2(*self.camera.position)
+		return Vec2d(*camera_vector) - Vec2d(*self.camera.position)
 
 	def on_mouse_press(self, x, y, button, modifiers):
+		self.mouse_pos = Vec2d(x=x,y=y)
 		#self.mouse_pos = self.manager.adjust_mouse_coordinates(x,y)
 		# x,y = self.manager.adjust_mouse_coordinates(x,y)
 		# left, screen_width, bottom, screen_height = self.window.get_viewport()
@@ -514,49 +515,53 @@ class Bomberdude(arcade.View):
 		# print(f'{self.camera.viewport} {screen_center_x=} {screen_center_y=} {self.playerone.center_x=} {self.playerone.center_y=} {self.playerone.position=}')
 		# print(f'{left=} {screen_width=} {bottom=} {screen_height=}')
 
-		if self.debugmode:
-			pxm,pym = self.adjust_mouse_coordinates(x=self.playerone.center_x, y=self.playerone.center_y)
-			mx,my = self.adjust_mouse_coordinates(x=self.mouse_pos[0], y=self.mouse_pos[1])
-			draw_circle_filled(x,y,1,arcade.color.YELLOW)
-			draw_circle_filled(pxm,pym,2,arcade.color.RED)
-			draw_circle_filled(mx,my,2,arcade.color.BLUE)
-			draw_circle_filled(self.mouse_pos[0],self.mouse_pos[1],2,arcade.color.GREEN)
-			logger.info(f'{x=} {y=} p1c=({self.playerone.center_x},{self.playerone.center_y}) -- {mx=} {pxm=} -  {my=}  {pym=}')
-			#draw_line(start_x=self.mouse_pos.x, start_y=self.mouse_pos.y, end_x=self.playerone.position[0], end_y=self.playerone.position[1], color=arcade.color.RED, line_width=1)
-			#draw_line(start_x=self.mouse_pos.x, start_y=self.mouse_pos.y, end_x=x, end_y=y, color=arcade.color.BLUE, line_width=1)
-			#draw_line(start_x=self.mouse_pos.x, start_y=self.mouse_pos.y, end_x=mx, end_y=my, color=arcade.color.GREEN, line_width=1)
-			cgmp = self.camera.get_map_coordinates(self.playerone.position)
-			cgmpr = self.get_map_coordinates_rev(self.playerone.position)
-			# draw_line(start_x=cgmp.x, start_y=cgmp.y,end_x=self.mouse_pos.x, end_y=self.mouse_pos.y, color=arcade.color.VIOLET_BLUE, line_width=1)
-			logger.debug(f'position {self.playerone.position} --- {cgmp=} --- {cgmpr=}')
+		# if self.debugmode:
+		# 	pxm,pym = self.adjust_mouse_coordinates(x=self.playerone.center_x, y=self.playerone.center_y)
+		# 	mx,my = self.adjust_mouse_coordinates(x=self.mouse_pos[0], y=self.mouse_pos[1])
+		# 	draw_circle_filled(x,y,1,arcade.color.YELLOW)
+		# 	draw_circle_filled(pxm,pym,2,arcade.color.RED)
+		# 	draw_circle_filled(mx,my,2,arcade.color.BLUE)
+		# 	draw_circle_filled(self.mouse_pos[0],self.mouse_pos[1],2,arcade.color.GREEN)
+		# 	logger.info(f'{x=} {y=} p1c=({self.playerone.center_x},{self.playerone.center_y}) -- {mx=} {pxm=} -  {my=}  {pym=}')
+		# 	#draw_line(start_x=self.mouse_pos.x, start_y=self.mouse_pos.y, end_x=self.playerone.position[0], end_y=self.playerone.position[1], color=arcade.color.RED, line_width=1)
+		# 	#draw_line(start_x=self.mouse_pos.x, start_y=self.mouse_pos.y, end_x=x, end_y=y, color=arcade.color.BLUE, line_width=1)
+		# 	#draw_line(start_x=self.mouse_pos.x, start_y=self.mouse_pos.y, end_x=mx, end_y=my, color=arcade.color.GREEN, line_width=1)
+		# 	cgmp = self.camera.get_map_coordinates(self.playerone.position)
+		# 	cgmpr = self.get_map_coordinates_rev(self.playerone.position)
+		# 	# draw_line(start_x=cgmp.x, start_y=cgmp.y,end_x=self.mouse_pos.x, end_y=self.mouse_pos.y, color=arcade.color.VIOLET_BLUE, line_width=1)
+		# 	logger.debug(f'position {self.playerone.position} --- {cgmp=} --- {cgmpr=}')
 
-			cgmp = self.camera.get_map_coordinates(Vec2d(x=screen_center_x, y=screen_center_y))
-			cgmpr = self.get_map_coordinates_rev(Vec2d(x=screen_center_x, y=screen_center_y))
-			logger.debug(f'screen_center {screen_center_x} {screen_center_y} --- {cgmp=} --- {cgmpr=}')
+		# 	cgmp = self.camera.get_map_coordinates(Vec2d(x=screen_center_x, y=screen_center_y))
+		# 	cgmpr = self.get_map_coordinates_rev(Vec2d(x=screen_center_x, y=screen_center_y))
+		# 	logger.debug(f'screen_center {screen_center_x} {screen_center_y} --- {cgmp=} --- {cgmpr=}')
 
-		lzrsprt=arcade.load_texture("data/laserBlue01.png")
+		lzrsprt=arcade.load_texture("data/laserBlue01vv.png")
 		cgmpr = self.get_map_coordinates_rev(self.playerone.position)
-		start_x = cgmpr.x # self.playerone.center_x # screen_center_x
-		start_y = cgmpr.y # self.playerone.center_y # screen_center_y
+		# start_x = cgmpr.x # self.playerone.center_x # screen_center_x
+		# start_y = cgmpr.y # self.playerone.center_y # screen_center_y
 		if button == 1:
 			bullet = Bullet(lzrsprt, scale=1)
-			bullet.center_x = start_x
-			bullet.center_y = start_y
-			dest_x = x #+ self.view_left
-			dest_y = y #+ self.view_bottom
-			x_diff = dest_x - start_x
-			y_diff = dest_y - start_y
-			angle = math.atan2(y_diff, x_diff)
-			# print(f'{dest_x=} {x_diff=} {dest_y=} {y_diff=} {angle=} {self.playerone.angle=}')
-			size = max(self.playerone.width, self.playerone.height) / 2
+			bullet.center_x = cgmpr.x
+			bullet.center_y = cgmpr.y
+			# dest_x = x #+ self.view_left
+			# dest_y = y #+ self.view_bottom
+			x_diff = x - cgmpr.x
+			y_diff = y - cgmpr.y
+			# angle = math.atan2(y_diff, x_diff)  + 3.14 / 2
+			angle = math.atan2(x_diff, y_diff)  + 3.14 / 2
+			# angle = get_angle_radians(cgmpr.x, cgmpr.y, self.mouse_pos.x, self.mouse_pos.y)
+		# print(f'{dest_x=} {x_diff=} {dest_y=} {y_diff=} {angle=} {self.playerone.angle=}')
+			size = max(self.playerone.width, self.playerone.height) / 4
 			bullet.center_x += size * math.cos(angle)
 			bullet.center_y += size * math.sin(angle)
-			bullet.angle = math.degrees(angle)
+			# angle = cgmpr.get_angle_between(self.mouse_pos)
+			bullet.angle = math.degrees(angle) #- 180
 			# xm,ym = self.manager.adjust_mouse_coordinates(x,y)#
-			logger.info(f"Bullet angle: {bullet.angle:.2f} x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
-			bullet.change_x = math.cos(angle) * BULLET_SPEED
+			bullet.change_x = 1-math.cos(angle) * BULLET_SPEED
 			bullet.change_y = math.sin(angle) * BULLET_SPEED
+			# bullet.rotate_around_point(bullet.position, angle)
 			self.bullet_list.append(bullet)
+			logger.info(f"Bullet angle: {bullet.angle:.2f} p1a= {self.playerone.angle} a={angle} bcx={bullet.change_x} bcy={bullet.change_y}  x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
 
 		elif button == 4:
 			bullet = Bullet(lzrsprt, scale=1)

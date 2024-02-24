@@ -401,7 +401,7 @@ class Bomberplayer(arcade.Sprite):
 	def respawn(self):
 		self.killed = False
 		self.health = 100
-		self.position = [123.3,123.5]
+		self.position = Vec2d(x=101,y=101)
 		self.bombsleft = 3
 		self.score = 0
 		self.timeout = False
@@ -485,6 +485,20 @@ class Bullet(arcade.Sprite):
 
 	def __repr__(self):
 		return f'Bullet(pos={self.center_x},{self.center_y} shooter={self.shooter} t:{self.timer})'
+
+	def rotate_around_point(self, point: Point, degrees: float):
+		"""
+		Rotate the sprite around a point by the set amount of degrees
+
+		:param point: The point that the sprite will rotate about
+		:param degrees: How many degrees to rotate the sprite
+		"""
+
+		# Make the sprite turn as its position is moved
+		self.angle += degrees
+
+		# Move the sprite along a circle centered around the passed point
+		self.position = rotate_point( self.center_x, self.center_y, point[0], point[1], degrees)
 
 	def update(self):
 		self.center_x += self.change_x
