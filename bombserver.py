@@ -1,8 +1,6 @@
 #!/usr/bin/python
 import copy
 from flask import Flask
-import zlib
-import pickle
 import asyncio
 from typing import Dict, Tuple
 from contextlib import suppress
@@ -15,8 +13,7 @@ from loguru import logger
 import random
 from constants import *
 from objects import gen_randid
-from objects import PlayerEvent, PlayerState, GameState,KeysPressed
-from objects import pack, unpack, send_zipped_pickle, recv_zipped_pickle
+from objects import GameState
 from asyncio import run, create_task, CancelledError
 from api import ApiServer
 import zmq

@@ -15,13 +15,13 @@ from queue import Queue, Empty
 from typing import List, Dict
 import json
 from dataclasses import dataclass, asdict, field
-import zlib
-import pickle
 from arcade.types import Point
-def gen_randid() -> str:
-	hashid = hashlib.sha1()
-	hashid.update(str(time.time()).encode("utf-8"))
-	return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
+
+def gen_randid() -> int:
+	return int(''.join([str(random.randint(0,9)) for k in range(10)]))
+	#hashid = hashlib.sha1()
+	#hashid.update(str(time.time()).encode("utf-8"))
+	#return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
 
 
 MOVE_MAP = {
@@ -47,9 +47,9 @@ MOVE_MAP = {
 class UIPlayerLabel(UILabel):
 	_value: str = ''
 	def __init__(self, client_id, value='', l_text='', text_color=arcade.color.HAN_BLUE, *args, **kwargs):
-		super().__init__(width=120,text=client_id,text_color=text_color, multiline=False, name=client_id, *args, **kwargs)
+		super().__init__(width=120,text=client_id,text_color=text_color, multiline=False, name=str(client_id), *args, **kwargs)
 		self.client_id = client_id
-		self.name = client_id
+		self.name = str(client_id)
 		self.button = UIFlatButton(text=f'{self.client_id}', height=20, width=120,name=self.name)
 
 	@property
@@ -58,6 +58,11 @@ class UIPlayerLabel(UILabel):
 
 	@value.setter
 	def value(self, value):
+		self._value = f'{value}'
+		self.text = f'{self._value}' # self._value # f'{self.client_id}\\n{value}'
+		self.fit_content()
+
+	def set_value(self, value):
 		self._value = f'{value}'
 		self.text = f'{self._value}' # self._value # f'{self.client_id}\\n{value}'
 		self.fit_content()
@@ -222,13 +227,14 @@ class GameState:
 			else:
 				match event_type:
 					# logger.debug(f'self.game_events={self.game_events}')
-					case 'newconn':
+					case 'newconnection':
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugsnc'
 						game_event['event_type'] = 'acknewconn'
+						clid = game_event['client_id']
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
-							logger.info(f'{event_type} ')
+							logger.info(f'{event_type} from {clid} ')
 					case 'blkxplode': # todo make upgradeblock here....
 						# game_event['handled'] = True
 						uptype = random.choice([1,2,3])
@@ -366,7 +372,7 @@ class Bomberplayer(arcade.Sprite):
 	def __repr__(self):
 		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} )'
 
-	def __eq__(self, other):
+	def x__eq__(self, other):
 		if not isinstance(other, type(self)):
 			return False
 		# compare values in slots
@@ -376,6 +382,9 @@ class Bomberplayer(arcade.Sprite):
 		return True
 
 	def __hash__(self):
+		return self.client_id
+
+	def x__hash__(self):
 		values = [getattr(self, slot) for slot in self.__slots__]
 		for i in range(len(values)):
 			if isinstance(values[i], list):
@@ -443,6 +452,10 @@ class Bomberplayer(arcade.Sprite):
 		self.killed = True
 		self.texture = arcade.load_texture('data/netplayerdead.png')
 		return 1
+
+	def set_pos(self, newpos):
+		self.center_x = newpos.x
+		self.center_y = newpos.y
 
 class Bomb(arcade.Sprite):
 	def __init__(self, image=None, scale=1, bomber=None, timer=1000):
@@ -571,39 +584,4 @@ class Flame(arcade.SpriteSolidColor):
 			self.center_x += self.change_x
 			self.center_y += self.change_y
 
-
-def pack(data):
-	dtypes, shapes, buffers = [], [], []
-	items = sorted(data.items(), key=lambda x: x[0])
-	keys, vals = zip(*items)
-	dtypes = [v.dtype.name for v in vals]
-	shapes = [v.shape for v in vals]
-	buffers = [v.tobytes() for v in vals]
-	meta = (keys, dtypes, shapes)
-	parts = [pickle.dumps(meta), *buffers]
-	return parts
-
-
-def unpack(parts):
-	meta, *buffers = parts
-	keys, dtypes, shapes = pickle.loads(meta)
-	vals = [
-		np.frombuffer(b, d).reshape(s)
-		for i, (d, s, b) in enumerate(zip(dtypes, shapes, buffers))]
-	data = dict(zip(keys, vals))
-	return data
-
-
-async def send_zipped_pickle(socket, obj, flags=0, protocol=-1):
-	"""pickle an object, and zip the pickle before sending it"""
-	p = pickle.dumps(obj, protocol)
-	z = zlib.compress(p)
-	return await socket.send(z, flags=flags)
-
-async def recv_zipped_pickle(socket, flags=0, protocol=-1):
-	"""inverse of send_zipped_pickle"""
-	z = await socket.recv(flags)
-	# print(f'{z=}')
-	p = zlib.decompress(z)
-	return pickle.loads(p)
 
