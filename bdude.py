@@ -452,7 +452,7 @@ class Bomberdude(arcade.View):
 
 		cgmpr = self.get_map_coordinates_rev(self.playerone.position)
 		if button == 1:
-			bullet = Bullet(self.lzrsprt, scale=1)
+			bullet = Bullet(self.lzrsprt, scale=1, shooter=self.playerone.client_id)
 			bullet.center_x = cgmpr.x
 			bullet.center_y = cgmpr.y
 			x_diff = x - cgmpr.x
@@ -800,6 +800,12 @@ class Bomberdude(arcade.View):
 		# self.game_state.scene['Blocks']
 		for bullet in self.game_state.scene['Bullets']:
 			bullet.update()
+			if arcade.check_for_collision(bullet, self.playerone):
+				event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'killer':bullet.shooter, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+				#self.game_state.game_events.append(event)
+				if bullet.shooter != self.playerone.client_id: # skip own bullets
+					self.eventq.put(event)
+					bullet.remove_from_sprite_lists()
 			hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene['Walls'])
 			hits.extend(arcade.check_for_collision_with_list(bullet, self.game_state.scene['Blocks']))
 			for hit in hits:

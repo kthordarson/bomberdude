@@ -320,7 +320,7 @@ class GameState:
 							game_event['killstart'] = game_event.get("msg_dt")
 						self.event_queue.put_nowait(game_event)
 						#if self.debugmode:
-						logger.debug(f'{event_type} {killer=} {killed=} {self.players[killer]}')
+						logger.debug(f'{event_type} {killer=} {killed=} ')
 					case 'respawn': # increase score for killer
 						clid = game_event.get("client_id")
 						self.players[clid]['health'] = 100
