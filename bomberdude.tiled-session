@@ -10,6 +10,65 @@
     ],
     "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json": {
+            "scale": 0.33,
+            "selectedLayer": 3,
+            "viewCenter": {
+                "x": 1953.030303030303,
+                "y": 2245.4545454545455
+            }
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#AD": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#AS": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#BD": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#BS": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#D": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#DB": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#DS": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#GD": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#GS": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#Objects": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#PD": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#PS": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#Pool": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#RD": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#RS": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#YD": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#YS": {
+            "scaleInDock": 1
+        },
         "/home/kth/development2/games/donk-tiled/tileset_oink.tsx": {
             "scaleInDock": 1,
             "scaleInEditor": 1
@@ -116,7 +175,7 @@
             "selectedLayer": 0,
             "viewCenter": {
                 "x": 1026.280623608018,
-                "y": 1022.6796389637793
+                "y": 1020.2789825342868
             }
         },
         "data/maptest.json": {
@@ -125,6 +184,14 @@
             "viewCenter": {
                 "x": 224.5,
                 "y": 224
+            }
+        },
+        "data/maptest2.json": {
+            "scale": 1,
+            "selectedLayer": 3,
+            "viewCenter": {
+                "x": 353.5,
+                "y": 314
             }
         },
         "map.json": {
@@ -154,18 +221,18 @@
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
+        "data/map4.json",
+        "data/maptest2.json",
+        "data/map3.json",
+        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json",
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map_with_ladders.json",
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/items.json",
-        "data/map4.json",
         "data/btiles.tsx",
         "data/map2tiles.tsx",
-        "data/map3.json",
         "data/map2.tmj",
         "data/map.json",
         "data/map2.json",
-        "data/map.tmx",
-        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/standard_tileset.json",
-        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/level_2.json"
+        "data/map.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1

@@ -26,14 +26,14 @@ def draw_debug_widgets(widgets):
 	text_pos0 = text_pos
 	fontsize = 10
 	textwidth = 450
-	arcade.draw_lrbt_rectangle_filled(left=tx, right=tx+textwidth, top=ty_0+20, bottom=text_pos.y-100, color=arcade.color.GRAY)
+	# arcade.draw_lrbt_rectangle_filled(left=tx, right=tx+textwidth, top=ty_0+20, bottom=text_pos.y-100, color=arcade.color.GRAY)
 	for idx,w in enumerate(widgets):
 		text_pos = render_widget_debug(idx,w,text_pos, fontsize)
 		#draw_line(start_x=tx, end_x=tx, start_y=ty_0, end_y=ty, color=arcade.color.RED,line_width=1)
 		#draw_line(start_x=tx, end_x=tx+300, start_y=ty_0, end_y=ty, color=arcade.color.GREEN,line_width=1) # under textline
 		ty += idx+fontsize
 	#arcade.draw_xywh_rectangle_outline(bottom_left_x=tx, bottom_left_y=ty_0, width=textwidth, height=ty, color=arcade.color.PURPLE, border_width=1)
-	arcade.draw_lrbt_rectangle_outline(left=tx, right=tx+textwidth, top=ty_0+20, bottom=text_pos.y, color=arcade.color.YELLOW, border_width=1)
+	# arcade.draw_lrbt_rectangle_outline(left=tx, right=tx+textwidth, top=ty_0+20, bottom=text_pos.y, color=arcade.color.YELLOW, border_width=1)
 		# arcade.draw_rectangle_outline( w.center_x, w.center_y, w.width, w.height, arcade.color.RED, border_width=1 )
 
 def draw_debug_view(view):
@@ -51,13 +51,13 @@ def render_widget_debug(idx, item, text_pos, fontsize):
 		ntp = text_pos
 		color = arcade.color.Color(0, 0, idx*10, 255)# random.choice(PARTICLE_COLORS)
 		#arcade.draw_rectangle_outline( item.center_x, item.center_y, item.width, item.height, color, border_width=1 )
-		arcade.Text(f'{idx} {item.name} - {item.x} {item.y} - {item.center_x} {item.center_y} - {item.width} {item.height}', ntp.x, ntp.y, arcade.color.BLUE, font_size=fontsize).draw()
-		# draw_line(start_x=ntp.x, end_x=ntp.x+100, start_y=ntp.y+textspace, end_y=ntp.y+textspace, color=arcade.color.ORANGE, line_width=1)
-		ntp -= (0,textspace)
+		#arcade.Text(f'{idx} {item.name} - {item.x} {item.y} - {item.center_x} {item.center_y} - {item.width} {item.height}', ntp.x, ntp.y, arcade.color.BLUE, font_size=fontsize).draw()
+		#draw_line(start_x=ntp.x, end_x=item.x, start_y=item.y, end_y=ntp.y, color=arcade.color.ORANGE, line_width=1)
+		#ntp -= (0,textspace)
 		# draw_line(start_x=ntp.x, end_x=ntp.x+100, start_y=ntp.y, end_y=ntp.y, color=arcade.color.RED, line_width=1)
 
-		arcade.Text(f'{idx} {item.name} {item.x} {item.y}', item.x+13, item.y+11, arcade.color.BROWN, font_size=10).draw()
-		arcade.draw_lrbt_rectangle_outline(left=item.x, right=item.x+item.width,bottom=item.y, top=item.y+item.height,color=arcade.color.BLUE,border_width=1)
+		#arcade.Text(f'{idx} {item.name} {item.x} {item.y}', item.x+(idx*2), item.y+(idx*2), arcade.color.BROWN, font_size=10).draw()
+		arcade.draw_lrbt_rectangle_outline(left=item.x, right=item.x+item.width, bottom=item.y-(idx*2), top=item.y+item.height-(idx*2), color=arcade.color.BLUE,border_width=1)
 		#draw_line(start_x=item.x, start_y=item.y, end_x=item.x+item.width, end_y=item.y, color=arcade.color.LIGHT_MOSS_GREEN) # bottom line
 		#draw_line(start_x=item.x, start_y=item.y+item.height, end_x=item.x+item.width, end_y=item.y+item.height, color=arcade.color.LIGHT_MOSS_GREEN) # top line
 		#draw_line(start_x=item.x, start_y=item.y, end_x=item.x, end_y=item.y+item.height, color=arcade.color.LIGHT_MOSS_GREEN) # left line

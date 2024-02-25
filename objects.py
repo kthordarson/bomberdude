@@ -174,7 +174,18 @@ class GameState:
 		self.ugs_counter = 0
 		self.toj_counter = 0
 		self.fj_counter = 0
-		self.tile_map:TileMap = arcade.load_tilemap('data/maptest2.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
+		layer_options={
+			"Particles": {"use_spatial_hash": True},
+			"Flames": {"use_spatial_hash": True},
+			"Bullets": {"use_spatial_hash": True},
+			"Netplayers": {"use_spatial_hash": True},
+			"Bombs": {"use_spatial_hash": True},
+			"Players": {"use_spatial_hash": True},
+			"Blocks": {"use_spatial_hash": True},
+			"Walls": {"use_spatial_hash": True},
+			"Background": {"use_spatial_hash": False},
+			}
+		self.tile_map:TileMap = arcade.load_tilemap('data/maptest2.json', layer_options=layer_options , scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
 	def load_tile_map(self, mapname):
@@ -261,11 +272,20 @@ class GameState:
 							self.event_queue.put_nowait(game_event)
 							if self.debugmode:
 								logger.debug(f'gsge={len(self.game_events)} {event_type} from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
+					case 'bulletfired': # decide on somethingsomething..
+						game_event['handledby'] = f'ugsbomb'
+						shooter = game_event.get("shooter")
+						# if self.players[bomber].get("bulletsleft")>0: # maybe ?
+						# self.players[bomber]['bulletsleft'] -= 1
+						game_event['event_type'] = f'ackbullet'
+						self.event_queue.put_nowait(game_event)
+						if self.debugmode:
+							logger.debug(f'gsge={len(self.game_events)} {event_type} from {shooter}')
 					case 'bombxplode': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
 						game_event['event_type'] = f'ackbombxplode'
 						bomber = game_event.get("bomber")
-						self.players[bomber]['bombsleft'] += 1
+						# self.players[bomber]['bombsleft'] += 1
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
 							logger.debug(f'gsge={len(self.game_events)} {event_type} from {bomber}  bl={self.players[bomber].get("bombsleft")}')
