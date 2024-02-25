@@ -71,7 +71,7 @@ def render_widget_debug(idx, item, text_pos, fontsize):
 
 def debug_dump_game(game):
 	print('='*80)
-	print(f'scenewalls:{len(game.scenewalls)} sceneblocks:{len(game.sceneblocks)} bombs:{len(game.bomb_list)} particles:{len(game.particle_list)} flames:{len(game.flame_list)}')
+	print(f'bombs:{len(game.bomb_list)} particles:{len(game.particle_list)} flames:{len(game.flame_list)}')
 	print(f'playerone: {game.playerone} pos={game.playerone.position} ') #  gspos={game.game_state.players[game.playerone.client_id]}')
 	print(f'game.game_state.players = {len(game.game_state.players)} gsge={len(game.game_state.game_events)}')
 	print('='*80)

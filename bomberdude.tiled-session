@@ -69,6 +69,28 @@
         "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json#YS": {
             "scaleInDock": 1
         },
+        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/demo_1.tmx": {
+            "scale": 1.7772916666666665,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 240.53452115812922,
+                "y": 240.25319423279808
+            }
+        },
+        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/tutorial.tmx": {
+            "scale": 1.8148958333333332,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 240.50967112437584,
+                "y": 120.11708660965392
+            }
+        },
+        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilesets/Identifiers.tsx": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilesets/basic_tiles.tsx": {
+            "scaleInDock": 1
+        },
         "/home/kth/development2/games/donk-tiled/tileset_oink.tsx": {
             "scaleInDock": 1,
             "scaleInEditor": 1
@@ -188,10 +210,10 @@
         },
         "data/maptest2.json": {
             "scale": 1,
-            "selectedLayer": 3,
+            "selectedLayer": 0,
             "viewCenter": {
-                "x": 353.5,
-                "y": 314
+                "x": 465.5,
+                "y": 488
             }
         },
         "map.json": {
@@ -213,6 +235,9 @@
     },
     "last.exportedFilePath": "/home/kth/development/bomberdude/data",
     "last.imagePath": "/home/kth/development/bomberdude/data",
+    "loadedWorlds": [
+        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/demo_world.world"
+    ],
     "map.height": 16,
     "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
     "map.lastUsedFormat": "json",
@@ -221,18 +246,18 @@
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
-        "data/map4.json",
+        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/demo_1.tmx",
+        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/tutorial.tmx",
         "data/maptest2.json",
-        "data/map3.json",
         "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json",
+        "data/map4.json",
+        "data/map3.json",
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map_with_ladders.json",
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/items.json",
         "data/btiles.tsx",
         "data/map2tiles.tsx",
         "data/map2.tmj",
-        "data/map.json",
-        "data/map2.json",
-        "data/map.tmx"
+        "data/map.json"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1

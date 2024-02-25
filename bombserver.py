@@ -198,7 +198,7 @@ class BombServer():
 	def get_position(self, retas='int'):
 		foundpos = False
 		walls:pytiled_parser.Layer = self.game_state.tile_map.get_tilemap_layer('Walls')
-		blocks:pytiled_parser.Layer = self.game_state.tile_map.get_tilemap_layer('Walls')
+		blocks:pytiled_parser.Layer = self.game_state.tile_map.get_tilemap_layer('Blocks')
 		x = 0
 		y = 0
 		while not foundpos:

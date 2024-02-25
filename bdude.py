@@ -436,8 +436,8 @@ class Bomberdude(arcade.View):
 		elif actual_angle_radians < 0:
 			actual_angle_radians += 2 * math.pi
 		self.playerone.angle = math.degrees(actual_angle_radians) +90 # + IMAGE_ROTATION
-		if self.playerone.angle > 360:
-			self.playerone.angle = 0
+		#if self.playerone.angle > 360:
+		#	self.playerone.angle = 0
 
 	def flipyv(self, v):
 		return Vec2d(x=int(v.x), y=int(-v.y + self.window.height))
@@ -947,7 +947,7 @@ def main():
 	parser.add_argument('-dp','--debugpacket', action='store_true', dest='packetdebugmode', default=False)
 	args = parser.parse_args()
 
-	app = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=False, gc_mode='context_gc')
+	app = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')
 	# mainwindow = App(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True)
 
 	mainview = MainView(window=app, name='bomberdue', title='Bomberdude Main Menu', args=args)
