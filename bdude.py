@@ -190,10 +190,10 @@ class Bomberdude(arcade.View):
 		self.poplist = []
 		self.netplayers = {}
 
-		# self.bomb_list = arcade.SpriteList(use_spatial_hash=True)
+		self.bomb_list = arcade.SpriteList(use_spatial_hash=True)
 		# self.bullet_list = arcade.SpriteList(use_spatial_hash=True)
-		# self.particle_list = arcade.SpriteList(use_spatial_hash=True)
-		# self.flame_list = arcade.SpriteList(use_spatial_hash=True)
+		self.particle_list = arcade.SpriteList(use_spatial_hash=True)
+		self.flame_list = arcade.SpriteList(use_spatial_hash=True)
 		# self.netplayers = arcade.SpriteList(use_spatial_hash=True)
 		# self.scenewalls = arcade.SpriteList(use_spatial_hash=True)
 		# self.sceneblocks = arcade.SpriteList(use_spatial_hash=True)
@@ -380,6 +380,9 @@ class Bomberdude(arcade.View):
 		#	sprite_list.draw()
 		self.playerone.draw()
 		self.manager.draw()
+		self.bomb_list.draw()
+		self.flame_list.draw()
+		self.particle_list.draw()
 		# self.netplayers.draw()
 		# self.flame_list.draw()
 		# self.particle_list.draw()
@@ -392,6 +395,7 @@ class Bomberdude(arcade.View):
 				label.draw()
 
 		if self.debugmode:
+			self.guicamera.use()
 			arcade.Text(f'p1center: {self.playerone.center_x} {self.playerone.center_y} ', 23, 109, arcade.color.RED, font_size=12).draw()
 			draw_debug_widgets([self.grid,  self.netplayer_grid, self.anchor,])
 		if self._show_kill_screen:
@@ -599,7 +603,14 @@ class Bomberdude(arcade.View):
 						score = self.playerone.take_damage(damage, killer)
 						logger.debug(f'{event_type} from {killer=}  {killed=} {self.playerone=} {score=}')
 						self.game_state.players[killed]['score'] += score
-				case 'bombdrop':
+				case 'ackbombxplode':
+					bomber = game_event.get('bomber')
+					if bomber == self.playerone.client_id:
+						self.playerone.bombsleft += 1
+						#self.game_state.players[bomber]['bombsleft'] += 1
+						#self.netplayers[bomber]['bombsleft'] += 1
+						logger.info(f'{game_event.get("event_type")} ownbombxfrom {bomber} p1={self.playerone}')
+				case 'ackbombdrop':
 					bomber = game_event.get('bomber')
 					bombpos = Vec2d(x=game_event.get('pos')[0], y=game_event.get('pos')[1])
 					bombpos_fix = self.get_map_coordinates_rev(bombpos)
@@ -609,13 +620,19 @@ class Bomberdude(arcade.View):
 					bomb.center_y = bombpos.y
 
 					# bomb2 = Bomb("data/bomb2.png",scale=1, bomber=bomber, timer=1500)
-					# bomb2.center_x = bombpos.x
-					# bomb2.center_y = bombpos.y
+					# bomb2.center_x = bombpos_fix.x
+					# bomb2.center_y = bombpos_fix.y
 					self.game_state.scene.add_sprite("Bombs", bomb)
+					# self.game_state.scene.add_sprite("Bombs", bomb2)
 					# self.bomb_list.append(bomb2)
 					# self.bomb_list.append(bomb)
+					# self.bomb_list.append(bomb2)
 					if self.debugmode:
-						logger.info(f'{game_event.get("event_type")} from {bomber} pos 	{bombpos} {bombpos_fix=}')
+						if bomber == self.playerone.client_id:
+							logger.info(f'{game_event.get("event_type")} ownbombfrom {bomber} pos 	{bombpos} {bombpos_fix=}')
+							self.playerone.bombsleft -= 1
+						else:
+							logger.debug(f'{game_event.get("event_type")} from {bomber} pos 	{bombpos} {bombpos_fix=}')
 				case _:
 					# game_events.remove(game_event)
 					logger.warning(f'unknown type:{event_type} {game_events=} ')
@@ -627,8 +644,8 @@ class Bomberdude(arcade.View):
 				self.poplist.append(pclid)
 
 	def update_netplayers(self):
-		gspcopy_ = copy.copy(self.game_state.players)
-		gspcopy = [{k: self.game_state.players[k]} for k in self.game_state.players if k != self.playerone.client_id]
+		# gspcopy_ = copy.copy(self.game_state.players)
+		# gspcopy = [{k: self.game_state.players[k]} for k in self.game_state.players if k != self.playerone.client_id]
 		for pclid in self.game_state.players:
 			score = self.game_state.players[pclid].get('score')
 			health = self.game_state.players[pclid].get('health')
@@ -638,7 +655,7 @@ class Bomberdude(arcade.View):
 			# netplayerpos = Vec2d(x=self.game_state.players[pclid].get('position')[0],y=self.game_state.players[pclid].get('position')[1])
 			netplayerpos_fix = self.get_map_coordinates_rev(netplayerpos)
 
-			value = f'h:{health} s:{score} b:{bombsleft} pos:{netplayerpos} posf:{netplayerpos_fix}'
+			value = f'  h:{health} s:{score} b:{bombsleft} pos: {netplayerpos.x},{netplayerpos.y} posf: {netplayerpos_fix.x},{netplayerpos_fix.y}'
 
 			if pclid in [k for k in self.netplayers]:
 				# logger.info(f'pclid={pclid} gsp={self.game_state.players}')
@@ -657,19 +674,23 @@ class Bomberdude(arcade.View):
 				# 	logger.error(f'{type(e)} {e=} {pclid=} p1clid={self.playerone.client_id} {netplayer=}')
 			else:
 				# score = self.game_state.players[pclid].get('score')
-				# if pclid != self.playerone.client_id:
-				newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=netplayerpos_fix)
-				playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id))
-				playerlabel.button.text = f'{pclid}'
+				if pclid == self.playerone.client_id:
+					newplayer = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=pclid, position=netplayerpos_fix)
+					playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), text_color=arcade.color.BLUE)
+					playerlabel.button.text = f'Me {pclid}'
+				else:
+					newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=netplayerpos_fix)
+					playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), text_color=arcade.color.GREEN)
+					playerlabel.button.text = f'{pclid}'
+
+
 				self.netplayer_labels[pclid] = playerlabel
 				self.netplayers[pclid] = newplayer # {'client_id':pclid, 'position':netplayerpos_fix}
 				self.netplayer_grid.add(playerlabel.button, col_num=0, row_num=len(self.netplayer_labels))
-				self.netplayer_grid.add(playerlabel, col_num=1, col_span=2,row_num=len(self.netplayer_labels)) # h
-				try:
+				self.netplayer_grid.add(playerlabel.textlabel, col_num=1, col_span=2,row_num=len(self.netplayer_labels)) # h
+				if pclid != self.playerone.client_id:
 					self.game_state.scene.add_sprite("Netplayers", newplayer)
 					logger.info(f'newplayer: id={newplayer.client_id} pos: {netplayerpos} fix={netplayerpos_fix} ')
-				except (ValueError,AttributeError) as e:
-					logger.error(f'{e} {newplayer=} {self.game_state.scene.get_sprite_list("Netplayers")}')
 
 	def update_poplist(self):
 		for p in self.poplist:
@@ -719,6 +740,7 @@ class Bomberdude(arcade.View):
 		self.bombs_label.value = f'bombs {self.playerone.bombsleft}'
 
 	def on_update(self, dt):
+		self.timer += dt
 		if not self._gotmap:
 			return
 		# self.update_viewport(dt)
@@ -733,12 +755,86 @@ class Bomberdude(arcade.View):
 			logger.error(f'{e} {type(e)}')
 		if game_events:
 			self.handle_game_events([game_events,])
-		self.timer += dt
-		self.game_state.scene.update()
+		# self.game_state.scene.update()
 		if len(self.game_state.players) > 0:
-			self.update_netplayers()
+			try:
+				self.update_netplayers()
+			except RuntimeError as e:
+				logger.error(f'{e}')
 			self.update_poplist()
 		self.hitlist = self.physics_engine.update()
+		flames = []
+		particles = []
+		# self.bomb_list.update()
+		for f in self.game_state.scene['Flames']:
+			f.update()
+		for p in self.game_state.scene['Particles']:
+			p.update()
+		#self.game_state.scene.update(names=['Bombs'])
+		for b in self.game_state.scene["Bombs"]:
+			b.update(self.game_state.scene, self.eventq)
+#			flames.extend(bu.get('flames'))
+#			particles.extend(bu.get('plist'))
+#		self.flame_list.extend(flames)
+#		self.particle_list.extend(particles)
+		# self.game_state.scene['Blocks']
+		for bullet in self.game_state.scene['Bullets']:
+			bullet.update()
+			hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene['Walls'])
+			hits.extend(arcade.check_for_collision_with_list(bullet, self.game_state.scene['Blocks']))
+			for hit in hits:
+				logger.debug(f'b={bullet} {hits=}')
+				bullet.remove_from_sprite_lists()
+		for f in self.game_state.scene['Flames']:
+			if arcade.check_for_collision(f, self.playerone):
+				# self.playerone.health -= 123
+				event = {'event_time':0, 'event_type':'takedamage', 'damage': 10, 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+				#self.game_state.game_events.append(event)
+				self.eventq.put(event)
+				f.remove_from_sprite_lists()
+			f_hitlist = arcade.check_for_collision_with_list(f, self.game_state.scene['Walls'])
+			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.game_state.scene['Blocks']))
+			#f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
+			for hit in f_hitlist:
+				hitblocktype = hit.properties.get('tile_id')
+				match hitblocktype:
+					case 10:
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+					case 5:
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+					case 3 | 4:
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						hit.remove_from_sprite_lists()
+						f.remove_from_sprite_lists()
+					case 2:
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+					case 11:
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+					case 12: # todo create updateblock
+						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
+						f.remove_from_sprite_lists()
+						hit.remove_from_sprite_lists()
+						event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
+						self.eventq.put(event)
+					case _:
+						logger.info(f'f: {f} hit: {hit.properties.get("tile_id")} {hit}')
+
+		for p in self.game_state.scene['Particles']:
+			p_hitlist = arcade.check_for_collision_with_list(p, self.game_state.scene['Walls'])
+			p_hitlist.extend(arcade.check_for_collision_with_list(p, self.game_state.scene['Blocks']))
+			#p_hitlist.extend(arcade.check_for_collision_with_list(p, self.sceneblocks))
+			if p_hitlist:
+				for hit in p_hitlist:
+					if p.change_x > 0:
+						p.right = hit.left
+					elif p.change_x < 0:
+						p.left = hit.right
+				if len(p_hitlist) > 0:
+					p.change_x *= -1
 
 
 

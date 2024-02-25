@@ -1,4 +1,11 @@
+from dataclasses import dataclass
+from arcade.gui.style import UIStyleBase, UIStyledWidget
+from arcade.text import FontNameOrNames
+from arcade.types import Color, RGBA255, PointList
 import arcade
+import array
+import math
+from typing import Optional, Tuple
 
 # Physics
 BLOCK = 32
@@ -42,3 +49,49 @@ TILE_SCALING = 1
 UPDATE_TICK:int = 60
 VIEWPORT_MARGIN = 32
 IMAGE_ROTATION = 90
+
+
+@dataclass
+class BombBUIStyle(UIStyleBase):
+	"""
+	Used to style the button. Below is its use case.
+
+	.. code:: py
+
+		button = UIFlatButton(style={"normal": UIFlatButton.UIStyle(...),})
+	"""
+	font_size: int = 10
+	font_name: FontNameOrNames = ("calibri", "arial")
+	font_color: RGBA255 = arcade.color.WHITE
+	bg: RGBA255 = (51, 59, 51, 255)
+	border: Optional[RGBA255] = None
+	border_width: int = 0
+
+
+NP_LABEL_STYLE = {
+        "normal": BombBUIStyle(),
+        "hover": BombBUIStyle(
+            font_size=10,
+            font_name=("calibri", "arial"),
+            font_color=arcade.color.WHITE,
+            bg=(51, 59, 51, 255),
+            border=(77, 81, 87, 255),
+            border_width=2,
+        ),
+        "press": BombBUIStyle(
+            font_size=10,
+            font_name=("calibri", "arial"),
+            font_color=arcade.color.BLACK,
+            bg=arcade.color.WHITE,
+            border=arcade.color.WHITE,
+            border_width=2,
+        ),
+        "disabled": BombBUIStyle(
+            font_size=10,
+            font_name=("calibri", "arial"),
+            font_color=arcade.color.WHITE,
+            bg=arcade.color.GRAY,
+            border=None,
+            border_width=2,
+        )
+    }

@@ -2,6 +2,7 @@ from pyvex.utils import stable_hash
 from pymunk import Vec2d
 import copy
 import arcade
+from arcade.gui.style import UIStyleBase, UIStyledWidget
 from arcade.tilemap import TileMap
 from arcade.gui import UIManager, UIBoxLayout, UITextArea, UIFlatButton, UIGridLayout
 from arcade.gui import UILabel
@@ -52,6 +53,9 @@ class UIPlayerLabel(UILabel):
 		self.client_id = client_id
 		self.name = str(client_id)
 		self.button = UIFlatButton(text=f'{self.client_id}', height=20, width=120,name=self.name)
+		self.textlabel = UIFlatButton(text=f' ', height=20, width=400,name=self.name)
+		self.textlabel.text_color=arcade.color.GREEN
+		# self.textlabel._apply_style(NP_LABEL_STYLE)
 
 	@property
 	def value(self):
@@ -61,12 +65,16 @@ class UIPlayerLabel(UILabel):
 	def value(self, value):
 		self._value = f'{value}'
 		self.text = f'{self._value}' # self._value # f'{self.client_id}\\n{value}'
+		self.textlabel.text = self._value
+		#self.textlabel._apply_style(NP_LABEL_STYLE)
 		self.fit_content()
 
 	def set_value(self, value):
-		logger.debug(f'old={self._value} new={value}')
+		# logger.debug(f'old={self._value} new={value}')
 		self._value = f'{value}'
 		self.text = f'{self._value}' # self._value # f'{self.client_id}\\n{value}'
+		self.textlabel.text = self._value
+		#self.textlabel._apply_style(NP_LABEL_STYLE)
 		self.fit_content()
 
 
@@ -166,7 +174,7 @@ class GameState:
 		self.ugs_counter = 0
 		self.toj_counter = 0
 		self.fj_counter = 0
-		self.tile_map:TileMap = arcade.load_tilemap('data/maptest.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
+		self.tile_map:TileMap = arcade.load_tilemap('data/maptest2.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
 	def load_tile_map(self, mapname):
@@ -246,9 +254,21 @@ class GameState:
 							logger.info(f'gsge={len(self.game_events)} {event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
 					case 'bombdrop': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
+						bomber = game_event.get("bomber")
+						if self.players[bomber].get("bombsleft")>0:
+							game_event['event_type'] = f'ackbombdrop'
+							self.players[bomber]['bombsleft'] -= 1
+							self.event_queue.put_nowait(game_event)
+							if self.debugmode:
+								logger.debug(f'gsge={len(self.game_events)} {event_type} from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
+					case 'bombxplode': # decide on somethingsomething..
+						game_event['handledby'] = f'ugsbomb'
+						game_event['event_type'] = f'ackbombxplode'
+						bomber = game_event.get("bomber")
+						self.players[bomber]['bombsleft'] += 1
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
-							logger.debug(f'gsge={len(self.game_events)} {event_type} from {game_event.get("bomber")} pos:{game_event.get("pos")}')
+							logger.debug(f'gsge={len(self.game_events)} {event_type} from {bomber}  bl={self.players[bomber].get("bombsleft")}')
 					case 'upgradeblock': # decide on somethingsomething..
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugsupgr'
@@ -470,27 +490,33 @@ class Bomb(arcade.Sprite):
 	def __repr__(self):
 		return f'Bomb(pos={self.center_x},{self.center_y} bomber={self.bomber} t:{self.timer})'
 
-	def update(self):
+	def update(self, scene, eventq):
+		#plist = arcade.SpriteList()
+		#flames = arcade.SpriteList()
 		if self.timer <= 0:
 			# logger.debug(f'{self} timeout ')
-			self.remove_from_sprite_lists()
-			plist = []
-			flames = []
 			for k in range(PARTICLE_COUNT):
 				p = Particle()
 				p.center_x = self.center_x
 				p.center_y = self.center_y
-				plist.append(p)
+				scene.add_sprite('Particles', p)
+				#p.register_sprite_list("Particles")
+				#plist.append(p)
 			for k in ['left','right','up','down']:
 				f = Flame(flamespeed=FLAME_SPEED, timer=FLAME_TIME, direction=k, bomber=self.bomber)
 				f.center_x = self.center_x
 				f.center_y = self.center_y
-				flames.append(f)
-			return {'bomb': self, 'plist':plist, 'flames':flames}
+				scene.add_sprite('Flames', f)
+			event = {'event_time':0, 'event_type':'bombxplode', 'bomber':self.bomber, 'eventid': gen_randid()}
+			eventq.put(event)
+			self.remove_from_sprite_lists()
+				#f.register_sprite_list('Flames')
+				#flames.append(f)
+			#return {'bomb': self, 'plist':plist, 'flames':flames}
 		else:
 			# Update
 			self.timer -= BOMBTICKER
-			return []
+			#return {'bomb': self, 'plist':plist, 'flames':[]}
 
 class Bullet(arcade.Sprite):
 	def __init__(self, image=None, scale=1, shooter=None, timer=1000, cx=1,cy=1):
