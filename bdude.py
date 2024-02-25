@@ -194,17 +194,6 @@ class Bomberdude(arcade.View):
 		# self.bullet_list = arcade.SpriteList(use_spatial_hash=True)
 		self.particle_list = arcade.SpriteList(use_spatial_hash=True)
 		self.flame_list = arcade.SpriteList(use_spatial_hash=True)
-		# self.netplayers = arcade.SpriteList(use_spatial_hash=True)
-		# self.scenewalls = arcade.SpriteList(use_spatial_hash=True)
-		# self.sceneblocks = arcade.SpriteList(use_spatial_hash=True)
-		# self.walls = arcade.SpriteList(use_spatial_hash=True)
-
-		#self.sprite_items = arcade.SpriteList(use_spatial_hash=True) # [self.bomb_list, self.bullet_list, self.particle_list, self.flame_list,]
-		#self.sprite_items.extend(self.bomb_list)
-		#self.sprite_items.extend(self.bullet_list)
-		#self.sprite_items.extend(self.particle_list)
-		#self.sprite_items.extend(self.flame_list)
-		#self.sprite_items.extend(self.netplayers)
 		self._show_kill_screen = False
 		self.show_kill_timer = 1
 		self.show_kill_timer_start = 1
@@ -249,10 +238,10 @@ class Bomberdude(arcade.View):
 		self.setup_network()
 		self.window.set_caption(f'{self.title} connected to {self.args.server} playerid: {self.playerone.client_id}')
 
-	# def on_resize(self, width, height):
-	# 	self.width = width
-	# 	self.height = height
-	# 	self.camera.resize(width, height)
+	def on_resize(self, width, height):
+		self.width = width
+		self.height = height
+		self.camera.resize(width, height)
 
 	def on_show_view(self):
 		self.window.background_color = arcade.color.GRAY_BLUE
@@ -267,7 +256,7 @@ class Bomberdude(arcade.View):
 		#request = {'event_time':0, 'event_type': 'getmap', 'client_id' : self.playerone.client_id, 'handled': False, 'handledby': 'setup_network', 'eventid': gen_randid()}
 		#self.eventq.put(request)
 		resp = json.loads(requests.get(f'http://{self.args.server}:9699/get_tile_map').text)
-		logger.debug(f'{resp}')
+		logger.debug(f'map {resp=}')
 		position = Vec2d(x=resp.get('position')[0], y=resp.get('position')[1])
 		self.game_state.load_tile_map(resp.get('mapname'))
 		self._gotmap = True
@@ -467,7 +456,18 @@ class Bomberdude(arcade.View):
 			self.game_state.scene.add_sprite("Bullets",bullet)
 			logger.info(f"Bullet angle: {bullet.angle:.2f} p1a= {self.playerone.angle:.2f} a={angle:.2f} bcx={bullet.change_x:.2f} bcy={bullet.change_y:.2f}  x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
 			bulletpos = Vec2d(x=self.playerone.center_x,y=self.playerone.center_y)
-			event = {'event_time':0, 'event_type':'bulletfired', 'bvel':bvel, 'shooter': self.playerone.client_id, 'pos': bulletpos, 'timer': 3515, 'handled': False, 'handledby': self.playerone.client_id, 'eventid': gen_randid()}
+			event = {
+				'event_time':0,
+				'event_type':'bulletfired',
+				'bvel':bvel, 'shooter': self.playerone.client_id,
+				'pos': bulletpos,
+				'bcx':bullet.change_x,
+				'bcy':bullet.change_y,
+				'ba': bullet.angle,
+				'timer': 3515,
+				'handled': False,
+				'handledby': self.playerone.client_id,
+				'eventid': gen_randid()}
 			self.eventq.put(event)
 		else:
 			logger.warning(f'{x=} {y=} {button=} {modifiers=}')
@@ -628,6 +628,7 @@ class Bomberdude(arcade.View):
 					bullet.center_y = bulletpos.y
 					bullet.change_x = bvel.x
 					bullet.change_y = bvel.y
+					bullet.angle = game_event.get('ba')
 					if shooter != self.playerone.client_id:
 						self.game_state.scene.add_sprite("Bullets", bullet)
 				case 'ackbombdrop':
@@ -746,12 +747,8 @@ class Bomberdude(arcade.View):
 		if self.playerone.bottom < bottom_bndry:
 			self.view_bottom -= bottom_bndry - self.playerone.bottom
 			changed = True
-#
 		if changed:
 			arcade.set_viewport(self.view_left, SCREEN_WIDTH + self.view_left, self.view_bottom, SCREEN_HEIGHT + self.view_bottom)
-
-		# Save the time it took to do this.
-		# self.processing_time = timeit.default_timer() - start_time
 
 	def update_labels(self):
 		self.timer_label.value = f'time {self.timer:.1f}'
@@ -808,6 +805,7 @@ class Bomberdude(arcade.View):
 					bullet.remove_from_sprite_lists()
 			hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene['Walls'])
 			hits.extend(arcade.check_for_collision_with_list(bullet, self.game_state.scene['Blocks']))
+
 			for hit in hits:
 				# logger.debug(f'b={bullet} {hits=}')
 				bullet.remove_from_sprite_lists()
@@ -862,8 +860,6 @@ class Bomberdude(arcade.View):
 				if len(p_hitlist) > 0:
 					p.change_x *= -1
 
-
-
 	def dropbomb(self, key):
 		self.player_event.keys[key] = False
 		if self.playerone.bombsleft <= 0:
@@ -912,21 +908,7 @@ async def thread_main(game, loop):
 			_gs = await game.sub_sock.recv_json()
 			#gs = json.loads(_gs)
 			game.game_state.from_json(_gs)
-			#if game.debugmode:
-			#	logger.info(f'_gs: {_gs.keys()=} {_gs=} ')
-#			game.game_state.from_json(gs)
 			await asyncio.sleep(1 / UPDATE_TICK)
-			# try:
-			# 	game.game_state.from_json(gs)
-			# except TypeError as e:
-			# 	logger.warning(f'{e} {type(e)} gs={_gs}')
-			# except AttributeError as e:
-			# 	logger.warning(f'{e} {type(e)} gs={_gs}')
-			# except NameError as e:
-			# 	logger.warning(f'{e} {type(e)} gs={_gs}')
-			# except Exception as e:
-			# 	logger.error(f'{e} {type(e)} gs={_gs}')
-			# await asyncio.sleep(1 / UPDATE_TICK)
 	await asyncio.gather(pusher(), receive_game_state(), )
 
 def thread_worker(game):
