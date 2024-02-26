@@ -92,7 +92,7 @@ class ServerTUI(Thread):
 		# print(f'gamestate: {self.server.game_state}')
 		# print(f'gamestateplayers: {self.server.game_state.players}')
 		for p in self.server.game_state.players:
-			print(f"p={p} pos = {self.server.game_state.players[p]['position']} score: {self.server.game_state.players[p]['score']} msgdt:{self.server.game_state.players[p]['msg_dt']} timeout:{self.server.game_state.players[p]['timeout']}")
+			print(f"p={p} pos = {self.server.game_state.players[p]['position']} score: {self.server.game_state.players[p]['score']} msgdt:{self.server.game_state.players[p]['msg_dt']:.2f} timeout:{self.server.game_state.players[p]['timeout']}")
 
 	def dumpgameevents(self):
 		print(f'gamestate: {self.server.game_state} events: {len(self.server.game_state.game_events)}')
@@ -108,6 +108,7 @@ class ServerTUI(Thread):
 		help = f'''
 		cmds:
 		s = show server info
+		l = dump player list
 		r = remove timedout players
 		d = toggle debugmode {self.server.debugmode}
 		ds = toggle debugmode for gamestate {self.server.game_state.debugmode}
@@ -150,7 +151,8 @@ class ServerTUI(Thread):
 					self.stop()
 				else:
 					pass # logger.info(f'[tui] cmds: s=serverinfo, d=debugmode, p=playerlist, q=quit')
-			except KeyboardInterrupt:
+			except (EOFError, KeyboardInterrupt) as e:
+				logger.warning(f'{type(e)} {e}')
 				self.stop()
 				break
 

@@ -129,24 +129,24 @@ class MainView(arcade.View):
 			pass
 		elif key == arcade.key.UP or key == arcade.key.W:
 			if modifiers == 16:
-				self.anchor.move(0,1)
+				pass #self.anchor.move(0,1)
 			if modifiers == 18:
-				self.anchor.move(0,11)
+				pass #self.anchor.move(0,11)
 		elif key == arcade.key.DOWN or key == arcade.key.S:
 			if modifiers == 16:
-				self.anchor.move(0,-1)
+				pass #self.anchor.move(0,-1)
 			if modifiers == 18:
-				self.anchor.move(0, -11)
+				pass #self.anchor.move(0, -11)
 		elif key == arcade.key.LEFT or key == arcade.key.A:
 			if modifiers == 16:
-				self.anchor.move(-1,0)
+				pass #self.anchor.move(-1,0)
 			if modifiers == 18:
-				self.anchor.move(-11,0)
+				pass #self.anchor.move(-11,0)
 		elif key == arcade.key.RIGHT or key == arcade.key.D:
 			if modifiers == 16:
-				self.anchor.move(1,0)
+				pass #self.anchor.move(1,0)
 			if modifiers == 18:
-				self.anchor.move(11,0)
+				pass #self.anchor.move(11,0)
 
 	def on_show_view(self):
 		self.window.background_color = arcade.color.BLACK
