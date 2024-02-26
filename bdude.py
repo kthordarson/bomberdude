@@ -464,7 +464,7 @@ class Bomberdude(arcade.View):
 			bullet.center_x = self.playerone.center_x
 			bullet.center_y = self.playerone.center_y
 			self.game_state.scene.add_sprite("Bullets",bullet)
-			logger.info(f"Bullet angle: {bullet.angle:.2f} p1a= {self.playerone.angle:.2f} a={angle:.2f} bcx={bullet.change_x:.2f} bcy={bullet.change_y:.2f}  x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
+			# logger.info(f"Bullet angle: {bullet.angle:.2f} p1a= {self.playerone.angle:.2f} a={angle:.2f} bcx={bullet.change_x:.2f} bcy={bullet.change_y:.2f}  x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
 			bulletpos = Vec2d(x=self.playerone.center_x,y=self.playerone.center_y)
 			event = {
 				'event_time':0,
@@ -693,7 +693,7 @@ class Bomberdude(arcade.View):
 		# gspcopy_ = copy.copy(self.game_state.players)
 		# gspcopy = [{k: self.game_state.players[k]} for k in self.game_state.players if k != self.playerone.client_id]
 		# _ = [self.netplayers[k].set_data(self.game_state.players[pclid]) for k in self.netplayers ] #  and k != self.playerone.client_id
-		for gsplr in self.game_state.get_players():
+		for gsplr in self.game_state.get_players(skip=self.playerone.client_id):
 			pclid = gsplr.get('client_id')
 			playerdata = gsplr.get('playerdata')
 			score = playerdata.get('score')
@@ -702,33 +702,32 @@ class Bomberdude(arcade.View):
 			bombsleft = playerdata.get('bombsleft')
 			position = Vec2d(x=playerdata.get('position')[0], y=playerdata.get('position')[1])
 			# position = Vec2d(x= ,y=self.game_state.players[pclid].get('position')[1])
-			netplayerpos = Vec2d(x=position.x,y=position.y)
-			netplayerpos_fix = get_map_coordinates_rev(netplayerpos, self.camera)
-			value = f'  h:{health} s:{score} b:{bombsleft} pos: {netplayerpos.x},{netplayerpos.y} '
+			#netplayerpos = Vec2d(x=position.x,y=position.y)
+			position_fix = get_map_coordinates_rev(position, self.camera)
+			value = f'  h:{health} s:{score} b:{bombsleft} pos: {position.x},{position.y} '
 			if pclid in [k for k in self.netplayers]:
 				self.netplayer_labels[pclid].value = value
 				for np in self.netplayers:
-					if np != self.playerone.client_id:
-						self.netplayers[np].position = netplayerpos_fix
-						self.netplayers[np].angle = angle
-						self.netplayers[np].health = health
-						self.netplayers[np].score = score
-						self.netplayers[np].bombsleft = bombsleft
+					self.netplayers[np].position = position
+					self.netplayers[np].angle = angle
+					self.netplayers[np].health = health
+					self.netplayers[np].score = score
+					self.netplayers[np].bombsleft = bombsleft
 				#_ = [self.netplayers[k].set_data(self.game_state.players[pclid]) for k in self.netplayers if k == pclid] #  and k != self.playerone.client_id
 
 			else:
-				# score = self.game_state.players[pclid].get('score')
 				if pclid == self.playerone.client_id:
-					newplayer = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=pclid, position=netplayerpos_fix)
+					logger.warning(f'{gsplr=} {pclid=} {self.playerone.client_id=}')
+					newplayer = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=pclid, position=position_fix)
 					playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), text_color=arcade.color.BLUE)
 					playerlabel.button.text = f'Me {pclid}'
 				else:
-					newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=netplayerpos_fix)
+					newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=position_fix)
 					playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), text_color=arcade.color.GREEN)
 					playerlabel.button.text = f'{pclid}'
-					self.netplayers[pclid] = newplayer # {'client_id':pclid, 'position':netplayerpos_fix}
+					self.netplayers[pclid] = newplayer # {'client_id':pclid, 'position':position_fix}
 					self.game_state.scene.add_sprite("Netplayers", newplayer)
-					logger.info(f'newplayer: id={newplayer.client_id} pos: {netplayerpos} fix={netplayerpos_fix} ')
+					logger.info(f'newplayer: id={newplayer.client_id} pos: {position} fix={position_fix} ')
 				self.netplayer_labels[pclid] = playerlabel
 
 				self.netplayer_grid.add(playerlabel.button, col_num=0, row_num=len(self.netplayer_labels))

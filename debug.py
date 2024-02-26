@@ -25,7 +25,7 @@ def draw_debug_players(players, labels, camera):
 		playerpos = Vec2d(x=players[p]['position'][0],y=players[p]['position'][1])
 		client_id = players[p]['client_id']
 		fp = get_map_coordinates_rev(playerpos, camera)
-		draw_circle_filled(center_x=fp.x, center_y=fp.y, radius=2,  color=arcade.color.ORANGE)
+		draw_circle_filled(center_x=fp.x, center_y=fp.y, radius=7,  color=arcade.color.BLACK)
 		poslist[client_id] = {'fp':fp, 'p':playerpos, 'client_id':client_id}
 		# print(f'{poslist=}')
 		for pl in poslist:
@@ -37,12 +37,12 @@ def draw_debug_players(players, labels, camera):
 		sx = poslist[sx_id].get('fp').x
 		sy = poslist[sx_id].get('fp').y
 		for pl in poslist:
-			plx = poslist[pl].get('p').x
-			ply = poslist[pl].get('p').y
+			# plx = poslist[pl].get('p').x
+			# ply = poslist[pl].get('p').y
 			fpx = poslist[pl].get('fp').x
 			fpy = poslist[pl].get('fp').y
-			draw_circle_filled(center_x=plx, center_y=ply, radius=2,  color=arcade.color.ORANGE)
-			draw_circle_filled(center_x=fpx, center_y=fpy, radius=1,  color=arcade.color.GREEN)
+			# draw_circle_filled(center_x=plx, center_y=ply, radius=3,  color=arcade.color.ORANGE)
+			draw_circle_filled(center_x=fpx, center_y=fpy, radius=4,  color=arcade.color.GREEN)
 			draw_line(start_x=fpx, start_y=fpy, end_x=camera.viewport_width//2, end_y=camera.viewport_height//2,  color=arcade.color.RED, line_width=1)
 			draw_line(start_x=fpx, start_y=fpy, end_x=sx, end_y=sy,  color=arcade.color.BLUE, line_width=1)
 		#draw_line(start_x=plx, start_y=plx, end_x=camera.viewport_width//2, end_y=camera.viewport_height//2,  color=arcade.color.YELLOW, line_width=1)

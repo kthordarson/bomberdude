@@ -63,12 +63,10 @@ class GameState:
 		self.tile_map = arcade.load_tilemap(mapname, layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
-	def get_players(self):
+	def get_players(self, skip):
 		for p in self.players:
-			if self.players[p].get('timeout'):
-				logger.warning(f'timeout: {p} selfplayers={self.players}')
-			elif self.players[p].get('killed'):
-				logger.warning(f'killed: {p} selfplayers={self.players}')
+			if p == skip:
+				pass
 			else:
 				playerdata = self.players[p]
 				yield {'client_id':p, 'playerdata':playerdata}
