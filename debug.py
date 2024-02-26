@@ -19,12 +19,39 @@ def drawbox(sx,ex, sy, ey, color, lw):
 	draw_line(start_x=sx, start_y=sy, end_x=sx, end_y=sy+fontsize, color=color) # left line
 	draw_line(start_x=sx+textwidth, start_y=sy, end_x=sx+textwidth, end_y=sy+fontsize, color=color) # right line
 
-def draw_debug_players(players, camera):
+def draw_debug_players(players, labels, camera):
+	poslist = {}
 	for idx,p in enumerate(players):
-		fixed_pos = get_map_coordinates_rev(players[p]['position'], camera)
-		draw_circle_filled(center_x=fixed_pos.x, center_y=fixed_pos.y, radius=2,  color=arcade.color.ORANGE)
-		#if idx > 0:
-		draw_line(start_x=100, end_x=fixed_pos.x, start_y=100, end_y=fixed_pos.y,  color=arcade.color.RED, line_width=1)
+		playerpos = Vec2d(x=players[p]['position'][0],y=players[p]['position'][1])
+		client_id = players[p]['client_id']
+		fp = get_map_coordinates_rev(playerpos, camera)
+		draw_circle_filled(center_x=fp.x, center_y=fp.y, radius=2,  color=arcade.color.ORANGE)
+		poslist[client_id] = {'fp':fp, 'p':playerpos, 'client_id':client_id}
+		# print(f'{poslist=}')
+		for pl in poslist:
+			# print(f'{pl=}')
+			# print(f'{poslist=}')
+			pass # draw_line(start_x=poslist[pl].get('fp').x, end_x=fp.x, start_y=poslist[pl].get('fp').y, end_y=fp.y,  color=arcade.color.GREEN, line_width=1)
+
+	sx_id = [k for k in poslist][0]
+	sx = poslist[sx_id].get('fp').x
+	sy = poslist[sx_id].get('fp').y
+	for pl in poslist:
+		plx = poslist[pl].get('p').x
+		ply = poslist[pl].get('p').y
+		fpx = poslist[pl].get('fp').x
+		fpy = poslist[pl].get('fp').y
+		draw_circle_filled(center_x=plx, center_y=ply, radius=2,  color=arcade.color.ORANGE)
+		draw_circle_filled(center_x=fpx, center_y=fpy, radius=1,  color=arcade.color.GREEN)
+		draw_line(start_x=fpx, start_y=fpy, end_x=camera.viewport_width//2, end_y=camera.viewport_height//2,  color=arcade.color.RED, line_width=1)
+		draw_line(start_x=fpx, start_y=fpy, end_x=sx, end_y=sy,  color=arcade.color.BLUE, line_width=1)
+		#draw_line(start_x=plx, start_y=plx, end_x=camera.viewport_width//2, end_y=camera.viewport_height//2,  color=arcade.color.YELLOW, line_width=1)
+		# for l in labels:
+		# 	if l == p:
+		# 		lpos = get_map_coordinates_rev(labels[l].position, camera)
+		# 		xlpos = Vec2d(x=labels[l].position[0], y=labels[l].position[1])
+		# 		draw_line(start_x=lpos.x, end_x=fixed_pos.x, start_y=lpos.y, end_y=fixed_pos.y,  color=arcade.color.RED, line_width=1)
+		# 		draw_line(start_x=xlpos.x, end_x=fixed_pos.x, start_y=xlpos.y, end_y=fixed_pos.y,  color=arcade.color.RED, line_width=1)
 
 def draw_debug_widgets(widgets):
 	tx = 433

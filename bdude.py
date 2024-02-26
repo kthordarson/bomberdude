@@ -322,7 +322,7 @@ class Bomberdude(arcade.View):
 
 	def setup_panels(self):
 		#self.grid = UIGridLayout(x=123,y=123,column_count=2, row_count=3, vertical_spacing=5)
-		self.grid = self.manager.add(UIGridLayout(namecolumn_count=2, row_count=2, vertical_spacing=5, align_horizontal='center', align_vertical='center', size_hint=(26,27)))
+		self.grid = self.manager.add(UIGridLayout(column_count=4, row_count=4, vertical_spacing=5, align_horizontal='center', align_vertical='center', size_hint=(26,27)))
 		# gridsb = self.grid.add(self.startbtn, col_num=0, row_num=0)
 		font_size = 12
 		pos=font_size*2
@@ -344,7 +344,7 @@ class Bomberdude(arcade.View):
 
 		self.labels = [self.timer_label, self.health_label, self.score_label, self.bombs_label, self.info_label,]
 		#self.netplayer_columns = UIBoxLayout(align='center',vertical=True,space_between=10)
-		self.netplayer_grid = UIGridLayout(x=23,y=23,size_hint=(144,178), column_count=4, row_count=4, vertical_spacing=15)
+		self.netplayer_grid = UIGridLayout(x=23,y=23,size_hint=(144,178), column_count=6, row_count=6, vertical_spacing=6, horizontal_spacing=6, align_horizontal='center', align_vertical='center')
 
 		xpos = self.window.width//2 # - len(self.netplayer_labels)*columns.width
 		ypos = self.window.height//2 # - len(self.netplayer_labels)*20
@@ -394,7 +394,10 @@ class Bomberdude(arcade.View):
 			self.guicamera.use()
 			arcade.Text(f'p1center: {self.playerone.center_x} {self.playerone.center_y} ', 23, 109, arcade.color.RED, font_size=12).draw()
 			# draw_debug_widgets([self.grid,  self.netplayer_grid, self.anchor,])
-			draw_debug_players(self.game_state.players, self.camera)
+			try:
+				draw_debug_players(self.game_state.players,self.netplayer_labels, self.camera)
+			except Exception as e:
+				logger.error(f'{e=} {type(e)}')
 		if self._show_kill_screen:
 			self.guicamera.use()
 			self.show_kill_screen()
