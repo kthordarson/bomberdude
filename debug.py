@@ -1,4 +1,6 @@
 #!/usr/bin/python
+from typing import List, Optional, Tuple, Union
+
 from pymunk import Vec2d
 from arcade.draw_commands import draw_line, draw_circle_filled, draw_circle_outline
 from arcade.gui import  UIGridLayout
@@ -7,7 +9,7 @@ from arcade.gui.widgets.layout import UIAnchorLayout
 from arcade.types import Point
 from loguru import logger
 from constants import *
-
+from objects import get_map_coordinates_rev
 def drawbox(sx,ex, sy, ey, color, lw):
 	# sx = startx, ex = endx, sy = starty, ey = endy, color, lw=linew,
 	textwidth = 444
@@ -16,6 +18,13 @@ def drawbox(sx,ex, sy, ey, color, lw):
 	draw_line(start_x=sx, start_y=sy+fontsize, end_x=sx+textwidth, end_y=sy+fontsize, color=color) # top line
 	draw_line(start_x=sx, start_y=sy, end_x=sx, end_y=sy+fontsize, color=color) # left line
 	draw_line(start_x=sx+textwidth, start_y=sy, end_x=sx+textwidth, end_y=sy+fontsize, color=color) # right line
+
+def draw_debug_players(players, camera):
+	for idx,p in enumerate(players):
+		fixed_pos = get_map_coordinates_rev(players[p]['position'], camera)
+		draw_circle_filled(center_x=fixed_pos.x, center_y=fixed_pos.y, radius=2,  color=arcade.color.ORANGE)
+		#if idx > 0:
+		draw_line(start_x=100, end_x=fixed_pos.x, start_y=100, end_y=fixed_pos.y,  color=arcade.color.RED, line_width=1)
 
 def draw_debug_widgets(widgets):
 	tx = 433

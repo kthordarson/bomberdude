@@ -1,3 +1,5 @@
+from typing import List, Optional, Tuple, Union
+
 from pyvex.utils import stable_hash
 from pymunk import Vec2d
 import copy
@@ -54,7 +56,7 @@ class UIPlayerLabel(UILabel):
 		self.name = str(client_id)
 		self.button = UIFlatButton(text=f'{self.client_id}', height=20, width=120)
 		self.textlabel = UIFlatButton(text=f' ', height=20, width=400)
-		self.textlabel.text_color=arcade.color.GREEN
+		# self.textlabel.text_color=arcade.color.GREEN
 		# self.textlabel._apply_style(NP_LABEL_STYLE)
 
 	@property
@@ -405,3 +407,6 @@ class Flame(arcade.SpriteSolidColor):
 			self.center_y += self.change_y
 
 
+
+def get_map_coordinates_rev(camera_vector: Union[Vec2d, tuple], camera) -> Vec2d:
+	return Vec2d(*camera_vector) - Vec2d(*camera.position)

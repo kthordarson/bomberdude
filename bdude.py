@@ -23,8 +23,9 @@ from arcade.types import Point
 from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
 from loguru import logger
 from objects import Bomberplayer, Bomb, BiggerBomb, KeysPressed, PlayerEvent, PlayerState, gen_randid, UIPlayerLabel, Bullet
+from objects import get_map_coordinates_rev
 from gamestate import GameState
-from debug import debug_dump_game, draw_debug_widgets
+from debug import debug_dump_game, draw_debug_widgets, draw_debug_players
 from constants import *
 import requests
 import zmq
@@ -392,7 +393,8 @@ class Bomberdude(arcade.View):
 		if self.debugmode:
 			self.guicamera.use()
 			arcade.Text(f'p1center: {self.playerone.center_x} {self.playerone.center_y} ', 23, 109, arcade.color.RED, font_size=12).draw()
-			draw_debug_widgets([self.grid,  self.netplayer_grid, self.anchor,])
+			# draw_debug_widgets([self.grid,  self.netplayer_grid, self.anchor,])
+			draw_debug_players(self.game_state.players, self.camera)
 		if self._show_kill_screen:
 			self.guicamera.use()
 			self.show_kill_screen()
@@ -414,7 +416,7 @@ class Bomberdude(arcade.View):
 
 	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
 		self.mouse_pos = Vec2d(x=x,y=y)
-		cgmpr = self.get_map_coordinates_rev(self.playerone.position) # get playerpos
+		cgmpr = get_map_coordinates_rev(self.playerone.position, self.camera) # get playerpos
 		mouse_angle = get_angle_degrees( cgmpr.x , cgmpr.y , x, y)
 		angle_change = mouse_angle - self.playerone.angle
 		self.playerone.rotate_around_point(self.playerone.position, angle_change)
@@ -436,15 +438,13 @@ class Bomberdude(arcade.View):
 	def flipyv(self, v):
 		return Vec2d(x=int(v.x), y=int(-v.y + self.window.height))
 
-	def get_map_coordinates_rev(self, camera_vector: Union[Vec2d, tuple]) -> Vec2d:
-		return Vec2d(*camera_vector) - Vec2d(*self.camera.position)
 
 	def on_mouse_press(self, x, y, button, modifiers):
 		self.mouse_pos = Vec2d(x=x,y=y)
 		screen_center_x = self.camera.viewport_width // 2
 		screen_center_y = self.camera.viewport_height // 2
 
-		cgmpr = self.get_map_coordinates_rev(self.playerone.position)
+		cgmpr = get_map_coordinates_rev(self.playerone.position, self.camera)
 		if button == 1:
 			bullet = Bullet(self.lzrsprt, scale=1, shooter=self.playerone.client_id)
 			bullet.center_x = cgmpr.x
@@ -643,7 +643,7 @@ class Bomberdude(arcade.View):
 				case 'ackbombdrop':
 					bomber = game_event.get('bomber')
 					bombpos = Vec2d(x=game_event.get('pos')[0], y=game_event.get('pos')[1])
-					bombpos_fix = self.get_map_coordinates_rev(bombpos)
+					bombpos_fix = get_map_coordinates_rev(bombpos, self.camera)
 					bombtype = game_event.get('bombtype')
 					if bombtype == 1:
 						bomb = Bomb("data/bomb.png",scale=1, bomber=bomber, timer=1500)
@@ -686,7 +686,7 @@ class Bomberdude(arcade.View):
 			bombsleft = self.game_state.players[pclid].get('bombsleft')
 			position = Vec2d(x=self.game_state.players[pclid].get('position')[0],y=self.game_state.players[pclid].get('position')[1])
 			netplayerpos = Vec2d(x=position.x,y=position.y)
-			netplayerpos_fix = self.get_map_coordinates_rev(netplayerpos)
+			netplayerpos_fix = get_map_coordinates_rev(netplayerpos, self.camera)
 			value = f'  h:{health} s:{score} b:{bombsleft} pos: {netplayerpos.x},{netplayerpos.y} '
 			if pclid in [k for k in self.netplayers]:
 				_ = [self.netplayers[k].set_data(self.game_state.players[pclid]) for k in self.netplayers if k == pclid] #  and k != self.playerone.client_id
