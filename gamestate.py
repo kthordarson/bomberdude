@@ -177,37 +177,37 @@ class GameState:
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
 							logger.debug(f'{event_type} {game_event.get("upgradetype")} pos:{game_event.get("fpos")} from {game_event.get("client_id")}')
-					case 'playerkilled': # increase score for killer
-						killer = game_event.get("killer")
-						killed = game_event.get("killed")
-						self.players[killer]['score'] += 1
+					case 'playerkilled': # increase score for dmgfrom
+						dmgfrom = game_event.get("dmgfrom")
+						dmgto = game_event.get("dmgto")
+						self.players[dmgfrom]['score'] += 1
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugskill'
 						self.event_queue.put_nowait(game_event)
 						#if self.debugmode:
-						logger.debug(f'{event_type} {killer=} {killed=} {self.players[killer]}')
-					case 'takedamage': # increase score for killer
-						killer = game_event.get("killer")
-						killed = game_event.get("killed")
+						logger.debug(f'{event_type} {dmgfrom=} {dmgto=} {self.players[dmgfrom]}')
+					case 'takedamage': # increase score for dmgfrom
+						dmgfrom = game_event.get("dmgfrom")
+						dmgto = game_event.get("dmgto")
 						damage = game_event.get("damage")
-						self.players[killed]['health'] -= damage
+						self.players[dmgto]['health'] -= damage
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugskill'
-						self.players[killer]['score'] += 1
-						if self.players[killed]['health'] > 0:
+						self.players[dmgfrom]['score'] += 1
+						if self.players[dmgto]['health'] > 0:
 							game_event['event_type'] = 'acktakedamage'
-							self.players[killer]['score'] += 1
-							logger.info(f'{event_type} {killer=} {killed=} killerscore={self.players[killer]["score"]}')
+							self.players[dmgfrom]['score'] += 1
+							logger.info(f'{event_type} {dmgfrom=} {dmgto=} killerscore={self.players[dmgfrom]["score"]}')
 						else:
-							self.players[killer]['score'] += 10
+							self.players[dmgfrom]['score'] += 10
 							game_event['event_type'] = 'dmgkill'
 							game_event['killtimer'] = 5
 							game_event['killstart'] = game_event.get("msg_dt")
-							logger.debug(f'{event_type} {killer=} {killed=} ')
+							logger.debug(f'{event_type} {dmgfrom=} {dmgto=} ')
 						self.event_queue.put_nowait(game_event)
 						#if self.debugmode:
 
-					case 'respawn': # increase score for killer
+					case 'respawn': # increase score for dmgfrom
 						clid = game_event.get("client_id")
 						self.players[clid]['health'] = 100
 						self.players[clid]['killed'] = False

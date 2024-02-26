@@ -257,17 +257,17 @@ class Bomberplayer(arcade.Sprite):
 		}
 		return json.dumps({self.client_id: playerstate})
 
-	def take_damage(self, damage, killer):
+	def take_damage(self, damage, dmgfrom):
 		self.health -= damage
-		# logger.info(f'{self} health:{self.health} {damage=} {killer=}')
+		logger.info(f'{self} health:{self.health} {damage=} {dmgfrom=}')
 		if self.health <= 0:
 			self.killed = True
-			self.kill(killer)
+			self.kill(dmgfrom)
 			return 5
 		return 1
 
-	def kill(self, killer):
-		logger.info(f'{self} killed by {killer}')
+	def kill(self, dmgfrom):
+		logger.info(f'{self} killed by {dmgfrom}')
 		self.killed = True
 		self.texture = arcade.load_texture('data/netplayerdead.png')
 		return 11

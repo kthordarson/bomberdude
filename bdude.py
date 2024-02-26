@@ -585,49 +585,50 @@ class Bomberdude(arcade.View):
 						logger.info(f'{event_type} from {game_event.get("fbomber")}')
 				case 'playerkilled' | 'dmgkill':
 					#if self.debugmode:
-					killer = game_event.get("killer")
+					dmgfrom = game_event.get("dmgfrom")
 					killed = game_event.get("killed")
 					self.game_state.players[killed]['score'] += 10
 					kill_score = 1
 					[k.set_texture(arcade.load_texture('data/netplayerdead.png')) for k in self.netplayers if k.client_id == killed]#[0]
-					[k.addscore(kill_score) for k in self.netplayers if k.client_id == killer]
-					logger.info(f'{event_type} from {killer=}  {killed=}')
+					[k.addscore(kill_score) for k in self.netplayers if k.client_id == dmgfrom]
+					logger.info(f'{event_type} from {dmgfrom=}  {killed=}')
 					if killed == self.playerone.client_id:
-						kill_score += self.playerone.kill(killer)
-						logger.debug(f'{event_type} from {killer=}  {killed=} {self.playerone=} {kill_score=}')
+						kill_score += self.playerone.kill(dmgfrom)
+						logger.debug(f'{event_type} from {dmgfrom=}  {killed=} {self.playerone=} {kill_score=}')
 						self._show_kill_screen = True
 						self.show_kill_timer = game_event.get('killtimer')
 						self.show_kill_timer_start = game_event.get('killstart')
-					if killer == self.playerone.client_id:
+					if dmgfrom == self.playerone.client_id:
 						self.playerone.score += kill_score
-						logger.debug(f'{event_type} from {killer=}  {killed=} {self.playerone=} {kill_score=}')
+						logger.debug(f'{event_type} from {dmgfrom=}  {killed=} {self.playerone=} {kill_score=}')
 					self.game_state.players[killed]['score'] += kill_score
 
 				case 'takedamage':
 					#if self.debugmode:
-					killer = game_event.get("killer")
-					killed = game_event.get("killed")
+					dmgfrom = game_event.get("dmgfrom")
+					dmgto = game_event.get("dmgto")
 					damage = game_event.get("damage")
-					self.game_state.players[killed]['score'] += damage
-					# [k.take_damage(damage, killer) for k in self.netplayers if k.client_id == killed]
-					# logger.info(f'{event_type} from {killer=}  {killed=} {score=}')
-					if killed == self.playerone.client_id:
+					# self.game_state.players[killed]['score'] += damage
+					# [k.take_damage(damage, dmgfrom) for k in self.netplayers if k.client_id == killed]
+					# logger.info(f'{event_type} from {dmgfrom=}  {killed=} {score=}')
+					if dmgto == self.playerone.client_id:
 						#self.playerone.score += damage
-						#self.playerone.take_damage(damage, killer)
-						logger.debug(f'{event_type} {damage} from {killer=}  {killed=} {self.playerone=} ')
+						#self.playerone.take_damage(damage, dmgfrom)
+						logger.debug(f'{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} ')
 					# self.game_state.players[killed]['score'] += score
 				case 'acktakedamage':
 					#if self.debugmode:
-					killer = game_event.get("killer")
-					killed = game_event.get("killed")
+					dmgfrom = game_event.get("dmgfrom")
+					dmgto = game_event.get("dmgto")
 					damage = game_event.get("damage")
-					self.game_state.players[killed]['score'] += damage
-					if killed == self.playerone.client_id:
-						self.playerone.take_damage(damage, killer)
-						logger.debug(f'{event_type} {damage} from {killer=}  {killed=} {self.playerone=} ')
-					else:
-						# self.playerone.score += damage
-						logger.info(f'{event_type} {damage} from {killer=}  {killed=} {self.playerone=} ')
+					self.game_state.players[dmgfrom]['score'] += damage
+					self.game_state.players[dmgfrom]['health'] -= damage
+					if dmgto == self.playerone.client_id:
+						self.playerone.take_damage(damage, dmgfrom)
+						logger.debug(f'{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} ')
+					elif dmgfrom == self.playerone.client_id:
+						self.playerone.score += damage
+						logger.info(f'{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} ')
 
 				case 'ackbombxplode':
 					bomber = game_event.get('bomber')
@@ -824,7 +825,7 @@ class Bomberdude(arcade.View):
 		for bullet in self.game_state.scene['Bullets']:
 			bullet.update()
 			if arcade.check_for_collision(bullet, self.playerone):
-				event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'killer':bullet.shooter, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+				event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
 				#self.game_state.game_events.append(event)
 				if bullet.shooter != self.playerone.client_id: # skip own bullets
 					self.eventq.put(event)
@@ -838,7 +839,7 @@ class Bomberdude(arcade.View):
 		for f in self.game_state.scene['Flames']:
 			if arcade.check_for_collision(f, self.playerone):
 				# self.playerone.health -= 123
-				event = {'event_time':0, 'event_type':'takedamage', 'damage': 10, 'killer':f.bomber, 'killed': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+				event = {'event_time':0, 'event_type':'takedamage', 'damage': 10, 'dmgfrom':f.bomber, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
 				#self.game_state.game_events.append(event)
 				self.eventq.put(event)
 				f.remove_from_sprite_lists()
