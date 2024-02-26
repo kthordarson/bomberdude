@@ -18,6 +18,8 @@ from typing import List, Dict
 import json
 from dataclasses import dataclass, asdict, field
 from arcade.types import Point
+from objects import gen_randid
+
 
 @dataclass
 class GameState:
@@ -80,7 +82,7 @@ class GameState:
 		self.ugs_counter += 1
 		self.game_seconds += 1
 		if self.debugmode_trace:
-			logger.debug(f'gsge={len(self.game_events)}  from: {clid} msg={msg}')
+			logger.debug(f' from: {clid} msg={msg}')
 		msghealth = msg.get('health')
 		msgtimeout = msg.get('timeout')
 		msgkilled = msg.get('killed')
@@ -102,12 +104,16 @@ class GameState:
 		# self.game_events = []
 	def update_game_events(self, msg):
 		for game_event in msg.get('game_events'):
+			event_type = None
 			if game_event == []:
-				break
+				continue
+			else:
+				event_type = game_event.get('event_type')
 			if self.debugmode:
 				logger.info(f'{game_event=}')
+			else:
+				logger.debug(f'{event_type=}')
 			game_event['event_time'] += 1
-			event_type = game_event.get('event_type')
 			eventid = game_event.get('eventid')
 			evntchk =  [k for k in self.game_events if k.get('eventid') == eventid]
 			if len(evntchk) > 0:
@@ -130,7 +136,7 @@ class GameState:
 						newevent = {'event_time':0, 'event_type': 'upgradeblock', 'client_id': game_event.get("client_id"), 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
 						self.event_queue.put_nowait(newevent)
 						if self.debugmode:
-							logger.info(f'gsge={len(self.game_events)} {event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
+							logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
 					case 'bombdrop': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
 						bomber = game_event.get("bomber")
@@ -139,7 +145,7 @@ class GameState:
 							self.players[bomber]['bombsleft'] -= 1
 							self.event_queue.put_nowait(game_event)
 							if self.debugmode:
-								logger.debug(f'gsge={len(self.game_events)} {event_type} from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
+								logger.debug(f'{event_type} from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
 					case 'bulletfired': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
 						shooter = game_event.get("shooter")
@@ -148,7 +154,7 @@ class GameState:
 						game_event['event_type'] = f'ackbullet'
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
-							logger.debug(f'gsge={len(self.game_events)} {event_type} from {shooter}')
+							logger.debug(f'{event_type} from {shooter}')
 					case 'bombxplode': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
 						game_event['event_type'] = f'ackbombxplode'
@@ -156,13 +162,13 @@ class GameState:
 						# self.players[bomber]['bombsleft'] += 1
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
-							logger.debug(f'gsge={len(self.game_events)} {event_type} from {bomber}  bl={self.players[bomber].get("bombsleft")}')
+							logger.debug(f'{event_type} from {bomber}  bl={self.players[bomber].get("bombsleft")}')
 					case 'upgradeblock': # decide on somethingsomething..
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugsupgr'
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
-							logger.debug(f'gsge={len(self.game_events)} {event_type} {game_event.get("upgradetype")} pos:{game_event.get("fpos")} from {game_event.get("client_id")}')
+							logger.debug(f'{event_type} {game_event.get("upgradetype")} pos:{game_event.get("fpos")} from {game_event.get("client_id")}')
 					case 'playerkilled': # increase score for killer
 						killer = game_event.get("killer")
 						killed = game_event.get("killed")
@@ -208,7 +214,7 @@ class GameState:
 						# game_event['payload'] = pickle.dumps(self.scene)
 						# self.raw_event_queue.put_nowait(pickle.dumps(self.tile_map))
 					case _: #
-						logger.warning(f'gsge={len(self.game_events)} unknown game_event:{event_type} from msg={msg}')
+						logger.warning(f'unknown game_event:{event_type} from msg={msg}')
 				#elif game_event.get('handled') == True:
 				#	logger.warning(f'game_event already handled: {game_event} msg={msg}')
 

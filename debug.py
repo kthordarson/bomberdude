@@ -85,22 +85,22 @@ def debug_dump_game(game):
 	# print('='*80)
 	print('='*80)
 	for k in game.manager.walk_widgets():
-		print(f'widgetwalk {k.name} {k=}')
+		print(f'widgetwalk {k=}')
 		if isinstance(k, UIGridLayout):
 			for sub in k.children:
-				print(f'\tUIG {sub.name} {sub=}')
+				print(f'\tUIG  {sub=}')
 		elif isinstance(k, UIAnchorLayout):
 			for sub in k.children:
-				print(f'\tUIA  {sub.name} {sub=}')
+				print(f'\tUIA  {sub=}')
 				for xsub in sub.children:
-					print(f'\t   UIA {xsub.name} {xsub=}')
+					print(f'\t   UIA   {xsub=}')
 		else:
 			print(f'\t {k=} {type(k)}')
 	print('='*80)
 	for item in game.manager.walk_widgets():
-		print(f'{item.name} {item=} {item.position} {item.x} {item.y}')
+		print(f'{item=} {item.position} {item.x} {item.y}')
 		for sub in item.children:
-			print(f'\tsubitem {sub.name} {sub} {sub.position} {sub.x} {sub.y}')
+			print(f'\tsubitem  {sub} {sub.position} {sub.x} {sub.y}')
 			for subsub in sub.children:
-				print(f'\t - SUBsubitem {subsub.name} {subsub} {subsub.position} {subsub.x} {subsub.y}')
+				print(f'\t - SUBsubitem   {subsub} {subsub.position} {subsub.x} {subsub.y}')
 	print('='*80)
