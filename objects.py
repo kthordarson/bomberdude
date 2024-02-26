@@ -49,11 +49,11 @@ MOVE_MAP = {
 class UIPlayerLabel(UILabel):
 	_value: str = ''
 	def __init__(self, client_id, value='', l_text='', text_color=arcade.color.HAN_BLUE, *args, **kwargs):
-		super().__init__(width=120,text=client_id,text_color=text_color, multiline=False, name=str(client_id), *args, **kwargs)
+		super().__init__(width=120,text=client_id,text_color=text_color, multiline=False,  *args, **kwargs)
 		self.client_id = client_id
 		self.name = str(client_id)
-		self.button = UIFlatButton(text=f'{self.client_id}', height=20, width=120,name=self.name)
-		self.textlabel = UIFlatButton(text=f' ', height=20, width=400,name=self.name)
+		self.button = UIFlatButton(text=f'{self.client_id}', height=20, width=120)
+		self.textlabel = UIFlatButton(text=f' ', height=20, width=400)
 		self.textlabel.text_color=arcade.color.GREEN
 		# self.textlabel._apply_style(NP_LABEL_STYLE)
 

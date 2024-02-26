@@ -51,21 +51,21 @@ class MainView(arcade.View):
 		#self.window.center_window()
 		self.game = Bomberdude(args)
 		self.manager = UIManager()
-		self.grid = UIGridLayout(column_count=1, row_count=4, name='maingrid')
+		self.grid = UIGridLayout(column_count=1, row_count=4)
 		#self.grid = UIGridLayout(x=self.window.width/2,y=self.window.height/2,column_count=1, row_count=3, vertical_spacing=5, align_horizontal='center', align_vertical='top')
-		self.sb = UIFlatButton(name='sb', text="Start New Game", width=150)
+		self.sb = UIFlatButton(text="Start New Game", width=150)
 		self.startbtn = self.grid.add(self.sb, col_num=0, row_num=0)
-		self.cb = UIFlatButton(name='cb', text="Connect", width=150)
+		self.cb = UIFlatButton(text="Connect", width=150)
 		self.connectb = self.grid.add(self.cb, col_num=0, row_num=1)
-		self.eb = UIFlatButton(name='eb', text="Exit", width=150)
+		self.eb = UIFlatButton(text="Exit", width=150)
 		self.exitbtn = self.grid.add(self.eb, col_num=0, row_num=2)
-		self.tb = UIFlatButton(name='tb', text="test", width=150)
+		self.tb = UIFlatButton(text="test", width=150)
 		self.testbtn = self.grid.add(self.tb, col_num=0, row_num=3)
 		# self.grid.add(, col_num=0, row_num=0)
 		# self.grid.add(self.connectb, col_num=0, row_num=1)
 		# self.grid.add(self.exitbtn, col_num=0, row_num=2)
 		# self.manager.add(self.grid)
-		self.anchor = self.manager.add(UIAnchorLayout(name='anchormenu')) # anchor_x='left', anchor_y='top',
+		self.anchor = self.manager.add(UIAnchorLayout()) # anchor_x='left', anchor_y='top',
 		self.anchor.add( child=self.grid,)
 		self.mouse_pos = Vec2d(x=0,y=0)
 
@@ -321,7 +321,7 @@ class Bomberdude(arcade.View):
 
 	def setup_panels(self):
 		#self.grid = UIGridLayout(x=123,y=123,column_count=2, row_count=3, vertical_spacing=5)
-		self.grid = self.manager.add(UIGridLayout(name='grid', column_count=2, row_count=2, vertical_spacing=5, align_horizontal='center', align_vertical='center', size_hint=(26,27)))
+		self.grid = self.manager.add(UIGridLayout(namecolumn_count=2, row_count=2, vertical_spacing=5, align_horizontal='center', align_vertical='center', size_hint=(26,27)))
 		# gridsb = self.grid.add(self.startbtn, col_num=0, row_num=0)
 		font_size = 12
 		pos=font_size*2
@@ -343,11 +343,11 @@ class Bomberdude(arcade.View):
 
 		self.labels = [self.timer_label, self.health_label, self.score_label, self.bombs_label, self.info_label,]
 		#self.netplayer_columns = UIBoxLayout(align='center',vertical=True,space_between=10)
-		self.netplayer_grid = UIGridLayout(name='npgrid', x=23,y=23,size_hint=(144,178), column_count=4, row_count=4, vertical_spacing=15)
+		self.netplayer_grid = UIGridLayout(x=23,y=23,size_hint=(144,178), column_count=4, row_count=4, vertical_spacing=15)
 
 		xpos = self.window.width//2 # - len(self.netplayer_labels)*columns.width
 		ypos = self.window.height//2 # - len(self.netplayer_labels)*20
-		self.anchor = self.manager.add(UIAnchorLayout(name='npanchor', x=4, y=4, anchor_x='left', anchor_y='bottom' ))#, anchor_y='top'))
+		self.anchor = self.manager.add(UIAnchorLayout(x=4, y=4, anchor_x='left', anchor_y='bottom' ))#, anchor_y='top'))
 		self.anchor.add(child=self.netplayer_grid)
 
 	def center_camera_on_player(self, speed=0.2):
