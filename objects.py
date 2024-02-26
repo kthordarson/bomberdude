@@ -171,19 +171,11 @@ class Bomberplayer(arcade.Sprite):
 		self.killed = False
 		self.timeout = False
 		self.score = 0
+		self.angle = 0
 		# self.text = arcade.Text(f'{self.client_id} h:{self.health} pos:{self.position}', 10,10)
 
 	def __repr__(self):
 		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} )'
-
-	def x__eq__(self, other):
-		if not isinstance(other, type(self)):
-			return False
-		# compare values in slots
-		for slot in self.__slots__:
-			if getattr(self, slot) != getattr(other, slot):
-				return False
-		return True
 
 	def __hash__(self):
 		return self.client_id
@@ -255,6 +247,16 @@ class Bomberplayer(arcade.Sprite):
 		self.texture = arcade.load_texture('data/netplayerdead.png')
 		return 1
 
+	def set_data(self, data):
+		self.client_id = data['client_id']
+		self.position = data['position']
+		self.angle = data['angle']
+		self.health = data['health']
+		self.timeout = data['timeout']
+		self.killed = data['killed']
+		self.score = data['score']
+		self.bombsleft = data['bombsleft']
+
 	def set_pos(self, newpos):
 		# logger.debug(f'setpos {newpos=} oldc={self.center_x},{self.center_y} selfposition={self.position}')
 		self.center_x = newpos.x
@@ -322,6 +324,7 @@ class Bullet(arcade.Sprite):
 		self.timer = timer
 		self.cx = cx
 		self.cy = cy
+		self.angle = 90
 
 	def __repr__(self):
 		return f'Bullet(pos={self.center_x:.2f},{self.center_y:.2f} shooter={self.shooter} t:{self.timer})'

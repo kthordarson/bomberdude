@@ -89,6 +89,7 @@ class GameState:
 		playerdict = {
 			'client_id':clid,
 			'position': msg.get('position'),
+			'angle': msg.get('angle'),
 			'score': msg.get('score'),
 			'health': msghealth,
 			'msg_dt': msg.get('msg_dt'),
@@ -232,6 +233,7 @@ class GameState:
 			playerdict = {
 			'client_id':player,
 			'position': self.players[player].get('position'),
+			'angle': self.players[player].get('angle'),
 			'health': self.players[player].get('health'),
 			'msg_dt': self.players[player].get('msg_dt'),
 			'timeout': self.players[player].get('timeout'),

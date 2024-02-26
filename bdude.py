@@ -681,6 +681,7 @@ class Bomberdude(arcade.View):
 		# gspcopy = [{k: self.game_state.players[k]} for k in self.game_state.players if k != self.playerone.client_id]
 		for pclid in self.game_state.players:
 			score = self.game_state.players[pclid].get('score')
+			angle = self.game_state.players[pclid].get('angle')
 			health = self.game_state.players[pclid].get('health')
 			bombsleft = self.game_state.players[pclid].get('bombsleft')
 			position = Vec2d(x=self.game_state.players[pclid].get('position')[0],y=self.game_state.players[pclid].get('position')[1])
@@ -688,7 +689,7 @@ class Bomberdude(arcade.View):
 			netplayerpos_fix = self.get_map_coordinates_rev(netplayerpos)
 			value = f'  h:{health} s:{score} b:{bombsleft} pos: {netplayerpos.x},{netplayerpos.y} '
 			if pclid in [k for k in self.netplayers]:
-				_ = [self.netplayers[k].set_pos(netplayerpos) for k in self.netplayers if k == pclid] #  and k != self.playerone.client_id
+				_ = [self.netplayers[k].set_data(self.game_state.players[pclid]) for k in self.netplayers if k == pclid] #  and k != self.playerone.client_id
 				self.netplayer_labels[pclid].value = value
 			else:
 				# score = self.game_state.players[pclid].get('score')
@@ -883,6 +884,7 @@ async def thread_main(game, loop):
 				game_events = [game_events,],
 				client_id = game.playerone.client_id,
 				position = game.playerone.position,
+				angle = game.playerone.angle,
 				health = game.playerone.health,
 				timeout = game.playerone.timeout,
 				killed = game.playerone.killed,
