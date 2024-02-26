@@ -125,26 +125,26 @@ class ServerTUI(Thread):
 				cmd = input(':> ')
 				if cmd[:1] == '?' or cmd[:1] == 'h':
 					self.printhelp()
-				if cmd[:1] == 's':
+				elif cmd[:1] == 's':
 					self.get_serverinfo()
-				if cmd[:1] == 'r':
+				elif cmd[:1] == 'r':
 					self.server.remove_timedout_players()
-				if cmd[:1] == 'l':
+				elif cmd[:1] == 'l':
 					self.dump_players()
-				if cmd[:1] == 'e':
+				elif cmd[:1] == 'e':
 					self.dumpgameevents()
-				if cmd[:2] == 'ec':
+				elif cmd[:2] == 'ec':
 					self.cleargameevents()
-				if cmd[:1] == 'd':
+				elif cmd[:1] == 'd':
 					self.server.debugmode = not self.server.debugmode
 					logger.debug(f'sdbg={self.server.debugmode} {self.server.game_state.debugmode}')
-				if cmd[:2] == 'ds':
+				elif cmd[:2] == 'ds':
 					self.server.game_state.debugmode = not self.server.game_state.debugmode
 					logger.debug(f'sdbg={self.server.debugmode} {self.server.game_state.debugmode}')
-				if cmd[:3] == 'dst':
+				elif cmd[:3] == 'dst':
 					self.server.game_state.debugmode_trace = not self.server.game_state.debugmode_trace
 					logger.debug(f'trace sdbg={self.server.debugmode} {self.server.game_state.debugmode} {self.server.game_state.debugmode_trace}')
-				if cmd[:2] == 'pd':
+				elif cmd[:2] == 'pd':
 					self.server.packetdebugmode = not self.server.packetdebugmode
 				elif cmd[:1] == 'q':
 					logger.warning(f'{self} {self.server} tuiquit')

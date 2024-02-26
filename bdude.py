@@ -916,28 +916,11 @@ async def testworker():
 	await asyncio.gather(test_ticker(), )
 	logger.info('testworker done')
 
-async def game_cli():
-	logger.info('clid')
-	async def test_ticker():
-		ticks = 0
-		while True:
-			ticks += 1
-			cmd = input(':> ')
-			if cmd == 'q':
-				loop.close()
-				break
-			else:
-				logger.info(f'test_ticker {ticks} {cmd}')
-	await asyncio.sleep(1)
-	await asyncio.gather(test_ticker(), )
-	logger.info('testworker done')
-
 
 def thread_worker(game):
 	loop = asyncio.new_event_loop()
 	asyncio.set_event_loop(loop)
 	looptask = loop.create_task(thread_main(game, loop))
-	#clitask = loop.create_task(game_cli())
 	logger.info(f'threadworker loop: {loop} lt={looptask} ')
 	loop.run_forever()
 
