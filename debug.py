@@ -32,19 +32,19 @@ def draw_debug_players(players, labels, camera):
 			# print(f'{pl=}')
 			# print(f'{poslist=}')
 			pass # draw_line(start_x=poslist[pl].get('fp').x, end_x=fp.x, start_y=poslist[pl].get('fp').y, end_y=fp.y,  color=arcade.color.GREEN, line_width=1)
-
-	sx_id = [k for k in poslist][0]
-	sx = poslist[sx_id].get('fp').x
-	sy = poslist[sx_id].get('fp').y
-	for pl in poslist:
-		plx = poslist[pl].get('p').x
-		ply = poslist[pl].get('p').y
-		fpx = poslist[pl].get('fp').x
-		fpy = poslist[pl].get('fp').y
-		draw_circle_filled(center_x=plx, center_y=ply, radius=2,  color=arcade.color.ORANGE)
-		draw_circle_filled(center_x=fpx, center_y=fpy, radius=1,  color=arcade.color.GREEN)
-		draw_line(start_x=fpx, start_y=fpy, end_x=camera.viewport_width//2, end_y=camera.viewport_height//2,  color=arcade.color.RED, line_width=1)
-		draw_line(start_x=fpx, start_y=fpy, end_x=sx, end_y=sy,  color=arcade.color.BLUE, line_width=1)
+	if len(poslist)>0:
+		sx_id = [k for k in poslist][0]
+		sx = poslist[sx_id].get('fp').x
+		sy = poslist[sx_id].get('fp').y
+		for pl in poslist:
+			plx = poslist[pl].get('p').x
+			ply = poslist[pl].get('p').y
+			fpx = poslist[pl].get('fp').x
+			fpy = poslist[pl].get('fp').y
+			draw_circle_filled(center_x=plx, center_y=ply, radius=2,  color=arcade.color.ORANGE)
+			draw_circle_filled(center_x=fpx, center_y=fpy, radius=1,  color=arcade.color.GREEN)
+			draw_line(start_x=fpx, start_y=fpy, end_x=camera.viewport_width//2, end_y=camera.viewport_height//2,  color=arcade.color.RED, line_width=1)
+			draw_line(start_x=fpx, start_y=fpy, end_x=sx, end_y=sy,  color=arcade.color.BLUE, line_width=1)
 		#draw_line(start_x=plx, start_y=plx, end_x=camera.viewport_width//2, end_y=camera.viewport_height//2,  color=arcade.color.YELLOW, line_width=1)
 		# for l in labels:
 		# 	if l == p:

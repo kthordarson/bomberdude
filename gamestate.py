@@ -55,7 +55,7 @@ class GameState:
 			"Walls": {"use_spatial_hash": True},
 			"Background": {"use_spatial_hash": False},
 			}
-		self.tile_map:TileMap = arcade.load_tilemap('data/map3.json', layer_options=layer_options , scaling=TILE_SCALING)
+		self.tile_map:TileMap = arcade.load_tilemap('data/maptest2.json', layer_options=layer_options , scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
 	def load_tile_map(self, mapname):
@@ -63,6 +63,15 @@ class GameState:
 		self.tile_map = arcade.load_tilemap(mapname, layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
+	def get_players(self):
+		for p in self.players:
+			if self.players[p].get('timeout'):
+				logger.warning(f'timeout: {p} selfplayers={self.players}')
+			elif self.players[p].get('killed'):
+				logger.warning(f'killed: {p} selfplayers={self.players}')
+			else:
+				playerdata = self.players[p]
+				yield {'client_id':p, 'playerdata':playerdata}
 
 	def check_players(self):
 		self.chkp_counter += 1
@@ -186,16 +195,20 @@ class GameState:
 						self.players[killed]['health'] -= damage
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugskill'
+						self.players[killer]['score'] += 1
 						if self.players[killed]['health'] > 0:
 							game_event['event_type'] = 'acktakedamage'
-						else:
 							self.players[killer]['score'] += 1
+							logger.info(f'{event_type} {killer=} {killed=} killerscore={self.players[killer]["score"]}')
+						else:
+							self.players[killer]['score'] += 10
 							game_event['event_type'] = 'dmgkill'
 							game_event['killtimer'] = 5
 							game_event['killstart'] = game_event.get("msg_dt")
+							logger.debug(f'{event_type} {killer=} {killed=} ')
 						self.event_queue.put_nowait(game_event)
 						#if self.debugmode:
-						logger.debug(f'{event_type} {killer=} {killed=} ')
+
 					case 'respawn': # increase score for killer
 						clid = game_event.get("client_id")
 						self.players[clid]['health'] = 100

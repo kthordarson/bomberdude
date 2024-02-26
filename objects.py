@@ -189,6 +189,29 @@ class Bomberplayer(arcade.Sprite):
 				values[i] = tuple(values[i])
 		return stable_hash(tuple([type(self)] + values))
 
+	def network_sync(self, data):
+		pass
+		#self.client_id = data['client_id']
+		#self.position = data['position']
+		#self.angle = data['angle']
+		#self.health = data['health']
+		#self.timeout = False # data['timeout']
+		#self.killed = data['killed']
+		#self.score = data['score']
+		#self.bombsleft = data['bombsleft']
+		# msg = dict(
+		# 				score = game.playerone.score,
+		# 				game_events = [game_events,],
+		# 				client_id = game.playerone.client_id,
+		# 				position = game.playerone.position,
+		# 				angle = game.playerone.angle,
+		# 				health = game.playerone.health,
+		# 				timeout = game.playerone.timeout,
+		# 				killed = game.playerone.killed,
+		# 				bombsleft = game.playerone.bombsleft,
+		# 				gotmap = game._gotmap,
+		# 				msgsource = 'pushermsgdict',
+		# 				msg_dt = time.time())
 	def rotate_around_point(self, point: Point, degrees: float):
 		"""
 		Rotate the sprite around a point by the set amount of degrees
@@ -240,24 +263,25 @@ class Bomberplayer(arcade.Sprite):
 		if self.health <= 0:
 			self.killed = True
 			self.kill(killer)
-			return 1
-		return 0
+			return 5
+		return 1
 
 	def kill(self, killer):
 		logger.info(f'{self} killed by {killer}')
 		self.killed = True
 		self.texture = arcade.load_texture('data/netplayerdead.png')
-		return 1
+		return 11
 
 	def set_data(self, data):
-		self.client_id = data['client_id']
-		self.position = data['position']
-		self.angle = data['angle']
-		self.health = data['health']
-		self.timeout = data['timeout']
-		self.killed = data['killed']
-		self.score = data['score']
-		self.bombsleft = data['bombsleft']
+		pass
+		# self.client_id = data['client_id']
+		# self.position = data['position']
+		# self.angle = data['angle']
+		# self.health = data['health']
+		# self.timeout = data['timeout']
+		# self.killed = data['killed']
+		# self.score = data['score']
+		#self.bombsleft = data['bombsleft']
 
 	def set_pos(self, newpos):
 		# logger.debug(f'setpos {newpos=} oldc={self.center_x},{self.center_y} selfposition={self.position}')

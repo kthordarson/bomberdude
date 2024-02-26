@@ -188,8 +188,8 @@
             "scale": 0.5,
             "selectedLayer": 8,
             "viewCenter": {
-                "x": 1505,
-                "y": 424
+                "x": 931,
+                "y": 1272
             }
         },
         "data/map4.json": {
@@ -197,7 +197,7 @@
             "selectedLayer": 0,
             "viewCenter": {
                 "x": 1026.280623608018,
-                "y": 1015.4776696753017
+                "y": 1013.0770132458096
             }
         },
         "data/maptest.json": {
