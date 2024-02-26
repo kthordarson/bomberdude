@@ -13,7 +13,7 @@ from loguru import logger
 import random
 from constants import *
 from objects import gen_randid
-from objects import GameState
+from gamestate import GameState
 from asyncio import run, create_task, CancelledError
 from api import ApiServer
 import zmq

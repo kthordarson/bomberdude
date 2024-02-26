@@ -1,0 +1,27 @@
+
+def generate_pattern(width, height, shift):
+    x = np.arange(width).reshape(1, width)
+    y = np.arange(height).reshape(height, 1)
+
+    layer1 = np.sin(x / 16.0 + shift)
+    layer2 = np.sin(y / 8.0 + shift)
+    layer3 = np.sin((x + y) / 16.0 + shift)
+    layer4 = np.sin(np.sqrt((x - width / 2) ** 2 + (y - height / 2) ** 2) / 8.0 + shift)
+
+    # Combine layers and normalize
+    arr = layer1 + layer2 + layer3 + layer4
+    arr = np.sin(arr * np.pi)
+
+    # Normalize to 0-255 and return as an integer array
+    arr = (arr + 1) * 128
+    return np.array(arr, dtype=np.uint8)
+
+
+shift = 0  # Set a constant value for the shift
+pattern_arr = generate_pattern(SCREEN_SIZE[0], SCREEN_SIZE[1], shift)
+
+# Map the array values to a Pygame surface
+surface = pygame.surfarray.make_surface(np.stack((pattern_arr,) * 3, axis=-1))
+surface = pygame.transform.smoothscale(surface, SCREEN_SIZE)
+
+SCREEN.blit(surface, (0, 0))

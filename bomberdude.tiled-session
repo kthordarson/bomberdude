@@ -188,8 +188,8 @@
             "scale": 0.5,
             "selectedLayer": 8,
             "viewCenter": {
-                "x": 1509,
-                "y": 428
+                "x": 1505,
+                "y": 424
             }
         },
         "data/map4.json": {
@@ -197,7 +197,7 @@
             "selectedLayer": 0,
             "viewCenter": {
                 "x": 1026.280623608018,
-                "y": 1020.2789825342868
+                "y": 1015.4776696753017
             }
         },
         "data/maptest.json": {
@@ -246,12 +246,12 @@
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
+        "data/map3.json",
+        "data/map4.json",
         "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/demo_1.tmx",
         "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/tutorial.tmx",
         "data/maptest2.json",
         "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json",
-        "data/map4.json",
-        "data/map3.json",
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map_with_ladders.json",
         "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/items.json",
         "data/btiles.tsx",

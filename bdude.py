@@ -22,7 +22,8 @@ from arcade.gui.widgets.layout import UIAnchorLayout
 from arcade.types import Point
 from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
 from loguru import logger
-from objects import Bomberplayer, Bomb, KeysPressed, PlayerEvent, PlayerState, GameState, gen_randid, UIPlayerLabel, Bullet
+from objects import Bomberplayer, Bomb, BiggerBomb, KeysPressed, PlayerEvent, PlayerState, gen_randid, UIPlayerLabel, Bullet
+from gamestate import GameState
 from debug import debug_dump_game, draw_debug_widgets
 from constants import *
 import requests
@@ -175,6 +176,7 @@ class Bomberdude(arcade.View):
 		self.t = 0
 		self._gotmap = False
 		self.playerone = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=gen_randid())
+		self.selected_bomb = 1
 		self.keys_pressed = KeysPressed(self.playerone.client_id)
 		self.hitlist = []
 		self.player_event = PlayerEvent()
@@ -335,8 +337,11 @@ class Bomberdude(arcade.View):
 		sy -= font_size + 3
 		#sx += self.score_label.width + 5
 		self.bombs_label = arcade.Text(text=f'b', start_x=sx, start_y=sy, color=arcade.color.RED, font_size=font_size)
+		sy -= font_size + 3
+		#sx += self.score_label.width + 5
+		self.info_label = arcade.Text(text=f'i', start_x=sx, start_y=sy, color=arcade.color.RED, font_size=font_size)
 
-		self.labels = [self.timer_label, self.health_label, self.score_label, self.bombs_label,]
+		self.labels = [self.timer_label, self.health_label, self.score_label, self.bombs_label, self.info_label,]
 		#self.netplayer_columns = UIBoxLayout(align='center',vertical=True,space_between=10)
 		self.netplayer_grid = UIGridLayout(name='npgrid', x=23,y=23,size_hint=(144,178), column_count=4, row_count=4, vertical_spacing=15)
 
@@ -481,6 +486,10 @@ class Bomberdude(arcade.View):
 			logger.warning(f'playerone killed')
 			return
 		# logger.debug(f'{key} {self} {self.client} {self.client.receiver}')
+		elif key == arcade.key.KEY_1:
+			self.selected_bomb = 1
+		elif key == arcade.key.KEY_2:
+			self.selected_bomb = 2
 		elif key == arcade.key.F1:
 			self.debugmode = not self.debugmode
 			logger.debug(f'debugmode: {self.debugmode}')
@@ -635,8 +644,11 @@ class Bomberdude(arcade.View):
 					bomber = game_event.get('bomber')
 					bombpos = Vec2d(x=game_event.get('pos')[0], y=game_event.get('pos')[1])
 					bombpos_fix = self.get_map_coordinates_rev(bombpos)
-
-					bomb = Bomb("data/bomb.png",scale=1, bomber=bomber, timer=1500)
+					bombtype = game_event.get('bombtype')
+					if bombtype == 1:
+						bomb = Bomb("data/bomb.png",scale=1, bomber=bomber, timer=1500)
+					else:
+						bomb = BiggerBomb("data/bomb.png",scale=1, bomber=bomber, timer=1500)
 					bomb.center_x = bombpos.x
 					bomb.center_y = bombpos.y
 
@@ -673,26 +685,11 @@ class Bomberdude(arcade.View):
 			bombsleft = self.game_state.players[pclid].get('bombsleft')
 			position = Vec2d(x=self.game_state.players[pclid].get('position')[0],y=self.game_state.players[pclid].get('position')[1])
 			netplayerpos = Vec2d(x=position.x,y=position.y)
-			# netplayerpos = Vec2d(x=self.game_state.players[pclid].get('position')[0],y=self.game_state.players[pclid].get('position')[1])
 			netplayerpos_fix = self.get_map_coordinates_rev(netplayerpos)
-
 			value = f'  h:{health} s:{score} b:{bombsleft} pos: {netplayerpos.x},{netplayerpos.y} '
-
 			if pclid in [k for k in self.netplayers]:
-				# logger.info(f'pclid={pclid} gsp={self.game_state.players}')
-				# [self.game_state.players.get(k.client_id) for k in self.netplayers]
-				# self.netplayers.sprite_list.index(netplayer)
-				# self.netplayers.index(netplayer)
 				_ = [self.netplayers[k].set_pos(netplayerpos) for k in self.netplayers if k == pclid] #  and k != self.playerone.client_id
-				# _ = [k.update() for k in self.netplayers ]
-				# _ = [k.draw() for k in self.netplayers ]
-				# _ = [k.set_value(value) for k in self.netplayer_labels if k.client_id == pclid]
 				self.netplayer_labels[pclid].value = value
-				# try:
-				# 	netplayer.center_x = netplayerpos[0]
-				# 	netplayer.center_y = netplayerpos[1]
-				# except KeyError as e:
-				# 	logger.error(f'{type(e)} {e=} {pclid=} p1clid={self.playerone.client_id} {netplayer=}')
 			else:
 				# score = self.game_state.players[pclid].get('score')
 				if pclid == self.playerone.client_id:
@@ -703,8 +700,6 @@ class Bomberdude(arcade.View):
 					newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=netplayerpos_fix)
 					playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), text_color=arcade.color.GREEN)
 					playerlabel.button.text = f'{pclid}'
-
-
 				self.netplayer_labels[pclid] = playerlabel
 				self.netplayers[pclid] = newplayer # {'client_id':pclid, 'position':netplayerpos_fix}
 				self.netplayer_grid.add(playerlabel.button, col_num=0, row_num=len(self.netplayer_labels))
@@ -755,6 +750,7 @@ class Bomberdude(arcade.View):
 		self.health_label.value = f'health {self.playerone.health}'
 		self.score_label.value = f'score {self.playerone.score}'
 		self.bombs_label.value = f'bombs {self.playerone.bombsleft}'
+		self.info_label.value = f' B {self.selected_bomb}'
 
 	def on_update(self, dt):
 		self.timer += dt
@@ -866,7 +862,7 @@ class Bomberdude(arcade.View):
 			logger.warning(f'p1: {self.playerone} has no bombs left...')
 		else:
 			bombpos = Vec2d(x=self.playerone.center_x,y=self.playerone.center_y)
-			bombevent = {'event_time':0, 'event_type':'bombdrop', 'bomber': self.playerone.client_id, 'pos': bombpos, 'timer': 1515, 'handled': False, 'handledby': self.playerone.client_id, 'eventid': gen_randid()}
+			bombevent = {'event_time':0, 'event_type':'bombdrop', 'bombtype':self.selected_bomb, 'bomber': self.playerone.client_id, 'pos': bombpos, 'timer': 1515, 'handled': False, 'handledby': self.playerone.client_id, 'eventid': gen_randid()}
 			self.eventq.put(bombevent)
 
 async def thread_main(game, loop):
@@ -882,26 +878,23 @@ async def thread_main(game, loop):
 			except Empty:
 				game_events = []
 			msg = dict(
-				thrmain_cnt=thrmain_cnt,
-				# event=playereventdict,
-				score=game.playerone.score,
-				game_events=[game_events,], #game.game_state.game_events,
-				client_id=game.playerone.client_id,
-				position=game.playerone.position,
-				health=game.playerone.health,
-				timeout=game.playerone.timeout,
-				killed=game.playerone.killed,
-				bombsleft=game.playerone.bombsleft,
-				gotmap=game._gotmap,
-				msgsource='pushermsgdict',
-				msg_dt=time.time())
+				thrmain_cnt = thrmain_cnt,
+				score = game.playerone.score,
+				game_events = [game_events,],
+				client_id = game.playerone.client_id,
+				position = game.playerone.position,
+				health = game.playerone.health,
+				timeout = game.playerone.timeout,
+				killed = game.playerone.killed,
+				bombsleft = game.playerone.bombsleft,
+				gotmap = game._gotmap,
+				msgsource = 'pushermsgdict',
+				msg_dt = time.time())
 			if game.connected():
 				await game.push_sock.send_json(msg)
 				await asyncio.sleep(1 / UPDATE_TICK)
 			else:
 				await asyncio.sleep(1)
-
-
 	async def receive_game_state():
 		gs = None
 		while True:
@@ -911,11 +904,41 @@ async def thread_main(game, loop):
 			await asyncio.sleep(1 / UPDATE_TICK)
 	await asyncio.gather(pusher(), receive_game_state(), )
 
+async def testworker():
+	logger.info('testworker')
+	async def test_ticker():
+		ticks = 0
+		while True:
+			ticks += 1
+			logger.info(f'test_ticker {ticks}')
+			await asyncio.sleep(1)
+	await asyncio.sleep(1)
+	await asyncio.gather(test_ticker(), )
+	logger.info('testworker done')
+
+async def game_cli():
+	logger.info('clid')
+	async def test_ticker():
+		ticks = 0
+		while True:
+			ticks += 1
+			cmd = input(':> ')
+			if cmd == 'q':
+				loop.close()
+				break
+			else:
+				logger.info(f'test_ticker {ticks} {cmd}')
+	await asyncio.sleep(1)
+	await asyncio.gather(test_ticker(), )
+	logger.info('testworker done')
+
+
 def thread_worker(game):
 	loop = asyncio.new_event_loop()
 	asyncio.set_event_loop(loop)
 	looptask = loop.create_task(thread_main(game, loop))
-	logger.info(f'threadworker loop: {loop} lt={looptask}')
+	#clitask = loop.create_task(game_cli())
+	logger.info(f'threadworker loop: {loop} lt={looptask} ')
 	loop.run_forever()
 
 
@@ -930,15 +953,9 @@ def main():
 	args = parser.parse_args()
 
 	app = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')
-	# mainwindow = App(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True)
-
 	mainview = MainView(window=app, name='bomberdue', title='Bomberdude Main Menu', args=args)
-	#mainwindow.add_page(MainPage, name='mainpage', title='Main Page')
-	#mainwindow.add_page(MainMenu, name='mainmenu', title='Main Menu')
-	#mainwindow.add_page(BomberdudePage, name='bdude', title='bdude')
 	thread = Thread(target=thread_worker, args=(mainview.game,), daemon=True)
 	thread.start()
-	#mainwindow.show('mainpage')
 	app.show_view(mainview)
 	arcade.run()
 
