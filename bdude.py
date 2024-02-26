@@ -24,6 +24,7 @@ from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
 from loguru import logger
 from objects import Bomberplayer, Bomb, BiggerBomb, KeysPressed, PlayerEvent, PlayerState, gen_randid, UIPlayerLabel, Bullet
 from objects import get_map_coordinates_rev
+from objects import create_upgrade_block
 from gamestate import GameState
 from debug import debug_dump_game, draw_debug_widgets, draw_debug_players
 from constants import *
@@ -380,6 +381,8 @@ class Bomberdude(arcade.View):
 		self.bomb_list.draw()
 		self.flame_list.draw()
 		self.particle_list.draw()
+		for k in self.game_state.scene["Upgrades"]:
+			k.draw()
 		# self.netplayers.draw()
 		# self.flame_list.draw()
 		# self.particle_list.draw()
@@ -571,8 +574,12 @@ class Bomberdude(arcade.View):
 					if clid == self.playerone.client_id:
 						self.playerone.respawn()
 				case 'upgradeblock':
+					upgradetype = game_event.get("upgradetype")
+					blkpos = Vec2d(x=game_event.get("fpos")[0], y=game_event.get("fpos")[1])
+					newblk = create_upgrade_block(upgradetype, blkpos)
+					self.game_state.scene.add_sprite("Upgrades", newblk)
 					if self.debugmode:
-						logger.info(f'{event_type} upgradetype {game_event.get("upgradetype")}')
+						logger.info(f'{event_type} upgradetype {game_event.get("upgradetype")} {newblk}')
 				case 'acknewconn':
 					clid = game_event.get("client_id")
 					if self.debugmode:
@@ -836,6 +843,16 @@ class Bomberdude(arcade.View):
 			for hit in hits:
 				# logger.debug(f'b={bullet} {hits=}')
 				bullet.remove_from_sprite_lists()
+		for upgr in self.game_state.scene['Upgrades']:
+			upgr.update()
+			if arcade.check_for_collision(upgr, self.playerone):
+				# self.playerone.health -= 123
+				event = {'event_time':0, 'event_type':'takeupgrade', 'client_id': self.playerone.client_id, 'handled': False,  'eventid': gen_randid()}
+				if self.debugmode:
+					logger.debug(f'upgr: {upgr} hit: {self.playerone} {event=}')
+				#self.game_state.game_events.append(event)
+				self.eventq.put(event)
+				upgr.remove_from_sprite_lists()
 		for f in self.game_state.scene['Flames']:
 			if arcade.check_for_collision(f, self.playerone):
 				# self.playerone.health -= 123

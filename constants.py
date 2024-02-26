@@ -8,6 +8,7 @@ import math
 from typing import Optional, Tuple
 
 # Physics
+UPGRADETIMER = 20
 BLOCK = 32
 BOMBTICKER = 10
 BULLET_TIMER = 10

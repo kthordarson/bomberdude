@@ -49,6 +49,7 @@ class GameState:
 			"Flames": {"use_spatial_hash": True},
 			"Bullets": {"use_spatial_hash": True},
 			"Netplayers": {"use_spatial_hash": True},
+			"Upgrades": {"use_spatial_hash": True},
 			"Bombs": {"use_spatial_hash": True},
 			"Players": {"use_spatial_hash": True},
 			"Blocks": {"use_spatial_hash": True},
@@ -145,6 +146,8 @@ class GameState:
 						self.event_queue.put_nowait(newevent)
 						if self.debugmode:
 							logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
+					case 'takeupgrade': # todo decide on somethingsomething..
+						game_event['handledby'] = f'ugstakeupgrade'
 					case 'bombdrop': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
 						bomber = game_event.get("bomber")
@@ -171,12 +174,6 @@ class GameState:
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
 							logger.debug(f'{event_type} from {bomber}  bl={self.players[bomber].get("bombsleft")}')
-					case 'upgradeblock': # decide on somethingsomething..
-						game_event['handled'] = True
-						game_event['handledby'] = f'ugsupgr'
-						self.event_queue.put_nowait(game_event)
-						if self.debugmode:
-							logger.debug(f'{event_type} {game_event.get("upgradetype")} pos:{game_event.get("fpos")} from {game_event.get("client_id")}')
 					case 'playerkilled': # increase score for dmgfrom
 						dmgfrom = game_event.get("dmgfrom")
 						dmgto = game_event.get("dmgto")

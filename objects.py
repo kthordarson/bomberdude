@@ -430,7 +430,39 @@ class Flame(arcade.SpriteSolidColor):
 			self.center_x += self.change_x
 			self.center_y += self.change_y
 
+class Upgrade(arcade.Sprite):
+	def __init__(self, upgradetype, image, position, scale=1.0,  timer=1000):
+		super().__init__(image,scale)
+		self.upgradetype = upgradetype
+		self.position = position
+		self.center_x = self.position.x
+		self.center_y = self.position.y
+		self.image = image
+		self.texture = arcade.load_texture(self.image)
+		self.timer = timer
 
+	def __repr__(self):
+		return f'upgrade( {self.upgradetype} pos={self.center_x},{self.center_y}  t:{self.timer})'
+
+	def update(self):
+		if self.timer <= 0:
+			self.remove_from_sprite_lists()
+		else:
+			self.timer -= 1
+
+
+def create_upgrade_block(upgradetype, blkpos):
+	match upgradetype:
+		case 1:
+			upgrade = Upgrade(upgradetype, 'data/heart.png', blkpos, scale=0.8, timer=2000)
+		case 2:
+			upgrade = Upgrade(upgradetype, 'data/bombpwr.png', blkpos, scale=0.8, timer=1500)
+		case 3:
+			upgrade = Upgrade(upgradetype, 'data/bomb2.png', blkpos, scale=0.8, timer=3000)
+		case _:
+			upgrade = Upgrade(upgradetype, 'data/skull.png', blkpos, scale=0.8, timer=5000)
+			logger.warning(f'unknown upgradetype {upgradetype=} {blkpos=}')
+	return upgrade
 
 def get_map_coordinates_rev(camera_vector: Union[Vec2d, tuple], camera) -> Vec2d:
 	return Vec2d(*camera_vector) - Vec2d(*camera.position)
