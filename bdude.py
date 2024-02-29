@@ -275,6 +275,11 @@ class Bomberdude(arcade.View):
 		self.setup(position)
 
 	def setup(self,position):
+		def bullet_hit_wall(bullet, wall, arbiter, space, data):
+			bullet_shape = arbiter.shapes[0]	
+			bullet_sprite = self.bullet_engine.get_sprite_for_shape(bullet_shape)
+			bullet_sprite.remove_from_sprite_lists()
+			# bullet.kill()
 		# self.background_color = arcade.color.AMAZON
 		self.background_color = arcade.color.BLACK
 		#self.walls = []
@@ -285,7 +290,11 @@ class Bomberdude(arcade.View):
 		#_ = [self.scenewalls.append(k) for k in self.game_state.scene['Walls'].sprite_list]
 		# self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.game_state.scene["Walls"], platforms=self.game_state.scene["Blocks"], gravity_constant=GRAVITY)
 		self.physics_engine = arcade.PhysicsEngineSimple(self.playerone, walls=[self.game_state.scene["Blocks"], self.game_state.scene["Walls"],])
-		self.bullet_sprite=arcade.load_texture("data/bullet0.png")
+		self.bullet_engine = arcade.PymunkPhysicsEngine(gravity=(0, -0), damping=1.0)
+		self.bullet_engine.add_sprite_list(self.game_state.scene["Walls"], friction=WALL_FRICTION, collision_type="Walls", body_type=arcade.PymunkPhysicsEngine.STATIC)
+		self.bullet_engine.add_sprite_list(self.game_state.scene["Blocks"], friction=WALL_FRICTION, collision_type="Walls", body_type=arcade.PymunkPhysicsEngine.STATIC)
+		self.bullet_engine.add_collision_handler("Bullets", "Walls", post_handler=bullet_hit_wall)
+		self.bullet_sprite = arcade.load_texture("data/bullet0.png")
 		# self.physics_engine.walls.extend()
 
 		#self.physics_engine = arcade.PymunkPhysicsEngine(gravity=(0, -0), damping=0.5)
@@ -703,6 +712,8 @@ class Bomberdude(arcade.View):
 					bullet.angle = game_event.get('ba')
 					#if shooter != self.playerone.client_id:
 					self.game_state.scene.add_sprite("Bullets", bullet)
+					self.bullet_engine.add_sprite(bullet, friction=0.01, mass=0.01, collision_type="Bullets", elasticity=0.5, moment_of_inertia=0.01)
+					self.bullet_engine.set_velocity(bullet, (bullet_vel.x*10, bullet_vel.y*10))
 				case 'ackbombdrop':
 					bomber = game_event.get('bomber')
 					bombpos = Vec2d(x=game_event.get('pos')[0], y=game_event.get('pos')[1])
@@ -857,6 +868,7 @@ class Bomberdude(arcade.View):
 				logger.error(f'{e}')
 			self.update_poplist()
 		hitlist = self.physics_engine.update()
+		self.bullet_engine.step()
 		self.playerone.update()
 		flames = []
 		particles = []
@@ -878,23 +890,25 @@ class Bomberdude(arcade.View):
 		# self.bullet = Bullet(texture=self.bullet_sprite, scale=1, shooter=self.playerone.client_id)
 
 		for bullet in self.game_state.scene['Bullets']:
-			bullet.update()
-			bullet_wall_hits = arcade.PhysicsEngineSimple(bullet, walls=[self.game_state.scene["Blocks"], self.game_state.scene["Walls"],]).update()
+			# bullet.update()
+			self.bullet_engine.apply_force(bullet, (bullet.change_x, bullet.change_y))
+			bullet_wall_hits = [] # arcade.PhysicsEngineSimple(bullet, walls=[self.game_state.scene["Blocks"], self.game_state.scene["Walls"],]).update()
+			# arcade.PymunkPhysicsEngine(gravity=(0, -0), damping=0.5)
 			# self.bullet.position = bullet.position
 			for bwh in bullet_wall_hits:
 				logger.info(f'bwh hit: {bwh=} {bullet=}')
-				bullet.remove_from_sprite_lists()
+				#bullet.remove_from_sprite_lists()
 			bullet_np_hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene["Netplayers"])
 			for nphit in bullet_np_hits:
 				logger.info(f'nphit: {nphit=} {bullet=}')
-				bullet.remove_from_sprite_lists()
+				#bullet.remove_from_sprite_lists()
 			if bullet.can_kill:
 				if arcade.check_for_collision(bullet, self.playerone):
 					event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
 					#self.game_state.game_events.append(event)
 					if bullet.shooter != self.playerone.client_id: # skip own bullets
 						self.eventq.put(event)
-						bullet.remove_from_sprite_lists()
+						#bullet.remove_from_sprite_lists()
 						# bullet.hit(self.playerone)
 				# bullet.hit(bwh)
 				# bwh.remove_from_sprite_lists()
