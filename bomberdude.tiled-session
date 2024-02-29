@@ -3,11 +3,11 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "",
+    "activeFile": "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json",
     "automapping.whileDrawing": false,
     "expandedProjectPaths": [
-        "data",
-        "."
+        ".",
+        "data"
     ],
     "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
@@ -91,6 +91,21 @@
         },
         "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilesets/basic_tiles.tsx": {
             "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/Treasure+/Treasure+.json": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/indoor.json": {
+            "scaleInDock": 1,
+            "scaleInEditor": 1
+        },
+        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json": {
+            "scale": 1.877478448275862,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 232.49268208689668,
+                "y": 120.3742179877174
+            }
         },
         "/home/kth/development2/games/donk-tiled/tileset_oink.tsx": {
             "scaleInDock": 1,
@@ -239,10 +254,10 @@
         },
         "data/maptest2.json": {
             "scale": 2,
-            "selectedLayer": 2,
+            "selectedLayer": 3,
             "viewCenter": {
-                "x": 819.25,
-                "y": 482
+                "x": 818.25,
+                "y": 481
             }
         },
         "data/maptest3.json": {
@@ -285,14 +300,19 @@
     ],
     "map.height": 3,
     "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
-    "map.lastUsedFormat": "tmx",
+    "map.lastUsedFormat": "json",
     "map.width": 3,
     "openFiles": [
+        "data/maptest2.json",
+        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json",
+        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/indoor.json"
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
-        "data/map4.json",
         "data/maptest2.json",
+        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/indoor.json",
+        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json",
+        "data/map4.json",
         "data/maptest3.json",
         "data/map3.json",
         "data/map.json",
@@ -300,9 +320,7 @@
         "/home/kth/development2/games/tiled-automap-example/wall-rules.tmx",
         "data/wall-rules.tmx",
         "data/btiles.tsx",
-        "data/map2tiles.tsx",
-        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/demo_1.tmx",
-        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/tutorial.tmx"
+        "data/map2tiles.tsx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1

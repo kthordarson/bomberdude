@@ -1,6 +1,8 @@
 #!/usr/bin/python
 from typing import List, Optional, Tuple, Union
 from pyglet.math import Mat4, Vec2, Vec3
+from pymunk import pyglet_util
+import pymunk
 from pymunk import Vec2d
 import math
 import sys
@@ -275,32 +277,8 @@ class Bomberdude(arcade.View):
 		self.setup(position)
 
 	def setup(self,position):
-		def bullet_hit_wall(bullet, wall, arbiter, space, data):
-			bullet_shape = arbiter.shapes[0]	
-			bullet_sprite = self.bullet_engine.get_sprite_for_shape(bullet_shape)
-			bullet_sprite.remove_from_sprite_lists()
-			# bullet.kill()
-		# self.background_color = arcade.color.AMAZON
 		self.background_color = arcade.color.BLACK
-		#self.walls = []
-		# self.walls.extend(self.game_state.scene['Blocks'].sprite_list)
-		# self.walls.extend(self.game_state.scene['Walls'].sprite_list)
-		# logger.debug(f'wallsprites={len(self.walls.sprite_list)}')
-		#_ = [self.sceneblocks.append(k) for k in self.game_state.scene['Blocks'].sprite_list]
-		#_ = [self.scenewalls.append(k) for k in self.game_state.scene['Walls'].sprite_list]
-		# self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.game_state.scene["Walls"], platforms=self.game_state.scene["Blocks"], gravity_constant=GRAVITY)
-		self.physics_engine = arcade.PhysicsEngineSimple(self.playerone, walls=[self.game_state.scene["Blocks"], self.game_state.scene["Walls"],])
-		self.bullet_engine = arcade.PymunkPhysicsEngine(gravity=(0, -0), damping=1.0)
-		self.bullet_engine.add_sprite_list(self.game_state.scene["Walls"], friction=WALL_FRICTION, collision_type="Walls", body_type=arcade.PymunkPhysicsEngine.STATIC)
-		self.bullet_engine.add_sprite_list(self.game_state.scene["Blocks"], friction=WALL_FRICTION, collision_type="Walls", body_type=arcade.PymunkPhysicsEngine.STATIC)
-		self.bullet_engine.add_collision_handler("Bullets", "Walls", post_handler=bullet_hit_wall)
 		self.bullet_sprite = arcade.load_texture("data/bullet0.png")
-		# self.physics_engine.walls.extend()
-
-		#self.physics_engine = arcade.PymunkPhysicsEngine(gravity=(0, -0), damping=0.5)
-		#self.physics_engine.add_sprite(self.playerone, friction=PLAYER_FRICTION, mass=PLAYER_MASS, collision_type="Players", max_horizontal_velocity=PLAYER_MAX_HORIZONTAL_SPEED, max_vertical_velocity=PLAYER_MAX_VERTICAL_SPEED)
-		#self.physics_engine.add_sprite_list(self.game_state.scene['Background'], friction=WALL_FRICTION, collision_type="Background", body_type=arcade.PymunkPhysicsEngine.STATIC)
-		#self.physics_engine.add_sprite_list(self.game_state.scene['Walls'], friction=WALL_FRICTION, collision_type="WALLS", body_type=arcade.PymunkPhysicsEngine.STATIC)
 
 		self.setup_panels()
 		self.setup_perf()
@@ -310,6 +288,11 @@ class Bomberdude(arcade.View):
 		self.playerone.position = position
 		self.camera = arcade.Camera()
 		self.guicamera = arcade.Camera()
+		self.space = pymunk.Space()
+		self.space.gravity = (0.0, 0.0)
+		self.game_state.scene.add_sprite_list('static')
+		self.game_state.scene['static'].sprite_list.extend(self.game_state.tile_map.sprite_lists['Blocks'])
+		self.game_state.scene['static'].sprite_list.extend(self.game_state.tile_map.sprite_lists['Walls'])
 
 	def setup_labels(self):
 		self.draw_labels = True
@@ -402,6 +385,9 @@ class Bomberdude(arcade.View):
 		#	sprite_list.draw()
 		self.playerone.draw()
 		self.manager.draw()
+		draw_options = pyglet_util.DrawOptions()
+		draw_options.flags = draw_options.DRAW_SHAPES
+		self.space.debug_draw(draw_options)
 
 		#self.bomb_list.draw()
 		# self.flame_list.draw()
@@ -498,8 +484,6 @@ class Bomberdude(arcade.View):
 			bullet_vel = Vec2d(x=bullet.change_x, y=bullet.change_y)
 			bullet.center_x += bullet_vel.x*5
 			bullet.center_y += bullet_vel.y*5
-			#self.game_state.scene.add_sprite("Bullets",bullet)
-			# logger.info(f"Bullet angle: {bullet.angle:.2f} p1a= {self.playerone.angle:.2f} a={angle:.2f} bcx={bullet.change_x:.2f} bcy={bullet.change_y:.2f}  x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
 			bulletpos = Vec2d(x=bullet.center_x,y=bullet.center_y)
 			rads = math.radians(angle)
 			distance = 16
@@ -703,17 +687,14 @@ class Bomberdude(arcade.View):
 					shooter = game_event.get('shooter')
 					bullet_vel = Vec2d(x=game_event.get('bullet_vel')[0], y=game_event.get('bullet_vel')[1])
 					bulletpos = Vec2d(x=game_event.get('pos')[0], y=game_event.get('pos')[1])
-					# bulletpos_fix = get_map_coordinates_rev(bulletpos, self.camera)
+					bulletpos_fix = get_map_coordinates_rev(bulletpos, self.guicamera)
 					bullet = Bullet(texture=self.bullet_sprite,scale=1, shooter=shooter)
-					bullet.center_x = bulletpos.x
-					bullet.center_y = bulletpos.y
+					bullet.left = bulletpos.x
+					bullet.bottom = bulletpos.y
 					bullet.change_x = bullet_vel.x
 					bullet.change_y = bullet_vel.y
 					bullet.angle = game_event.get('ba')
-					#if shooter != self.playerone.client_id:
 					self.game_state.scene.add_sprite("Bullets", bullet)
-					self.bullet_engine.add_sprite(bullet, friction=0.01, mass=0.01, collision_type="Bullets", elasticity=0.5, moment_of_inertia=0.01)
-					self.bullet_engine.set_velocity(bullet, (bullet_vel.x*10, bullet_vel.y*10))
 				case 'ackbombdrop':
 					bomber = game_event.get('bomber')
 					bombpos = Vec2d(x=game_event.get('pos')[0], y=game_event.get('pos')[1])
@@ -856,7 +837,11 @@ class Bomberdude(arcade.View):
 			logger.error(f'{e} {type(e)}')
 		if game_events:
 			self.handle_game_events([game_events,])
-		# self.game_state.scene.update()
+		#for k in range(100):
+		self.space.step(1/60)
+		p = pymunk.SpaceDebugDrawOptions()
+		#p.flags = pymunk.SpaceDebugDrawOptions.DRAW_COLLISION_POINTS
+		#self.space.debug_draw(p)
 		if len(self.game_state.players) > 1:
 			try:
 				self.update_netplayers()
@@ -867,31 +852,45 @@ class Bomberdude(arcade.View):
 			except RuntimeError as e:
 				logger.error(f'{e}')
 			self.update_poplist()
-		hitlist = self.physics_engine.update()
-		self.bullet_engine.step()
 		self.playerone.update()
-		flames = []
-		particles = []
-		# self.bomb_list.update()
+		colls = arcade.check_for_collision_with_list(self.playerone, self.game_state.scene['static'])
+		if len(colls)>0:
+			def checkx():
+				if self.playerone.change_x < 0:
+					self.playerone.change_x = 0
+					self.playerone.left = colls[0].right
+				if self.playerone.change_x > 0:
+					self.playerone.change_x = 0
+					self.playerone.right = colls[0].left
+			def checky():
+				if self.playerone.change_y > 0:
+					self.playerone.change_y = 0
+					self.playerone.top = colls[0].bottom
+				if self.playerone.change_y < 0:
+					self.playerone.change_y = 0
+					self.playerone.bottom = colls[0].top
+			checkx()
+			checky()
+		for b in self.game_state.scene['Bullets']:
+			b.update()
+			if arcade.check_for_collision_with_list(b, self.game_state.scene['Blocks']):
+				b.remove_from_sprite_lists()
+			if arcade.check_for_collision_with_list(b, self.game_state.scene['Walls']):
+				b.remove_from_sprite_lists()
 		for f in self.game_state.scene['Flames']:
 			f.update()
 		for b in self.game_state.scene['Blocks']:
 			b.update()
 		for p in self.game_state.scene['Particles']:
 			p.update()
-		#self.game_state.scene.update(names=['Bombs'])
 		for b in self.game_state.scene["Bombs"]:
 			b.update(self.game_state.scene, self.eventq)
-#			flames.extend(bu.get('flames'))
-#			particles.extend(bu.get('plist'))
-#		self.flame_list.extend(flames)
-#		self.particle_list.extend(particles)
-		# self.game_state.scene['Blocks']
-		# self.bullet = Bullet(texture=self.bullet_sprite, scale=1, shooter=self.playerone.client_id)
 
+
+	def oldonupdate(self):
 		for bullet in self.game_state.scene['Bullets']:
 			# bullet.update()
-			self.bullet_engine.apply_force(bullet, (bullet.change_x, bullet.change_y))
+			#self.bullet_engine.apply_force(bullet, (bullet.change_x, bullet.change_y))
 			bullet_wall_hits = [] # arcade.PhysicsEngineSimple(bullet, walls=[self.game_state.scene["Blocks"], self.game_state.scene["Walls"],]).update()
 			# arcade.PymunkPhysicsEngine(gravity=(0, -0), damping=0.5)
 			# self.bullet.position = bullet.position
