@@ -2,7 +2,6 @@
     "automappingRulesFile": "",
     "commands": [
     ],
-    "compatibilityVersion": 1100,
     "extensionsPath": "extensions",
     "folders": [
         "."
@@ -10,5 +9,25 @@
     "properties": [
     ],
     "propertyTypes": [
+        {
+            "color": "#ffa0a0a4",
+            "drawFill": true,
+            "id": 1,
+            "members": [
+            ],
+            "name": "Class0",
+            "type": "class",
+            "useAs": [
+                "property",
+                "map",
+                "layer",
+                "object",
+                "tile",
+                "tileset",
+                "wangcolor",
+                "wangset",
+                "project"
+            ]
+        }
     ]
 }

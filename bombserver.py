@@ -162,7 +162,8 @@ class BombServer():
 		self.ufc_counter = 0
 		self.tick_count = 0
 		self.debugmode = self.args.debugmode
-		self.game_state = GameState(game_seconds=1, debugmode=self.debugmode)
+		self.game_state = GameState(game_seconds=1, debugmode=self.debugmode, mapname=args.mapname)
+		self.game_state.load_tile_map(args.mapname)
 
 
 		self.ctx = Context()
@@ -186,8 +187,6 @@ class BombServer():
 
 	async def get_tile_map(self):
 		mapname = self.game_state.tile_map.tiled_map.map_file
-		#tile_map = arcade.load_tilemap('data/map3.json', layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=1)
-		#tm = pickle.dumps(self.game_state.tile_map)
 		position = self.get_position()
 		return {'mapname': str(mapname), 'position': position}
 
@@ -305,5 +304,6 @@ if __name__ == '__main__':
 	parser.add_argument('--port', action='store', dest='port', default=9696, type=int)
 	parser.add_argument('-d','--debug', action='store_true', dest='debugmode', default=False)
 	parser.add_argument('-dp','--debugpacket', action='store_true', dest='packetdebugmode', default=False)
+	parser.add_argument('--map', action='store', dest='mapname', default='data/maptest2.json')
 	args = parser.parse_args()
 	run(main(args))

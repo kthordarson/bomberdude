@@ -4,6 +4,7 @@
         "width": 2
     },
     "activeFile": "",
+    "automapping.whileDrawing": false,
     "expandedProjectPaths": [
         "data",
         "."
@@ -142,17 +143,42 @@
             "scaleInDock": 1,
             "scaleInEditor": 1
         },
+        "/home/kth/development2/games/tiled-automap-example/tiled-automap.tmx": {
+            "scale": 1,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 384.5,
+                "y": 246.5
+            }
+        },
+        "/home/kth/development2/games/tiled-automap-example/tiled-automap.tmx#sokoban_tilesheet": {
+            "scaleInDock": 1
+        },
+        "/home/kth/development2/games/tiled-automap-example/wall-rules.tmx": {
+            "scale": 1.5,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 207.66666666666666,
+                "y": 110.99999999999997
+            }
+        },
+        "/home/kth/development2/games/tiled-automap-example/wall-rules.tmx#sokoban_tilesheet": {
+            "scaleInDock": 1
+        },
+        ":/automap-tiles.tsx": {
+            "scaleInDock": 1
+        },
         "data/btiles.tsx": {
             "dynamicWrapping": true,
-            "scaleInDock": 0.75,
+            "scaleInDock": 3,
             "scaleInEditor": 1
         },
         "data/map.json": {
-            "scale": 1,
+            "scale": 0.75,
             "selectedLayer": 1,
             "viewCenter": {
-                "x": 444.5,
-                "y": 330
+                "x": 431.3333333333333,
+                "y": 176.66666666666666
             }
         },
         "data/map.tmx": {
@@ -181,23 +207,26 @@
         },
         "data/map2tiles.tsx": {
             "dynamicWrapping": false,
-            "scaleInDock": 1,
+            "scaleInDock": 2,
             "scaleInEditor": 3
         },
         "data/map3.json": {
             "scale": 0.5,
             "selectedLayer": 8,
             "viewCenter": {
-                "x": 931,
-                "y": 1272
+                "x": 923,
+                "y": 1023
             }
         },
         "data/map4.json": {
+            "expandedObjectLayers": [
+                5
+            ],
             "scale": 0.41655273437499996,
-            "selectedLayer": 0,
+            "selectedLayer": 3,
             "viewCenter": {
-                "x": 1026.280623608018,
-                "y": 1013.0770132458096
+                "x": 887.0425506974565,
+                "y": 602.5647638026023
             }
         },
         "data/maptest.json": {
@@ -209,11 +238,27 @@
             }
         },
         "data/maptest2.json": {
-            "scale": 1,
-            "selectedLayer": 0,
+            "scale": 2,
+            "selectedLayer": 2,
             "viewCenter": {
-                "x": 465.5,
-                "y": 488
+                "x": 819.25,
+                "y": 482
+            }
+        },
+        "data/maptest3.json": {
+            "scale": 0.75,
+            "selectedLayer": 2,
+            "viewCenter": {
+                "x": 460.66666666666663,
+                "y": 1375.3333333333333
+            }
+        },
+        "data/wall-rules.tmx": {
+            "scale": 2,
+            "selectedLayer": 2,
+            "viewCenter": {
+                "x": 75.75,
+                "y": 8.75
             }
         },
         "map.json": {
@@ -238,26 +283,26 @@
     "loadedWorlds": [
         "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/demo_world.world"
     ],
-    "map.height": 16,
+    "map.height": 3,
     "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
-    "map.lastUsedFormat": "json",
-    "map.width": 16,
+    "map.lastUsedFormat": "tmx",
+    "map.width": 3,
     "openFiles": [
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
-        "data/map3.json",
         "data/map4.json",
-        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/demo_1.tmx",
-        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/tutorial.tmx",
         "data/maptest2.json",
-        "/home/kth/development2/games/arcadestuff/ReadyOrNot/res/map2.json",
-        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/map_with_ladders.json",
-        "/home/kth/development2/games/pygamestuff/arcade/arcade/resources/assets/tiled_maps/items.json",
+        "data/maptest3.json",
+        "data/map3.json",
+        "data/map.json",
+        "/home/kth/development2/games/tiled-automap-example/tiled-automap.tmx",
+        "/home/kth/development2/games/tiled-automap-example/wall-rules.tmx",
+        "data/wall-rules.tmx",
         "data/btiles.tsx",
         "data/map2tiles.tsx",
-        "data/map2.tmj",
-        "data/map.json"
+        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/demo_1.tmx",
+        "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/tutorial.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1

@@ -9,6 +9,7 @@ from arcade.tilemap import TileMap
 from arcade.gui import UIManager, UIBoxLayout, UITextArea, UIFlatButton, UIGridLayout
 from arcade.gui import UILabel
 from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
+from arcade.sprite_list import SpatialHash
 import random
 import math
 from loguru import logger
@@ -56,8 +57,6 @@ class UIPlayerLabel(UILabel):
 		self.name = str(client_id)
 		self.button = UIFlatButton(text=f'{self.client_id}', height=20, width=120)
 		self.textlabel = UIFlatButton(text=f' ', height=20, width=400)
-		# self.textlabel.text_color=arcade.color.GREEN
-		# self.textlabel._apply_style(NP_LABEL_STYLE)
 
 	@property
 	def value(self):
@@ -68,7 +67,6 @@ class UIPlayerLabel(UILabel):
 		self._value = f'{value}'
 		self.text = f'{self._value}' # self._value # f'{self.client_id}\\n{value}'
 		self.textlabel.text = self._value
-		#self.textlabel._apply_style(NP_LABEL_STYLE)
 		self.fit_content()
 
 	def set_value(self, value):
@@ -76,7 +74,6 @@ class UIPlayerLabel(UILabel):
 		self._value = f'{value}'
 		self.text = f'{self._value}' # self._value # f'{self.client_id}\\n{value}'
 		self.textlabel.text = self._value
-		#self.textlabel._apply_style(NP_LABEL_STYLE)
 		self.fit_content()
 
 
@@ -162,8 +159,8 @@ class Networkthing(arcade.Sprite):
 
 @dataclass
 class Bomberplayer(arcade.Sprite):
-	def __init__(self, image=None, scale=1.0, client_id=None, position=Vec2d(x=99,y=99)):
-		super().__init__(image,scale)
+	def __init__(self, texture, scale=0.8, client_id=None, position=Vec2d(x=99,y=99)):
+		super().__init__(texture,scale)
 		self.client_id = client_id
 		# self.ps = PlayerState(self.client_id, position)
 		# self.ps.set_pos(position)
@@ -174,6 +171,7 @@ class Bomberplayer(arcade.Sprite):
 		self.timeout = False
 		self.score = 0
 		self.angle = 0
+		self.spatial_hash = SpatialHash(cell_size=32)
 		# self.text = arcade.Text(f'{self.client_id} h:{self.health} pos:{self.position}', 10,10)
 
 	def __repr__(self):
@@ -181,13 +179,6 @@ class Bomberplayer(arcade.Sprite):
 
 	def __hash__(self):
 		return self.client_id
-
-	def x__hash__(self):
-		values = [getattr(self, slot) for slot in self.__slots__]
-		for i in range(len(values)):
-			if isinstance(values[i], list):
-				values[i] = tuple(values[i])
-		return stable_hash(tuple([type(self)] + values))
 
 	def network_sync(self, data):
 		pass
@@ -294,6 +285,7 @@ class Bomb(arcade.Sprite):
 		super().__init__(image,scale)
 		self.bomber = bomber
 		self.timer = timer
+		self.spatial_hash = SpatialHash(cell_size=32)
 
 	def __repr__(self):
 		return f'Bomb(pos={self.center_x},{self.center_y} bomber={self.bomber} t:{self.timer})'
@@ -321,6 +313,7 @@ class BiggerBomb(arcade.Sprite):
 		super().__init__(image,scale)
 		self.bomber = bomber
 		self.timer = timer
+		self.spatial_hash = SpatialHash(cell_size=32)
 
 	def __repr__(self):
 		return f'BiggerBomb(pos={self.center_x},{self.center_y} bomber={self.bomber} t:{self.timer})'
@@ -344,29 +337,68 @@ class BiggerBomb(arcade.Sprite):
 			self.timer -= BOMBTICKER
 
 class Bullet(arcade.Sprite):
-	def __init__(self, image=None, scale=1, shooter=None, timer=1000, cx=1,cy=1):
-		super().__init__(image,scale)
+	def __init__(self, texture, scale=1, shooter=None, timer=1000):
+		super().__init__(texture)
 		self.shooter = shooter
 		self.timer = timer
-		self.cx = cx
-		self.cy = cy
 		self.angle = 90
+		self.do_rotate = False
+		self.do_shrink = False
+		self.can_kill = True
+		self.bullet_id = gen_randid()
+		self.spatial_hash = SpatialHash(cell_size=32)
+		# self.spatial_hash: self.bullet_id
+		#self.velocity = Vec2d(x=0, y=0)
+
+	def __hash__(self):
+		return self.bullet_id
 
 	def __repr__(self):
-		return f'Bullet(pos={self.center_x:.2f},{self.center_y:.2f} shooter={self.shooter} t:{self.timer})'
+		return f'Bullet( id: {self.bullet_id} pos={self.center_x:.2f},{self.center_y:.2f} shooter={self.shooter} t:{self.timer} angle={self.angle:.2f} cx:{self.change_x:.2f} cy:{self.change_y:.2f} )'
+
 
 	def rotate_around_point(self, point: Point, degrees: float):
 		self.angle += degrees
 		self.position = rotate_point( self.center_x, self.center_y, point[0], point[1], degrees)
 
+	def hit(self, other):
+		self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
+		self.can_kill = False
+		self.do_shrink = True
+		if self.change_x >= 0: # moving left, hit right side of other
+			self.change_x *= -1 #BULLET_SPEED
+			self.right = other.left
+			#self.center_x += 3
+		if self.change_x <= 0: # moving right, hit left side of other
+			self.change_x *= -1 #BULLET_SPEED
+			self.left = other.right
+		if self.change_y <= 0: # moving up, hit top side of other
+			self.change_y *= -1 #BULLET_SPEED
+			self.top = other.bottom
+		if self.change_y >= 0: # moving up, hit bottom side of other
+			self.change_y *= -1 #BULLET_SPEED
+			self.bottom = other.top
+			print('down')
+		# logger.debug(f'{self.velocity=} {a=} {a_atan2=} {aa=} selfa={self.angle} {center=} {other_center=} cy={self.change_y} cx={self.change_x}')
+
+
 	def update(self):
+		# self.velocity = Vec2d(x=self.velocity[0], y=self.velocity[1])
+		self.timer -= BULLET_TIMER
+		if self.do_shrink:
+			self.draw_hit_box()
+			#self.angle += 10
+			#self.angle_change = 10
+			self.scale -= 0.02
+			if self.scale <= 0.1:
+				logger.debug(f'{self} scaleout ')
+				self.remove_from_sprite_lists()
 		self.center_x += self.change_x
 		self.center_y += self.change_y
 		if self.timer <= 0:
-			# logger.debug(f'{self} timeout ')
+			logger.debug(f'{self} timeout ')
 			self.remove_from_sprite_lists()
-		else:
-			self.timer -= BULLET_TIMER
+
 
 class Particle(arcade.SpriteCircle):
 	def __init__(self, my_list=None, xtra=0):
@@ -421,6 +453,7 @@ class Flame(arcade.SpriteSolidColor):
 		return f'Flame(bomber={self.bomber} pos={self.center_x},{self.center_y})'
 
 	def update(self):
+
 		if self.timer <= 0:
 			self.remove_from_sprite_lists()
 			# logger.debug(f'{self} timeout')
@@ -431,15 +464,16 @@ class Flame(arcade.SpriteSolidColor):
 			self.center_y += self.change_y
 
 class Upgrade(arcade.Sprite):
-	def __init__(self, upgradetype, image, position, scale=1.0,  timer=1000):
-		super().__init__(image,scale)
+	def __init__(self, upgradetype, image, position, scale,  timer=1000):
+		super().__init__(scale=scale)
+		self.image = image
 		self.upgradetype = upgradetype
 		self.position = position
 		self.center_x = self.position.x
 		self.center_y = self.position.y
-		self.image = image
 		self.texture = arcade.load_texture(self.image)
 		self.timer = timer
+		self.spatial_hash = SpatialHash(cell_size=32)
 
 	def __repr__(self):
 		return f'upgrade( {self.upgradetype} pos={self.center_x},{self.center_y}  t:{self.timer})'

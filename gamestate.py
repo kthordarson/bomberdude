@@ -30,7 +30,8 @@ class GameState:
 	def __repr__(self):
 		return f'Gamestate (gs:{self.game_seconds} events:{len(self.game_events)} counters = chkpc: {self.chkp_counter} ugsc: {self.ugs_counter} tojc: {self.toj_counter} fjc: {self.fj_counter} players:{len(self.players)})'
 
-	def __init__(self,  game_seconds=0, debugmode=False):
+	def __init__(self,  game_seconds=0, debugmode=False, mapname=None):
+		self.mapname = mapname
 		self.players = {}
 		# self.player_states = player_states
 		self.game_seconds = game_seconds
@@ -44,7 +45,7 @@ class GameState:
 		self.ugs_counter = 0
 		self.toj_counter = 0
 		self.fj_counter = 0
-		layer_options={
+		self.layer_options={
 			"Particles": {"use_spatial_hash": True},
 			"Flames": {"use_spatial_hash": True},
 			"Bullets": {"use_spatial_hash": True},
@@ -54,14 +55,15 @@ class GameState:
 			"Players": {"use_spatial_hash": True},
 			"Blocks": {"use_spatial_hash": True},
 			"Walls": {"use_spatial_hash": True},
-			"Background": {"use_spatial_hash": False},
+			"Background": {"use_spatial_hash": True},
 			}
-		self.tile_map:TileMap = arcade.load_tilemap('data/maptest2.json', layer_options=layer_options , scaling=TILE_SCALING)
-		self.scene = arcade.Scene.from_tilemap(self.tile_map)
+		#self.tile_map:TileMap = arcade.load_tilemap(self.mapname, layer_options=self.layer_options , scaling=TILE_SCALING)
+		#self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
 	def load_tile_map(self, mapname):
-		logger.debug(f'loading {mapname}')
-		self.tile_map = arcade.load_tilemap(mapname, layer_options={"Blocks": {"use_spatial_hash": True},}, scaling=TILE_SCALING)
+		self.mapname = mapname
+		logger.debug(f'loading {self.mapname}')
+		self.tile_map = arcade.load_tilemap(self.mapname, layer_options=self.layer_options, scaling=TILE_SCALING, use_spatial_hash=True)
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
 	def get_players(self, skip):
@@ -119,7 +121,7 @@ class GameState:
 			else:
 				event_type = game_event.get('event_type')
 			if self.debugmode:
-				logger.info(f'{game_event=}')
+				logger.info(f'{event_type=} {game_event=}')
 			else:
 				logger.debug(f'{event_type=}')
 			game_event['event_time'] += 1

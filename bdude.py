@@ -169,6 +169,10 @@ class Bomberdude(arcade.View):
 		super().__init__()
 		self.title = "Bomberdude"
 		self.args = args
+		self.left_pressed = False
+		self.right_pressed = False
+		self.up_pressed = False
+		self.down_pressed = False
 		self.window = get_window()
 		self.debugmode = self.args.debugmode
 		self.manager = UIManager()
@@ -177,7 +181,7 @@ class Bomberdude(arcade.View):
 		self.height = self.window.height
 		self.t = 0
 		self._gotmap = False
-		self.playerone = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=gen_randid())
+		self.playerone = Bomberplayer(texture="data/playerone.png", client_id=gen_randid())
 		self.selected_bomb = 1
 		self.keys_pressed = KeysPressed(self.playerone.client_id)
 		self.hitlist = []
@@ -279,7 +283,16 @@ class Bomberdude(arcade.View):
 		# logger.debug(f'wallsprites={len(self.walls.sprite_list)}')
 		#_ = [self.sceneblocks.append(k) for k in self.game_state.scene['Blocks'].sprite_list]
 		#_ = [self.scenewalls.append(k) for k in self.game_state.scene['Walls'].sprite_list]
-		self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.game_state.scene["Walls"], platforms=self.game_state.scene["Blocks"], gravity_constant=GRAVITY)
+		# self.physics_engine = arcade.PhysicsEnginePlatformer(self.playerone, walls=self.game_state.scene["Walls"], platforms=self.game_state.scene["Blocks"], gravity_constant=GRAVITY)
+		self.physics_engine = arcade.PhysicsEngineSimple(self.playerone, walls=[self.game_state.scene["Blocks"], self.game_state.scene["Walls"],])
+		self.bullet_sprite=arcade.load_texture("data/bullet0.png")
+		# self.physics_engine.walls.extend()
+
+		#self.physics_engine = arcade.PymunkPhysicsEngine(gravity=(0, -0), damping=0.5)
+		#self.physics_engine.add_sprite(self.playerone, friction=PLAYER_FRICTION, mass=PLAYER_MASS, collision_type="Players", max_horizontal_velocity=PLAYER_MAX_HORIZONTAL_SPEED, max_vertical_velocity=PLAYER_MAX_VERTICAL_SPEED)
+		#self.physics_engine.add_sprite_list(self.game_state.scene['Background'], friction=WALL_FRICTION, collision_type="Background", body_type=arcade.PymunkPhysicsEngine.STATIC)
+		#self.physics_engine.add_sprite_list(self.game_state.scene['Walls'], friction=WALL_FRICTION, collision_type="WALLS", body_type=arcade.PymunkPhysicsEngine.STATIC)
+
 		self.setup_panels()
 		self.setup_perf()
 		self.setup_labels()
@@ -288,11 +301,6 @@ class Bomberdude(arcade.View):
 		self.playerone.position = position
 		self.camera = arcade.Camera()
 		self.guicamera = arcade.Camera()
-		self.lzrsprt=arcade.load_texture("data/laserBlue01vv32.png")
-		#self.game_state.scene.add_sprite_list_after("Player", "Walls")
-		#self.game_state.scene.add_sprite_list_after("Netplayers", "Players")
-		#self.game_state.scene.add_sprite_list_after("Bombs", "Players")
-		#self.game_state.scene.add_sprite_list_after("Bullets", "Players")
 
 	def setup_labels(self):
 		self.draw_labels = True
@@ -311,7 +319,6 @@ class Bomberdude(arcade.View):
 		graph = arcade.PerfGraph(GRAPH_WIDTH, GRAPH_HEIGHT, graph_data="FPS")
 		graph.position = starting_x, row_y
 		self.perf_graph_list.append(graph)
-		# Create the on_update graph
 		graph = arcade.PerfGraph(GRAPH_WIDTH, GRAPH_HEIGHT, graph_data="on_update")
 		graph.position = starting_x + step_x, row_y
 		self.perf_graph_list.append(graph)
@@ -373,16 +380,24 @@ class Bomberdude(arcade.View):
 		#self.camera.use()
 		# self.guicamera.center(self.playerone.position)
 		#self.clear()
-		self.game_state.scene.draw()
+		self.game_state.scene['Background'].draw()
+		self.game_state.scene['Walls'].draw()
+		self.game_state.scene['Blocks'].draw()
+		self.game_state.scene['Bullets'].draw()
+		self.game_state.scene['Bombs'].draw()
+		self.game_state.scene['Flames'].draw()
+		self.game_state.scene['Particles'].draw()
+		self.game_state.scene["Upgrades"].draw()
+		self.game_state.scene["Netplayers"].draw()
 		#for sprite_list in self.sprite_items:
 		#	sprite_list.draw()
 		self.playerone.draw()
 		self.manager.draw()
-		self.bomb_list.draw()
-		self.flame_list.draw()
-		self.particle_list.draw()
-		for k in self.game_state.scene["Upgrades"]:
-			k.draw()
+
+		#self.bomb_list.draw()
+		# self.flame_list.draw()
+		# self.particle_list.draw()
+
 		# self.netplayers.draw()
 		# self.flame_list.draw()
 		# self.particle_list.draw()
@@ -393,7 +408,10 @@ class Bomberdude(arcade.View):
 		if self.draw_labels:
 			for label in self.labels:
 				label.draw()
-
+		if self.debugmode:
+			self.camera.use()
+			self.game_state.scene['Bullets'].draw_hit_boxes()
+			self.game_state.scene['Blocks'].draw_hit_boxes()
 		if self.debugmode:
 			self.guicamera.use()
 			arcade.Text(f'p1center: {self.playerone.center_x} {self.playerone.center_y} ', 23, 109, arcade.color.RED, font_size=12).draw()
@@ -452,28 +470,41 @@ class Bomberdude(arcade.View):
 		screen_center_x = self.camera.viewport_width // 2
 		screen_center_y = self.camera.viewport_height // 2
 
+		#cgmpr = Vec2d(x=x,y=y)
 		cgmpr = get_map_coordinates_rev(self.playerone.position, self.camera)
 		if button == 1:
-			bullet = Bullet(self.lzrsprt, scale=1, shooter=self.playerone.client_id)
-			bullet.center_x = cgmpr.x
-			bullet.center_y = cgmpr.y
+			bullet = Bullet(texture=self.bullet_sprite, scale=1, shooter=self.playerone.client_id)
+			#bullet.center_x = cgmpr.x
+			#bullet.center_y = cgmpr.y
+			bullet.center_x = self.playerone.center_x# + (bullet.change_x * 2)
+			bullet.center_y = self.playerone.center_y# + (bullet.change_y * 2)
 			x_diff = x - cgmpr.x
 			y_diff = y - cgmpr.y
 			angle = math.atan2(x_diff, y_diff)  + 3.14 / 2
 			bullet.angle = math.degrees(angle) #- 180
 			bullet.change_x = 1-math.cos(angle) * BULLET_SPEED
 			bullet.change_y = math.sin(angle) * BULLET_SPEED
-			bvel = Vec2d(x=bullet.change_x, y=bullet.change_y)
-			bullet.center_x = self.playerone.center_x
-			bullet.center_y = self.playerone.center_y
-			self.game_state.scene.add_sprite("Bullets",bullet)
+			if bullet.change_y == 0:
+				logger.warning(f'{bullet.change_y=} {angle=} {x_diff=} {y_diff=}')
+			bullet_vel = Vec2d(x=bullet.change_x, y=bullet.change_y)
+			bullet.center_x += bullet_vel.x*5
+			bullet.center_y += bullet_vel.y*5
+			#self.game_state.scene.add_sprite("Bullets",bullet)
 			# logger.info(f"Bullet angle: {bullet.angle:.2f} p1a= {self.playerone.angle:.2f} a={angle:.2f} bcx={bullet.change_x:.2f} bcy={bullet.change_y:.2f}  x= {x} vl= {self.view_left} xl={x+self.view_left} y= {y} vb= {self.view_bottom} yb={y+self.view_bottom} {button=}")
-			bulletpos = Vec2d(x=self.playerone.center_x,y=self.playerone.center_y)
+			bulletpos = Vec2d(x=bullet.center_x,y=bullet.center_y)
+			rads = math.radians(angle)
+			distance = 16
+			fix_x = bulletpos.x +  math.cos(rads) * distance
+			fix_y = bulletpos.y + math.sin(rads) * distance
+			bulletpos_fix = Vec2d(x=fix_x, y=fix_y)
+			# bulletpos_fix = get_map_coordinates_rev(bulletpos, self.camera)
 			event = {
 				'event_time':0,
 				'event_type':'bulletfired',
-				'bvel':bvel, 'shooter': self.playerone.client_id,
-				'pos': bulletpos,
+				'bullet_vel':bullet_vel,
+				'shooter': self.playerone.client_id,
+				'posfix': bulletpos_fix,
+				'pos': bulletpos, #bullet.position,
 				'bcx':bullet.change_x,
 				'bcy':bullet.change_y,
 				'ba': bullet.angle,
@@ -490,11 +521,13 @@ class Bomberdude(arcade.View):
 	def on_key_press(self, key, modifiers):
 		# todo check collisions before sending keypress...
 		sendmove = False
+		if self.debugmode:
+			logger.info(f'{key=} {modifiers=} ')
 		if self.playerone.killed:
 			logger.warning(f'playerone killed')
-			return
+			#return
 		# logger.debug(f'{key} {self} {self.client} {self.client.receiver}')
-		elif key == arcade.key.KEY_1:
+		if key == arcade.key.KEY_1:
 			self.selected_bomb = 1
 		elif key == arcade.key.KEY_2:
 			self.selected_bomb = 2
@@ -532,24 +565,33 @@ class Bomberdude(arcade.View):
 		#self.player_event.keys[key] = True
 		#self.keys_pressed.keys[key] = True
 		elif key == arcade.key.UP or key == arcade.key.W:
-			if len(self.hitlist) == 0:
-				self.playerone.change_y = PLAYER_MOVEMENT_SPEED
-				sendmove = True
+			self.playerone.change_y = PLAYER_MOVEMENT_SPEED
+			self.up_pressed = True
 		elif key == arcade.key.DOWN or key == arcade.key.S:
-			if len(self.hitlist) == 0:
-				self.playerone.change_y = -PLAYER_MOVEMENT_SPEED
-				sendmove = True
+			self.playerone.change_y = -PLAYER_MOVEMENT_SPEED
+			self.down_pressed = True
 		elif key == arcade.key.LEFT or key == arcade.key.A:
-			if len(self.hitlist) == 0:
-				self.playerone.change_x = -PLAYER_MOVEMENT_SPEED
-				sendmove = True
+			self.playerone.change_x = -PLAYER_MOVEMENT_SPEED
+			self.left_pressed = True
 		elif key == arcade.key.RIGHT or key == arcade.key.D:
-			if len(self.hitlist) == 0:
-				self.playerone.change_x = PLAYER_MOVEMENT_SPEED
-				sendmove = True
+			self.playerone.change_x = PLAYER_MOVEMENT_SPEED
+			self.right_pressed = True
 			# self.client.send_queue.put({'msgtype': 'playermove', 'key': key, 'pos' : self.playerone.position, 'client_id': self.client.client_id})
 
 	def on_key_release(self, key, modifiers):
+		if key == arcade.key.UP or key == arcade.key.W:
+			# self.playerone.change_y = PLAYER_MOVEMENT_SPEED
+			self.up_pressed = False
+		elif key == arcade.key.DOWN or key == arcade.key.S:
+			# self.playerone.change_y = -PLAYER_MOVEMENT_SPEED
+			self.down_pressed = False
+		elif key == arcade.key.LEFT or key == arcade.key.A:
+			# self.playerone.change_x = -PLAYER_MOVEMENT_SPEED
+			self.left_pressed = False
+		elif key == arcade.key.RIGHT or key == arcade.key.D:
+			# self.playerone.change_x = PLAYER_MOVEMENT_SPEED
+			self.right_pressed = False
+			# self.client.send_queue.put({'msgtype': 'playermove', 'key': key, 'pos' : self.playerone.position, 'client_id': self.client.client_id})
 		if key == arcade.key.UP or key == arcade.key.DOWN or key == arcade.key.W or key == arcade.key.S:
 			self.playerone.change_y = 0
 		elif key == arcade.key.LEFT or key == arcade.key.RIGHT or key == arcade.key.A or key == arcade.key.D:
@@ -593,22 +635,22 @@ class Bomberdude(arcade.View):
 				case 'playerkilled' | 'dmgkill':
 					#if self.debugmode:
 					dmgfrom = game_event.get("dmgfrom")
-					killed = game_event.get("killed")
-					self.game_state.players[killed]['score'] += 10
+					dmgto = game_event.get("dmgto")
+					self.game_state.players[dmgto]['score'] += 10
 					kill_score = 1
-					[k.set_texture(arcade.load_texture('data/netplayerdead.png')) for k in self.netplayers if k.client_id == killed]#[0]
-					[k.addscore(kill_score) for k in self.netplayers if k.client_id == dmgfrom]
-					logger.info(f'{event_type} from {dmgfrom=}  {killed=}')
-					if killed == self.playerone.client_id:
+					[self.netplayers[k].set_texture(arcade.load_texture('data/netplayerdead.png')) for k in self.netplayers if k == dmgto]#[0]
+					[self.netplayers[k].addscore(kill_score) for k in self.netplayers if k == dmgfrom]
+					logger.info(f'{event_type} from {dmgfrom=}  {dmgto=}')
+					if dmgto == self.playerone.client_id:
 						kill_score += self.playerone.kill(dmgfrom)
-						logger.debug(f'{event_type} from {dmgfrom=}  {killed=} {self.playerone=} {kill_score=}')
+						logger.debug(f'{event_type} from {dmgfrom=}  {dmgto=} {self.playerone=} {kill_score=}')
 						self._show_kill_screen = True
 						self.show_kill_timer = game_event.get('killtimer')
 						self.show_kill_timer_start = game_event.get('killstart')
 					if dmgfrom == self.playerone.client_id:
 						self.playerone.score += kill_score
-						logger.debug(f'{event_type} from {dmgfrom=}  {killed=} {self.playerone=} {kill_score=}')
-					self.game_state.players[killed]['score'] += kill_score
+						logger.debug(f'{event_type} from {dmgfrom=}  {dmgto=} {self.playerone=} {kill_score=}')
+					self.game_state.players[dmgto]['score'] += kill_score
 
 				case 'takedamage':
 					#if self.debugmode:
@@ -650,17 +692,17 @@ class Bomberdude(arcade.View):
 						#pass #
 				case 'ackbullet':
 					shooter = game_event.get('shooter')
-					bvel = Vec2d(x=game_event.get('bvel')[0], y=game_event.get('bvel')[1])
+					bullet_vel = Vec2d(x=game_event.get('bullet_vel')[0], y=game_event.get('bullet_vel')[1])
 					bulletpos = Vec2d(x=game_event.get('pos')[0], y=game_event.get('pos')[1])
-
-					bullet = Bullet(self.lzrsprt,scale=1, shooter=shooter)
+					# bulletpos_fix = get_map_coordinates_rev(bulletpos, self.camera)
+					bullet = Bullet(texture=self.bullet_sprite,scale=1, shooter=shooter)
 					bullet.center_x = bulletpos.x
 					bullet.center_y = bulletpos.y
-					bullet.change_x = bvel.x
-					bullet.change_y = bvel.y
+					bullet.change_x = bullet_vel.x
+					bullet.change_y = bullet_vel.y
 					bullet.angle = game_event.get('ba')
-					if shooter != self.playerone.client_id:
-						self.game_state.scene.add_sprite("Bullets", bullet)
+					#if shooter != self.playerone.client_id:
+					self.game_state.scene.add_sprite("Bullets", bullet)
 				case 'ackbombdrop':
 					bomber = game_event.get('bomber')
 					bombpos = Vec2d(x=game_event.get('pos')[0], y=game_event.get('pos')[1])
@@ -726,11 +768,11 @@ class Bomberdude(arcade.View):
 			else:
 				if pclid == self.playerone.client_id:
 					logger.warning(f'{gsplr=} {pclid=} {self.playerone.client_id=}')
-					newplayer = Bomberplayer(image="data/playerone.png",scale=0.9, client_id=pclid, position=position_fix)
+					newplayer = Bomberplayer(texture="data/playerone.png",client_id=pclid, position=position_fix)
 					playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), text_color=arcade.color.BLUE)
 					playerlabel.button.text = f'Me {pclid}'
 				else:
-					newplayer = Bomberplayer(image="data/netplayer.png",scale=0.9, client_id=pclid, position=position_fix)
+					newplayer = Bomberplayer(texture="data/netplayer.png", client_id=pclid, position=position_fix)
 					playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), text_color=arcade.color.GREEN)
 					playerlabel.button.text = f'{pclid}'
 					self.netplayers[pclid] = newplayer # {'client_id':pclid, 'position':position_fix}
@@ -791,6 +833,7 @@ class Bomberdude(arcade.View):
 		if not self._gotmap:
 			return
 		# self.update_viewport(dt)
+
 		self.update_labels()
 		game_events = None
 		try:
@@ -813,12 +856,15 @@ class Bomberdude(arcade.View):
 			except RuntimeError as e:
 				logger.error(f'{e}')
 			self.update_poplist()
-		self.hitlist = self.physics_engine.update()
+		hitlist = self.physics_engine.update()
+		self.playerone.update()
 		flames = []
 		particles = []
 		# self.bomb_list.update()
 		for f in self.game_state.scene['Flames']:
 			f.update()
+		for b in self.game_state.scene['Blocks']:
+			b.update()
 		for p in self.game_state.scene['Particles']:
 			p.update()
 		#self.game_state.scene.update(names=['Bombs'])
@@ -829,20 +875,72 @@ class Bomberdude(arcade.View):
 #		self.flame_list.extend(flames)
 #		self.particle_list.extend(particles)
 		# self.game_state.scene['Blocks']
+		# self.bullet = Bullet(texture=self.bullet_sprite, scale=1, shooter=self.playerone.client_id)
+
 		for bullet in self.game_state.scene['Bullets']:
 			bullet.update()
-			if arcade.check_for_collision(bullet, self.playerone):
-				event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
-				#self.game_state.game_events.append(event)
-				if bullet.shooter != self.playerone.client_id: # skip own bullets
-					self.eventq.put(event)
-					bullet.remove_from_sprite_lists()
-			hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene['Walls'])
-			hits.extend(arcade.check_for_collision_with_list(bullet, self.game_state.scene['Blocks']))
-
-			for hit in hits:
-				# logger.debug(f'b={bullet} {hits=}')
+			bullet_wall_hits = arcade.PhysicsEngineSimple(bullet, walls=[self.game_state.scene["Blocks"], self.game_state.scene["Walls"],]).update()
+			# self.bullet.position = bullet.position
+			for bwh in bullet_wall_hits:
+				logger.info(f'bwh hit: {bwh=} {bullet=}')
 				bullet.remove_from_sprite_lists()
+			bullet_np_hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene["Netplayers"])
+			for nphit in bullet_np_hits:
+				logger.info(f'nphit: {nphit=} {bullet=}')
+				bullet.remove_from_sprite_lists()
+			if bullet.can_kill:
+				if arcade.check_for_collision(bullet, self.playerone):
+					event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+					#self.game_state.game_events.append(event)
+					if bullet.shooter != self.playerone.client_id: # skip own bullets
+						self.eventq.put(event)
+						bullet.remove_from_sprite_lists()
+						# bullet.hit(self.playerone)
+				# bullet.hit(bwh)
+				# bwh.remove_from_sprite_lists()
+		# bullet_hits_p1 = arcade.check_for_collision_with_list(self.playerone, self.game_state.scene['Bullets'])
+		# for bullet in bullet_hits_p1:
+		# 	if bullet.shooter == self.playerone.client_id:
+		# 		logger.warning(f'bullet hit playerone: {bullet=} {self.playerone=}')
+		# 	else:
+		# 		event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+
+			# self.bullet_engine.player_sprite = bullet
+			# event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+			#self.game_state.game_events.append(event)
+			#if bullet.shooter != self.playerone.client_id: # skip own bullets
+			#	self.eventq.put(event)
+			#	bullet.remove_from_sprite_lists()
+		#		bullet.hit()
+
+		# for bullet in self.game_state.scene['Bullets']:
+		# 	self.bullet_engine.player_sprite = bullet
+		# 	if bullet.can_kill:
+		# 		if arcade.check_for_collision(bullet, self.playerone):
+		# 			event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
+		# 			#self.game_state.game_events.append(event)
+		# 			if bullet.shooter != self.playerone.client_id: # skip own bullets
+		# 				self.eventq.put(event)
+		# 				bullet.remove_from_sprite_lists()
+		# 				bullet.hit()
+		# for bullet in self.game_state.scene['Bullets']:
+		# 	hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene['Blocks'])
+		# 	for hit in hits:
+		# 		if self.debugmode:
+		# 			logger.debug(f'b={bullet} {hits=}')
+		# 		bullet.remove_from_sprite_lists()
+		# 		# bullet.hit(hit)
+		# for bullet in self.game_state.scene['Bullets']:
+		# 	bullet.draw_hit_box(color=arcade.color.GREEN, line_thickness=5)
+		# 	hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene['Walls'])
+		# 	#hits.extend(arcade.check_for_collision_with_list(bullet, self.game_state.scene['Blocks']))
+		# 	for hit in hits:
+		# 		if self.debugmode:
+		# 			logger.debug(f'b={bullet} {hits=}')
+		# 		# bullet.remove_from_sprite_lists()
+		# 		bullet.hit(hit)
+
+				#break
 		for upgr in self.game_state.scene['Upgrades']:
 			upgr.update()
 			if arcade.check_for_collision(upgr, self.playerone):
@@ -861,10 +959,10 @@ class Bomberdude(arcade.View):
 				self.eventq.put(event)
 				f.remove_from_sprite_lists()
 			f_hitlist = arcade.check_for_collision_with_list(f, self.game_state.scene['Walls'])
-			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.game_state.scene['Blocks']))
+			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.game_state.scene['Blocks'])) # toodo split and move to gamestate
 			#f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
 			for hit in f_hitlist:
-				hitblocktype = hit.properties.get('tile_id')
+				hitblocktype = hit.properties.get('tile_id') # todo move this logic to gamestate
 				match hitblocktype:
 					case 10:
 						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
