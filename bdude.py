@@ -385,9 +385,9 @@ class Bomberdude(arcade.View):
 		#	sprite_list.draw()
 		self.playerone.draw()
 		self.manager.draw()
-		draw_options = pyglet_util.DrawOptions()
-		draw_options.flags = draw_options.DRAW_SHAPES
-		self.space.debug_draw(draw_options)
+		#draw_options = pyglet_util.DrawOptions()
+		#draw_options.flags = draw_options.DRAW_SHAPES
+		#self.space.debug_draw(draw_options)
 
 		#self.bomb_list.draw()
 		# self.flame_list.draw()
@@ -839,7 +839,7 @@ class Bomberdude(arcade.View):
 			self.handle_game_events([game_events,])
 		#for k in range(100):
 		self.space.step(1/60)
-		p = pymunk.SpaceDebugDrawOptions()
+		# p = pymunk.SpaceDebugDrawOptions()
 		#p.flags = pymunk.SpaceDebugDrawOptions.DRAW_COLLISION_POINTS
 		#self.space.debug_draw(p)
 		if len(self.game_state.players) > 1:
@@ -852,30 +852,33 @@ class Bomberdude(arcade.View):
 			except RuntimeError as e:
 				logger.error(f'{e}')
 			self.update_poplist()
+		oldpos = self.playerone.position
 		self.playerone.update()
 		colls = arcade.check_for_collision_with_list(self.playerone, self.game_state.scene['static'])
 		if len(colls)>0:
 			def checkx():
 				if self.playerone.change_x < 0:
 					self.playerone.change_x = 0
-					self.playerone.left = colls[0].right
+					# self.playerone.left = colls[0].right
+					self.playerone.position = oldpos
 				if self.playerone.change_x > 0:
 					self.playerone.change_x = 0
-					self.playerone.right = colls[0].left
+					# self.playerone.right = colls[0].left
+					self.playerone.position = oldpos
 			def checky():
 				if self.playerone.change_y > 0:
 					self.playerone.change_y = 0
-					self.playerone.top = colls[0].bottom
+					#self.playerone.top = colls[0].bottom
+					self.playerone.position = oldpos
 				if self.playerone.change_y < 0:
 					self.playerone.change_y = 0
-					self.playerone.bottom = colls[0].top
+					#self.playerone.bottom = colls[0].top
+					self.playerone.position = oldpos
 			checkx()
 			checky()
 		for b in self.game_state.scene['Bullets']:
 			b.update()
-			if arcade.check_for_collision_with_list(b, self.game_state.scene['Blocks']):
-				b.remove_from_sprite_lists()
-			if arcade.check_for_collision_with_list(b, self.game_state.scene['Walls']):
+			if arcade.check_for_collision_with_list(b, self.game_state.scene['static']):
 				b.remove_from_sprite_lists()
 		for f in self.game_state.scene['Flames']:
 			f.update()
