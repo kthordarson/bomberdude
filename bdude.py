@@ -877,9 +877,14 @@ class Bomberdude(arcade.View):
 			checkx()
 			checky()
 		for b in self.game_state.scene['Bullets']:
+			b_oldpos = b.position
 			b.update()
-			if arcade.check_for_collision_with_list(b, self.game_state.scene['static']):
-				b.remove_from_sprite_lists()
+			colls = arcade.check_for_collision_with_list(b, self.game_state.scene['static'])
+			if len(colls) > 0:
+				for hit in colls:
+					#logger.info(f'bullet {b} hit {colls=}')
+					b.hit(b_oldpos, hit)
+				#b.remove_from_sprite_lists()
 		for f in self.game_state.scene['Flames']:
 			f.update()
 		for b in self.game_state.scene['Blocks']:
@@ -910,53 +915,7 @@ class Bomberdude(arcade.View):
 					#self.game_state.game_events.append(event)
 					if bullet.shooter != self.playerone.client_id: # skip own bullets
 						self.eventq.put(event)
-						#bullet.remove_from_sprite_lists()
-						# bullet.hit(self.playerone)
-				# bullet.hit(bwh)
-				# bwh.remove_from_sprite_lists()
-		# bullet_hits_p1 = arcade.check_for_collision_with_list(self.playerone, self.game_state.scene['Bullets'])
-		# for bullet in bullet_hits_p1:
-		# 	if bullet.shooter == self.playerone.client_id:
-		# 		logger.warning(f'bullet hit playerone: {bullet=} {self.playerone=}')
-		# 	else:
-		# 		event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
 
-			# self.bullet_engine.player_sprite = bullet
-			# event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
-			#self.game_state.game_events.append(event)
-			#if bullet.shooter != self.playerone.client_id: # skip own bullets
-			#	self.eventq.put(event)
-			#	bullet.remove_from_sprite_lists()
-		#		bullet.hit()
-
-		# for bullet in self.game_state.scene['Bullets']:
-		# 	self.bullet_engine.player_sprite = bullet
-		# 	if bullet.can_kill:
-		# 		if arcade.check_for_collision(bullet, self.playerone):
-		# 			event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
-		# 			#self.game_state.game_events.append(event)
-		# 			if bullet.shooter != self.playerone.client_id: # skip own bullets
-		# 				self.eventq.put(event)
-		# 				bullet.remove_from_sprite_lists()
-		# 				bullet.hit()
-		# for bullet in self.game_state.scene['Bullets']:
-		# 	hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene['Blocks'])
-		# 	for hit in hits:
-		# 		if self.debugmode:
-		# 			logger.debug(f'b={bullet} {hits=}')
-		# 		bullet.remove_from_sprite_lists()
-		# 		# bullet.hit(hit)
-		# for bullet in self.game_state.scene['Bullets']:
-		# 	bullet.draw_hit_box(color=arcade.color.GREEN, line_thickness=5)
-		# 	hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene['Walls'])
-		# 	#hits.extend(arcade.check_for_collision_with_list(bullet, self.game_state.scene['Blocks']))
-		# 	for hit in hits:
-		# 		if self.debugmode:
-		# 			logger.debug(f'b={bullet} {hits=}')
-		# 		# bullet.remove_from_sprite_lists()
-		# 		bullet.hit(hit)
-
-				#break
 		for upgr in self.game_state.scene['Upgrades']:
 			upgr.update()
 			if arcade.check_for_collision(upgr, self.playerone):

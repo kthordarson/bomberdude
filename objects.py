@@ -361,26 +361,30 @@ class Bullet(arcade.Sprite):
 		self.angle += degrees
 		self.position = rotate_point( self.center_x, self.center_y, point[0], point[1], degrees)
 
-	def hit(self, other):
+	def hit(self, oldpos,other):
 		self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
 		self.can_kill = False
 		self.do_shrink = True
-		if self.change_x >= 0: # moving left, hit right side of other
-			self.change_x *= -1 #BULLET_SPEED
-			self.right = other.left
-			#self.center_x += 3
-		if self.change_x <= 0: # moving right, hit left side of other
-			self.change_x *= -1 #BULLET_SPEED
-			self.left = other.right
-		if self.change_y <= 0: # moving up, hit top side of other
-			self.change_y *= -1 #BULLET_SPEED
-			self.top = other.bottom
-		if self.change_y >= 0: # moving up, hit bottom side of other
-			self.change_y *= -1 #BULLET_SPEED
-			self.bottom = other.top
-			print('down')
-		# logger.debug(f'{self.velocity=} {a=} {a_atan2=} {aa=} selfa={self.angle} {center=} {other_center=} cy={self.change_y} cx={self.change_x}')
+		self.change_x *= math.cos(math.radians(self.angle))
+		self.change_y *= math.sin(math.radians(self.angle))
+		def checkx():
+			if self.change_x < 0:
+				#b.change_x *= -1
+				self.position = (oldpos[0], other.position[1])
+			if self.change_x > 0:
+				#b.change_x *= -1
+				self.position = (oldpos[0], other.position[1])
+		def checky():
+			if self.change_y > 0:
+				#b.change_y *= -1
+				self.position = (other.position[1], oldpos[1])
+			if self.change_y < 0:
+				#b.change_y *= -1
+				self.position = (other.position[1], oldpos[1])
+		checkx()
+		checky()
 
+		logger.info(f'{self} git by {other.position}')
 
 	def update(self):
 		# self.velocity = Vec2d(x=self.velocity[0], y=self.velocity[1])

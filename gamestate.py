@@ -120,10 +120,6 @@ class GameState:
 				continue
 			else:
 				event_type = game_event.get('event_type')
-			if self.debugmode:
-				logger.info(f'{event_type=} {game_event=}')
-			else:
-				logger.debug(f'{event_type=}')
 			game_event['event_time'] += 1
 			eventid = game_event.get('eventid')
 			evntchk =  [k for k in self.game_events if k.get('eventid') == eventid]
