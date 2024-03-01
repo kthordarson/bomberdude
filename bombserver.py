@@ -196,6 +196,9 @@ class BombServer():
 			if self.game_state.players[p]['timeout']:
 				logger.warning(f'remove_timedout_players {p} {self.game_state.players[p]}')
 				self.game_state.players.pop(p)
+			elif self.game_state.players[p].get('quit'):
+				logger.warning(f'playerquit {p} {self.game_state.players[p]}')
+				self.game_state.players.pop(p)
 
 	def get_position(self, retas='int'):
 		foundpos = False
@@ -204,8 +207,8 @@ class BombServer():
 		x = 0
 		y = 0
 		while not foundpos:
-			x = random.randint(1, int(self.game_state.tile_map.width)-1)
-			y = random.randint(1, int(self.game_state.tile_map.height)-1)
+			x = random.randint(2, int(self.game_state.tile_map.width)-2)
+			y = random.randint(2, int(self.game_state.tile_map.height)-2)
 			# print(f'checking {x} {y}')
 			if walls.data[x][y] == 0 and blocks.data[x][y] == 0:
 				foundpos = True

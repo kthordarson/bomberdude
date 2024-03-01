@@ -549,6 +549,9 @@ class Bomberdude(arcade.View):
 			self.window.set_viewport(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT)
 			self.camera = arcade.Camera(viewport=(0, 0, self.width, self.height))
 		elif key == arcade.key.ESCAPE or key == arcade.key.Q:
+			quitevent = {'event_time':0, 'event_type':'quit', 'client_id': self.playerone.client_id, 'eventid': gen_randid()}
+			self.eventq.put(quitevent)
+
 			logger.warning(f'quit')
 			arcade.close_window()
 			return

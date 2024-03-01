@@ -365,26 +365,15 @@ class Bullet(arcade.Sprite):
 		self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
 		self.can_kill = False
 		self.do_shrink = True
-		self.change_x *= math.cos(math.radians(self.angle))
-		self.change_y *= math.sin(math.radians(self.angle))
-		def checkx():
-			if self.change_x < 0:
-				#b.change_x *= -1
-				self.position = (oldpos[0], other.position[1])
-			if self.change_x > 0:
-				#b.change_x *= -1
-				self.position = (oldpos[0], other.position[1])
-		def checky():
-			if self.change_y > 0:
-				#b.change_y *= -1
-				self.position = (other.position[1], oldpos[1])
-			if self.change_y < 0:
-				#b.change_y *= -1
-				self.position = (other.position[1], oldpos[1])
-		checkx()
-		checky()
-
-		logger.info(f'{self} git by {other.position}')
+		if self.change_x < 0:
+			self.change_x *= math.cos(math.radians(self.angle))
+		if self.change_x > 0:
+			self.change_x *= 1- math.cos(math.radians(self.angle))
+		if self.change_y > 0:
+			self.change_y *= math.sin(math.radians(self.angle))
+		if self.change_y < 0:
+			self.change_y *= 1- math.sin(math.radians(self.angle))
+		#self.change_y *= math.sin(math.radians(self.angle))
 
 	def update(self):
 		# self.velocity = Vec2d(x=self.velocity[0], y=self.velocity[1])
@@ -395,12 +384,12 @@ class Bullet(arcade.Sprite):
 			#self.angle_change = 10
 			self.scale -= 0.02
 			if self.scale <= 0.1:
-				logger.debug(f'{self} scaleout ')
+				# logger.debug(f'{self} scaleout ')
 				self.remove_from_sprite_lists()
 		self.center_x += self.change_x
 		self.center_y += self.change_y
 		if self.timer <= 0:
-			logger.debug(f'{self} timeout ')
+			# logger.debug(f'{self} timeout ')
 			self.remove_from_sprite_lists()
 
 

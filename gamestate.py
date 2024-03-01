@@ -129,6 +129,9 @@ class GameState:
 			else:
 				match event_type:
 					# logger.debug(f'self.game_events={self.game_events}')
+					case 'quit': # player quit
+						clid = game_event['client_id']
+						self.players[clid]['quit'] = True
 					case 'newconnection':
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugsnc'
