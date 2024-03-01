@@ -342,6 +342,8 @@ class Bomberdude(arcade.View):
 		sy -= font_size + 3
 		#sx += self.score_label.width + 5
 		self.info_label = arcade.Text(text=f'i', start_x=sx, start_y=sy, color=arcade.color.RED, font_size=font_size)
+		sy -= font_size + 3
+
 
 		self.labels = [self.timer_label, self.health_label, self.score_label, self.bombs_label, self.info_label,]
 		#self.netplayer_columns = UIBoxLayout(align='center',vertical=True,space_between=10)
@@ -385,34 +387,26 @@ class Bomberdude(arcade.View):
 		#	sprite_list.draw()
 		self.playerone.draw()
 		self.manager.draw()
-		#draw_options = pyglet_util.DrawOptions()
-		#draw_options.flags = draw_options.DRAW_SHAPES
-		#self.space.debug_draw(draw_options)
-
-		#self.bomb_list.draw()
-		# self.flame_list.draw()
-		# self.particle_list.draw()
-
-		# self.netplayers.draw()
-		# self.flame_list.draw()
-		# self.particle_list.draw()
-		# self.bomb_list.draw()
-		#self.bullet_list.draw()
-		# _ = [k.draw() for k in self.netplayers]
-		#self.bullet_list.draw()
 		if self.draw_labels:
 			for label in self.labels:
 				label.draw()
 		if self.debugmode:
-			self.camera.use()
-			self.game_state.scene['Bullets'].draw_hit_boxes()
-			self.game_state.scene['Blocks'].draw_hit_boxes()
-		if self.debugmode:
-			self.guicamera.use()
-			arcade.Text(f'p1center: {self.playerone.center_x} {self.playerone.center_y} ', 23, 109, arcade.color.RED, font_size=12).draw()
-			# draw_debug_widgets([self.grid,  self.netplayer_grid, self.anchor,])
+			for b in self.game_state.scene['Bullets']:
+				self.camera.use()
+				draw_line(start_x=b.center_x, start_y=b.center_y, end_x=self.playerone.center_x, end_y=self.playerone.center_y, color=arcade.color.ORANGE, line_width=1)
+				textpos = get_map_coordinates_rev(b.position, self.camera)
+				self.guicamera.use()
+				try:
+					textpos += Vec2d(10,0)
+					arcade.Text(text = f'bxc: {b.change_x:.2f} bcy: {b.change_y:.2f} ', start_x=int(textpos.x), start_y=int(textpos.y), color=arcade.color.BLACK, font_size=10).draw()
+					textpos += Vec2d(0,11)
+					arcade.Text(text = f'ba: {b.angle:.2f}', start_x=int(textpos.x), start_y=int(textpos.y), color=arcade.color.BLACK, font_size=10).draw()
+				except AttributeError as e:
+					logger.error(f'{e} textpos={textpos} {b=}')
+
 		if self.draw_player_debug:
 			try:
+				self.guicamera.use()
 				draw_debug_players(self.game_state.players,self.netplayer_labels, self.camera)
 			except Exception as e:
 				logger.error(f'{e=} {type(e)}')
@@ -468,39 +462,29 @@ class Bomberdude(arcade.View):
 		#cgmpr = Vec2d(x=x,y=y)
 		cgmpr = get_map_coordinates_rev(self.playerone.position, self.camera)
 		if button == 1:
-			bullet = Bullet(texture=self.bullet_sprite, scale=1, shooter=self.playerone.client_id)
-			#bullet.center_x = cgmpr.x
-			#bullet.center_y = cgmpr.y
-			bullet.center_x = self.playerone.center_x# + (bullet.change_x * 2)
-			bullet.center_y = self.playerone.center_y# + (bullet.change_y * 2)
 			x_diff = x - cgmpr.x
 			y_diff = y - cgmpr.y
-			angle = math.atan2(x_diff, y_diff)  + 3.14 / 2
-			bullet.angle = math.degrees(angle) #- 180
-			bullet.change_x = 1-math.cos(angle) * BULLET_SPEED
-			bullet.change_y = math.sin(angle) * BULLET_SPEED
-			if bullet.change_y == 0:
-				logger.warning(f'{bullet.change_y=} {angle=} {x_diff=} {y_diff=}')
-			bullet_vel = Vec2d(x=bullet.change_x, y=bullet.change_y)
-			bullet.center_x += bullet_vel.x*5
-			bullet.center_y += bullet_vel.y*5
-			bulletpos = Vec2d(x=bullet.center_x,y=bullet.center_y)
-			rads = math.radians(angle)
-			distance = 16
-			fix_x = bulletpos.x +  math.cos(rads) * distance
-			fix_y = bulletpos.y + math.sin(rads) * distance
-			bulletpos_fix = Vec2d(x=fix_x, y=fix_y)
+			ba = math.atan2(x_diff, y_diff)  + 3.14 / 2
+
+			change_x = 1-math.cos(ba) * BULLET_SPEED
+			change_y = math.sin(ba) * BULLET_SPEED
+			bullet_vel = Vec2d(x=change_x, y=change_y)
+			#bullet.center_x += bullet_vel.x*5
+			#bullet.center_y += bullet_vel.y*5
+			bulletpos = Vec2d(x=self.playerone.center_x,y=self.playerone.center_y)
+			# rads = math.radians(angle)
+			# distance = 16
+			# fix_x = bulletpos.x +  math.cos(rads) * distance
+			# fix_y = bulletpos.y + math.sin(rads) * distance
+			# bulletpos_fix = Vec2d(x=fix_x, y=fix_y)
 			# bulletpos_fix = get_map_coordinates_rev(bulletpos, self.camera)
 			event = {
 				'event_time':0,
 				'event_type':'bulletfired',
 				'bullet_vel':bullet_vel,
 				'shooter': self.playerone.client_id,
-				'posfix': bulletpos_fix,
 				'pos': bulletpos, #bullet.position,
-				'bcx':bullet.change_x,
-				'bcy':bullet.change_y,
-				'ba': bullet.angle,
+				'ba': ba,
 				'timer': 3515,
 				'handled': False,
 				'handledby': self.playerone.client_id,
@@ -549,7 +533,7 @@ class Bomberdude(arcade.View):
 			self.window.set_viewport(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT)
 			self.camera = arcade.Camera(viewport=(0, 0, self.width, self.height))
 		elif key == arcade.key.ESCAPE or key == arcade.key.Q:
-			quitevent = {'event_time':0, 'event_type':'quit', 'client_id': self.playerone.client_id, 'eventid': gen_randid()}
+			quitevent = {'event_time':0, 'event_type':'playerquit', 'client_id': self.playerone.client_id, 'eventid': gen_randid()}
 			self.eventq.put(quitevent)
 
 			logger.warning(f'quit')
@@ -605,6 +589,20 @@ class Bomberdude(arcade.View):
 			if self.debugmode:
 				pass # logger.info(f'{event_type=} {game_event=} {game_events=}')
 			match event_type:
+				case 'playerquit':
+					try:
+						clid = game_event.get("client_id")
+						l0 = len(self.netplayers)
+						self.netplayers[clid].remove_from_sprite_lists()
+						self.netplayers.pop(clid)
+						self.netplayer_labels.pop(clid)
+						self.game_state.players.pop(clid)
+						# self.netplayers.pop(self.netplayers[clid])
+						logger.debug(f'{event_type} from {clid} {l0} -> {len(self.netplayers)}')
+					except KeyError as e:
+						logger.warning(f'{e} {clid=} {self.netplayers=}')
+					except Exception as e:
+						logger.error(f'{type(e)} {e} {clid=} {self.netplayers=}')
 				case 'ackrespawn':
 					clid = game_event.get("client_id")
 					[k.set_texture(arcade.load_texture('data/netplayer.png')) for k in self.netplayers if k.client_id == clid]#[0]
@@ -733,6 +731,9 @@ class Bomberdude(arcade.View):
 			if self.game_state.players[pclid].get('timeout'):
 				logger.info(f'timeout ppclid={pclid} gsp={self.game_state.players}')
 				self.poplist.append(pclid)
+			elif self.game_state.players[pclid].get('playerquit'):
+				logger.info(f'timeout ppclid={pclid} gsp={self.game_state.players}')
+				self.poplist.append(pclid)
 
 	def update_netplayers(self):
 		# gspcopy_ = copy.copy(self.game_state.players)
@@ -751,7 +752,10 @@ class Bomberdude(arcade.View):
 			position_fix = get_map_coordinates_rev(position, self.camera)
 			value = f'  h:{health} s:{score} b:{bombsleft} pos: {position.x},{position.y} '
 			if pclid in [k for k in self.netplayers]:
-				self.netplayer_labels[pclid].value = value
+				try:
+					self.netplayer_labels[pclid].value = value
+				except KeyError as e:
+					logger.warning(f'KeyError {e} {pclid=} {self.netplayer_labels=} {value=}')
 				for np in self.netplayers:
 					self.netplayers[np].position = position
 					self.netplayers[np].angle = angle

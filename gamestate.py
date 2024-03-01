@@ -129,9 +129,10 @@ class GameState:
 			else:
 				match event_type:
 					# logger.debug(f'self.game_events={self.game_events}')
-					case 'quit': # player quit
+					case 'playerquit': # playerquit
 						clid = game_event['client_id']
-						self.players[clid]['quit'] = True
+						self.players[clid]['playerquit'] = True
+						self.event_queue.put_nowait(game_event) # update other clients about playerquit
 					case 'newconnection':
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugsnc'

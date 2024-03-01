@@ -192,13 +192,14 @@ class BombServer():
 
 	def remove_timedout_players(self):
 		pcopy = copy.copy(self.game_state.players)
+		len0=len(self.game_state.players)
 		for p in pcopy:
 			if self.game_state.players[p]['timeout']:
-				logger.warning(f'remove_timedout_players {p} {self.game_state.players[p]}')
 				self.game_state.players.pop(p)
-			elif self.game_state.players[p].get('quit'):
-				logger.warning(f'playerquit {p} {self.game_state.players[p]}')
+				logger.warning(f'remove_timedout_players {p} {len0}->{len(self.game_state.players)}')
+			elif self.game_state.players[p].get('playerquit'):
 				self.game_state.players.pop(p)
+				logger.debug(f'playerquit {p} {len0}->{len(self.game_state.players)}')
 
 	def get_position(self, retas='int'):
 		foundpos = False

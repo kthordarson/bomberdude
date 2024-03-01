@@ -347,6 +347,7 @@ class Bullet(arcade.Sprite):
 		self.can_kill = True
 		self.bullet_id = gen_randid()
 		self.spatial_hash = SpatialHash(cell_size=32)
+		self.hitcount = 0
 		# self.spatial_hash: self.bullet_id
 		#self.velocity = Vec2d(x=0, y=0)
 
@@ -362,24 +363,58 @@ class Bullet(arcade.Sprite):
 		self.position = rotate_point( self.center_x, self.center_y, point[0], point[1], degrees)
 
 	def hit(self, oldpos,other):
-		self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
-		self.can_kill = False
-		self.do_shrink = True
-		if self.change_x < 0:
-			self.change_x *= math.cos(math.radians(self.angle))
-		if self.change_x > 0:
-			self.change_x *= 1- math.cos(math.radians(self.angle))
-		if self.change_y > 0:
-			self.change_y *= math.sin(math.radians(self.angle))
-		if self.change_y < 0:
-			self.change_y *= 1- math.sin(math.radians(self.angle))
+		if self.hitcount <= 1:
+			if self.left<=other.left+self.change_x or self.right<=other.right+self.change_x:
+				self.change_x*=-1
+			if self.top<=other.top+self.change_y or self.bottom<=other.bottom+self.change_y:
+				self.change_y*=-1
+			if self.hitcount > 1:
+				logger.warning(f'{self} hit {other} {self.hitcount=}')
+			self.hitcount += 1
+			self.can_kill = False
+			self.do_shrink = True
+		else:
+			self.remove_from_sprite_lists()
+
+		# changes = 0
+		# if self.change_x < 0: # left
+		# 	changes += 1
+		# 	ocx = self.change_x
+		# 	self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
+		# 	self.change_x *= 1-math.cos(math.radians(self.angle))
+		# 	logger.info(f'{self} A {changes} hit {other} {ocx=} {self.change_x=}')
+		# if self.change_x > 0: # right
+		# 	ocx = self.change_x
+		# 	if changes <= 1:
+		# 		changes += 1
+		# 		self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
+		# 		self.change_x *= 1- math.cos(math.radians(self.angle))
+		# 		logger.info(f'{self} B {changes} hit {other} {ocx=} {self.change_x=}')
+		# if self.change_y > 0: # up
+		# 	ocy = self.change_y
+		# 	if changes < 2:
+		# 		changes += 1
+		# 		self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
+		# 		self.change_y *= math.sin(math.radians(self.angle))
+		# 		logger.info(f'{self} C {changes} hit {other} {ocy=} {self.change_y=}')
+		# 	else:
+		# 		logger.warning(f'{self} C {changes} hit {other} {ocy=} {self.change_y=}')
+		# if self.change_y < 0: # down
+		# 	ocy = self.change_y
+		# 	if changes < 2:
+		# 		changes += 1
+		# 		self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
+		# 		self.change_y *= 1- math.sin(math.radians(self.angle))
+		# 		logger.info(f'{self} D {changes} hit {other} {ocy=} {self.change_y=}')
+		# 	else:
+		# 		logger.warning(f'{self} D {changes} hit {other} {ocy=} {self.change_y=}')
 		#self.change_y *= math.sin(math.radians(self.angle))
 
 	def update(self):
 		# self.velocity = Vec2d(x=self.velocity[0], y=self.velocity[1])
 		self.timer -= BULLET_TIMER
 		if self.do_shrink:
-			self.draw_hit_box()
+			# self.draw_hit_box()
 			#self.angle += 10
 			#self.angle_change = 10
 			self.scale -= 0.02
