@@ -58,8 +58,6 @@ class GameState:
 			"Walls": {"use_spatial_hash": True},
 			"Background": {"use_spatial_hash": True},
 			}
-		#self.tile_map:TileMap = arcade.load_tilemap(self.mapname, layer_options=self.layer_options , scaling=TILE_SCALING)
-		#self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
@@ -165,6 +163,17 @@ class GameState:
 							logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
 					case 'takeupgrade': # todo decide on somethingsomething..
 						game_event['handledby'] = f'ugstakeupgrade'
+						upgradetype = game_event.get("upgradetype")
+						clid = game_event['client_id']
+						match upgradetype:
+							case 1: # extra health
+								self.players[clid]['health'] += 20
+							case 2: # extra bomb
+								self.players[clid]['bombsleft'] += 1
+							case 3: # bigger bomb
+								pass
+							case _:
+								logger.warning(f'unknown upgradetype {upgradetype=} {msg=}')
 					case 'bombdrop': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
 						bomber = game_event.get("bomber")

@@ -188,7 +188,11 @@ class BombServer():
 	async def get_tile_map(self):
 
 		mapname = str(self.game_state.tile_map.tiled_map.map_file)
-		if 'maptest4' in mapname:
+		if 'maptest5' in mapname:
+			map4pos = [ (2,2), (2,38), (58,2), (58,38),]
+			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
+			self.playerindex += 1
+		elif 'maptest4' in mapname:
 			map4pos = [ (2,2), (25,27), (27,2), (2,22),]
 			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
 			self.playerindex += 1

@@ -253,7 +253,7 @@ class Bomberplayer(arcade.Sprite):
 		self.update()
 
 class Bomb(arcade.Sprite):
-	def __init__(self, image=None, scale=1, bomber=None, timer=1000):
+	def __init__(self, image=None, scale=1.0, bomber=None, timer=1000):
 		super().__init__(image,scale)
 		self.bomber = bomber
 		self.timer = timer
@@ -281,7 +281,7 @@ class Bomb(arcade.Sprite):
 			self.timer -= BOMBTICKER
 
 class BiggerBomb(arcade.Sprite):
-	def __init__(self, image=None, scale=1, bomber=None, timer=1000):
+	def __init__(self, image=None, scale=1.0, bomber=None, timer=1000):
 		super().__init__(image,scale)
 		self.bomber = bomber
 		self.timer = timer

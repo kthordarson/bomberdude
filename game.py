@@ -544,7 +544,7 @@ class Bomberdude(arcade.View):
 					bullet_vel = Vec2d(x=game_event.get('bullet_vel')[0], y=game_event.get('bullet_vel')[1])
 					bulletpos = Vec2d(x=game_event.get('pos')[0], y=game_event.get('pos')[1])
 					bulletpos_fix = get_map_coordinates_rev(bulletpos, self.guicamera)
-					bullet = Bullet(texture=self.bullet_sprite,scale=1, shooter=shooter)
+					bullet = Bullet(texture=self.bullet_sprite,scale=0.8, shooter=shooter)
 					bullet.left = bulletpos.x
 					bullet.bottom = bulletpos.y
 					bullet.change_x = bullet_vel.x
@@ -691,12 +691,10 @@ class Bomberdude(arcade.View):
 					self.playerone.position = oldpos
 			checkx()
 			checky()
-			for hit in colls:
-				hit.draw_hit_box(color=arcade.color.RED, line_thickness=4)
 		for b in self.game_state.scene['Bullets']:
 			b_oldpos = b.position
 			b.update()
-			colls = arcade.check_for_collision_with_list(b, self.game_state.scene['static'])
+			colls = arcade.check_for_collision_with_list(b, checklist)
 			if len(colls) > 0:
 				for hit in colls:
 					#logger.info(f'bullet {b} hit {colls=}')
@@ -712,6 +710,10 @@ class Bomberdude(arcade.View):
 			for hit in arcade.check_for_collision_with_list(f, self.game_state.scene['Blocks']):
 				hitblocktype = hit.properties.get('tile_id')
 				match hitblocktype:
+					case 2:
+						event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
+						self.eventq.put(event)
+						self.game_state.scene['Blocks'].remove(hit)
 					case 6:
 						event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
 						self.eventq.put(event)
@@ -729,102 +731,24 @@ class Bomberdude(arcade.View):
 						self.eventq.put(event)
 						self.game_state.scene['Blocks'].remove(hit)
 				f.remove_from_sprite_lists()
-		for p in self.game_state.scene['Particles']:
-			p.update()
 		for b in self.game_state.scene["Bombs"]:
 			b.update(self.game_state.scene, self.eventq)
 		for upgr in self.game_state.scene['Upgrades']:
 			upgr.update()
+			upgradetype = upgr.upgradetype
 			if arcade.check_for_collision(upgr, self.playerone):
 				# self.playerone.health -= 123
-				event = {'event_time':0, 'event_type':'takeupgrade', 'client_id': self.playerone.client_id, 'handled': False,  'eventid': gen_randid()}
+				event = {'event_time':0, 'event_type':'takeupgrade', 'upgradetype':upgradetype, 'client_id': self.playerone.client_id, 'handled': False,  'eventid': gen_randid()}
 				if self.debugmode:
-					logger.debug(f'upgr: {upgr} hit: {self.playerone} {event=}')
+					logger.debug(f'pickedup upgr: {upgr} {upgradetype=} {self.playerone} ')
 				#self.game_state.game_events.append(event)
 				self.eventq.put(event)
 				upgr.remove_from_sprite_lists()
-
-
-	def oldonupdate(self):
-		for bullet in self.game_state.scene['Bullets']:
-			# bullet.update()
-			#self.bullet_engine.apply_force(bullet, (bullet.change_x, bullet.change_y))
-			bullet_wall_hits = [] # arcade.PhysicsEngineSimple(bullet, walls=[self.game_state.scene["Blocks"], self.game_state.scene["Walls"],]).update()
-			# self.bullet.position = bullet.position
-			for bwh in bullet_wall_hits:
-				logger.info(f'bwh hit: {bwh=} {bullet=}')
-				#bullet.remove_from_sprite_lists()
-			bullet_np_hits = arcade.check_for_collision_with_list(bullet, self.game_state.scene["Netplayers"])
-			for nphit in bullet_np_hits:
-				logger.info(f'nphit: {nphit=} {bullet=}')
-				#bullet.remove_from_sprite_lists()
-			if bullet.can_kill:
-				if arcade.check_for_collision(bullet, self.playerone):
-					event = {'event_time':0, 'event_type':'takedamage', 'damage': 1, 'dmgfrom':bullet.shooter, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
-					#self.game_state.game_events.append(event)
-					if bullet.shooter != self.playerone.client_id: # skip own bullets
-						self.eventq.put(event)
-
-		for upgr in self.game_state.scene['Upgrades']:
-			upgr.update()
-			if arcade.check_for_collision(upgr, self.playerone):
-				# self.playerone.health -= 123
-				event = {'event_time':0, 'event_type':'takeupgrade', 'client_id': self.playerone.client_id, 'handled': False,  'eventid': gen_randid()}
-				if self.debugmode:
-					logger.debug(f'upgr: {upgr} hit: {self.playerone} {event=}')
-				#self.game_state.game_events.append(event)
-				self.eventq.put(event)
-				upgr.remove_from_sprite_lists()
-		for f in self.game_state.scene['Flames']:
-			if arcade.check_for_collision(f, self.playerone):
-				# self.playerone.health -= 123
-				event = {'event_time':0, 'event_type':'takedamage', 'damage': 10, 'dmgfrom':f.bomber, 'dmgto': self.playerone.client_id, 'handled': False, 'handledby': f'playerone-{self.playerone.client_id}', 'eventid': gen_randid()}
-				#self.game_state.game_events.append(event)
-				self.eventq.put(event)
-				f.remove_from_sprite_lists()
-			f_hitlist = arcade.check_for_collision_with_list(f, self.game_state.scene['Walls'])
-			f_hitlist.extend(arcade.check_for_collision_with_list(f, self.game_state.scene['Blocks'])) # toodo split and move to gamestate
-			#f_hitlist.extend(arcade.check_for_collision_with_list(f, self.sceneblocks))
-			for hit in f_hitlist:
-				hitblocktype = hit.properties.get('tile_id') # todo move this logic to gamestate
-				match hitblocktype:
-					case 10:
-						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-						f.remove_from_sprite_lists()
-					case 5:
-						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-						f.remove_from_sprite_lists()
-					case 3 | 4:
-						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-						hit.remove_from_sprite_lists()
-						f.remove_from_sprite_lists()
-					case 2:
-						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-						f.remove_from_sprite_lists()
-					case 11:
-						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-						f.remove_from_sprite_lists()
-					case 12: # todo create updateblock
-						# logger.debug(f'hits: {len(f_hitlist)} flame {f} hit {hit} ')
-						f.remove_from_sprite_lists()
-						hit.remove_from_sprite_lists()
-						event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
-						self.eventq.put(event)
-					case _:
-						logger.info(f'f: {f} hit: {hit.properties.get("tile_id")} {hit}')
-
 		for p in self.game_state.scene['Particles']:
-			p_hitlist = arcade.check_for_collision_with_list(p, self.game_state.scene['Walls'])
-			p_hitlist.extend(arcade.check_for_collision_with_list(p, self.game_state.scene['Blocks']))
-			#p_hitlist.extend(arcade.check_for_collision_with_list(p, self.sceneblocks))
+			p.update()
+			p_hitlist = arcade.check_for_collision_with_list(p, checklist)
 			if p_hitlist:
-				for hit in p_hitlist:
-					if p.change_x > 0:
-						p.right = hit.left
-					elif p.change_x < 0:
-						p.left = hit.right
-				if len(p_hitlist) > 0:
-					p.change_x *= -1
+				p.remove_from_sprite_lists()
 
 	def dropbomb(self, key):
 		self.player_event.keys[key] = False
