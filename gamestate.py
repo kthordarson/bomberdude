@@ -63,6 +63,8 @@ class GameState:
 		self.mapname = mapname
 		logger.debug(f'loading {self.mapname}')
 		self.tile_map = arcade.load_tilemap(self.mapname, layer_options=self.layer_options, scaling=TILE_SCALING, use_spatial_hash=True)
+		for block in self.tile_map.sprite_lists['Blocks']:
+			block.hit_count = 0
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 
 	def get_players(self, skip):

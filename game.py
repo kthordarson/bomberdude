@@ -16,6 +16,7 @@ from arcade.types import Point
 from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
 from loguru import logger
 from objects import Bomberplayer, Bomb, BiggerBomb, KeysPressed, PlayerEvent, PlayerState,  UIPlayerLabel, Bullet
+from panels import Panel
 from utils import get_map_coordinates_rev, gen_randid
 from gamestate import GameState
 from debug import debug_dump_game, draw_debug_widgets, draw_debug_players
@@ -207,6 +208,7 @@ class Bomberdude(arcade.View):
 		ypos = self.window.height//2 # - len(self.netplayer_labels)*20
 		self.anchor = self.manager.add(UIAnchorLayout(x=4, y=4, anchor_x='left', anchor_y='bottom' ))#, anchor_y='top'))
 		self.anchor.add(child=self.netplayer_grid)
+		self.panel = Panel(10,10,250,50, self.window)
 
 	def center_camera_on_player(self, speed=0.2):
 		screen_center_x = 1 * (self.playerone.center_x - (self.camera.viewport_width / 2))
@@ -241,6 +243,7 @@ class Bomberdude(arcade.View):
 		#	sprite_list.draw()
 		self.playerone.draw()
 		self.manager.draw()
+		self.panel.draw()
 		if self.draw_labels:
 			for label in self.labels:
 				label.draw()
@@ -310,10 +313,6 @@ class Bomberdude(arcade.View):
 
 	def on_mouse_press(self, x, y, button, modifiers):
 		self.mouse_pos = Vec2d(x=x,y=y)
-		screen_center_x = self.camera.viewport_width // 2
-		screen_center_y = self.camera.viewport_height // 2
-
-		#cgmpr = Vec2d(x=x,y=y)
 		cgmpr = get_map_coordinates_rev(self.playerone.position, self.camera)
 		if button == 1:
 			x_diff = x - cgmpr.x
@@ -323,15 +322,7 @@ class Bomberdude(arcade.View):
 			change_x = 1-math.cos(ba) * BULLET_SPEED
 			change_y = math.sin(ba) * BULLET_SPEED
 			bullet_vel = Vec2d(x=change_x, y=change_y)
-			#bullet.center_x += bullet_vel.x*5
-			#bullet.center_y += bullet_vel.y*5
 			bulletpos = Vec2d(x=self.playerone.center_x,y=self.playerone.center_y)
-			# rads = math.radians(angle)
-			# distance = 16
-			# fix_x = bulletpos.x +  math.cos(rads) * distance
-			# fix_y = bulletpos.y + math.sin(rads) * distance
-			# bulletpos_fix = Vec2d(x=fix_x, y=fix_y)
-			# bulletpos_fix = get_map_coordinates_rev(bulletpos, self.camera)
 			event = {
 				'event_time':0,
 				'event_type':'bulletfired',
@@ -347,7 +338,6 @@ class Bomberdude(arcade.View):
 		else:
 			logger.warning(f'{x=} {y=} {button=} {modifiers=}')
 			return
-
 
 	def on_key_press(self, key, modifiers):
 		# todo check collisions before sending keypress...
@@ -377,10 +367,6 @@ class Bomberdude(arcade.View):
 			arcade.clear_timings()
 		elif key == arcade.key.F6:
 			self.draw_labels = not self.draw_labels
-			# self.window.set_fullscreen(not self.window.fullscreen)
-			# width, height = self.window.get_size()
-			# self.window.set_viewport(0, width, 0, height)
-			# self.camera = arcade.Camera(viewport=(0, 0, self.width, self.height))
 		elif key == arcade.key.F7:
 			self.window.set_fullscreen(not self.window.fullscreen)
 			# width, height = self.window.get_size()
@@ -394,8 +380,6 @@ class Bomberdude(arcade.View):
 			logger.warning(f'quit')
 			arcade.close_window()
 			return
-		elif key == arcade.key.SPACE:
-			self.dropbomb(key)
 
 		#self.player_event.keys[key] = True
 		#self.keys_pressed.keys[key] = True
@@ -431,6 +415,8 @@ class Bomberdude(arcade.View):
 			self.playerone.change_y = 0
 		elif key == arcade.key.LEFT or key == arcade.key.RIGHT or key == arcade.key.A or key == arcade.key.D:
 			self.playerone.change_x = 0
+		elif key == arcade.key.SPACE:
+			self.dropbomb(key)
 		self.player_event.keys[key] = False
 		self.keys_pressed.keys[key] = False
 
@@ -714,6 +700,13 @@ class Bomberdude(arcade.View):
 						event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
 						self.eventq.put(event)
 						self.game_state.scene['Blocks'].remove(hit)
+					case 3:
+						hit.hit_count += 1
+						logger.debug(f'hitcount: {hit.hit_count} {hit=}')
+						if hit.hit_count > 3:
+							event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
+							self.eventq.put(event)
+							self.game_state.scene['Blocks'].remove(hit)
 					case 6:
 						event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
 						self.eventq.put(event)
@@ -722,6 +715,13 @@ class Bomberdude(arcade.View):
 						event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
 						self.eventq.put(event)
 						self.game_state.scene['Blocks'].remove(hit)
+					case 10:
+						hit.hit_count += 1
+						logger.debug(f'hitcount: {hit.hit_count} {hit=}')
+						if hit.hit_count > 3:
+							event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
+							self.eventq.put(event)
+							self.game_state.scene['Blocks'].remove(hit)
 					case 11:
 						event = {'event_time':0, 'event_type':'blkxplode', 'hit':hitblocktype, 'flame':f.position, 'fbomber': f.bomber, 'client_id': self.playerone.client_id, 'handled': False, 'handledby': 'playerone', 'eventid': gen_randid()}
 						self.eventq.put(event)

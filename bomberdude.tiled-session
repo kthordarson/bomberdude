@@ -276,6 +276,22 @@
                 "y": 416
             }
         },
+        "data/maptest5.json": {
+            "scale": 1.5,
+            "selectedLayer": 2,
+            "viewCenter": {
+                "x": 239,
+                "y": 1039.3333333333333
+            }
+        },
+        "data/maptest5.tmx": {
+            "scale": 0.4537239583333333,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 962.0386844975034,
+                "y": 641.3591229983357
+            }
+        },
         "data/wall-rules.tmx": {
             "scale": 2,
             "selectedLayer": 2,
@@ -317,6 +333,7 @@
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
+        "data/maptest5.tmx",
         "data/maptest2.json",
         "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json",
         "data/maptest4.json",
@@ -327,8 +344,7 @@
         "data/map.json",
         "/home/kth/development2/games/tiled-automap-example/tiled-automap.tmx",
         "/home/kth/development2/games/tiled-automap-example/wall-rules.tmx",
-        "data/wall-rules.tmx",
-        "data/btiles.tsx"
+        "data/wall-rules.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1

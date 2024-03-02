@@ -188,7 +188,11 @@ class BombServer():
 	async def get_tile_map(self):
 
 		mapname = str(self.game_state.tile_map.tiled_map.map_file)
-		if 'maptest5' in mapname:
+		if 'maptest2' in mapname:
+			map4pos = [ (2,2), (3,25), (27,2), (25,25),]
+			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
+			self.playerindex += 1
+		elif 'maptest5' in mapname:
 			map4pos = [ (2,2), (2,38), (58,2), (58,38),]
 			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
 			self.playerindex += 1
@@ -241,14 +245,6 @@ class BombServer():
 				if self.packetdebugmode:
 					logger.info(f'msg: {msg}')
 				clid = msg['client_id']
-				# game_events = msg.get('game_events', [])
-				# event_dict = msg['event']
-				# event_dict['counter'] = msg['counter']
-				# event_dict['client_id'] = clid
-				# event_dict['ufcl_cnt'] = self.ufc_counter
-				# event_dict['game_events'] = game_events
-				# player_event = PlayerEvent(**event_dict)
-				# player_event.set_client_id(clid)
 				try:
 					self.game_state.update_game_state(clid, msg)
 					self.game_state.update_game_events(msg)
