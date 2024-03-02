@@ -18,7 +18,8 @@ from typing import List, Dict
 import json
 from dataclasses import dataclass, asdict, field
 from arcade.types import Point
-from objects import gen_randid
+from utils import gen_randid
+from objects import Upgrade
 
 
 @dataclass
@@ -85,8 +86,22 @@ class GameState:
 			playerhealth = self.players[p].get('health')
 			if dt_diff > 10: # player timeout
 				self.players[p]['timeout'] = True
+				self.event_queue.put_nowait({'event_time':0, 'event_type':'playerquit', 'client_id': p, 'reason':'timeout','eventid': gen_randid()}) # update other clients about playerquit
 				if not self.players[p]['timeout']:
 					logger.info(f'player timeout {p} dt_diff={dt_diff} selfplayers={self.players}')
+
+	def create_upgrade_block(self,upgradetype, blkpos):
+		match upgradetype:
+			case 1:
+				upgrade = Upgrade(upgradetype, 'data/heart.png', blkpos, scale=0.8, timer=2000)
+			case 2:
+				upgrade = Upgrade(upgradetype, 'data/bombpwr.png', blkpos, scale=0.8, timer=1500)
+			case 3:
+				upgrade = Upgrade(upgradetype, 'data/bomb2.png', blkpos, scale=0.8, timer=3000)
+			case _:
+				upgrade = Upgrade(upgradetype, 'data/skull.png', blkpos, scale=0.8, timer=5000)
+				logger.warning(f'unknown upgradetype {upgradetype=} {blkpos=}')
+		return upgrade
 
 	def update_game_state(self, clid, msg):
 		self.ugs_counter += 1

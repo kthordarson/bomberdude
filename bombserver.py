@@ -12,7 +12,6 @@ from queue import Queue, Empty
 from loguru import logger
 import random
 from constants import *
-from objects import gen_randid
 from gamestate import GameState
 from asyncio import run, create_task, CancelledError
 from api import ApiServer
@@ -178,6 +177,7 @@ class BombServer():
 		self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock, ),)
 		self.packetdebugmode = self.args.packetdebugmode
 		self.tui = ServerTUI(self, debugmode=args.debugmode)
+		self.playerindex = 0
 		# debugstuff
 		# self.app = Flask(import_name='bombserver')
 		# self.app.run(host=args.listen, port=args.port)
@@ -186,8 +186,14 @@ class BombServer():
 		return self.game_state.to_json()
 
 	async def get_tile_map(self):
-		mapname = self.game_state.tile_map.tiled_map.map_file
-		position = self.get_position()
+
+		mapname = str(self.game_state.tile_map.tiled_map.map_file)
+		if 'maptest4' in mapname:
+			map4pos = [ (2,2), (25,27), (27,2), (2,22),]
+			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
+			self.playerindex += 1
+		else:
+			position = self.get_position()
 		return {'mapname': str(mapname), 'position': position}
 
 	def remove_timedout_players(self):
@@ -239,8 +245,13 @@ class BombServer():
 				# event_dict['game_events'] = game_events
 				# player_event = PlayerEvent(**event_dict)
 				# player_event.set_client_id(clid)
-				self.game_state.update_game_state(clid, msg)
-				self.game_state.update_game_events(msg)
+				try:
+					self.game_state.update_game_state(clid, msg)
+					self.game_state.update_game_events(msg)
+				except KeyError as e:
+					logger.warning(f'{type(e)} {e} {msg=}')
+				except Exception as e:
+					logger.error(f'{type(e)} {e} {msg=}')
 				if self.tui.stopped():
 					logger.warning(f'{self} tuistop {self.tui}')
 					break
@@ -260,7 +271,7 @@ class BombServer():
 				self.game_state.check_players()
 				self.remove_timedout_players()
 				await sockpush.send_json(self.game_state.to_json())
-				await asyncio.sleep(1 / SERVER_UPDATE_TICK_HZ)
+				await asyncio.sleep(1 / UPDATE_TICK) # SERVER_UPDATE_TICK_HZ
 				# self.game_state.game_events = []
 				if self.tui.stopped():
 					logger.warning(f'{self} tuistop {self.tui} {t=}')

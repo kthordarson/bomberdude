@@ -9,7 +9,7 @@ from arcade.gui.widgets.layout import UIAnchorLayout
 from arcade.types import Point
 from loguru import logger
 from constants import *
-from objects import get_map_coordinates_rev
+from utils import get_map_coordinates_rev
 def drawbox(sx,ex, sy, ey, color, lw):
 	# sx = startx, ex = endx, sy = starty, ey = endy, color, lw=linew,
 	textwidth = 444

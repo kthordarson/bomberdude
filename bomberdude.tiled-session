@@ -103,8 +103,8 @@
             "scale": 1.877478448275862,
             "selectedLayer": 1,
             "viewCenter": {
-                "x": 232.49268208689668,
-                "y": 120.3742179877174
+                "x": 231.96005280376517,
+                "y": 120.10790334615166
             }
         },
         "/home/kth/development2/games/donk-tiled/tileset_oink.tsx": {
@@ -256,8 +256,8 @@
             "scale": 2,
             "selectedLayer": 3,
             "viewCenter": {
-                "x": 818.25,
-                "y": 481
+                "x": 512,
+                "y": 511.75
             }
         },
         "data/maptest3.json": {

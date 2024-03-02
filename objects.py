@@ -22,12 +22,7 @@ import json
 from dataclasses import dataclass, asdict, field
 from arcade.types import Point
 
-def gen_randid() -> int:
-	return int(''.join([str(random.randint(0,9)) for k in range(10)]))
-	#hashid = hashlib.sha1()
-	#hashid.update(str(time.time()).encode("utf-8"))
-	#return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
-
+from utils import gen_randid
 
 MOVE_MAP = {
 	arcade.key.UP: (0, PLAYER_MOVEMENT_SPEED),
@@ -159,7 +154,7 @@ class Networkthing(arcade.Sprite):
 
 @dataclass
 class Bomberplayer(arcade.Sprite):
-	def __init__(self, texture, scale=0.8, client_id=None, position=Vec2d(x=99,y=99)):
+	def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99,y=99)):
 		super().__init__(texture,scale)
 		self.client_id = client_id
 		# self.ps = PlayerState(self.client_id, position)
@@ -180,29 +175,6 @@ class Bomberplayer(arcade.Sprite):
 	def __hash__(self):
 		return self.client_id
 
-	def network_sync(self, data):
-		pass
-		#self.client_id = data['client_id']
-		#self.position = data['position']
-		#self.angle = data['angle']
-		#self.health = data['health']
-		#self.timeout = False # data['timeout']
-		#self.killed = data['killed']
-		#self.score = data['score']
-		#self.bombsleft = data['bombsleft']
-		# msg = dict(
-		# 				score = game.playerone.score,
-		# 				game_events = [game_events,],
-		# 				client_id = game.playerone.client_id,
-		# 				position = game.playerone.position,
-		# 				angle = game.playerone.angle,
-		# 				health = game.playerone.health,
-		# 				timeout = game.playerone.timeout,
-		# 				killed = game.playerone.killed,
-		# 				bombsleft = game.playerone.bombsleft,
-		# 				gotmap = game._gotmap,
-		# 				msgsource = 'pushermsgdict',
-		# 				msg_dt = time.time())
 	def rotate_around_point(self, point: Point, degrees: float):
 		"""
 		Rotate the sprite around a point by the set amount of degrees
@@ -376,39 +348,6 @@ class Bullet(arcade.Sprite):
 		else:
 			self.remove_from_sprite_lists()
 
-		# changes = 0
-		# if self.change_x < 0: # left
-		# 	changes += 1
-		# 	ocx = self.change_x
-		# 	self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
-		# 	self.change_x *= 1-math.cos(math.radians(self.angle))
-		# 	logger.info(f'{self} A {changes} hit {other} {ocx=} {self.change_x=}')
-		# if self.change_x > 0: # right
-		# 	ocx = self.change_x
-		# 	if changes <= 1:
-		# 		changes += 1
-		# 		self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
-		# 		self.change_x *= 1- math.cos(math.radians(self.angle))
-		# 		logger.info(f'{self} B {changes} hit {other} {ocx=} {self.change_x=}')
-		# if self.change_y > 0: # up
-		# 	ocy = self.change_y
-		# 	if changes < 2:
-		# 		changes += 1
-		# 		self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
-		# 		self.change_y *= math.sin(math.radians(self.angle))
-		# 		logger.info(f'{self} C {changes} hit {other} {ocy=} {self.change_y=}')
-		# 	else:
-		# 		logger.warning(f'{self} C {changes} hit {other} {ocy=} {self.change_y=}')
-		# if self.change_y < 0: # down
-		# 	ocy = self.change_y
-		# 	if changes < 2:
-		# 		changes += 1
-		# 		self.angle = -math.degrees(math.atan2(self.change_y, self.change_x)) + math.pi * 2
-		# 		self.change_y *= 1- math.sin(math.radians(self.angle))
-		# 		logger.info(f'{self} D {changes} hit {other} {ocy=} {self.change_y=}')
-		# 	else:
-		# 		logger.warning(f'{self} D {changes} hit {other} {ocy=} {self.change_y=}')
-		#self.change_y *= math.sin(math.radians(self.angle))
 
 	def update(self):
 		# self.velocity = Vec2d(x=self.velocity[0], y=self.velocity[1])
@@ -513,18 +452,3 @@ class Upgrade(arcade.Sprite):
 			self.timer -= 1
 
 
-def create_upgrade_block(upgradetype, blkpos):
-	match upgradetype:
-		case 1:
-			upgrade = Upgrade(upgradetype, 'data/heart.png', blkpos, scale=0.8, timer=2000)
-		case 2:
-			upgrade = Upgrade(upgradetype, 'data/bombpwr.png', blkpos, scale=0.8, timer=1500)
-		case 3:
-			upgrade = Upgrade(upgradetype, 'data/bomb2.png', blkpos, scale=0.8, timer=3000)
-		case _:
-			upgrade = Upgrade(upgradetype, 'data/skull.png', blkpos, scale=0.8, timer=5000)
-			logger.warning(f'unknown upgradetype {upgradetype=} {blkpos=}')
-	return upgrade
-
-def get_map_coordinates_rev(camera_vector: Union[Vec2d, tuple], camera) -> Vec2d:
-	return Vec2d(*camera_vector) - Vec2d(*camera.position)
