@@ -253,11 +253,11 @@
             }
         },
         "data/maptest2.json": {
-            "scale": 2,
+            "scale": 0.75,
             "selectedLayer": 3,
             "viewCenter": {
-                "x": 512,
-                "y": 511.75
+                "x": 466,
+                "y": 612
             }
         },
         "data/maptest3.json": {
@@ -272,8 +272,8 @@
             "scale": 0.75,
             "selectedLayer": 3,
             "viewCenter": {
-                "x": 390,
-                "y": 416
+                "x": 388.66666666666663,
+                "y": 414.66666666666663
             }
         },
         "data/maptest5.json": {
@@ -281,7 +281,7 @@
             "selectedLayer": 2,
             "viewCenter": {
                 "x": 239,
-                "y": 1039.3333333333333
+                "y": 1038
             }
         },
         "data/maptest5.tmx": {

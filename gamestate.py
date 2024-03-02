@@ -169,9 +169,15 @@ class GameState:
 						clid = game_event['client_id']
 						match upgradetype:
 							case 1: # extra health
-								self.players[clid]['health'] += 20
+								self.players[clid]['health'] += EXTRA_HEALTH
+								logger.debug(f'{clid} got extrahealth -> {self.players[clid].get("health")}')
+								event = {'event_time':0, 'event_type': 'extrahealth', 'amount':EXTRA_HEALTH, 'client_id': clid,  'eventid': gen_randid()}
+								self.event_queue.put_nowait(event)
 							case 2: # extra bomb
 								self.players[clid]['bombsleft'] += 1
+								logger.debug(f'{clid} got extrabomb -> {self.players[clid].get("bombsleft")}')
+								event = {'event_time':0, 'event_type': 'extrabomb', 'client_id': clid,  'eventid': gen_randid()}
+								self.event_queue.put_nowait(event)
 							case 3: # bigger bomb
 								pass
 							case _:
@@ -179,12 +185,17 @@ class GameState:
 					case 'bombdrop': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
 						bomber = game_event.get("bomber")
+						eventid = game_event.get('eventid')
 						if self.players[bomber].get("bombsleft")>0:
 							game_event['event_type'] = f'ackbombdrop'
 							self.players[bomber]['bombsleft'] -= 1
 							self.event_queue.put_nowait(game_event)
 							if self.debugmode:
-								logger.debug(f'{event_type} from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
+								logger.debug(f'{event_type} from {bomber} {eventid=} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
+						else:
+							if self.debugmode:
+								logger.debug(f'nobombsleft ! {event_type} from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
+
 					case 'bulletfired': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
 						shooter = game_event.get("shooter")
@@ -197,11 +208,12 @@ class GameState:
 					case 'bombxplode': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
 						game_event['event_type'] = f'ackbombxplode'
+						eventid = game_event.get('eventid')
 						bomber = game_event.get("bomber")
-						# self.players[bomber]['bombsleft'] += 1
+						self.players[bomber]['bombsleft'] += 1
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
-							logger.debug(f'{event_type} from {bomber}  bl={self.players[bomber].get("bombsleft")}')
+							logger.debug(f'{event_type} from {bomber}  bl={self.players[bomber].get("bombsleft")} {eventid=}')
 					case 'playerkilled': # increase score for dmgfrom
 						dmgfrom = game_event.get("dmgfrom")
 						dmgto = game_event.get("dmgto")

@@ -167,13 +167,41 @@ class Bomberplayer(arcade.Sprite):
 		self.score = 0
 		self.angle = 0
 		self.spatial_hash = SpatialHash(cell_size=32)
+		self.candrop = True # player cannot drop until server sends ack for last drop
+		self.lastdrop = 0
 		# self.text = arcade.Text(f'{self.client_id} h:{self.health} pos:{self.position}', 10,10)
 
 	def __repr__(self):
-		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} )'
+		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} bl:{self.bombsleft} cd:{self.candrop} ld:{self.lastdrop} )'
 
 	def __hash__(self):
 		return self.client_id
+
+	def dropbomb(self, bombtype, eventq) -> None:
+		if not self.candrop:
+			logger.error(f'{self} cannot drop bomb waiting for ack {self.lastdrop}')
+			return
+		if self.bombsleft <= 0:
+			logger.warning(f'p1: {self} has no bombs left or cant drop {self.lastdrop}...')
+			return
+		if self.candrop:
+			bombpos = Vec2d(x=self.center_x,y=self.center_y)
+			bombevent = {'event_time':0, 'event_type':'bombdrop', 'bombtype':bombtype, 'bomber': self.client_id, 'pos': bombpos, 'timer': 1, 'handled': False, 'handledby': self.client_id, 'ld':self.lastdrop, 'eventid': gen_randid()}
+			eventq.put(bombevent)
+			self.candrop = False
+			self.bombsleft -= 1
+			self.lastdrop = bombevent['eventid']
+			logger.debug(f'{self} dropped bomb {bombevent["eventid"]}')
+			return
+		else:
+			logger.warning(f'{self} cannot drop bomb waiting for ack {self.lastdrop}')
+			return
+
+	def update_netdata(self, playeronedata):
+		self.score = playeronedata['score']
+		self.health = playeronedata['health']
+		self.bombsleft = playeronedata['bombsleft']
+		# self.score = playeronedata['score']
 
 	def rotate_around_point(self, point: Point, degrees: float):
 		"""

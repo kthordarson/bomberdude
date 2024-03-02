@@ -249,17 +249,18 @@ class Bomberdude(arcade.View):
 				label.draw()
 		if self.debugmode:
 			for b in self.game_state.scene['Bullets']:
-				self.camera.use()
-				draw_line(start_x=b.center_x, start_y=b.center_y, end_x=self.playerone.center_x, end_y=self.playerone.center_y, color=arcade.color.ORANGE, line_width=1)
-				textpos = get_map_coordinates_rev(b.position, self.camera)
-				self.guicamera.use()
-				try:
-					textpos += Vec2d(10,0)
-					arcade.Text(text = f'bxc: {b.change_x:.2f} bcy: {b.change_y:.2f} ', start_x=int(textpos.x), start_y=int(textpos.y), color=arcade.color.BLACK, font_size=10).draw()
-					textpos += Vec2d(0,11)
-					arcade.Text(text = f'ba: {b.angle:.2f}', start_x=int(textpos.x), start_y=int(textpos.y), color=arcade.color.BLACK, font_size=10).draw()
-				except AttributeError as e:
-					logger.error(f'{e} textpos={textpos} {b=}')
+				if b.can_kill:
+					self.camera.use()
+					draw_line(start_x=b.center_x, start_y=b.center_y, end_x=self.playerone.center_x, end_y=self.playerone.center_y, color=arcade.color.ORANGE, line_width=1)
+					textpos = get_map_coordinates_rev(b.position, self.camera)
+					self.guicamera.use()
+					try:
+						textpos += Vec2d(10,0)
+						arcade.Text(text = f'bxc: {b.change_x:.2f} bcy: {b.change_y:.2f} ', start_x=int(textpos.x), start_y=int(textpos.y), color=arcade.color.BLACK, font_size=10).draw()
+						textpos += Vec2d(0,11)
+						arcade.Text(text = f'ba: {b.angle:.2f}', start_x=int(textpos.x), start_y=int(textpos.y), color=arcade.color.BLACK, font_size=10).draw()
+					except AttributeError as e:
+						logger.error(f'{e} textpos={textpos} {b=}')
 
 		if self.draw_player_debug:
 			try:
@@ -416,7 +417,7 @@ class Bomberdude(arcade.View):
 		elif key == arcade.key.LEFT or key == arcade.key.RIGHT or key == arcade.key.A or key == arcade.key.D:
 			self.playerone.change_x = 0
 		elif key == arcade.key.SPACE:
-			self.dropbomb(key)
+			self.playerone.dropbomb(self.selected_bomb, self.eventq)
 		self.player_event.keys[key] = False
 		self.keys_pressed.keys[key] = False
 
@@ -429,10 +430,23 @@ class Bomberdude(arcade.View):
 			event_type = game_event.get('event_type')
 			if self.debugmode:
 				pass # logger.info(f'{event_type=} {game_event=} {game_events=}')
+			clid = game_event.get("client_id")
 			match event_type:
+				case 'extrabomb':
+					logger.info(f'{event_type=} {game_event=}')
+					if clid == self.playerone.client_id:
+						self.playerone.bombsleft += 1
+					else:
+						self.netplayers[clid].bombsleft += 1
+				case 'extrahealth':
+					eh = game_event.get('amount')
+					logger.info(f'{event_type=} {game_event=}')
+					if clid == self.playerone.client_id:
+						self.playerone.health += eh
+					else:
+						self.netplayers[clid].bombsleft += eh
 				case 'playerquit':
 					try:
-						clid = game_event.get("client_id")
 						l0 = len(self.netplayers)
 						self.netplayers[clid].remove_from_sprite_lists()
 						self.netplayers.pop(clid)
@@ -445,7 +459,6 @@ class Bomberdude(arcade.View):
 					except Exception as e:
 						logger.error(f'{type(e)} {e} {clid=} {self.netplayers=}')
 				case 'ackrespawn':
-					clid = game_event.get("client_id")
 					[k.set_texture(arcade.load_texture('data/netplayer.png')) for k in self.netplayers if k.client_id == clid]#[0]
 					logger.debug(f'{event_type} from {clid}')
 					if clid == self.playerone.client_id:
@@ -458,7 +471,6 @@ class Bomberdude(arcade.View):
 					if self.debugmode:
 						logger.info(f'{event_type} upgradetype {game_event.get("upgradetype")} {newblk}')
 				case 'acknewconn':
-					clid = game_event.get("client_id")
 					if self.debugmode:
 						if clid == self.playerone.client_id: # this is my connect ack
 							logger.debug(f'{event_type} from {clid}')
@@ -505,22 +517,26 @@ class Bomberdude(arcade.View):
 					dmgfrom = game_event.get("dmgfrom")
 					dmgto = game_event.get("dmgto")
 					damage = game_event.get("damage")
-					self.game_state.players[dmgfrom]['score'] += damage
-					self.game_state.players[dmgfrom]['health'] -= damage
+					# self.game_state.players[dmgfrom]['score'] += damage
+					# self.game_state.players[dmgfrom]['health'] -= damage
 					if dmgto == self.playerone.client_id:
 						self.playerone.take_damage(damage, dmgfrom)
 						logger.debug(f'{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} ')
 					elif dmgfrom == self.playerone.client_id:
-						self.playerone.score += damage
+						# self.playerone.score += damage
 						logger.info(f'{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} ')
 
 				case 'ackbombxplode':
 					bomber = game_event.get('bomber')
-					# self.netplayers[bomber].bombsleft += 1
+					eventid = game_event.get('eventid')
 					# self.game_state.players[bomber]['bombsleft'] += 1
 					if bomber == self.playerone.client_id:
-						self.playerone.bombsleft += 1
-						logger.info(f'{game_event.get("event_type")} ownbombxfrom {bomber} p1={self.playerone}')
+						if eventid == self.playerone.lastdrop:
+							self.playerone.candrop = True
+							self.playerone.bombsleft += 1
+							logger.info(f'{game_event.get("event_type")} ownbombxfrom {bomber} p1={self.playerone}')
+					else:
+						pass # self.netplayers[bomber].bombsleft += 1
 						# self.playerone.bombsleft += 1
 						#self.game_state.players[bomber]['bombsleft'] += 1
 						# self.netplayers[bomber].bombsleft += 1
@@ -539,6 +555,7 @@ class Bomberdude(arcade.View):
 					self.game_state.scene.add_sprite("Bullets", bullet)
 				case 'ackbombdrop':
 					bomber = game_event.get('bomber')
+					eventid = game_event.get('eventid')
 					bombpos = Vec2d(x=game_event.get('pos')[0], y=game_event.get('pos')[1])
 					bombpos_fix = get_map_coordinates_rev(bombpos, self.camera)
 					bombtype = game_event.get('bombtype')
@@ -548,21 +565,13 @@ class Bomberdude(arcade.View):
 						bomb = BiggerBomb("data/bomb.png",scale=0.7, bomber=bomber, timer=1500)
 					bomb.center_x = bombpos.x
 					bomb.center_y = bombpos.y
-
-					# bomb2 = Bomb("data/bomb2.png",scale=1, bomber=bomber, timer=1500)
-					# bomb2.center_x = bombpos_fix.x
-					# bomb2.center_y = bombpos_fix.y
 					self.game_state.scene.add_sprite("Bombs", bomb)
-					# self.game_state.scene.add_sprite("Bombs", bomb2)
-					# self.bomb_list.append(bomb2)
-					# self.bomb_list.append(bomb)
-					# self.bomb_list.append(bomb2)
-					if self.debugmode:
-						if bomber == self.playerone.client_id:
-							logger.info(f'{game_event.get("event_type")} ownbombfrom {bomber} pos 	{bombpos} {bombpos_fix=}')
-							self.playerone.bombsleft -= 1
-						else:
-							logger.debug(f'{game_event.get("event_type")} from {bomber} pos 	{bombpos} {bombpos_fix=}')
+					if bomber == self.playerone.client_id and eventid == self.playerone.lastdrop:
+						self.playerone.candrop = True # player can drop again
+						if self.debugmode:
+							logger.info(f'{game_event.get("event_type")} ownbombfrom {bomber} pos {bombpos} {eventid=} ld={self.playerone.lastdrop} {self.playerone}')
+					else:
+						logger.debug(f'{game_event.get("event_type")} from {bomber} pos 	{bombpos} {bombpos_fix=}')
 				case _:
 					# game_events.remove(game_event)
 					logger.warning(f'unknown type:{event_type} {game_events=} ')
@@ -571,6 +580,12 @@ class Bomberdude(arcade.View):
 		# gspcopy_ = copy.copy(self.game_state.players)
 		# gspcopy = [{k: self.game_state.players[k]} for k in self.game_state.players if k != self.playerone.client_id]
 		# _ = [self.netplayers[k].set_data(self.game_state.players[pclid]) for k in self.netplayers ] #  and k != self.playerone.client_id
+		try:
+			playeronedata = self.game_state.players[self.playerone.client_id]
+			self.playerone.update_netdata(playeronedata)
+		except KeyError as e:
+			logger.warning(f'keyerror {e} {self.game_state.players=} {self.playerone.client_id=}')
+
 		for gsplr in self.game_state.get_players(skip=self.playerone.client_id):
 			pclid = gsplr.get('client_id')
 			playerdata = gsplr.get('playerdata')
@@ -646,9 +661,9 @@ class Bomberdude(arcade.View):
 			logger.error(f'{e} {type(e)}')
 		if game_events:
 			self.handle_game_events([game_events,])
-		if len(self.game_state.players) > 1:
-			self.update_netplayers()
-			self.update_poplist()
+		#if len(self.game_state.players) > 1:
+		self.update_netplayers()
+		self.update_poplist()
 		oldpos = self.playerone.position
 		self.playerone.update()
 		self.playerone.draw_hit_box(color=arcade.color.RED, line_thickness=4)
@@ -750,11 +765,3 @@ class Bomberdude(arcade.View):
 			if p_hitlist:
 				p.remove_from_sprite_lists()
 
-	def dropbomb(self, key):
-		self.player_event.keys[key] = False
-		if self.playerone.bombsleft <= 0:
-			logger.warning(f'p1: {self.playerone} has no bombs left...')
-		else:
-			bombpos = Vec2d(x=self.playerone.center_x,y=self.playerone.center_y)
-			bombevent = {'event_time':0, 'event_type':'bombdrop', 'bombtype':self.selected_bomb, 'bomber': self.playerone.client_id, 'pos': bombpos, 'timer': 1515, 'handled': False, 'handledby': self.playerone.client_id, 'eventid': gen_randid()}
-			self.eventq.put(bombevent)

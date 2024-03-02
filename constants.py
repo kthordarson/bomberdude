@@ -6,6 +6,7 @@ import arcade
 import array
 import math
 from typing import Optional, Tuple
+EXTRA_HEALTH = 10
 BLOCK = 32
 BOMBTICKER = 10
 BOMBTIMEOUT = 2000
