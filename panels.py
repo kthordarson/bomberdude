@@ -35,9 +35,9 @@ class Panel(UIWidget):
 		# bottom left box
 		self.blb = arcade.SpriteSolidColor(width=self.width//2, height=self.height/2, center_x=self.position[0]+(self.width//4), center_y=self.position[1]+self.height//4, color=arcade.color.ORANGE)
 		# top right box
-		self.trb = arcade.SpriteSolidColor(width=self.width//2, height=self.height/2, center_x=self.position[0]+(self.width//4*3), center_y=self.position[1]+self.height//4, color=arcade.color.CADMIUM_ORANGE)
+		self.brb = arcade.SpriteSolidColor(width=self.width//2, height=self.height/2, center_x=self.position[0]+(self.width//4*3), center_y=self.position[1]+self.height//4, color=arcade.color.CADMIUM_ORANGE)
 		# bottom right box
-		self.brb = arcade.SpriteSolidColor(width=self.width//2, height=self.height/2, center_x=self.position[0]+(self.width//4*3), center_y=self.position[1]+(self.height//4*3), color=arcade.color.WHITE)
+		self.trb = arcade.SpriteSolidColor(width=self.width//2, height=self.height/2, center_x=self.position[0]+(self.width//4*3), center_y=self.position[1]+(self.height//4*3), color=arcade.color.GRAY)
 		self.boxes = arcade.SpriteList()
 		self.boxes.append(self.tlb)
 		self.boxes.append(self.blb)
@@ -48,7 +48,7 @@ class Panel(UIWidget):
 	def draw(self, playerone):
 		self.do_render(self.window)
 		self.boxes.draw()
-		arcade.Text(f'Playerone: {playerone.client_id}', self.x+2, self.y+self.height+2, arcade.color.WHITE, font_size=10).draw() # todo set player name here
+		arcade.Text(f'{playerone.name} : {playerone.client_id}', self.x+2, self.y+self.height+2, arcade.color.WHITE, font_size=10).draw() # todo set player name here
 		arcade.Text(f'Score: {playerone.score}', self.tlb.center_x-(self.width//4)+3, self.tlb.center_y, arcade.color.BLACK, font_size=10).draw()
 		arcade.Text(f'Health: {playerone.health}', self.blb.center_x-(self.width//4)+3, self.blb.center_y, arcade.color.BLACK, font_size=10).draw()
 		arcade.Text(f'Bombs: {playerone.bombsleft}', self.trb.center_x-(self.width//4)+3, self.trb.center_y, arcade.color.BLACK, font_size=10).draw()

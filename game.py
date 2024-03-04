@@ -125,10 +125,18 @@ class Bomberdude(arcade.View):
 		# get tilemap and scene from server
 		#request = {'event_time':0, 'event_type': 'getmap', 'client_id' : self.playerone.client_id, 'handled': False, 'handledby': 'setup_network', 'eventid': gen_randid()}
 		#self.eventq.put(request)
-		resp = json.loads(requests.get(f'http://{self.args.server}:9699/get_tile_map').text)
-		logger.debug(f'map {resp=}')
-		position = Vec2d(x=resp.get('position')[0], y=resp.get('position')[1])
-		self.game_state.load_tile_map(resp.get('mapname'))
+		try:
+			resp = json.loads(requests.get(f'http://{self.args.server}:9699/get_tile_map').text)
+			mapname = resp.get('mapname')
+			pos = resp.get('position')
+			position = Vec2d(x=pos[0], y=pos[1])
+			logger.debug(f'map {mapname} {pos=} {resp=}')
+		except Exception as e:
+			logger.error(f'{type(e)} {e=}')
+			mapname = 'data/maptest2.json'
+			pos = (110,110)
+			position = Vec2d(x=pos[0], y=pos[1])
+		self.game_state.load_tile_map(mapname)
 		self._gotmap = True
 		# resp = requests.get(f'http://{self.args.server}:9699/get_position')
 		# pos = resp.text
@@ -580,26 +588,20 @@ class Bomberdude(arcade.View):
 			except KeyError as e:
 				logger.warning(f'keyerror {e} {self.game_state.players=} {self.playerone.client_id=}')
 
-		for gsplr in self.game_state.get_players(skip=None): # skip=self.playerone.client_id
+		for gsplr in self.game_state.get_players(skip=self.playerone.client_id): #
 			pclid = gsplr.get('client_id')
-			# name = gsplr.get('name', 'gsmissing')
 			playerdata = gsplr.get('playerdata')
 			name = playerdata.get('name', 'gsmissing')
 			score = playerdata.get('score')
 			angle = playerdata.get('angle')
 			health = playerdata.get('health')
 			bombsleft = playerdata.get('bombsleft')
-			pos = playerdata.get('position',(0,0))
-			try:
-				position = Vec2d(x=pos[0], y=pos[1])
-			except TypeError as e:
-				logger.error(f'{e} {gsplr=}')
-				position = Vec2d(x=1, y=1)
+			position = playerdata.get('position',(0,0))
 			# position = Vec2d(x= ,y=self.game_state.players[pclid].get('position')[1])
 			#netplayerpos = Vec2d(x=position.x,y=position.y)
 
-			value = f'  h:{health} s:{score} b:{bombsleft} pos: {position.x},{position.y} '
-			if pclid in [k for k in self.netplayers]: # update existing netplayer
+			value = f'  h:{health} s:{score} b:{bombsleft} pos: {position=} '
+			if pclid in [k for k in self.netplayers if k != self.playerone.client_id]: # update existing netplayer
 				try:
 					self.netplayer_labels[pclid].value = value
 				except KeyError as e:
@@ -625,12 +627,13 @@ class Bomberdude(arcade.View):
 					playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), name=name, text_color=arcade.color.GREEN)
 					playerlabel.button.text = f'{name}'
 					logger.info(f'newplayer: {name} id={newplayer.client_id} pos: {position} fix={position_fix} ')
-				self.game_state.scene.add_sprite("Netplayers", newplayer)
-				self.netplayers[pclid] = newplayer # {'client_id':pclid, 'position':position_fix}
-				self.netplayer_labels[pclid] = playerlabel
+				if pclid != self.playerone.client_id:
+					self.game_state.scene.add_sprite("Netplayers", newplayer)
+					self.netplayers[pclid] = newplayer # {'client_id':pclid, 'position':position_fix}
+					self.netplayer_labels[pclid] = playerlabel
 
-				self.netplayer_grid.add(playerlabel.button, col_num=0, row_num=len(self.netplayer_labels))
-				self.netplayer_grid.add(playerlabel.textlabel, col_num=1, col_span=2,row_num=len(self.netplayer_labels)) # h
+					self.netplayer_grid.add(playerlabel.button, col_num=0, row_num=len(self.netplayer_labels))
+					self.netplayer_grid.add(playerlabel.textlabel, col_num=1, col_span=2,row_num=len(self.netplayer_labels)) # h
 				#if pclid != self.playerone.client_id:
 
 	def update_poplist(self):
@@ -706,6 +709,9 @@ class Bomberdude(arcade.View):
 				b.remove_from_sprite_lists()
 			else:
 				if arcade.check_for_collision_with_list(b, checklist):
+					b.remove_from_sprite_lists()
+				for hit in arcade.check_for_collision_with_list(b, self.game_state.scene['Netplayers']):
+					logger.debug(f'netplayertakedamage {hit} from {b.shooter} {b.damage=}')
 					b.remove_from_sprite_lists()
 		for f in self.game_state.scene['Flames']:
 			f.update()
