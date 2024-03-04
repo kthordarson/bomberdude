@@ -39,6 +39,7 @@ async def thread_main(game, loop):
 				score = game.playerone.score,
 				game_events = [game_events,],
 				client_id = game.playerone.client_id,
+				name = game.playerone.name,
 				position = game.playerone.position,
 				angle = game.playerone.angle,
 				health = game.playerone.health,
@@ -73,6 +74,7 @@ def thread_worker(game):
 def main():
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
+	parser.add_argument('--name', action='store', dest='name', default='bdude')
 	parser.add_argument('--listen', action='store', dest='listen', default='127.0.0.1')
 	parser.add_argument('--server', action='store', dest='server', default='127.0.0.1')
 	parser.add_argument('--port', action='store', dest='port', default=9696)

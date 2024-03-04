@@ -24,8 +24,8 @@ from dataclasses import dataclass, asdict, field
 from arcade.types import Point
 
 from utils import gen_randid
-
 class Panel(UIWidget):
+
 	def __init__(self, x, y, width, height, window=None, panel_title='dummy'):
 		super().__init__(x=x, y=y, width=width, height=height)
 		self.title = panel_title
@@ -45,13 +45,17 @@ class Panel(UIWidget):
 		self.boxes.append(self.brb)
 		self.window = window
 
-	def draw(self):
+	def draw(self, playerone):
 		self.do_render(self.window)
 		self.boxes.draw()
-		arcade.Text(f'{self.title} {self.x} {self.y}', self.x+2, self.y+self.height+2, arcade.color.WHITE, font_size=10).draw()
-		arcade.Text(f'{self.title} {self.x} {self.y}', self.center_x, self.center_y, arcade.color.CG_BLUE, font_size=8).draw()
-		for b in self.boxes:
-			arcade.Text(f'{b.center_x} {b.center_y}', b.center_x, b.center_y, arcade.color.BLACK, font_size=10).draw()
+		arcade.Text(f'Playerone: {playerone.client_id}', self.x+2, self.y+self.height+2, arcade.color.WHITE, font_size=10).draw() # todo set player name here
+		arcade.Text(f'Score: {playerone.score}', self.tlb.center_x-(self.width//4)+3, self.tlb.center_y, arcade.color.BLACK, font_size=10).draw()
+		arcade.Text(f'Health: {playerone.health}', self.blb.center_x-(self.width//4)+3, self.blb.center_y, arcade.color.BLACK, font_size=10).draw()
+		arcade.Text(f'Bombs: {playerone.bombsleft}', self.trb.center_x-(self.width//4)+3, self.trb.center_y, arcade.color.BLACK, font_size=10).draw()
+		# arcade.Text(f'{self.title} {self.x} {self.y}', self.center_x, self.center_y, arcade.color.CG_BLUE, font_size=8).draw()
+		#for b in self.boxes:
+		#	arcade.Text(f'{b.center_x} {b.center_y}', b.center_x-(self.width//4)+3, b.center_y, arcade.color.BLACK, font_size=10).draw()
+	def debugdraw(self):
 		draw_lrbt_rectangle_outline(left=self.x, right=self.x+self.width, bottom=self.y, top=self.y+self.height, color=arcade.color.BLUE,border_width=1)
 		draw_circle_filled(center_x=self.x, center_y=self.y, radius=2,  color=arcade.color.ORANGE) # .
 		draw_circle_filled(center_x=self.x+self.width, center_y=self.y, radius=2,  color=arcade.color.ORANGE) # .

@@ -191,15 +191,15 @@ class BombServer():
 		if 'maptest2' in mapname:
 			map4pos = [ (2,2), (3,25), (27,2), (25,25),]
 			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
-			self.playerindex += 1
+			self.playerindex = len(self.game_state.players)
 		elif 'maptest5' in mapname:
 			map4pos = [ (2,2), (2,38), (58,2), (58,38),]
 			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
-			self.playerindex += 1
+			self.playerindex = len(self.game_state.players)
 		elif 'maptest4' in mapname:
 			map4pos = [ (2,2), (25,27), (27,2), (2,22),]
 			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
-			self.playerindex += 1
+			self.playerindex = len(self.game_state.players)
 		else:
 			position = self.get_position()
 		return {'mapname': str(mapname), 'position': position}

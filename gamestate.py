@@ -113,6 +113,7 @@ class GameState:
 		msgkilled = msg.get('killed')
 		playerdict = {
 			'client_id':clid,
+			'name': msg.get('name', 'ugsmissing'),
 			'position': msg.get('position'),
 			'angle': msg.get('angle'),
 			'score': msg.get('score'),
@@ -204,7 +205,7 @@ class GameState:
 						game_event['event_type'] = f'ackbullet'
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
-							logger.debug(f'{event_type} from {shooter}')
+							pass # logger.debug(f'{event_type} from {shooter}')
 					case 'bombxplode': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
 						game_event['event_type'] = f'ackbombxplode'
@@ -280,6 +281,7 @@ class GameState:
 		for player in self.players:
 			playerdict = {
 			'client_id':player,
+			'name': self.players[player].get('name', 'fromjsonmissing'),
 			'position': self.players[player].get('position'),
 			'angle': self.players[player].get('angle'),
 			'health': self.players[player].get('health'),
