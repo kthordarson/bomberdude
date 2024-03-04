@@ -119,11 +119,11 @@ def debug_dump_game(game):
 	print(f'{bar} gamestateplayers {bar}')
 	for idx,p in enumerate(game.game_state.players):
 		gsp = game.game_state.players.get(p)
-		print(f"\t{idx}/{len(game.game_state.players)} p={p} | {gsp['client_id']} {gsp['position']} a={gsp['angle']} h={gsp['health']} s={gsp['score']} to={gsp['timeout']} to={gsp['killed']}")
+		print(f"\t{idx}/{len(game.game_state.players)} p={p} | name:{gsp['name']} {gsp['client_id']} {gsp['position']} a={gsp['angle']} h={gsp['health']} s={gsp['score']} to={gsp['timeout']} to={gsp['killed']}")
 	print(f'{bar} netplayers {bar}')
 	for idx,p in enumerate(game.netplayers):
 		np = game.netplayers.get(p)
-		print(f"\t{idx}/{len(game.game_state.players)} p={p} | {np.client_id} {np.position} a={np.angle} h={np.health} s={np.score} to={np.timeout} to={np.killed}")
+		print(f"\t{idx}/{len(game.game_state.players)} p={p} | name: {np.name} {np.client_id} {np.position} a={np.angle} h={np.health} s={np.score} to={np.timeout} to={np.killed}")
 	# print('='*80)
 	# arcade.print_timings()
 	# print('='*80)

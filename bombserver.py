@@ -208,12 +208,15 @@ class BombServer():
 		pcopy = copy.copy(self.game_state.players)
 		len0=len(self.game_state.players)
 		for p in pcopy:
-			if self.game_state.players[p]['timeout']:
-				self.game_state.players.pop(p)
-				logger.warning(f'remove_timedout_players {p} {len0}->{len(self.game_state.players)}')
-			elif self.game_state.players[p].get('playerquit'):
-				self.game_state.players.pop(p)
-				logger.debug(f'playerquit {p} {len0}->{len(self.game_state.players)}')
+			try:
+				if self.game_state.players[p].get('timeout', False):
+					self.game_state.players.pop(p)
+					logger.warning(f'remove_timedout_players {p} {len0}->{len(self.game_state.players)} {self.game_state.players[p]}')
+				elif self.game_state.players[p].get('playerquit', False):
+					self.game_state.players.pop(p)
+					logger.debug(f'playerquit {p} {len0}->{len(self.game_state.players)}')
+			except KeyError as e:
+				logger.warning(f'keyerror in remove_timedout_players {e} {self.game_state.players[p]} {self.game_state.players}')
 
 	def get_position(self, retas='int'):
 		foundpos = False
@@ -268,8 +271,14 @@ class BombServer():
 				self.tick_count += 1
 				if self.packetdebugmode:
 					logger.info(f'tick_count: {self.tick_count}')
-				self.game_state.check_players()
-				self.remove_timedout_players()
+				try:
+					self.game_state.check_players()
+				except TypeError as e:
+					logger.warning(f'self.game_state.check_players() {e}')
+				try:
+					self.remove_timedout_players()
+				except Exception as e:
+					logger.warning(f'{type(e)} {e} in remove_timedout_players ')
 				await sockpush.send_json(self.game_state.to_json())
 				await asyncio.sleep(1 / UPDATE_TICK) # SERVER_UPDATE_TICK_HZ
 				# self.game_state.game_events = []

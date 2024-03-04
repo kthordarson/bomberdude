@@ -82,8 +82,8 @@ class GameState:
 		old_len = len(self.players)
 		pops = []
 		for p in playerscopy:
-			dt_diff = dt - self.players[p].get('msg_dt')
-			playerhealth = self.players[p].get('health')
+			dt_diff = dt - self.players[p].get('msg_dt',0)
+			playerhealth = self.players[p].get('health',0)
 			if dt_diff > 10: # player timeout
 				self.players[p]['timeout'] = True
 				self.event_queue.put_nowait({'event_time':0, 'event_type':'playerquit', 'client_id': p, 'reason':'timeout','eventid': gen_randid()}) # update other clients about playerquit
@@ -154,9 +154,11 @@ class GameState:
 						game_event['handledby'] = f'ugsnc'
 						game_event['event_type'] = 'acknewconn'
 						clid = game_event['client_id']
+						name = game_event['name']
+						self.players[clid] = {'client_id':clid, 'name': name,'timeout':False,'msg_dt':time.time(),}
 						self.event_queue.put_nowait(game_event)
 						if self.debugmode:
-							logger.info(f'{event_type} from {clid} ')
+							logger.info(f'{event_type} from {clid} {name}')
 					case 'blkxplode': # todo make upgradeblock here....
 						# game_event['handled'] = True
 						uptype = random.choice([1,2,3])
@@ -187,15 +189,16 @@ class GameState:
 						game_event['handledby'] = f'ugsbomb'
 						bomber = game_event.get("bomber")
 						eventid = game_event.get('eventid')
+						name = self.players[bomber]['name']
 						if self.players[bomber].get("bombsleft")>0:
 							game_event['event_type'] = f'ackbombdrop'
 							self.players[bomber]['bombsleft'] -= 1
 							self.event_queue.put_nowait(game_event)
 							if self.debugmode:
-								logger.debug(f'{event_type} from {bomber} {eventid=} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
+								logger.debug(f'{event_type} from {name=} {bomber} {eventid=} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
 						else:
 							if self.debugmode:
-								logger.debug(f'nobombsleft ! {event_type} from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
+								logger.debug(f'nobombsleft ! {event_type} {name=}  from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
 
 					case 'bulletfired': # decide on somethingsomething..
 						game_event['handledby'] = f'ugsbomb'
@@ -281,15 +284,15 @@ class GameState:
 		for player in self.players:
 			playerdict = {
 			'client_id':player,
-			'name': self.players[player].get('name', 'fromjsonmissing'),
-			'position': self.players[player].get('position'),
-			'angle': self.players[player].get('angle'),
-			'health': self.players[player].get('health'),
-			'msg_dt': self.players[player].get('msg_dt'),
-			'timeout': self.players[player].get('timeout'),
-			'killed': self.players[player].get('killed'),
-			'score': self.players[player].get('score'),
-			'bombsleft': self.players[player].get('bombsleft'),
+			'name': self.players[player].get('name', 'fjmissing'),
+			'position': self.players[player].get('position', (0,0)),
+			'angle': self.players[player].get('angle',0),
+			'health': self.players[player].get('health',0),
+			'msg_dt': self.players[player].get('msg_dt',time.time()),
+			'timeout': self.players[player].get('timeout',False),
+			'killed': self.players[player].get('killed', False),
+			'score': self.players[player].get('score',0),
+			'bombsleft': self.players[player].get('bombsleft',0),
 			'msgsource': 'to_json',
 			}
 			dout['players'][player] = playerdict #Q = playerdict

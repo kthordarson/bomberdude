@@ -99,13 +99,14 @@ class Bomberdude(arcade.View):
 			'event_time':0,
 			'event_type': 'newconnection',
 			'client_id' : self.playerone.client_id,
+			'name': self.playerone.name,
 			'handled': False,
 			'handledby': 'do_connect',
 			'eventid': gen_randid()}
 		self.eventq.put(connection_event)
 		self._connected = True
 		self.setup_network()
-		self.window.set_caption(f'{self.title} connected to {self.args.server} playerid: {self.playerone.client_id}')
+		self.window.set_caption(f'{self.title} connected to {self.args.server} player {self.playerone.name} : {self.playerone.client_id}')
 
 	def on_resize(self, width, height):
 		self.width = width
@@ -456,11 +457,12 @@ class Bomberdude(arcade.View):
 					if self.debugmode:
 						logger.info(f'{event_type} upgradetype {game_event.get("upgradetype")} {newblk}')
 				case 'acknewconn':
+					name = game_event.get("name", 'missingfromacknewconn')
 					if self.debugmode:
 						if clid == self.playerone.client_id: # this is my connect ack
-							logger.debug(f'{event_type} from {clid}')
+							logger.debug(f'{event_type} from {clid} {name}')
 						else:
-							logger.info(f'{event_type} from {clid}') # new player connected
+							logger.info(f'{event_type} from {clid} {name}') # new player connected
 				case 'blkxplode':
 					if self.debugmode:
 						logger.info(f'{event_type} from {game_event.get("fbomber")}')
@@ -580,13 +582,19 @@ class Bomberdude(arcade.View):
 
 		for gsplr in self.game_state.get_players(skip=None): # skip=self.playerone.client_id
 			pclid = gsplr.get('client_id')
-			name = gsplr.get('name')
+			# name = gsplr.get('name', 'gsmissing')
 			playerdata = gsplr.get('playerdata')
+			name = playerdata.get('name', 'gsmissing')
 			score = playerdata.get('score')
 			angle = playerdata.get('angle')
 			health = playerdata.get('health')
 			bombsleft = playerdata.get('bombsleft')
-			position = Vec2d(x=playerdata.get('position')[0], y=playerdata.get('position')[1])
+			pos = playerdata.get('position',(0,0))
+			try:
+				position = Vec2d(x=pos[0], y=pos[1])
+			except TypeError as e:
+				logger.error(f'{e} {gsplr=}')
+				position = Vec2d(x=1, y=1)
 			# position = Vec2d(x= ,y=self.game_state.players[pclid].get('position')[1])
 			#netplayerpos = Vec2d(x=position.x,y=position.y)
 
@@ -616,8 +624,8 @@ class Bomberdude(arcade.View):
 					newplayer = Bomberplayer(texture="data/netplayer.png", client_id=pclid,name=name, position=position_fix)
 					playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), name=name, text_color=arcade.color.GREEN)
 					playerlabel.button.text = f'{name}'
-					self.game_state.scene.add_sprite("Netplayers", newplayer)
 					logger.info(f'newplayer: {name} id={newplayer.client_id} pos: {position} fix={position_fix} ')
+				self.game_state.scene.add_sprite("Netplayers", newplayer)
 				self.netplayers[pclid] = newplayer # {'client_id':pclid, 'position':position_fix}
 				self.netplayer_labels[pclid] = playerlabel
 
