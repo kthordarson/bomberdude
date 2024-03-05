@@ -188,21 +188,21 @@ class BombServer():
 	async def get_tile_map(self):
 
 		mapname = str(self.game_state.tile_map.tiled_map.map_file)
+		self.playerindex = len(self.game_state.players)
 		if 'maptest2' in mapname:
 			map4pos = [ (2,2), (3,25), (27,2), (25,25),]
 			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
-			self.playerindex = len(self.game_state.players)
 		elif 'maptest5' in mapname:
 			map4pos = [ (2,2), (2,38), (58,2), (58,38),]
 			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
-			self.playerindex = len(self.game_state.players)
 		elif 'maptest4' in mapname:
 			map4pos = [ (2,2), (25,27), (27,2), (2,22),]
 			position = (map4pos[self.playerindex][0]*32 , map4pos[self.playerindex][1]*32 )
-			self.playerindex = len(self.game_state.players)
 		else:
 			position = self.get_position()
-		return {'mapname': str(mapname), 'position': position}
+		result = {'mapname': str(mapname), 'position': position}
+		logger.info(f'{result=}')
+		return result
 
 	def remove_timedout_players(self):
 		pcopy = copy.copy(self.game_state.players)

@@ -75,6 +75,10 @@ class GameState:
 				playerdata = self.players[p]
 				yield {'client_id':p, 'playerdata':playerdata}
 
+	def get_player(self, clid):
+		playerdata = self.players[clid]
+		return {'client_id':p, 'playerdata':playerdata}
+
 	def check_players(self):
 		self.chkp_counter += 1
 		dt = time.time()
@@ -108,7 +112,7 @@ class GameState:
 		self.game_seconds += 1
 		if self.debugmode_trace:
 			logger.debug(f' from: {clid} msg={msg}')
-		msghealth = msg.get('health')
+		msghealth = msg.get('health',-1)
 		msgtimeout = msg.get('timeout')
 		msgkilled = msg.get('killed')
 		playerdict = {
@@ -116,13 +120,13 @@ class GameState:
 			'name': msg.get('name', 'ugsmissing'),
 			'position': msg.get('position'),
 			'angle': msg.get('angle'),
-			'score': msg.get('score'),
+			'score': msg.get('score',-1),
 			'health': msghealth,
 			'msg_dt': msg.get('msg_dt'),
 			'timeout': msgtimeout,
 			'killed': msgkilled,
 			'msgsource': 'update_game_state',
-			'bombsleft': msg.get('bombsleft'),
+			'bombsleft': msg.get('bombsleft',-1),
 
 		}
 		self.players[clid] = playerdict
@@ -223,7 +227,7 @@ class GameState:
 						dmgto = game_event.get("dmgto")
 						self.players[dmgfrom]['score'] += 1
 						game_event['handled'] = True
-						game_event['handledby'] = f'ugskill'
+						game_event['handledby'] = f'ugskillplayerkilled'
 						self.event_queue.put_nowait(game_event)
 						#if self.debugmode:
 						logger.debug(f'{event_type} {dmgfrom=} {dmgto=} {self.players[dmgfrom]}')
@@ -231,20 +235,11 @@ class GameState:
 						dmgfrom = game_event.get("dmgfrom")
 						dmgto = game_event.get("dmgto")
 						damage = game_event.get("damage")
-						self.players[dmgto]['health'] -= damage
 						game_event['handled'] = True
-						game_event['handledby'] = f'ugskill'
+						game_event['handledby'] = f'ugskilltakedamage'
 						self.players[dmgfrom]['score'] += 1
-						if self.players[dmgto]['health'] > 0:
-							game_event['event_type'] = 'acktakedamage'
-							self.players[dmgfrom]['score'] += 1
-							logger.info(f'{event_type} {dmgfrom=} {dmgto=} killerscore={self.players[dmgfrom]["score"]}')
-						else:
-							self.players[dmgfrom]['score'] += 10
-							game_event['event_type'] = 'dmgkill'
-							game_event['killtimer'] = 5
-							game_event['killstart'] = game_event.get("msg_dt")
-							logger.debug(f'{event_type} {dmgfrom=} {dmgto=} ')
+						self.players[dmgto]['health'] -= damage
+						logger.info(f'{event_type} {dmgfrom=} {dmgto=} killerscore={self.players[dmgfrom]["score"]}')
 						self.event_queue.put_nowait(game_event)
 						#if self.debugmode:
 
@@ -286,13 +281,13 @@ class GameState:
 			'client_id':player,
 			'name': self.players[player].get('name', 'fjmissing'),
 			'position': self.players[player].get('position', (0,0)),
-			'angle': self.players[player].get('angle',0),
-			'health': self.players[player].get('health',0),
+			'angle': self.players[player].get('angle',-1),
+			'health': self.players[player].get('health',-1),
 			'msg_dt': self.players[player].get('msg_dt',time.time()),
 			'timeout': self.players[player].get('timeout',False),
 			'killed': self.players[player].get('killed', False),
-			'score': self.players[player].get('score',0),
-			'bombsleft': self.players[player].get('bombsleft',0),
+			'score': self.players[player].get('score',-1),
+			'bombsleft': self.players[player].get('bombsleft',-1),
 			'msgsource': 'to_json',
 			}
 			dout['players'][player] = playerdict #Q = playerdict

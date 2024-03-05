@@ -204,7 +204,6 @@ class Bomberplayer(arcade.Sprite):
 		self.score = playeronedata['score']
 		self.health = playeronedata['health']
 		self.bombsleft = playeronedata['bombsleft']
-		# self.score = playeronedata['score']
 
 	def rotate_around_point(self, point: Point, degrees: float):
 		"""

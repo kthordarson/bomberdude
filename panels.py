@@ -26,9 +26,12 @@ from arcade.types import Point
 from utils import gen_randid
 class Panel(UIWidget):
 
-	def __init__(self, x, y, width, height, window=None, panel_title='dummy'):
+	def __init__(self, x, y, width, height, owner, window=None, panel_title='dummy'):
 		super().__init__(x=x, y=y, width=width, height=height)
 		self.title = panel_title
+		self.owner = owner
+		self.client_id = owner
+		self.name = owner
 		self.bg_color = arcade.color.YELLOW
 		# top left box
 		self.tlb = arcade.SpriteSolidColor(width=self.width//2, height=self.height/2, center_x=self.position[0]+(self.width//4), center_y=self.position[1]+(self.height//4*3), color=arcade.color.BURNT_ORANGE)
@@ -44,14 +47,40 @@ class Panel(UIWidget):
 		self.boxes.append(self.trb)
 		self.boxes.append(self.brb)
 		self.window = window
+		self.score = 0
+		self.health = 0
+		self.bombsleft = 0
 
-	def draw(self, playerone):
+	def drawpanel(self, panel):
 		self.do_render(self.window)
 		self.boxes.draw()
-		arcade.Text(f'{playerone.name} : {playerone.client_id}', self.x+2, self.y+self.height+2, arcade.color.WHITE, font_size=10).draw() # todo set player name here
-		arcade.Text(f'Score: {playerone.score}', self.tlb.center_x-(self.width//4)+3, self.tlb.center_y, arcade.color.BLACK, font_size=10).draw()
-		arcade.Text(f'Health: {playerone.health}', self.blb.center_x-(self.width//4)+3, self.blb.center_y, arcade.color.BLACK, font_size=10).draw()
-		arcade.Text(f'Bombs: {playerone.bombsleft}', self.trb.center_x-(self.width//4)+3, self.trb.center_y, arcade.color.BLACK, font_size=10).draw()
+		arcade.Text(f'{panel.name} : {panel.owner}', self.x+2, self.y+self.height+2, arcade.color.WHITE, font_size=10).draw() # todo set player name here
+		arcade.Text(f'Score: {panel.score}', self.tlb.center_x-(self.width//4)+3, self.tlb.center_y, arcade.color.BLACK, font_size=10).draw()
+		arcade.Text(f'Health: {panel.health}', self.blb.center_x-(self.width//4)+3, self.blb.center_y, arcade.color.BLACK, font_size=10).draw()
+		arcade.Text(f'Bombs: {panel.bombsleft}', self.trb.center_x-(self.width//4)+3, self.trb.center_y, arcade.color.BLACK, font_size=10).draw()
+
+	def update_data(self, player):
+		self.name = player.name
+		self.client_id = player.client_id
+		self.score = player.score
+		self.health = player.health
+		self.bombsleft = player.bombsleft
+
+	def draw(self):
+		self.do_render(self.window)
+		self.boxes.draw()
+		player = self
+		arcade.Text(f'{player.name} : {player.client_id}', self.x+2, self.y+self.height+2, arcade.color.WHITE, font_size=10).draw() # todo set player name here
+		arcade.Text(f'Score: {player.score}', self.tlb.center_x-(self.width//4)+3, self.tlb.center_y, arcade.color.BLACK, font_size=10).draw()
+		arcade.Text(f'Health: {player.health}', self.blb.center_x-(self.width//4)+3, self.blb.center_y, arcade.color.BLACK, font_size=10).draw()
+		arcade.Text(f'Bombs: {player.bombsleft}', self.trb.center_x-(self.width//4)+3, self.trb.center_y, arcade.color.BLACK, font_size=10).draw()
+	def xdraw(self, player):
+		self.do_render(self.window)
+		self.boxes.draw()
+		arcade.Text(f'{player.name} : {player.client_id}', self.x+2, self.y+self.height+2, arcade.color.WHITE, font_size=10).draw() # todo set player name here
+		arcade.Text(f'Score: {player.score}', self.tlb.center_x-(self.width//4)+3, self.tlb.center_y, arcade.color.BLACK, font_size=10).draw()
+		arcade.Text(f'Health: {player.health}', self.blb.center_x-(self.width//4)+3, self.blb.center_y, arcade.color.BLACK, font_size=10).draw()
+		arcade.Text(f'Bombs: {player.bombsleft}', self.trb.center_x-(self.width//4)+3, self.trb.center_y, arcade.color.BLACK, font_size=10).draw()
 		# arcade.Text(f'{self.title} {self.x} {self.y}', self.center_x, self.center_y, arcade.color.CG_BLUE, font_size=8).draw()
 		#for b in self.boxes:
 		#	arcade.Text(f'{b.center_x} {b.center_y}', b.center_x-(self.width//4)+3, b.center_y, arcade.color.BLACK, font_size=10).draw()
