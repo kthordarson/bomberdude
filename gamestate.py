@@ -1,23 +1,10 @@
-from pyvex.utils import stable_hash
-from pymunk import Vec2d
 import copy
-import arcade
-from arcade.gui.style import UIStyleBase, UIStyledWidget
-from arcade.tilemap import TileMap
-from arcade.gui import UIManager, UIBoxLayout, UITextArea, UIFlatButton, UIGridLayout
-from arcade.gui import UILabel
-from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
 import random
-import math
 from loguru import logger
 from constants import *
 import time
-import hashlib
 from queue import Queue, Empty
-from typing import List, Dict
-import json
-from dataclasses import dataclass, asdict, field
-from arcade.types import Point
+from dataclasses import dataclass
 from utils import gen_randid
 from objects import Upgrade
 
@@ -29,9 +16,9 @@ class GameState:
 	cjsonupdate: int = 0
 
 	def __repr__(self):
-		return f'Gamestate (gs:{self.game_seconds} events:{len(self.game_events)} counters = chkpc: {self.chkp_counter} ugsc: {self.ugs_counter} tojc: {self.toj_counter} fjc: {self.fj_counter} players:{len(self.players)})'
+		return f'Gamestate (gs:{self.game_seconds} log:{len(self.event_log)} counters = chkpc: {self.chkp_counter} ugsc: {self.ugs_counter} tojc: {self.toj_counter} fjc: {self.fj_counter} players:{len(self.players)})'
 
-	def __init__(self,  game_seconds=0, debugmode=False, mapname=None):
+	def __init__(self, game_seconds=0, debugmode=False, mapname=None):
 		self.mapname = mapname
 		self.players = {}
 		# self.player_states = player_states
@@ -39,14 +26,16 @@ class GameState:
 		self.debugmode = debugmode
 		self.debugmode_trace = False
 		self.game_events = []
-		self.event_queue = Queue()
-		self.raw_event_queue = Queue()
+		self.gs_event_queue = Queue()
 		# debugstuff
 		self.chkp_counter = 0
 		self.ugs_counter = 0
 		self.toj_counter = 0
 		self.fj_counter = 0
-		self.layer_options={
+		self.scene = None
+		self.tile_map = None
+		self.event_log = []
+		self.layer_options = {
 			"Particles": {"use_spatial_hash": True},
 			"Flames": {"use_spatial_hash": True},
 			"Bullets": {"use_spatial_hash": True},
@@ -57,12 +46,13 @@ class GameState:
 			"Blocks": {"use_spatial_hash": True},
 			"Walls": {"use_spatial_hash": True},
 			"Background": {"use_spatial_hash": True},
-			}
+		}
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
 		logger.debug(f'loading {self.mapname}')
-		self.tile_map = arcade.load_tilemap(self.mapname, layer_options=self.layer_options, scaling=TILE_SCALING, use_spatial_hash=True)
+		self.tile_map = arcade.load_tilemap(self.mapname, layer_options=self.layer_options, scaling=TILE_SCALING,
+		                                    use_spatial_hash=True)
 		for block in self.tile_map.sprite_lists['Blocks']:
 			block.hit_count = 0
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
@@ -73,28 +63,26 @@ class GameState:
 				pass
 			else:
 				playerdata = self.players[p]
-				yield {'client_id':p, 'playerdata':playerdata}
+				yield {'client_id': p, 'playerdata': playerdata}
 
 	def get_player(self, clid):
 		playerdata = self.players[clid]
-		return {'client_id':p, 'playerdata':playerdata}
+		return {'client_id': clid, 'playerdata': playerdata}
 
 	def check_players(self):
 		self.chkp_counter += 1
 		dt = time.time()
 		playerscopy = copy.copy(self.players)
-		old_len = len(self.players)
-		pops = []
 		for p in playerscopy:
-			dt_diff = dt - self.players[p].get('msg_dt',0)
-			playerhealth = self.players[p].get('health',0)
-			if dt_diff > 10: # player timeout
+			dt_diff = dt - self.players[p].get('msg_dt', 0)
+			if dt_diff > 10:  # player timeout
 				self.players[p]['timeout'] = True
-				self.event_queue.put_nowait({'event_time':0, 'event_type':'playerquit', 'client_id': p, 'reason':'timeout','eventid': gen_randid()}) # update other clients about playerquit
+				self.gs_event_queue.put_nowait({'event_time': 0, 'event_type': 'playerquit', 'client_id': p, 'reason': 'timeout', 'eventid': gen_randid()})  # update other clients about playerquit
 				if not self.players[p]['timeout']:
 					logger.info(f'player timeout {p} dt_diff={dt_diff} selfplayers={self.players}')
 
-	def create_upgrade_block(self,upgradetype, blkpos):
+	@staticmethod
+	def create_upgrade_block(upgradetype, blkpos):
 		match upgradetype:
 			case 1:
 				upgrade = Upgrade(upgradetype, 'data/heart.png', blkpos, scale=0.8, timer=2000)
@@ -112,126 +100,129 @@ class GameState:
 		self.game_seconds += 1
 		if self.debugmode_trace:
 			logger.debug(f' from: {clid} msg={msg}')
-		msghealth = msg.get('health',-1)
+		msghealth = msg.get('health', -22)
 		msgtimeout = msg.get('timeout')
 		msgkilled = msg.get('killed')
 		playerdict = {
-			'client_id':clid,
+			'client_id': clid,
 			'name': msg.get('name', 'ugsmissing'),
 			'position': msg.get('position'),
 			'angle': msg.get('angle'),
-			'score': msg.get('score',-1),
+			'score': msg.get('score', -23),
 			'health': msghealth,
 			'msg_dt': msg.get('msg_dt'),
 			'timeout': msgtimeout,
 			'killed': msgkilled,
 			'msgsource': 'update_game_state',
-			'bombsleft': msg.get('bombsleft',-1),
+			'bombsleft': msg.get('bombsleft', -24),
 
 		}
 		self.players[clid] = playerdict
-		# game_events = msg.get('game_events', None)
-		# if game_events:
-		# self.game_events = []
-	def update_game_events(self, msg):
-		for game_event in msg.get('game_events'):
-			event_type = None
-			if game_event == []:
-				continue
-			else:
-				event_type = game_event.get('event_type')
-			game_event['event_time'] += 1
+
+	def update_game_events(self, game_event):
+		self.event_log = self.event_log[1:MAXEVENTS]
+		try:
+			event_type = game_event.get('event_type')
+			handled = game_event['handled']
+			handledby = game_event['handledby']
+			game_event['handledby'] = f'ugs-{handledby}'
+			game_event['event_time'] += time.time()
 			eventid = game_event.get('eventid')
-			evntchk =  [k for k in self.game_events if k.get('eventid') == eventid]
-			if len(evntchk) > 0:
-				continue # logger.warning(f'dupeevntchk {len(evntchk)} eventid {eventid} {game_event} already in game_events')# :  msg={msg} selfgameevents:{self.game_events}')
-				# r = [self.game_events.remove(k) for k in evntchk]
+			if self.debugmode:
+				logger.info(f'event_type={event_type} id:{eventid} {handled=} {handledby=} log:{len(self.event_log)}')  # game_event={game_event}')
+			if eventid in self.event_log:
+				logger.warning(f'{eventid=} already in event_log! events: {len(self.event_log)} {game_event=} ')
+				game_event['handled'] = True
+				game_event['handledby'] = 'ugsdupe'
+				game_event['event_type'] = 'dupeevent'
+				#self.gs_event_queue.put_nowait(game_event)
+				#return
 			else:
+				self.event_log.append(eventid)
+				clid = game_event['client_id']
 				match event_type:
 					# logger.debug(f'self.game_events={self.game_events}')
-					case 'playerquit': # playerquit
-						clid = game_event['client_id']
+					case 'playerquit':  # playerquit
 						self.players[clid]['playerquit'] = True
-						self.event_queue.put_nowait(game_event) # update other clients about playerquit
-					case 'newconnection':
+						self.gs_event_queue.put_nowait(game_event)  # update other clients about playerquit
+					case 'newconnection':  # new player connected, inform others
 						game_event['handled'] = True
-						game_event['handledby'] = f'ugsnc'
+						if game_event['handledby'] == 'ugsnc':
+							logger.warning(f'dupeacknewconn {game_event=}')
+							game_event['event_type'] = 'dupeevent'
+							return
+						game_event['handledby'] = 'ugsnc'
 						game_event['event_type'] = 'acknewconn'
-						clid = game_event['client_id']
 						name = game_event['name']
-						self.players[clid] = {'client_id':clid, 'name': name,'timeout':False,'msg_dt':time.time(),}
-						self.event_queue.put_nowait(game_event)
+						self.gs_event_queue.put_nowait(game_event)
 						if self.debugmode:
-							logger.info(f'{event_type} from {clid} {name}')
-					case 'blkxplode': # todo make upgradeblock here....
+							logger.info(f'{event_type} id {eventid} from {clid} {name}')
+					case 'blkxplode':  # todo make upgradeblock here....
 						# game_event['handled'] = True
-						uptype = random.choice([1,2,3])
-						newevent = {'event_time':0, 'event_type': 'upgradeblock', 'client_id': game_event.get("client_id"), 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
-						self.event_queue.put_nowait(newevent)
+						uptype = random.choice([1, 2, 3])
+						upgradeblockevent = {'event_time': 0, 'event_type': 'upgradeblock', 'client_id': game_event.get("client_id"), 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'blkxplodeuge', 'eventid': gen_randid()}
+						self.gs_event_queue.put_nowait(upgradeblockevent)
 						if self.debugmode:
 							logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
-					case 'takeupgrade': # todo decide on somethingsomething..
+					case 'takeupgrade':  # todo decide on somethingsomething..
 						game_event['handledby'] = f'ugstakeupgrade'
 						upgradetype = game_event.get("upgradetype")
-						clid = game_event['client_id']
 						match upgradetype:
-							case 1: # extra health
+							case 1:  # extra health
 								self.players[clid]['health'] += EXTRA_HEALTH
 								logger.debug(f'{clid} got extrahealth -> {self.players[clid].get("health")}')
-								event = {'event_time':0, 'event_type': 'extrahealth', 'amount':EXTRA_HEALTH, 'client_id': clid,  'eventid': gen_randid()}
-								self.event_queue.put_nowait(event)
-							case 2: # extra bomb
+								extrahealthevent = {'event_time': 0, 'event_type': 'extrahealth', 'amount': EXTRA_HEALTH, 'client_id': clid, 'eventid': gen_randid()}
+								self.gs_event_queue.put_nowait(extrahealthevent)
+							case 2:  # extra bomb
 								self.players[clid]['bombsleft'] += 1
 								logger.debug(f'{clid} got extrabomb -> {self.players[clid].get("bombsleft")}')
-								event = {'event_time':0, 'event_type': 'extrabomb', 'client_id': clid,  'eventid': gen_randid()}
-								self.event_queue.put_nowait(event)
-							case 3: # bigger bomb
+								extrabombevent = {'event_time': 0, 'event_type': 'extrabomb', 'client_id': clid, 'eventid': gen_randid()}
+								self.gs_event_queue.put_nowait(extrabombevent)
+							case 3:  # bigger bomb
 								pass
 							case _:
-								logger.warning(f'unknown upgradetype {upgradetype=} {msg=}')
-					case 'bombdrop': # decide on somethingsomething..
+								logger.warning(f'unknown upgradetype {upgradetype=} {game_event=}')
+					case 'bombdrop':  # decide on somethingsomething
 						game_event['handledby'] = f'ugsbomb'
+						game_event['handled'] = True
 						bomber = game_event.get("bomber")
-						eventid = game_event.get('eventid')
 						name = self.players[bomber]['name']
-						if self.players[bomber].get("bombsleft")>0:
-							game_event['event_type'] = f'ackbombdrop'
-							self.players[bomber]['bombsleft'] -= 1
-							self.event_queue.put_nowait(game_event)
-							if self.debugmode:
-								logger.debug(f'{event_type} from {name=} {bomber} {eventid=} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
-						else:
-							if self.debugmode:
-								logger.debug(f'nobombsleft ! {event_type} {name=}  from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
-
-					case 'bulletfired': # decide on somethingsomething..
-						game_event['handledby'] = f'ugsbomb'
-						shooter = game_event.get("shooter")
-						# if self.players[bomber].get("bulletsleft")>0: # maybe ?
-						# self.players[bomber]['bulletsleft'] -= 1
-						game_event['event_type'] = f'ackbullet'
-						self.event_queue.put_nowait(game_event)
+						game_event['event_type'] = f'ackbombdrop'
+						self.players[bomber]['bombsleft'] -= 1
+						self.gs_event_queue.put_nowait(game_event)
 						if self.debugmode:
-							pass # logger.debug(f'{event_type} from {shooter}')
-					case 'bombxplode': # decide on somethingsomething..
-						game_event['handledby'] = f'ugsbomb'
+							logger.debug(f'{event_type} from {name=} {bomber} {eventid=} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
+
+					case 'bulletfired':  # decide on somethingsomething
+						game_event['handledby'] = f'ugsackbullet'
+						game_event['event_type'] = f'ackbullet'
+						self.gs_event_queue.put_nowait(game_event)
+						if self.debugmode:
+							pass  # logger.debug(f'{event_type} from {shooter}')
+					case 'bombxplode':  # decide on somethingsomething
+						game_event['handledby'] = f'ugsackbombxplode'
+						game_event['handled'] = True
+						if game_event['event_type'] == 'ackbombxplode':
+							logger.warning(f'dupeackbombxplode {game_event=}')
+							return
 						game_event['event_type'] = f'ackbombxplode'
-						eventid = game_event.get('eventid')
 						bomber = game_event.get("bomber")
 						self.players[bomber]['bombsleft'] += 1
-						self.event_queue.put_nowait(game_event)
+						self.gs_event_queue.put_nowait(game_event)
 						if self.debugmode:
 							logger.debug(f'{event_type} from {bomber}  bl={self.players[bomber].get("bombsleft")} {eventid=}')
-					case 'playerkilled': # increase score for dmgfrom
+
+					case 'playerkilled':  # increase score for dmgfrom
 						dmgfrom = game_event.get("dmgfrom")
 						dmgto = game_event.get("dmgto")
 						self.players[dmgfrom]['score'] += 1
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugskillplayerkilled'
-						self.event_queue.put_nowait(game_event)
-						#if self.debugmode:
+						self.gs_event_queue.put_nowait(game_event)
+						# if self.debugmode:
 						logger.debug(f'{event_type} {dmgfrom=} {dmgto=} {self.players[dmgfrom]}')
-					case 'takedamage': # increase score for dmgfrom
+
+					case 'takedamage':  # increase score for dmgfrom
 						dmgfrom = game_event.get("dmgfrom")
 						dmgto = game_event.get("dmgto")
 						damage = game_event.get("damage")
@@ -240,75 +231,55 @@ class GameState:
 						self.players[dmgfrom]['score'] += 1
 						self.players[dmgto]['health'] -= damage
 						logger.info(f'{event_type} {dmgfrom=} {dmgto=} killerscore={self.players[dmgfrom]["score"]}')
-						self.event_queue.put_nowait(game_event)
-						#if self.debugmode:
+						self.gs_event_queue.put_nowait(game_event)
 
-					case 'respawn': # increase score for dmgfrom
+					case 'respawn':  # increase score for dmgfrom
 						clid = game_event.get("client_id")
 						self.players[clid]['health'] = 100
 						self.players[clid]['killed'] = False
 						game_event['handled'] = True
 						game_event['handledby'] = f'ugsrspwn'
 						game_event['event_type'] = 'ackrespawn'
-						self.event_queue.put_nowait(game_event)
-						#if self.debugmode:
+						self.gs_event_queue.put_nowait(game_event)
+						# if self.debugmode:
 						logger.debug(f'{event_type} {clid=} {self.players[clid]}')
-					case 'getmap': # send map to client
+					case 'getmap':  # send map to client
 						clid = game_event.get("client_id")
-						payload = {'msgtype': 'scenedata', 'payload':self.scene}
+						payload = {'msgtype': 'scenedata', 'payload': self.scene}
 						logger.info(f'{event_type} from {clid} {len(payload)} {game_event=}')
-						#await sockpush.send(payload)
-						# game_event['event_type'] = 'ackgetmap'
-						# game_event['payload'] = pickle.dumps(self.scene)
-						# self.raw_event_queue.put_nowait(pickle.dumps(self.tile_map))
-					case _: #
-						logger.warning(f'unknown game_event:{event_type} from msg={msg}')
-				#elif game_event.get('handled') == True:
-				#	logger.warning(f'game_event already handled: {game_event} msg={msg}')
-
+					case _:  #
+						logger.warning(f'unknown game_event:{event_type} from game_event={game_event}')
+		except KeyError as e:
+			logger.warning(f'{type(e)} {e} {game_event=} ')
+		except Exception as e:
+			logger.error(f'{type(e)} {e} {game_event=} ')
 
 	def to_json(self):
 		self.toj_counter += 1
-		dout = {'players':{}, 'game_events': []}
-		try:
-			pending_event = self.event_queue.get_nowait()
-			self.event_queue.task_done()
-			dout['game_events'].append(pending_event)
-		except Empty:
-			pending_events = []
+		dout = {'players': {}}
 		for player in self.players:
-			playerdict = {
-			'client_id':player,
-			'name': self.players[player].get('name', 'fjmissing'),
-			'position': self.players[player].get('position', (0,0)),
-			'angle': self.players[player].get('angle',-1),
-			'health': self.players[player].get('health',-1),
-			'msg_dt': self.players[player].get('msg_dt',time.time()),
-			'timeout': self.players[player].get('timeout',False),
-			'killed': self.players[player].get('killed', False),
-			'score': self.players[player].get('score',-1),
-			'bombsleft': self.players[player].get('bombsleft',-1),
-			'msgsource': 'to_json',
-			}
-			dout['players'][player] = playerdict #Q = playerdict
+			playerdict = dict(client_id=player, name=self.players[player].get('name', 'fjmissing'),
+			                  position=self.players[player].get('position', (0, 0)),
+			                  angle=self.players[player].get('angle', -11),
+			                  health=self.players[player].get('health', -12),
+			                  msg_dt=self.players[player].get('msg_dt', time.time()),
+			                  timeout=self.players[player].get('timeout', False),
+			                  killed=self.players[player].get('killed', False),
+			                  score=self.players[player].get('score', -13),
+			                  bombsleft=self.players[player].get('bombsleft', -14), msgsource='to_json')
+			dout['players'][player] = playerdict  # Q = playerdict
 		return dout
 
-	def from_json(self, dgamest):
+	def from_json(self, gamestatedata):
 		self.fj_counter += 1
-		for ge in dgamest.get('game_events', []):
-			if ge == []:
-				break
-			if self.debugmode:
-				logger.info(f'ge={ge.get("event_type")} dgamest={dgamest=}')
-			self.event_queue.put_nowait(ge)
-		plist = dgamest.get('players',[])
+		plist = gamestatedata.get('players', [])
 		for player in plist:
 			if plist.get(player).get('timeout'):
-				pass # logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
+				pass  # logger.warning(f'timeoutfromjson: p={player} gamestatedata:{gamestatedata} selfplayers={self.players}')
 			elif plist.get(player).get('killed'):
-				pass # logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
+				pass  # logger.warning(f'timeoutfromjson: p={player} gamestatedata:{gamestatedata} selfplayers={self.players}')
 			else:
 				self.players[plist.get(player).get('client_id')] = plist.get(player)
-				# logger.info(f'player={player} dgamest={dgamest} selfplayers={self.players}')
+		# logger.info(f'player={player} gamestatedata={gamestatedata} selfplayers={self.players}')
 		if self.debugmode:
-			pass # logger.debug(f'dgamest={dgamest}')# gs={self.game_seconds} selfplayers={self.players}')
+			pass  # logger.debug(f'gamestatedata={gamestatedata}')# gs={self.game_seconds} selfplayers={self.players}')
