@@ -14,6 +14,7 @@ from arcade.math import (get_angle_degrees, )
 from loguru import logger
 from pymunk import Vec2d
 from zmq.asyncio import Context
+
 from threading import Thread
 from constants import *
 from debug import debug_dump_game, draw_debug_players
@@ -22,6 +23,7 @@ from objects import Bomberplayer, Bomb, BiggerBomb, KeysPressed, PlayerEvent, UI
 from objects import DataError
 from panels import Panel
 from utils import get_map_coordinates_rev, gen_randid
+
 from network import receive_game_state, pusher, send_event_dict, send_player_dict,Receiver
 
 class Bomberdude(arcade.View):
@@ -94,12 +96,13 @@ class Bomberdude(arcade.View):
 		self.draw_labels = True
 		self.showkilltext = arcade.Text(f"kill: {self.show_kill_timer:.1f}", 100, 100, arcade.color.RED, 22)
 		self.manager.enable()
+
+
 		self.evqueue = Queue()
 		self.gsqueue = Queue()
 		self.receiver = Receiver(sub_sock=self.sub_sock, gsqueue=self.gsqueue, evqueue=self.evqueue)
 	def __repr__(self):
 		return f'Bomberdude( {self.title} np: {len(self.game_state.players)}  )'
-
 
 	def got_map(self):
 		return self._got_map
@@ -171,7 +174,6 @@ class Bomberdude(arcade.View):
 		self._connected = True
 		self._got_map = True
 
-
 	# noinspection PyAttributeOutsideInit
 	def setup_perf(self):
 		# Create a sprite list to put the performance graphs into
@@ -207,9 +209,9 @@ class Bomberdude(arcade.View):
 	# self.guicamera.move_to(player_centered, speed)
 
 	def on_draw(self):
-		#if not self.got_map():
-		#	logger.warning(f'got_map={self.got_map()} {self.game_state=}')
-		#	return
+		if not self.got_map():
+			logger.warning(f'got_map={self.got_map()} {self.game_state=}')
+			return
 		self.camera.use()
 		arcade.start_render()
 		# self.draw_player_panel()
@@ -220,15 +222,20 @@ class Bomberdude(arcade.View):
 		self.game_state.scene['Walls'].draw()
 		self.game_state.scene['Blocks'].draw()
 		self.game_state.scene['Bullets'].draw()
+		self.game_state.scene['Bombs'].draw()
 		self.game_state.scene['Flames'].draw()
 		self.game_state.scene['Particles'].draw()
 		self.game_state.scene["Upgrades"].draw()
 		self.game_state.scene["Netplayers"].draw()
-		self.game_state.scene['Bombs'].draw()
-		self.playerone.draw()
+		# for sprite_list in self.sprite_items:
+		# sprite_list.draw()
+		try:
+			self.playerone.draw()
+		except Exception as e:
+			pass
 		if self.manager_visible:
 			self.manager.draw()
-
+		self.guicamera.use()
 
 		for panel in self.netplayer_panels:
 			self.guicamera.use()
@@ -420,11 +427,16 @@ class Bomberdude(arcade.View):
 
 	def handle_game_events(self, game_event):
 		self.event_log = self.event_log[1:MAXEVENTS]
+		if not self.got_map():
+			logger.warning(f'got_map={self.got_map()} {self.game_state=} {game_event=}')
+			# return
 		event_type = game_event.get('event_type')
+		if self.debugmode:
+			pass  # logger.info(f'{event_type=} {game_event=} {game_event}')
 		clid = game_event.get("client_id")
 		eventid = game_event.get('eventid')
 		if self.debugtrace:
-			logger.debug(f'{event_type=} {eventid=} eventlog={len(self.event_log)} {game_event=}')
+			logger.debug(f'{event_type=} {eventid=} {game_event=}')
 		if eventid in self.event_log:
 			logger.warning(f'{eventid} already handled! eventlog={len(self.event_log)} {game_event=}')
 		self.event_log.append(eventid)
@@ -472,13 +484,16 @@ class Bomberdude(arcade.View):
 					logger.info(f'{event_type} upgradetype {game_event.get("upgradetype")} {newblk}')
 			case 'acknewconn':
 				name = game_event.get("name")
-				game_event['handled'] = True
-				game_event['handledby'] = 'gameacknewconn'
-				if self.debugmode:
-					if clid == self.playerone.client_id:  # this is my connect ack
-						logger.debug(f'{event_type} from {clid} {name}')
-					else:
-						logger.info(f'{event_type} from {clid} {name}')  # new player connected
+				if not game_event['handled']:
+					game_event['handled'] = True
+					game_event['handledby'] = 'gameacknewconn'
+					if self.debugmode:
+						if clid == self.playerone.client_id:  # this is my connect ack
+							logger.debug(f'{event_type} from {clid} {name}')
+						else:
+							logger.info(f'{event_type} from {clid} {name}')  # new player connected
+				else:
+					logger.warning(f'{event_type} from {clid} {name} already handled {game_event=}')
 			case 'blkxplode':
 				if self.debugmode:
 					logger.info(f'{event_type} from {game_event.get("fbomber")}')
@@ -530,7 +545,7 @@ class Bomberdude(arcade.View):
 				bomber = game_event.get('bomber')
 				# self.game_state.players[bomber]['bombsleft'] += 1
 				if bomber == self.playerone.client_id:
-					if eventid == self.playerone.lastdrop:
+					if eventid == self.playerone.lastdrop:							
 						self.playerone.bombsleft += 1
 						logger.info(f'{game_event.get("event_type")} ownbombxfrom {bomber} p1={self.playerone}')
 				else:
@@ -555,7 +570,7 @@ class Bomberdude(arcade.View):
 				bullet.angle = game_event.get('ba')
 				self.game_state.scene.add_sprite("Bullets", bullet)
 				if self.debugmode:
-					logger.info(f"bullet from {shooter} pos {bulletpos} {bullet_vel=} bullets: {len(self.game_state.scene['Bullets'])}")
+					logger.info(f'bullet from {shooter} pos {bulletpos} {bullet_vel=} bullets: {len(self.game_state.scene['Bullets'])}')
 			case 'ackbombdrop':
 				self.playerone.candrop = True  # player can drop again
 				bomber = game_event.get('bomber')
@@ -570,10 +585,11 @@ class Bomberdude(arcade.View):
 				bomb.center_y = bombpos_fix.y
 				self.game_state.scene.add_sprite("Bombs", bomb)
 				if bomber == self.playerone.client_id and eventid == self.playerone.lastdrop:
+					
 					if self.debugmode:
-						logger.info(f'{game_event.get("event_type")} ownbombfrom {bomber} pos {bombpos} {eventid=} bombs: {len(self.game_state.scene["Bombs"])} ld={self.playerone.lastdrop} {self.playerone}')
+						logger.info(f'{game_event.get("event_type")} ownbombfrom {bomber} pos {bombpos} {eventid=} ld={self.playerone.lastdrop} {self.playerone}')
 				else:
-					logger.debug(f'{game_event.get("event_type")} from {bomber} pos 	{bombpos} {bombpos_fix=} bombs: {len(self.game_state.scene["Bombs"])} ')
+					logger.debug(f'{game_event.get("event_type")} from {bomber} pos 	{bombpos} {bombpos_fix=}')
 			case _:
 				logger.warning(f'unknown type:{event_type} {game_event=} ')
 
@@ -682,14 +698,14 @@ class Bomberdude(arcade.View):
 			print(f'evq: {event=}')
 		except Empty as e:
 			pass
-
 	def on_update(self, dt):
 		self.timer += dt
-		#if not self.got_map():
-		#	logger.warning(f'got_map={self.got_map()} {self.game_state=}')
-		#	return
+		if not self.got_map():
+			logger.warning(f'got_map={self.got_map()} {self.game_state=}')
+			#return
 		if not self.connected():
 			logger.warning(f'connected={self.connected()} {self.game_state=}')
+			#return
 			return
 		self.check_receiver_queue()
 		self.playerone.send_player_dict(self.push_sock)
