@@ -223,7 +223,10 @@ class Bomberdude(arcade.View):
 		self.game_state.scene["Netplayers"].draw()
 		# for sprite_list in self.sprite_items:
 		# sprite_list.draw()
-		self.playerone.draw()
+		try:
+			self.playerone.draw()
+		except Exception as e:
+			logger.error(f'{type(e)} {e}')
 		if self.manager_visible:
 			self.manager.draw()
 		self.guicamera.use()
