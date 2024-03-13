@@ -8,7 +8,7 @@ from queue import Empty
 from loguru import logger
 from constants import *
 from menu import MainView
-
+from network import Receiver
 
 # todo get initial pos from server
 # done draw netbombs
@@ -22,65 +22,37 @@ from menu import MainView
 # task 2 a. receive player input b. update game state
 # task 3 send game state to clients
 
-async def thread_main(game):
-	async def pusher():
-		# Push the player's INPUT state 60 times per second
-		thrmain_cnt = 0
-		while True:
-			thrmain_cnt += 1
-			msg = dict(
-				thrmain_cnt=thrmain_cnt,
-				score=game.playerone.score,
-				client_id=game.playerone.client_id,
-				name=game.playerone.name,
-				position=game.playerone.position,
-				angle=game.playerone.angle,
-				health=game.playerone.health,
-				timeout=game.playerone.timeout,
-				killed=game.playerone.killed,
-				bombsleft=game.playerone.bombsleft,
-				got_map=game.got_map(),
-				msgsource='pushermsgdict',
-				msg_dt=time.time())
-			try:
-				game_event = game.game_eventq.get_nowait()
-				game.game_eventq.task_done()
-				await game.push_sock.send_json({'msgtype': 'game_event', 'payload': game_event})
-			except Empty:
-				pass  # game_events = None
-			await game.push_sock.send_json({'msgtype': 'msg', 'payload': msg})
-			await asyncio.sleep(1 / UPDATE_TICK)
-
-	#            else:
-	#                logger.warning(f'{game} is not connected.....')
-	#                await asyncio.sleep(1)
-
-	async def receive_game_state():
-		pe = None
-		while True:
-			_gs = await game.sub_sock.recv_json()
-			msgtype = _gs.get('msgtype')
+async def async_receiver(sub_sock, gsqueue, evqueue) -> int:
+	# sub_sock=mainview.game.sub_sock, gsqueue=mainview.game.gsqueue, evqueue=mainview.game.evqueue
+	pe_counter = 0
+	# logger.info(f'{self} running')
+	# try:
+	# 	loop = asyncio.get_event_loop()
+	# except RuntimeError as e:
+	# 	if str(e).startswith('There is no current event loop in thread'):
+	# 		loop = asyncio.new_event_loop()
+	# 		asyncio.set_event_loop(loop)
+	# 	else:
+	# 		raise
+	while True:
+		try:
+			_gs = await sub_sock.recv_json()
+			print(f'{_gs=}')
+			msgtype = _gs.get('msgtype', None)
 			# gs = json.loads(_gs)
 			if msgtype == 'gamestate':
-				game.game_state.from_json(_gs.get('payload'))
-			if msgtype == 'pending_event':
-				if game.debugtrace:
-					logger.debug(f'{_gs=}')				
-				# logger.debug(f'{_gs=}')
-				game.handle_game_events(_gs.get('payload'))
-
-	await asyncio.gather(pusher(), receive_game_state(), )
-
-
-def thread_worker(game):
-	loop = asyncio.new_event_loop()
-	asyncio.set_event_loop(loop)
-	looptask = loop.create_task(thread_main(game))
-	logger.info(f'threadworker loop: {loop} lt={looptask} ')
-	loop.run_forever()
+				gsqueue.put(_gs.get('payload'))
+			elif msgtype == 'pending_event':
+				pe_counter += 1
+				evqueue.put(_gs.get('payload'))
+			else:
+				logger.warning(f'{pe_counter} unknown msgtype: {msgtype} {_gs=}')
+		except Exception as e:
+			logger.error(f'{type(e)} {e=}')
+		return pe_counter
 
 
-def main():
+async def main():
 	parser = ArgumentParser(description='bdude')
 	parser.add_argument('--testclient', default=False, action='store_true', dest='testclient')
 	parser.add_argument('--name', action='store', dest='name', default='bdude')
@@ -88,19 +60,46 @@ def main():
 	parser.add_argument('--server', action='store', dest='server', default='127.0.0.1')
 	parser.add_argument('--port', action='store', dest='port', default=9696)
 	parser.add_argument('-d', '--debug', action='store_true', dest='debugmode', default=False)
+	parser.add_argument('-dt', '--debugtrace', action='store_true', dest='debugtrace', default=False)
 	parser.add_argument('-dp', '--debugpacket', action='store_true', dest='packetdebugmode', default=False)
 	args = parser.parse_args()
 
 	app = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode='context_gc')
 	mainview = MainView(window=app, name='bomberdude', title='Bomberdude Main Menu', args=args)
-	thread = Thread(target=thread_worker, args=(mainview.game,), daemon=True)
-	thread.start()
+	# receiver = Receiver(sub_sock=mainview.game.sub_sock, gsqueue=mainview.game.gsqueue, evqueue=mainview.game.evqueue)
+	#thread = Thread(target=thread_worker, args=(mainview.game,), daemon=True)
+	#thread.start()
 	app.show_view(mainview)
-	arcade.run()
+	arcadethread = Thread(target=arcade.run(), daemon=True)
+	print(f'{arcadethread=}')
+	#arcadethread.start()
+	loop = asyncio.get_event_loop()
+	tasks = set()
+	# task1 = await asyncio.to_thread(loop.create_task(arcade.run()))
+	# task1 = asyncio.create_task(mainview.game.receiver.run())
+	# print(f'{task1=}')
+	task2 = asyncio.to_thread(arcadethread.start)
+	print(f'{task2=}')
+	#task2thread = asyncio.to_thread(task2)
+	#print(f'{task2thread=}')
+	# tasks.add(task1)
+	tasks.add(task2)
+	#r = Receiver(sub_sock=mainview.game.sub_sock, gsqueue=mainview.game.gsqueue, evqueue=mainview.game.evqueue)
+	t = async_receiver(sub_sock=mainview.game.sub_sock, gsqueue=mainview.game.gsqueue, evqueue=mainview.game.evqueue)
+	await asyncio.gather(t,task2)
+	# async with asyncio.TaskGroup() as tg:
+	# 	# app.show_view(mainview)
+	# 	task1 = tg.create_task(asyncio.to_thread(arcade.run ))
+	# 	task2 = tg.create_task(mainview.game.receiver.run())
+	# print(f'{task1=} {task2=}')
+		#
+	#await asyncio.gather(mainview.game.receiver.run(), )
+	#arcade.run()
+	# await asyncio.gather(pusher(mainview.game), receive_game_state(mainview.game), )
 
 
 if __name__ == "__main__":
 	if sys.platform == 'win32':
 		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-	main()
+	asyncio.run(main())
 # arcade.run()

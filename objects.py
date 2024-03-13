@@ -143,15 +143,6 @@ class PlayerState:
 
 
 @dataclass
-class Networkthing(arcade.Sprite):
-	client_id: str = 'none'
-
-	def __init__(self, client_id, position, *args, **kwars):
-		self.client_id = client_id
-		super().__init__(*args, **kwars)
-
-
-@dataclass
 class Bomberplayer(arcade.Sprite):
 	def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99, y=99), name='xnonex'):
 		super().__init__(texture, scale)
@@ -179,6 +170,21 @@ class Bomberplayer(arcade.Sprite):
 	def __hash__(self):
 		return self.client_id
 
+	def send_player_dict(self, push_sock):
+		msg = dict(
+				score=self.score,
+				client_id=self.client_id,
+				name=self.name,
+				position=self.position,
+				angle=self.angle,
+				health=self.health,
+				timeout=self.timeout,
+				killed=self.killed,
+				bombsleft=self.bombsleft,
+				msgsource=f'spd-{self.name}:{self.client_id}',
+				msg_dt=time.time())
+		push_sock.send_json({'msgtype': 'msg', 'payload': msg})
+
 	def dropbomb(self, bombtype, game_eventq) -> None:
 		if not self.candrop:  # dunno about this logic....
 			logger.error(f'{self} cannot drop bomb waiting for ack {self.lastdrop}')
@@ -194,7 +200,7 @@ class Bomberplayer(arcade.Sprite):
 			self.all_bomb_drops[bombevent['eventid']] = bombevent
 			game_eventq.put_nowait(bombevent)
 			self.lastdrop = bombevent['eventid']
-			logger.debug(f'{self} dropped bomb {bombevent["eventid"]}')
+			logger.debug(f'{self} q={game_eventq.qsize()} dropped bomb {bombevent["eventid"]}')
 			return
 
 	def update_netdata(self, playeronedata):
@@ -289,8 +295,9 @@ class Bomberplayer(arcade.Sprite):
 
 
 class Bomb(arcade.Sprite):
-	def __init__(self, image=None, scale=1.0, bomber=None, timer=1000):
-		super().__init__(image, scale)
+	def __init__(self, texture, scale=1.0, bomber=None, timer=1000):
+		super().__init__(texture, scale)
+		self.texture = texture
 		self.bomber = bomber
 		self.timer = timer
 		self.spatial_hash = SpatialHash(cell_size=32)
@@ -298,7 +305,6 @@ class Bomb(arcade.Sprite):
 
 	def __repr__(self):
 		return f'Bomb(pos={self.center_x},{self.center_y} bomber={self.bomber} t:{self.timer})'
-
 	def update(self, scene, game_eventq):
 		if self.exploded:
 			return  # todo check this

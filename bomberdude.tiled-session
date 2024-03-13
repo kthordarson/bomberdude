@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "",
+    "activeFile": "data/maptest.json",
     "automapping.whileDrawing": false,
     "expandedProjectPaths": [
         ".",
@@ -248,8 +248,8 @@
             "scale": 1,
             "selectedLayer": 6,
             "viewCenter": {
-                "x": 224.5,
-                "y": 224
+                "x": 223.5,
+                "y": 222
             }
         },
         "data/maptest2.json": {
@@ -327,9 +327,11 @@
     "map.lastUsedFormat": "json",
     "map.width": 3,
     "openFiles": [
+        "data/maptest.json"
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
+        "data/maptest.json",
         "data/maptest5.json",
         "data/maptest4.json",
         "data/maptest2.json",
@@ -340,8 +342,7 @@
         "data/maptest3.json",
         "data/map3.json",
         "data/map.json",
-        "/home/kth/development2/games/tiled-automap-example/tiled-automap.tmx",
-        "/home/kth/development2/games/tiled-automap-example/wall-rules.tmx"
+        "/home/kth/development2/games/tiled-automap-example/tiled-automap.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1

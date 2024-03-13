@@ -102,7 +102,7 @@ class ServerTUI(Thread):
 		ds = toggle debugmode for gamestate {self.server.game_state.debugmode}
 		dst = toggle debugmode for gamestate {self.server.game_state.debugmode_trace}
 		pd = toggle packetdebugmode {self.server.packetdebugmode}
-		e = dump game events 
+		e = dump game events
 		ec = clear game events
 		'''
 		print(server_help)
@@ -234,22 +234,25 @@ class BombServer:
 			while True:
 				self.ufc_counter += 1
 				data = await sockrecv.recv_json()
-				if self.packetdebugmode:
-					logger.info(f'data: {data}')
-				if data.get('msgtype') == 'msg':
-					msg = data.get('payload')
+				try:
 					if self.packetdebugmode:
-						logger.info(f'msg: {msg}')
-					clid = msg['client_id']
-					self.game_state.update_game_state(clid, msg)
-				if data.get('msgtype') == 'game_event':
-					msg = data.get('payload')
-					msg['handledby'] = 'update_from_client'
-					logger.info(f"sending {data.get('msgtype')} {msg.get('event_type')} {msg.get('eventid')} to update_game_events")
-					self.game_state.update_game_events(msg)
-				if self.tui.stopped():
-					logger.warning(f'{self} tuistop {self.tui}')
-					break
+						logger.info(f'data: {data}')
+					if data.get('msgtype') == 'msg':
+						msg = data.get('payload')
+						if self.packetdebugmode:
+							logger.info(f'msg: {msg}')
+						clid = msg['client_id']
+						self.game_state.update_game_state(clid, msg)
+					if data.get('msgtype') == 'game_event':
+						msg = data.get('payload')
+						msg['handledby'] = 'update_from_client'
+						logger.info(f"received {data.get('msgtype')} {msg.get('event_type')} {msg.get('eventid')} ")
+						self.game_state.update_game_events(msg)
+					if self.tui.stopped():
+						logger.warning(f'{self} tuistop {self.tui}')
+						break
+				except TypeError as e:
+					logger.warning(f'{e} {data=}')
 		except asyncio.CancelledError as e:
 			logger.warning(f'update_from_client {e} {type(e)}')
 
@@ -283,7 +286,7 @@ class BombServer:
 					pending_event = None
 					#else:
 					#	pass # logger.warning(f'pending_event {pending_event} already handled qs={self.game_state.gs_event_queue.qsize()}')
-					
+
 
 				if self.tui.stopped():
 						logger.warning(f'{self} tuistop {self.tui} {t=}')

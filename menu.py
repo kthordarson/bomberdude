@@ -1,3 +1,4 @@
+import traceback
 from arcade.gui import UIManager, UIFlatButton, UIGridLayout
 from arcade.gui.widgets.layout import UIAnchorLayout
 from loguru import logger
@@ -121,10 +122,21 @@ class MainView(arcade.View):
 		self.manager.enable()
 
 	def on_draw(self):
-		self.clear()
-		self.manager.draw()
-		if self.debugmode:
-			draw_debug_widgets([self.grid, ])
+		try:
+			self.clear()
+			self.manager.draw()
+			if self.debugmode:
+				draw_debug_widgets([self.grid, ])
+		except arcade.gl.exceptions.ShaderException as e:
+			logger.warning(f'{type(e)} {e=}')
+			traceback.print_exc()
+			traceback.print_stack()
+		except (TypeError,ValueError,KeyError) as e:
+			logger.warning(f'{type(e)} {e=}')
+			traceback.print_exc()
+			traceback.print_stack()
+		except Exception as e:
+			logger.error(f'{type(e)} {e=}')
 
 	def on_hide_view(self):
 		self.manager.disable()  # pass
