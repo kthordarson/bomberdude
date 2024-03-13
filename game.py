@@ -92,7 +92,7 @@ class Bomberdude(arcade.View):
 		self.background_color = arcade.color.BLACK
 		self.bullet_sprite = arcade.load_texture("data/bullet0.png")
 
-		self.setup_perf()
+		# self.setup_perf()
 		self.draw_labels = True
 		self.showkilltext = arcade.Text(f"kill: {self.show_kill_timer:.1f}", 100, 100, arcade.color.RED, 22)
 		self.manager.enable()
@@ -545,7 +545,7 @@ class Bomberdude(arcade.View):
 				bomber = game_event.get('bomber')
 				# self.game_state.players[bomber]['bombsleft'] += 1
 				if bomber == self.playerone.client_id:
-					if eventid == self.playerone.lastdrop:							
+					if eventid == self.playerone.lastdrop:
 						self.playerone.bombsleft += 1
 						logger.info(f'{game_event.get("event_type")} ownbombxfrom {bomber} p1={self.playerone}')
 				else:
@@ -570,7 +570,7 @@ class Bomberdude(arcade.View):
 				bullet.angle = game_event.get('ba')
 				self.game_state.scene.add_sprite("Bullets", bullet)
 				if self.debugmode:
-					logger.info(f'bullet from {shooter} pos {bulletpos} {bullet_vel=} bullets: {len(self.game_state.scene['Bullets'])}')
+					logger.info(f"bullet from {shooter} pos {bulletpos} {bullet_vel=} bullets: {len(self.game_state.scene['Bullets'])}")
 			case 'ackbombdrop':
 				self.playerone.candrop = True  # player can drop again
 				bomber = game_event.get('bomber')
@@ -585,7 +585,7 @@ class Bomberdude(arcade.View):
 				bomb.center_y = bombpos_fix.y
 				self.game_state.scene.add_sprite("Bombs", bomb)
 				if bomber == self.playerone.client_id and eventid == self.playerone.lastdrop:
-					
+
 					if self.debugmode:
 						logger.info(f'{game_event.get("event_type")} ownbombfrom {bomber} pos {bombpos} {eventid=} ld={self.playerone.lastdrop} {self.playerone}')
 				else:
