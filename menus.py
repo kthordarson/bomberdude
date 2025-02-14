@@ -1,7 +1,7 @@
 import pygame
 import pygame.freetype
 from pygame.math import Vector2
-from constants import *
+from constants import DEFAULTFONT, BLOCK
 
 class GameMenu:
 	def __init__(self, screen):
@@ -24,7 +24,7 @@ class GameMenu:
 				self.menufont.fgcolor = self.selected_color
 			else:
 				self.menufont.fgcolor = self.inactive_color
-			#self.menufont.render_to(self.screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
+			# self.menufont.render_to(self.screen, (self.pos.x, pos_y), item[1], self.menufont.fgcolor)
 			m = self.menufont.render(item[1], self.menufont.fgcolor)
 			mh, mw = m[1].size
 			self.screen.blit(m[0], (self.pos.x, pos_y))
@@ -50,7 +50,7 @@ class GameMenu:
 
 class Menu:
 	def __init__(self, screen, font):
-		self.screen = screen # pygame.display.get_surface()
+		self.screen = screen  # pygame.display.get_surface()
 		self.screenw, self.screenh = self.screen.get_size()
 		self.menusize = (250, 180)
 		self.image = pygame.Surface(self.menusize)
@@ -74,19 +74,16 @@ class Menu:
 	def set_pos(self, newpos: Vector2):
 		self.pos = newpos
 
-
 	def draw_menubg(self, screen):
 		self.bordercolor = pygame.Color("darkred")
 		bordersize = 5
 		menupos = [self.pos.x - bordersize, self.pos.y - bordersize]
 		# pygame.draw.rect(screen, self.bgcolor, (menupos[0], menupos[1], self.menusize[0], self.menusize[1])) # background
-		pygame.draw.line(screen, self.bordercolor, menupos, (menupos[0], menupos[1] + self.menusize[1]), bordersize)  # left border
+		pygame.draw.line(screen, self.bordercolor, menupos, (menupos[0], menupos[1] + self.menusize[1]), bordersize)   # left border
 		pygame.draw.line(screen, self.bordercolor, (menupos[0] + self.menusize[0], menupos[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # right border
 		pygame.draw.line(screen, self.bordercolor, menupos, (menupos[0] + self.menusize[0], menupos[1]), bordersize)  # top border
 		pygame.draw.line(screen, self.bordercolor, (menupos[0], menupos[1] + self.menusize[1]), (menupos[0] + self.menusize[0], menupos[1] + self.menusize[1]), bordersize)  # bottom border
 		self.bordercolor = pygame.Color("black")
-
-	# pass
 
 	def draw_mainmenu(self, screen=None):
 		screen = pygame.display.get_surface()
@@ -114,7 +111,7 @@ class Menu:
 		self.panelfont.render_to(screen, pos, text=f'hearts {playerone.hearts}', fgcolor=(111,222,111))
 		pos += (0,25)
 		self.panelfont.render_to(screen, pos, text=f'bombs {playerone.bombs_left} power {playerone.bombpower}', fgcolor=(111,222,111))
-		#pos = [10,10]
+		# pos = [10,10]
 		for netp in playerone.netplayers:
 			if netp != playerone.client_id:
 				np = playerone.netplayers[netp]
@@ -125,8 +122,6 @@ class Menu:
 				pos.y += 30
 				self.panelfont.render_to(screen, pos, text=f'score {np.get("score")}', fgcolor=(211,222,111))
 				pos.y += 30
-
-
 
 	def get_selection(self):
 		return self.menuitems[self.selected_item]
@@ -142,4 +137,3 @@ class Menu:
 			self.selected_item += 1
 		else:
 			self.selected_item = 0
-

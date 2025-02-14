@@ -2,7 +2,6 @@ import json
 import re
 from queue import Queue
 from threading import Thread
-import re
 from loguru import logger
 
 from globals import gen_randid
@@ -18,7 +17,7 @@ def do_send(socket, serveraddress, payload):
 	msglen = str(len(payload)).encode('utf8')
 	msglen = msglen.zfill(PKTLEN)
 	try:
-		socket.sendto(msglen,serveraddress )
+		socket.sendto(msglen,serveraddress)
 	except TypeError as e:
 		logger.error(f'{e} msglenerror = {type(msglen)} {msglen}\npayload = {type(payload)}\n{payload}\n')
 	try:
@@ -30,14 +29,6 @@ def do_send(socket, serveraddress, payload):
 def packet_parser(rawdata):
 	results = []
 	rawdata_sock = re.sub('^0+','',rawdata)
-	# try:
-	# 	rawdata_sock = rawdata[rawdata.index('{'):]
-	# except (AttributeError, ValueError) as e:
-	# 	logger.error(f'[recv] {e} {type(e)} rawdata:\n\n{rawdata}\n{type(rawdata)}\n')
-	# 	results.append({'msgtype': 'parsererror', 'rawdata': rawdata})
-	# except TypeError as e:
-	# 	logger.error(f'[recv] {e} {type(e)} rawdata:\n\n{rawdata}\n{type(rawdata)}\n')
-	#	results.append({'msgtype': 'parsererror', 'rawdata': rawdata})
 	if rawdata_sock.count('{') + rawdata_sock.count('}') == 2:
 		# logger.info(f'rawdatasock {len(rawdata_sock)} {type(rawdata_sock)}: {rawdata_sock}\nrawdata {len(rawdata)} {type(rawdata)}: {rawdata}\n')
 		results.append(rawdata_sock)
@@ -46,8 +37,8 @@ def packet_parser(rawdata):
 		# logger.warning(f'parsererrorcnt\nrs: {rawdata_sock}\nraw: {rawdata}\n')
 		results.append({'msgtype': 'parsererror'})
 		return results
-	if rawdata_sock.count('{') + rawdata_sock.count('}') >= 2: #rawdata_sock.count('}{') >= 2:
-		rawsplit = rawdata_sock.split('}{') # .strip('}').strip('{')
+	if rawdata_sock.count('{') + rawdata_sock.count('}') >= 2:  # rawdata_sock.count('}{') >= 2:
+		rawsplit = rawdata_sock.split('}{')  # .strip('}').strip('{')
 		for rawpart in rawsplit:
 			if len(rawpart) == 0:
 				break
@@ -88,7 +79,7 @@ def packet_parser(rawdata):
 						break
 				except Exception as e:
 					logger.error(f'unhandled {e} {type(e)} rawdata_sock: {rawdata_sock}')
-					results.append({'msgtype': 'parsererror', 'errorpayload' : 'unknown'})
+					results.append({'msgtype': 'parsererror', 'errorpayload': 'unknown'})
 					break
 				if msgtype:
 					if msgtype == 's_ping':
@@ -146,18 +137,18 @@ def send_data(conn, payload, pktid):
 def old_receive_data(conn):
 	if not conn:
 		return None
-	rid = None
+	# rid = None
 	data = []
 	rawdata = None
 	try:
 		rawdata = conn.recv(PKTLEN).decode('utf-8')
 		logger.debug(f'[r] {len(rawdata)} {type(rawdata)}\n{rawdata}\n')
 	except OSError as e:
-		#logger.error(f'[recv] OSError:{e} conn:{conn}')
+		logger.error(f'[recv] OSError:{e} conn:{conn}')
 		return None
 	parts = len(rawdata.split('}{'))
 	rawcheck = False
-	if parts == 1 and len(rawdata)>1: # rawdata.count('{') + rawdata.count('}') == 2 or 'netplayers' in rawdata:
+	if parts == 1 and len(rawdata) > 1:  # rawdata.count('{') + rawdata.count('}') == 2 or 'netplayers' in rawdata:
 		try:
 			rawcheck = rawdata[0] == '{' and rawdata[-1] == '}'
 		except (KeyError, IndexError, TypeError) as e:
@@ -172,7 +163,7 @@ def old_receive_data(conn):
 	elif parts > 1:
 		data = []
 		splits = [k for k in re.finditer('}{', rawdata)]
-		startpos=0
+		startpos = 0
 		idx = 0
 		for rawsplit in splits:
 			rawcheck, datapartcheck = False, False
@@ -217,11 +208,11 @@ class Receiver(Thread):
 			if self.kill:
 				logger.warning(f'{self} killed')
 				break
-			rid = None
-			data = []
+			# rid = None
+			# data = []
 			rawdata_sock = None
 			rawdata = None
-			jsondata = None
+			# jsondata = None
 			try:
 				rawdata_sock = self.socket.recv(PKTLEN).decode('utf-8')
 				self.receivecount += 1
@@ -248,14 +239,13 @@ class Sender(Thread):
 		Thread.__init__(self, daemon=True)
 		self.s_type = s_type
 		self.kill = False
-		self.queue = Queue() # put socket and payload here, eg:  sender.queue.put((self.socket, payload))
+		self.queue = Queue()  # put socket and payload here, eg:  sender.queue.put((self.socket, payload))
 		self.sendcount = 0
 		self.client_id = client_id
 		self.socket = socket
 
 	def __repr__(self):
 		return f'Sender({self.s_type} clid={self.client_id} c={self.sendcount} sq:{self.queue.qsize()})'
-
 
 	def run(self):
 		logger.info(f'{self} run')
