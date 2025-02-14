@@ -309,19 +309,19 @@ class NewPlayer(Thread, Sprite):
 
 	def draw(self, screen):
 		if not self.gotpos:
-			logger.warning('needposfromserver')
+			logger.warning('{self} needposfromserver')
 			return
 		if not self.gotgrid:
-			logger.warning('needgridfromserver')
+			logger.warning('{self} needgridfromserver')
 			return
 		screen.blit(self.image, self.rect)
 		for player in self.playerlist:
 			plconn = self.playerlist.get(player).get('connected')
 			if not plconn:
-				logger.warning(f'player: {player} plconn: {plconn} \nplayerlist: {self.playerlist}')
+				logger.warning(f'{self} player: {player} plconn: {plconn} \nplayerlist: {self.playerlist}')
 				break
 			if player == 'null':
-				logger.warning(f'player: {player} plconn: {plconn} \nplayerlist: {self.playerlist}')
+				logger.warning(f'{self} player: {player} plconn: {plconn} \nplayerlist: {self.playerlist}')
 				# break
 			else:
 				plid = self.playerlist.get(player).get('client_id')
@@ -329,7 +329,7 @@ class NewPlayer(Thread, Sprite):
 				# gridpos = self.playerlist.get(player).get('gridpos')
 				# gridpos = (pos[0] * BLOCK, pos[1] * BLOCK)
 				if not pos:
-					logger.warning(f'player: {player} plconn: {plconn}  playerlist: {self.playerlist}')
+					logger.warning(f'{self} player: {player} plconn: {plconn}  playerlist: {self.playerlist}')
 					# qbreak
 				if pos:
 					if self.client_id != plid:
@@ -413,4 +413,4 @@ class NewPlayer(Thread, Sprite):
 				my -= 8
 		if xmoved or ymoved:
 			self.map_pos = (mx,my)
-			logger.info(f'move {action} mappos:{self.map_pos} mx:{mx} my:{my} gridpos: {self.gridpos} pos: {self.pos}')
+			logger.info(f'{self} move {action} mappos:{self.map_pos} mx:{mx} my:{my} gridpos: {self.gridpos} pos: {self.pos}')

@@ -92,52 +92,46 @@ class Game(Thread):
         match msgtype:
             case "startgame":
                 self.start_game()
+
             case "start_server":
                 self.start_server()
+
             case "connect_to_server":
                 self.connect_to_server()
+
             case "bombxplode":
                 # create flames from bomb
                 # logger.debug(f'{msgtype} {payload}')
                 image = self.rh.get_image("data/flame1.png")
-                newflames = get_bomb_flames(
-                    payload.get("gridpos"), payload.get("bomberid"), image
-                )
+                newflames = get_bomb_flames(payload.get("gridpos"), payload.get("bomberid"), image)
                 self.flames.add(newflames)
                 if payload.get("bomberid") == self.player.client_id:
                     self.player.bombsleft += 1
+
             case "sv_gridupdate":
                 logger.debug(f"{msgtype} blks: {len(self.blocks)}")
-                self.update_screen()
+                self.update_game_grid()
                 # self.create_blocks_from_grid()
 
-            case (
-                "trigger_newplayer_grid"
-            ):  # triggered for new player, update gridblocks
+            case ("trigger_newplayer_grid"):  # triggered for new player, update gridblocks
                 newgrid = payload.get("grid", None)
                 if newgrid:
-                    self.update_screen()
+                    self.update_game_grid()
                     # self.create_blocks_from_grid()
                     logger.debug(f"{msgtype} blks: {len(self.blocks)} p: {self.player}")
                 else:
-                    logger.error(
-                        f"{msgtype} gotgrid: {self.player.gotgrid} : {payload} "
-                    )
+                    logger.error(f"{msgtype} gotgrid: {self.player.gotgrid} : {payload} ")
 
             case "newgridfromserver":
                 if self.show_mainmenu:
                     self.show_mainmenu = False
                 newgrid = payload.get("grid", None)
                 if newgrid:
-                    self.update_screen()
+                    self.update_game_grid()
                     # self.create_blocks_from_grid()
-                    logger.debug(
-                        f"{msgtype} p1gg: {self.player.gotgrid} blks: {len(self.blocks)}"
-                    )
+                    logger.debug(f"{msgtype} p1gg: {self.player.gotgrid} blks: {len(self.blocks)}")
                 else:
-                    logger.error(
-                        f"{msgtype} gotgrid: {self.player.gotgrid} : {payload} "
-                    )
+                    logger.error(f"{msgtype} gotgrid: {self.player.gotgrid} : {payload} ")
 
             case "ackplrbmb":
                 # create bomb with timer and add to sprites
@@ -148,14 +142,10 @@ class Game(Thread):
                 clbombpos = payload.get("clbombpos")
                 # logger.info(f'{msgtype} {bid} {bpos} {gpos} {clbombpos}')
                 try:
-                    newbomb = NewBomb(
-                        bombimg, bomberid=bid, gridpos=clbombpos, bombtimer=2000
-                    )
+                    newbomb = NewBomb(bombimg, bomberid=bid, gridpos=clbombpos, bombtimer=2000)
                     self.bombs.add(newbomb)
                 except TypeError as e:
-                    logger.warning(
-                        f"{e} {type(e)} msgtype:{msgtype} payload: {payload}"
-                    )
+                    logger.warning(f"{e} {type(e)} msgtype:{msgtype} payload: {payload}")
                 except Exception as e:
                     logger.error(f"{e} {type(e)} msgtype:{msgtype} payload: {payload}")
             case _:
@@ -170,22 +160,14 @@ class Game(Thread):
         for block in self.upgradeblocks:  # check block collisions with player
             match block.blocktype:
                 case 40:  # extrabomb
-                    if collide_rect(block, self.player):
-                        self.player.bombsleft += (
-                            1  # todo fix this, server should keep track of this
-                        )
-                        logger.info(
-                            f"extrabomb t:{block.blocktype} player: {self.player}"
-                        )
+                    if collide_rect(block, self.player):  # todo fix this, server should keep track of this
+                        self.player.bombsleft += (1)
+                        logger.info(f"extrabomb t:{block.blocktype} player: {self.player}")
                         block.kill()
                 case 44:  # healthup
-                    if collide_rect(block, self.player):
-                        self.player.health += (
-                            1  # todo fix this, server should keep track of this
-                        )
-                        logger.info(
-                            f"healthup t:{block.blocktype} player: {self.player}"
-                        )
+                    if collide_rect(block, self.player):    # todo fix this, server should keep track of this
+                        self.player.health += (1)
+                        logger.info(f"healthup t:{block.blocktype} player: {self.player}")
                         block.kill()
 
     def particle_collide(self):
@@ -320,9 +302,7 @@ class Game(Thread):
         x = 0
         y = 0
         # blks = Group()
-        newsurf = pygame.Surface(
-            (len(self.player.grid[0]) * BLOCK, len(self.player.grid) * BLOCK)
-        )
+        newsurf = pygame.Surface((len(self.player.grid[0]) * BLOCK, len(self.player.grid) * BLOCK))
         for row in self.player.grid:
             x = 0
             for k in row:
@@ -335,7 +315,7 @@ class Game(Thread):
             y += 1  # BLOCK
         self.display.blit(newsurf, (0, 0))
 
-    def update_screen(self):
+    def update_game_grid(self):
         # draws the grid
         # block=BLOCK
         x = 0
@@ -355,38 +335,26 @@ class Game(Thread):
         # self.display.blit(newsurf, (0,0))
 
     def _update_screen(self):
-        self.display = pygame.Surface(
-            (len(self.player.grid[0]) * BLOCK, len(self.player.grid) * BLOCK)
-        )
+        self.display = pygame.Surface((len(self.player.grid[0]) * BLOCK, len(self.player.grid) * BLOCK))
         x, y = 0, 0
         for row in self.player.grid:
             for tile in row:
                 if tile == 1:
-                    pygame.draw.rect(
-                        self.display, (0, 155, 0), ((x, y), (BLOCK, BLOCK))
-                    )
+                    pygame.draw.rect(self.display, (0, 155, 0), ((x, y), (BLOCK, BLOCK)))
                 elif tile == 2:
-                    pygame.draw.rect(
-                        self.display, (125, 125, 125), ((x, y), (BLOCK, BLOCK))
-                    )
+                    pygame.draw.rect(self.display, (125, 125, 125), ((x, y), (BLOCK, BLOCK)))
                 else:
-                    pygame.draw.rect(
-                        self.display, (255, 128, 122), ((x, y), (BLOCK, BLOCK))
-                    )
+                    pygame.draw.rect(self.display, (255, 128, 122), ((x, y), (BLOCK, BLOCK)))
                 x += BLOCK
             y += BLOCK
             x = 0
 
-    def drawblocks_debug(self):
+    def draw_blockdebug(self):
         for b in self.blocks:
-            blktxt = self.debugfont.render(
-                f"{self.player.grid[b.gridpos[0]][b.gridpos[1]]}", (55, 155, 55)
-            )
+            blktxt = self.debugfont.render(f"{self.player.grid[b.gridpos[0]][b.gridpos[1]]}", (55, 155, 55))
             self.display.blit(blktxt[0], (b.rect.x + 5, b.rect.y + 3))
             # blktxt = self.debugfont.render(f'{b.rect.x}.{b.rect.y}', (75,165,155)) # self.debugfont.render(f'{b.gridpos}', (75,165,155))
-            blktxt = self.debugfont.render(
-                f"{b.gridpos}", (75, 165, 155)
-            )  # self.debugfont.render(f'{b.gridpos}', (75,165,155))
+            blktxt = self.debugfont.render(f"{b.gridpos}", (75, 165, 155))  # self.debugfont.render(f'{b.gridpos}', (75,165,155))
             self.display.blit(blktxt[0], (b.rect.x + 2, b.rect.y + 15))
         # 	try:
         # 		self.debugfont.render_to(self.display, (b.rect.x+5, b.rect.y+3),blktxt, (55,155,55))
@@ -399,10 +367,8 @@ class Game(Thread):
         # 	self.debugfont.render_to(self.display, (b.rect.x+15, b.rect.y+13),blktxt, (255,255,255))
 
     def draw_debug_info(self):
-        payload = {
-            "msgtype": "cl_serverdebug",
-        }  # request serverdebuginfo when in debugmode
-        self.player.send_queue.put(payload)  # tell server and kill block and flame
+        # payload = {"msgtype": "cl_serverdebug",}  # request serverdebuginfo when in debugmode
+        # self.player.send_queue.put(payload)  # tell server and kill block and flame
         w, h = self.display.get_size()
         txtpos = [10, h]
         dbgitems = []
@@ -475,7 +441,7 @@ class Game(Thread):
             self.drawblocks()
             self.draw_game_info()
             if self.blockdebug:
-                self.drawblocks_debug()
+                self.draw_blockdebug()
             if self.debugmode:
                 self.draw_debug_info()
 
@@ -494,35 +460,36 @@ class Game(Thread):
             if self.player.gotpos and self.player.gotgrid:
                 self.run_updates()
             self.run_draw()
-            events_ = pygame.event.get()
-            for event in events_:
-                # USEREVENT
-                e_type = int(event.type)
-                maxe = pygame.USEREVENT + 1000
-                match e_type:
-                    case int(e_type) if maxe >= e_type >= pygame.USEREVENT:
-                        # logger.debug(f'{event.payload}')
-                        self.handle_events(event.payload)
-                    case pygame.KEYDOWN:
-                        try:
-                            self.handle_input_events(event)
-                        except IndexError as e:
-                            logger.error(f"{e} {type(e)}")
-                    case pygame.MOUSEBUTTONDOWN:
-                        self.handle_mouse_event(event)
-                    case pygame.QUIT:
-                        self.stop()
-                        self.player.stop()
-                        self.player.receiver_t.kill = True
-                        self.running = False
-                        self.killed = True
-                        self.player.kill = True
-                        self.player.connected = False
-                        self.killed = True
-                        logger.info(
-                            f"{self} pygameeventquit {event.type} events: {len(events_)}"
-                        )
-                        return
+            events = pygame.event.get()
+            self.handle_run_events(events)
+
+    def handle_run_events(self, events):
+        for event in events:
+            # USEREVENT
+            e_type = int(event.type)
+            maxe = pygame.USEREVENT + 1000
+            match e_type:
+                case int(e_type) if maxe >= e_type >= pygame.USEREVENT:
+                    # logger.debug(f'{event.payload}')
+                    self.handle_events(event.payload)
+                case pygame.KEYDOWN:
+                    try:
+                        self.handle_input_events(event)
+                    except IndexError as e:
+                        logger.error(f"{e} {type(e)}")
+                case pygame.MOUSEBUTTONDOWN:
+                    self.handle_mouse_event(event)
+                case pygame.QUIT:
+                    self.stop()
+                    self.player.stop()
+                    self.player.receiver_t.kill = True
+                    self.running = False
+                    self.killed = True
+                    self.player.kill = True
+                    self.player.connected = False
+                    self.killed = True
+                    logger.info(f"{self} pygameeventquit {event.type} events: {len(events)}")
+                    return
 
     def start_game(self):
         if self.game_started:
@@ -560,6 +527,7 @@ class Game(Thread):
             except Exception as e:
                 logger.warning(f"{e} {type(e)}")
                 break
+            logger.debug(f'{self} {server} conn: {conn} addr: {addr}')
             thread = NewHandler(conn, addr, server.dataq, name=f"clthrd{conncounter}")
             server.clients.append(thread)
             thread.start()
@@ -607,7 +575,7 @@ class Game(Thread):
                 if self.player.bombsleft > 0:
                     self.player.sendbomb()
                 else:
-                    logger.warning(f"no bombs left player: {self.player}")
+                    logger.warning(f"{self} no bombs left player: {self.player}")
             else:
                 if self.game_menu.active_item == "Start":
                     if not self.game_started:
@@ -651,14 +619,14 @@ class Game(Thread):
         elif keypressed == pygame.K_F1:
             # toggle debug
             self.debugmode = not self.debugmode
-            logger.debug("toggledebug")
+            logger.debug("{self} toggledebug")
         elif keypressed == pygame.K_F2:
             # toggle blockdebug
             self.blockdebug = not self.blockdebug
-            logger.debug("blockdebug")
+            logger.debug("{self} blockdebug")
         elif keypressed == pygame.K_F10:
             # send newgrid request
-            logger.debug("requestnewgrid")
+            logger.debug("{self} sending requestnewgrid")
             self.player.do_send({"msgtype": "requestnewgrid"})
         elif keypressed == pygame.K_ESCAPE:
             # escape show/hide menu
@@ -674,39 +642,19 @@ class Game(Thread):
             mx, my = pygame.mouse.get_pos()
             logger.debug(f"[mouse] {mx},{my} ")
 
-
-def locker_thread(lock):
-    logger.debug("locker_thread Starting")
-    while True:
-        lock.acquire()
-        try:
-            # logger.debug('locker_thread Locking')
-            time.sleep(0.05)
-        finally:
-            # logger.debug('locker_thread Not locking')
-            lock.release()
-        time.sleep(0.05)
-    return
-
 def main(args):
-    # lock = threading.Lock()
-    # lt = Thread(target=locker_thread, args=(lock,), daemon=True)
-    # lock = None
     game = Game(args=args)
     logger.debug(f"main game: {game}")
     game.daemon = True
     game.running = True
     game.run()
-    logger.info(f"g:{game} killed")
     for t in threading.enumerate():
         try:
             logger.debug(f"killing {t}")
             t.join(timeout=0)
         except (TypeError, RuntimeError) as e:
             logger.error(f'{t} error: {e} {type(e)}')
-    logger.debug("threadskilled")
     game.stop()
-    logger.debug("gamestop")
 
 def run_testclient(args):
     pass

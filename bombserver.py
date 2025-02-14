@@ -139,6 +139,7 @@ class Gameserver(Thread):
         self.clients = []
         self.connq = connq
         self.serverdq = Queue()
+        self.dataq = Queue()
         self.gridsize = 20
         self.grid = generate_grid(gsz=self.gridsize)
         self.playerlist = {}
@@ -151,7 +152,7 @@ class Gameserver(Thread):
     def trigger_newplayer(self):
         self.sv_updcntr += 1
         for client in self.clients:
-            logger.debug(f"trigger_newplayer c:{self.sv_updcntr} client: {client}")
+            logger.debug(f"trigger_newplayer c:{self.sv_updcntr} client: {client} addr: {client.addr}")
             newpos = get_grid_pos(self.grid)
             msg = {
                 "msgtype": "trigger_newplayer",
@@ -388,7 +389,7 @@ class Gameserver(Thread):
             try:
                 self.refresh_clients()
             except Exception as e:
-                logger.error(f"{self} {e} {type(e)}")
+                logger.error(f"{self} refresh_clients {e} {type(e)}")
             for c in self.clients:
                 if not c.handlerq.empty():
                     datafromq = c.handlerq.get()
@@ -397,7 +398,7 @@ class Gameserver(Thread):
                         # data = json.loads(datafromq)
                         self.msg_handler(datafromq)
                     except json.decoder.JSONDecodeError as e:
-                        logger.error(f"{e} {type(e)} {type(datafromq)} {datafromq}")
+                        logger.error(f"{self} msg_handler {e} {type(e)} {type(datafromq)} {datafromq}")
                         continue
                     # logger.debug(f'{self} msghanlder {data}')
 
@@ -416,7 +417,7 @@ def get_grid_pos(grid):
                 # logger.info(f'valid {invcntr} pos gpx:{gpx} gpy:{gpy} grid={grid[gpx][gpy]}')
                 return (gpx, gpy)
         except (IndexError, ValueError, AttributeError) as e:
-            logger.error(f"Err: {e} {type(e)} gl={len(grid)} gpx={gpx} gpy={gpy} ")
+            logger.error(f"{e} {type(e)} gl={len(grid)} gpx={gpx} gpy={gpy} ")
 
 def bind_thread(server):
     pass
@@ -440,10 +441,10 @@ class BindThread(Thread):
         try:
             self.socket.bind((args.listen, args.port))
         except OSError as e:
-            logger.error(e)
+            logger.error(f'{e} {type(e)}')
             sys.exit(1)
         except Exception as e:
-            logger.error(e)
+            logger.error(f'{e} {type(e)}')
             sys.exit(1)
         conncounter = 0
         while True:
@@ -456,7 +457,7 @@ class BindThread(Thread):
             except Exception as e:
                 logger.warning(f"{e} {type(e)}")
                 break
-            thread = NewHandler(conn, addr, Queue(), name=f"clthrd{conncounter}")
+            thread = NewHandler(conn, addr, Queue(), name=f"clthrd{addr}")
             self.server.clients.append(thread)
             thread.start()
             conncounter += 1
@@ -475,8 +476,6 @@ def locker_thread(lock):
             # logger.debug('locker_thread Not locking')
             lock.release()
         time.sleep(0.05)
-    return
-
 
 if __name__ == "__main__":
     parser = ArgumentParser(description="server")
@@ -491,18 +490,18 @@ if __name__ == "__main__":
     connq = Queue()
 
     lock = threading.Lock()
-    lt = Thread(target=locker_thread, args=(lock,), daemon=True, name="svlocker_thread")
-    threads.append(lt)
+    svlocker_thread = Thread(target=locker_thread, args=(lock,), daemon=True, name="svlocker_thread")
+    threads.append(svlocker_thread)
 
-    gt = Gameserver(connq, mainsocket, lock)
-    tui = ServerTUI(server=gt)
+    gameserverthread = Gameserver(connq, mainsocket, lock)
+    tui = ServerTUI(server=gameserverthread)
     threads.append(tui)
     # tui.run()
-    threads.append(gt)
-    bt = BindThread(gt, lock)
-    threads.append(bt)
-    for t in threads:
-        logger.info(f"starting {t}")
+    threads.append(gameserverthread)
+    bindthread = BindThread(gameserverthread, lock)
+    threads.append(bindthread)
+    for idx,t in enumerate(threads):
+        logger.info(f"Starting thread {idx}/{len(threads)}: {t}")
         t.start()
     killserver = False
     while not killserver:

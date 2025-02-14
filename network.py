@@ -52,7 +52,7 @@ def packet_parser(rawdata):
 				except IndexError as e:
 					logger.error(f'{e} rawp:\n{rawpart}\nsplit:\n{rawsplit}\nrawdata_sock:\n{rawdata_sock}')
 					results.append({'msgtype': 'parserindexerror'})
-				if not 'msgtype' in rawpart:
+				if 'msgtype' not in rawpart:
 					# logger.error(f'NO msgtype rawp: {rawpart}\nsplit {len(rawsplit)} {type(rawsplit)}:\n{rawsplit[:100]}\nrawdata_sock {type(rawdata_sock)}:\n{rawdata_sock[:100]}\n\n')
 					results.append({'msgtype': 'parsermissingmsg'})
 					break
