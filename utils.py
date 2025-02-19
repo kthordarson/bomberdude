@@ -1,30 +1,21 @@
-import random
-import struct
-from typing import Tuple
-from typing import Union
-
+from typing import List, Optional, Tuple, Union
 from pymunk import Vec2d
+import struct
+import random
+import hashlib as md5lib
 
-try:
-	import _md5 as md5lib
-except ImportError:
-	import hashlib as md5lib
 
 md5_unpacker = struct.Struct("4I")
 
-
 def gen_randid() -> int:
-	return int(''.join([str(random.randint(0, 9)) for k in range(10)]))
-
-
-# hashid = hashlib.sha1()
-# hashid.update(str(time.time()).encode("utf-8"))
-# return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
+	return int(''.join([str(random.randint(0,9)) for k in range(10)]))
+	# hashid = hashlib.sha1()
+	# hashid.update(str(time.time()).encode("utf-8"))
+	# return hashid.hexdigest()[:10]  # just to shorten the id. hopefully won't get collisions but if so just don't shorten it
 
 
 def get_map_coordinates_rev(camera_vector: Union[Vec2d, tuple], camera) -> Vec2d:
 	return Vec2d(*camera_vector) - Vec2d(*camera.position)
-
 
 def stable_hash(t: Tuple) -> int:
 	cnt = _dump_tuple(t)

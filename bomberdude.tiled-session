@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "data/maptest.json",
+    "activeFile": "",
     "automapping.whileDrawing": false,
     "expandedProjectPaths": [
         ".",
@@ -192,8 +192,8 @@
             "scale": 0.75,
             "selectedLayer": 1,
             "viewCenter": {
-                "x": 431.3333333333333,
-                "y": 176.66666666666666
+                "x": 668,
+                "y": 400.6666666666667
             }
         },
         "data/map.tmx": {
@@ -213,11 +213,11 @@
             }
         },
         "data/map2.tmj": {
-            "scale": 0.25,
+            "scale": 0.0625,
             "selectedLayer": 1,
             "viewCenter": {
-                "x": 930,
-                "y": 1068
+                "x": 2864,
+                "y": 1944
             }
         },
         "data/map2tiles.tsx": {
@@ -229,42 +229,39 @@
             "scale": 0.5,
             "selectedLayer": 8,
             "viewCenter": {
-                "x": 923,
+                "x": 924,
                 "y": 1023
             }
         },
         "data/map4.json": {
-            "expandedObjectLayers": [
-                5
-            ],
             "scale": 0.41655273437499996,
             "selectedLayer": 3,
             "viewCenter": {
-                "x": 887.0425506974565,
-                "y": 602.5647638026023
+                "x": 888.2428789122026,
+                "y": 603.7650920173487
             }
         },
         "data/maptest.json": {
             "scale": 1,
             "selectedLayer": 6,
             "viewCenter": {
-                "x": 223.5,
-                "y": 222
+                "x": 225,
+                "y": 224.5
             }
         },
         "data/maptest2.json": {
             "scale": 0.75,
             "selectedLayer": 2,
             "viewCenter": {
-                "x": 466,
-                "y": 612
+                "x": 466.66666666666663,
+                "y": 611.3333333333334
             }
         },
         "data/maptest3.json": {
             "scale": 0.75,
             "selectedLayer": 2,
             "viewCenter": {
-                "x": 460.66666666666663,
+                "x": 461.3333333333333,
                 "y": 1375.3333333333333
             }
         },
@@ -272,8 +269,8 @@
             "scale": 0.75,
             "selectedLayer": 3,
             "viewCenter": {
-                "x": 388.66666666666663,
-                "y": 413.3333333333333
+                "x": 389.3333333333333,
+                "y": 414
             }
         },
         "data/maptest5.json": {
@@ -288,15 +285,15 @@
             "scale": 0.4537239583333333,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 962.0386844975034,
-                "y": 641.3591229983357
+                "x": 963.1406761177755,
+                "y": 642.4611146186078
             }
         },
         "data/wall-rules.tmx": {
             "scale": 2,
             "selectedLayer": 2,
             "viewCenter": {
-                "x": 75.75,
+                "x": 76,
                 "y": 8.75
             }
         },
@@ -327,11 +324,9 @@
     "map.lastUsedFormat": "json",
     "map.width": 3,
     "openFiles": [
-        "data/maptest.json"
     ],
     "project": "bomberdude.tiled-project",
     "recentFiles": [
-        "data/maptest.json",
         "data/maptest5.json",
         "data/maptest4.json",
         "data/maptest2.json",
@@ -342,7 +337,8 @@
         "data/maptest3.json",
         "data/map3.json",
         "data/map.json",
-        "/home/kth/development2/games/tiled-automap-example/tiled-automap.tmx"
+        "/home/kth/development2/games/tiled-automap-example/tiled-automap.tmx",
+        "/home/kth/development2/games/tiled-automap-example/wall-rules.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1

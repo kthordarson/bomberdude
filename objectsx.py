@@ -1,5 +1,8 @@
-from typing import List, Dict
+from typing import List, Optional, Tuple, Union
+
+from pyvex.utils import stable_hash
 from pymunk import Vec2d
+import copy
 import arcade
 from arcade.gui.style import UIStyleBase, UIStyledWidget
 from arcade.tilemap import TileMap
@@ -10,8 +13,11 @@ from arcade.sprite_list import SpatialHash
 import random
 import math
 from loguru import logger
-from constants import PLAYER_MOVEMENT_SPEED, PARTICLE_COUNT, PARTICLE_COLORS, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED, PARTICLE_FADE_RATE, PARTICLE_GRAVITY, FLAME_SPEED, FLAME_TIME, FLAME_RATE, BOMBTICKER, BULLET_TIMER, FLAMEX, FLAMEY
+from constants import PARTICLE_FADE_RATE, PLAYER_MOVEMENT_SPEED, PARTICLE_GRAVITY, FLAME_RATE, FLAMEX, FLAMEY, FLAME_SPEED, FLAME_TIME, PARTICLE_COUNT, PARTICLE_COLORS, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED, BOMBTICKER, BULLET_TIMER
 import time
+import hashlib
+from queue import Queue, Empty
+from typing import Dict
 import json
 from dataclasses import dataclass, asdict, field
 from arcade.types import Point
@@ -39,11 +45,11 @@ MOVE_MAP = {
 class UIPlayerLabel(UILabel):
 	_value: str = ''
 
-	def __init__(self, client_id, value='', l_text='', text_color=arcade.color.HAN_BLUE, *args, **kwargs):
-		super().__init__()  # width=120,text=client_id,text_color=text_color, multiline=False, *args, **kwargs)
+	def __init__(self, client_id,name='label', value='', l_text='', text_color=arcade.color.HAN_BLUE, *args, **kwargs):
+		super().__init__(width=120,text=client_id,text_color=text_color, multiline=False, *args, **kwargs)
 		self.client_id = client_id
-		self.name = str(client_id)
-		self.button = UIFlatButton(text=f'{self.client_id}', height=20, width=120)
+		self.name = name
+		self.button = UIFlatButton(text=f'{self.name}', height=20, width=120)
 		self.textlabel = UIFlatButton(text=' ', height=20, width=400)
 
 	@property
@@ -63,6 +69,7 @@ class UIPlayerLabel(UILabel):
 		self.text = f'{self._value}'  # self._value # f'{self.client_id}\\n{value}'
 		self.textlabel.text = self._value
 		self.fit_content()
+
 
 class KeysPressed:
 	def __init__(self, client_id):
@@ -104,7 +111,7 @@ class PlayerState:
 	ammo: float = 0.0
 	# score: int = 0
 	client_id: str = 'none'
-	position = [1,12]
+	position = [222,222]
 
 	def __repr__(self):
 		return f'Playerstate_repr ({self.client_id} pos={self.position} h={self.health} u={self.updated})'
@@ -147,7 +154,6 @@ class Networkthing(arcade.Sprite):
 
 @dataclass
 class Bomberplayer(arcade.Sprite):
-	# def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99,y=99)):
 	def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99,y=99), name='xnonex'):
 		super().__init__(texture,scale)
 		self.name = name
@@ -162,23 +168,24 @@ class Bomberplayer(arcade.Sprite):
 		self.score = 0
 		self.angle = 0
 		self.spatial_hash = SpatialHash(cell_size=32)
-		self.candrop = True
+		self.candrop = True  # player cannot drop until server sends ack for last drop
 		self.lastdrop = 0  # last bomb dropped
 		self.all_bomb_drops = {}  # keep track of bombs
 		# self.text = arcade.Text(f'{self.client_id} h:{self.health} pos:{self.position}', 10,10)
 
 	def __repr__(self):
-		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} )'
+		return f'{self.name} ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} bl:{self.bombsleft} cd:{self.candrop} ld:{self.lastdrop} bd:{len(self.all_bomb_drops)})'
 
 	def __hash__(self):
 		return self.client_id
 
 	def dropbomb(self, bombtype, eventq) -> None:
 		if not self.candrop:  # dunno about this logic....
-			logger.warning(f'{self} cannot drop bomb ! candrop: {self.candrop} last: {self.lastdrop} drops: {len(self.all_bomb_drops)}')
+			logger.error(f'{self} cannot drop bomb waiting for ack {self.lastdrop}')
+			logger.error(f'{self.all_bomb_drops=}')
 			return
 		if self.bombsleft <= 0:
-			logger.warning(f'p1: {self} has no bombs left {self.lastdrop}...')
+			logger.warning(f'p1: {self} has no bombs left or cant drop {self.lastdrop}...')
 			return
 		if self.candrop:
 			bombpos = Vec2d(x=self.center_x,y=self.center_y)
@@ -188,6 +195,9 @@ class Bomberplayer(arcade.Sprite):
 			self.candrop = False
 			self.lastdrop = bombevent['eventid']
 			logger.debug(f'{self} dropped bomb {bombevent["eventid"]}')
+			return
+		else:
+			logger.warning(f'{self} cannot drop bomb waiting for ack {self.lastdrop}')
 			return
 
 	def update_netdata(self, playeronedata):
@@ -230,6 +240,7 @@ class Bomberplayer(arcade.Sprite):
 	def get_playerstate(self):
 		playerstate = {
 			'client_id': self.client_id,
+			'name': self.name,
 			'position': self.position,
 			'health': self.health,
 			'msgsource': 'get_playerstate',
@@ -295,9 +306,9 @@ class Bomb(arcade.Sprite):
 				f.center_x = self.center_x
 				f.center_y = self.center_y
 				scene.add_sprite('Flames', f)
-			event = {'event_time':0, 'event_type':'bombxplode', 'bomber':self.bomber, 'eventid': gen_randid()}
-			eventq.put(event)
-			self.remove_from_sprite_lists()
+				event = {'event_time':0, 'event_type':'bombxplode', 'bomber':self.bomber, 'eventid': gen_randid()}
+				eventq.put(event)
+				self.remove_from_sprite_lists()
 		else:
 			self.timer -= BOMBTICKER
 
@@ -323,9 +334,9 @@ class BiggerBomb(arcade.Sprite):
 				f.center_x = self.center_x
 				f.center_y = self.center_y
 				scene.add_sprite('Flames', f)
-			event = {'event_time':0, 'event_type':'bombxplode', 'bomber':self.bomber, 'eventid': gen_randid()}
-			eventq.put(event)
-			self.remove_from_sprite_lists()
+				event = {'event_time':0, 'event_type':'bombxplode', 'bomber':self.bomber, 'eventid': gen_randid()}
+				eventq.put(event)
+				self.remove_from_sprite_lists()
 		else:
 			self.timer -= BOMBTICKER
 
@@ -356,18 +367,24 @@ class Bullet(arcade.Sprite):
 		self.position = rotate_point(self.center_x, self.center_y, point[0], point[1], degrees)
 
 	def hit(self, oldpos,other):
-		if self.hitcount <= 1:
-			if self.left <= other.left+self.change_x or self.right <= other.right+self.change_x:
-				self.change_x *= -1
-			if self.top <= other.top+self.change_y or self.bottom <= other.bottom+self.change_y:
-				self.change_y *= -1
-			if self.hitcount > 1:
-				logger.warning(f'{self} hit {other} {self.hitcount=}')
-			self.hitcount += 1
-			self.can_kill = False
-			self.do_shrink = True
-		else:
-			self.remove_from_sprite_lists()
+		if self.left <= other.left+self.change_x or self.right <= other.right+self.change_x:
+			if self.change_x > 0:
+				self.right = other.left
+			if self.change_x < 0:
+				self.left = other.right
+			self.change_x *= -1
+		if self.top <= other.top+self.change_y or self.bottom <= other.bottom+self.change_y:
+			if self.change_y < 0:
+				self.bottom = other.top
+			if self.change_y > 0:
+				self.top = other.bottom
+			self.change_y *= -1
+			self.center_x = other.left + other.width//2
+		if self.hitcount > 1:
+			logger.warning(f'{self} hit {other} {self.hitcount=}')
+		self.hitcount += 1
+		self.can_kill = False
+		self.do_shrink = True
 
 	def update(self):
 		# self.velocity = Vec2d(x=self.velocity[0], y=self.velocity[1])
@@ -385,7 +402,6 @@ class Bullet(arcade.Sprite):
 		if self.timer <= 0:
 			# logger.debug(f'{self} timeout ')
 			self.remove_from_sprite_lists()
-
 
 class Particle(arcade.SpriteCircle):
 	def __init__(self, my_list=None, xtra=0):
