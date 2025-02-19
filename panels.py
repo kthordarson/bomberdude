@@ -1,36 +1,5 @@
-from typing import List, Optional, Tuple, Union
-
-from pyvex.utils import stable_hash
-from pymunk import Vec2d
-import copy
 import arcade
-from arcade.gui.style import UIStyleBase, UIStyledWidget
-from arcade.tilemap import TileMap
-from arcade.gui import UIManager, UIBoxLayout, UITextArea, UIFlatButton, UIGridLayout
-from arcade.gui import UILabel, UIWidget, UIAnchorLayout
-from arcade.math import (
-    get_angle_radians,
-    rotate_point,
-    get_angle_degrees,
-)
-from arcade.sprite_list import SpatialHash
-from arcade import (
-    draw_line,
-    draw_circle_filled,
-    draw_circle_outline,
-    draw_lrbt_rectangle_outline,
-)
-import random
-import math
-from loguru import logger
-import time
-import hashlib
-from queue import Queue, Empty
-from dataclasses import dataclass, asdict, field
-from arcade.types import Point
-
-from utils import gen_randid
-
+from arcade.gui import UIWidget
 
 class Panel(UIWidget):
     def __init__(self, x, y, width, height, window=None, panel_title="dummy"):

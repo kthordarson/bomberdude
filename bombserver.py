@@ -1,13 +1,10 @@
 #!/usr/bin/python
 import copy
 import asyncio
-from typing import Dict, Tuple
-from contextlib import suppress
 import sys
 import json
 from argparse import ArgumentParser
-from threading import Thread, current_thread, Timer, active_count, Event
-from queue import Queue, Empty
+from threading import Thread, Timer, active_count, Event
 from loguru import logger
 import random
 from constants import BLOCK, GRIDSIZE, UPDATE_TICK
@@ -15,7 +12,7 @@ from gamestate import GameState
 from asyncio import run, create_task, CancelledError
 from api import ApiServer
 import zmq
-from zmq.asyncio import Context, Socket
+from zmq.asyncio import Context
 import pytiled_parser
 
 
@@ -281,14 +278,24 @@ class BombServer:
 				clid = msg["client_id"]
 				try:
 					self.game_state.update_game_state(clid, msg)
-					self.game_state.update_game_events(msg)
 				except KeyError as e:
 					logger.warning(f"{type(e)} {e} {msg=}")
 				except Exception as e:
 					logger.error(f"{type(e)} {e} {msg=}")
-				if self.tui.stopped():
-					logger.warning(f"{self} update_from_clienttuistop {self.tui}")
-					break
+				evkeycnt = len(msg.get("game_events", []))
+				if evkeycnt > 0:
+					logger.debug(f"evk: {evkeycnt} gameevent: {msg.get('game_events', [])}")
+					try:
+						self.game_state.update_game_events(msg)
+					except AttributeError as e:
+						logger.warning(f"{type(e)} {e} {msg=}")
+					except KeyError as e:
+						logger.warning(f"{type(e)} {e} {msg=}")
+					except Exception as e:
+						logger.error(f"{type(e)} {e} {msg=}")
+					if self.tui.stopped():
+						logger.warning(f"{self} update_from_clienttuistop {self.tui}")
+						break
 		except asyncio.CancelledError as e:
 			logger.warning(f"update_from_client {e} {type(e)}")
 

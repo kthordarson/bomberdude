@@ -1,17 +1,8 @@
 from pymunk import Vec2d
-import time
-import random
-from queue import Queue, Empty
 import arcade
 from arcade.gui import (
-    UIAnchorLayout,
     UIFlatButton,
     UIGridLayout,
-    UIImage,
-    UIOnChangeEvent,
-    UITextureButton,
-    UITextureToggle,
-    UIView,
     UIManager,
 )
 from loguru import logger

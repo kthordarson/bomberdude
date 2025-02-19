@@ -1,11 +1,9 @@
-from typing import List, Dict
+from typing import Dict
 from pymunk import Vec2d
 import arcade
-from arcade.gui.style import UIStyleBase, UIStyledWidget
-from arcade.tilemap import TileMap
-from arcade.gui import UIManager, UIBoxLayout, UITextArea, UIFlatButton, UIGridLayout
+from arcade.gui import UIFlatButton
 from arcade.gui import UILabel
-from arcade.math import (get_angle_radians, rotate_point, get_angle_degrees,)
+from arcade.math import (rotate_point,)
 from arcade.sprite_list import SpatialHash
 import random
 import math

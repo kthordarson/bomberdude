@@ -38,9 +38,7 @@ async def thread_main(game, loop):
             msg = dict(
                 thrmain_cnt=thrmain_cnt,
                 score=game.playerone.score,
-                game_events=[
-                    game_events,
-                ],
+                game_events=game_events,
                 client_id=game.playerone.client_id,
                 name=game.playerone.name,
                 position=game.playerone.position,
@@ -61,14 +59,10 @@ async def thread_main(game, loop):
 
     async def receive_game_state():
         while True:
-            _gs = await game.sub_sock.recv_json()
-            # gs = json.loads(_gs)
-            game.game_state.from_json(_gs)
+            game_state_json = await game.sub_sock.recv_json()
+            game.game_state.from_json(game_state_json)
 
-    await asyncio.gather(
-        pusher(),
-        receive_game_state(),
-    )
+    await asyncio.gather(pusher(),receive_game_state(),)
 
 
 def thread_worker(game):

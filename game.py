@@ -1,30 +1,19 @@
 import requests
 import zmq
-from zmq.asyncio import Context, Socket
+from zmq.asyncio import Context
 from pymunk import Vec2d
 import math
 import json
-import time
-import random
 from queue import Queue, Empty
 import arcade
 from arcade import get_window
-from arcade import draw_line, draw_circle_filled, draw_circle_outline
+from arcade import draw_line
 from arcade.gui import (
     UIAnchorLayout,
-    UIFlatButton,
     UIGridLayout,
-    UIImage,
-    UIOnChangeEvent,
-    UITextureButton,
-    UITextureToggle,
-    UIView,
     UIManager,
 )
-from arcade.types import Point
 from arcade.math import (
-    get_angle_radians,
-    rotate_point,
     get_angle_degrees,
 )
 from loguru import logger
@@ -34,14 +23,13 @@ from objects import (
     BiggerBomb,
     KeysPressed,
     PlayerEvent,
-    PlayerState,
     UIPlayerLabel,
     Bullet,
 )
 from panels import Panel
 from utils import get_map_coordinates_rev, gen_randid
 from gamestate import GameState
-from debug import debug_dump_game, draw_debug_players
+from debug import debug_dump_game
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, BULLET_SPEED, BULLETDEBUG,GRAPH_HEIGHT, GRAPH_WIDTH, GRAPH_MARGIN, SCREEN_WIDTH, SCREEN_HEIGHT
 
 class Bomberdude(arcade.View):
