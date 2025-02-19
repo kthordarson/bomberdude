@@ -12,28 +12,21 @@ from objects import Upgrade
 
 @dataclass
 class GameState:
-	# player_states: List[PlayerState]
-	game_seconds: int = 0
 	cjsonupdate: int = 0
 
 	def __repr__(self):
-		return f'Gamestate (gs:{self.game_seconds} events:{len(self.game_events)} counters = chkpc: {self.chkp_counter} ugsc: {self.ugs_counter} tojc: {self.toj_counter} fjc: {self.fj_counter} players:{len(self.players)})'
+		return f'Gamestate ( events:{len(self.game_events)} players:{len(self.players)} )'
 
-	def __init__(self, game_seconds=0, debug=False, mapname=None):
+	def __init__(self, debug=False, mapname=None):
 		self.mapname = mapname
 		self.players = {}
 		# self.player_states = player_states
-		self.game_seconds = game_seconds
 		self.debug = debug
 		self.debugmode_trace = False
 		self.game_events = []
 		self.event_queue = Queue()
 		self.raw_event_queue = Queue()
 		# debugstuff
-		self.chkp_counter = 0
-		self.ugs_counter = 0
-		self.toj_counter = 0
-		self.fj_counter = 0
 		self.layer_options = {
 			"Particles": {"use_spatial_hash": True},
 			"Flames": {"use_spatial_hash": True},
@@ -63,7 +56,6 @@ class GameState:
 				yield {'client_id':p, 'playerdata':playerdata}
 
 	def check_players(self):
-		self.chkp_counter += 1
 		dt = time.time()
 		playerscopy = copy.copy(self.players)
 		# old_len = len(self.players)
@@ -91,8 +83,6 @@ class GameState:
 		return upgrade
 
 	def update_game_state(self, clid, msg):
-		self.ugs_counter += 1
-		self.game_seconds += 1
 		if self.debugmode_trace:
 			logger.debug(f' from: {clid} msg={msg}')
 		msghealth = msg.get('health')
@@ -253,7 +243,6 @@ class GameState:
 		# 	logger.warning(f'game_event already handled: {game_event} msg={msg}')
 
 	def to_json(self):
-		self.toj_counter += 1
 		dout = {'players':{}, 'game_events': []}
 		try:
 			pending_event = self.event_queue.get_nowait()
@@ -279,7 +268,6 @@ class GameState:
 		return dout
 
 	def from_json(self, dgamest):
-		self.fj_counter += 1
 		for ge in dgamest.get('game_events', []):
 			if ge == []:
 				break
@@ -289,11 +277,11 @@ class GameState:
 		plist = dgamest.get('players',[])
 		for player in plist:
 			if plist.get(player).get('timeout'):
-				pass  # logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
+				logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
 			elif plist.get(player).get('killed'):
-				pass  # logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
+				logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
 			else:
 				self.players[plist.get(player).get('client_id')] = plist.get(player)
 				# logger.info(f'player={player} dgamest={dgamest} selfplayers={self.players}')
 		if self.debug:
-			pass  # logger.debug(f'dgamest={dgamest}')# gs={self.game_seconds} selfplayers={self.players}')
+			pass  # logger.debug(f'dgamest={dgamest}')# selfplayers={self.players}')

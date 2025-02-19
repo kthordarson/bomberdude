@@ -162,10 +162,8 @@ class ServerTUI(Thread):
 class BombServer:
 	def __init__(self, args):
 		self.args = args
-		self.ufc_counter = 0
-		self.tick_count = 0
 		self.debug = self.args.debug
-		self.game_state = GameState(game_seconds=1, debug=self.debug, mapname=args.mapname)
+		self.game_state = GameState(debug=self.debug, mapname=args.mapname)
 		self.game_state.load_tile_map(args.mapname)
 		self.ctx = Context()
 		self.pushsock = self.ctx.socket(zmq.PUB)  # : Socket
@@ -181,7 +179,7 @@ class BombServer:
 		# self.app.run(host=args.listen, port=args.port)
 
 	def __repr__(self):
-		return f'BomberServer(ufc:{self.ufc_counter} tc:{self.tick_count})'
+		return 'BomberServer()'
 
 	async def get_game_state(self):
 		return self.game_state.to_json()
@@ -269,7 +267,6 @@ class BombServer:
 		logger.debug(f"{self} starting update_from_client {sockrecv=}")
 		try:
 			while True:
-				self.ufc_counter += 1
 				msg = await sockrecv.recv_json()
 				if self.packetdebugmode and msg['msgsource'] != "pushermsgdict":
 					logger.info(f"msg: {msg}")
@@ -304,9 +301,6 @@ class BombServer:
 		# Send out the game state to all players 60 times per second.
 		try:
 			while True:
-				self.tick_count += 1
-				# if self.packetdebugmode:
-				# 	logger.info(f"tick_count: {self.tick_count}")
 				try:
 					self.game_state.check_players()
 				except TypeError as e:

@@ -71,87 +71,12 @@ class KeysPressed:
 		return f'KeyPressed ({self.client_id})'
 
 @dataclass
-class PlayerEvent:
-	keys: Dict = field(default_factory=lambda: {k: False for k in MOVE_MAP})
-	client_id: str = 'pemissing'
-	ufcl_cnt: int = 0
-	pe_counter: int = 0
-	# game_events: None
-	# events: None
-
-	def __post_init__(self):
-		self.keys = {int(k): v for k, v in self.keys.items()}
-
-	def __repr__(self):
-		return f'PlayerEvent ({self.client_id} )'
-
-	def asdict(self):
-		return asdict(self)
-
-	def set_client_id(self,clid):
-		self.client_id = clid
-
-
-@dataclass
-class PlayerState:
-	updated: float = 0.0
-	# x: float = 123.1
-	# y: float = 123.1
-	speed: float = 0.0
-	health: float = 100.1
-	ammo: float = 0.0
-	# score: int = 0
-	client_id: str = 'none'
-	position = [1,12]
-
-	def __repr__(self):
-		return f'Playerstate_repr ({self.client_id} pos={self.position} h={self.health} u={self.updated})'
-
-	def __str__(self):
-		return f'Playerstate_str ({self.client_id} pos={self.position} h={self.health} u={self.updated})'
-
-	def __init__(self, client_id, *args, **kwars):
-		self.client_id = client_id
-		# self.position = [101,101]
-
-	def asdict(self):
-		ps_dict = asdict(self)
-		ps_dict['client_id'] = self.client_id
-		ps_dict['position'] = self.position
-		ps_dict['health'] = self.health
-		ps_dict['msgsource'] = 'asdict'
-		return ps_dict
-
-	def _asdict(self):
-		return asdict(self)
-
-	def set_client_id(self,clid):
-		self.client_id = clid
-
-	def set_pos(self, newpos):
-		self.position = newpos
-
-	def get_pos(self):
-		return self.position
-
-
-@dataclass
-class Networkthing(arcade.Sprite):
-	client_id: str = 'none'
-
-	def __init__(self, client_id, position, *args, **kwars):
-		self.client_id = client_id
-		super().__init__(*args, **kwars)
-
-@dataclass
 class Bomberplayer(arcade.Sprite):
 	# def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99,y=99)):
 	def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99,y=99), name='xnonex'):
 		super().__init__(texture,scale)
 		self.name = name
 		self.client_id = client_id
-		# self.ps = PlayerState(self.client_id, position)
-		# self.ps.set_pos(position)
 		self.position = position
 		self.bombsleft = 3
 		self.health = 100
@@ -163,7 +88,6 @@ class Bomberplayer(arcade.Sprite):
 		self.candrop = True
 		self.lastdrop = 0  # last bomb dropped
 		self.all_bomb_drops = {}  # keep track of bombs
-		# self.text = arcade.Text(f'{self.client_id} h:{self.health} pos:{self.position}', 10,10)
 
 	def __repr__(self):
 		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} )'
@@ -338,7 +262,7 @@ class Bullet(arcade.Sprite):
 		self.can_kill = True
 		self.bullet_id = gen_randid()
 		self.spatial_hash = SpatialHash(cell_size=32)
-		self.hitcount = 0
+		self.hit_count = 0
 		self.damage = 1
 		# self.spatial_hash: self.bullet_id
 		# self.velocity = Vec2d(x=0, y=0)
@@ -354,14 +278,14 @@ class Bullet(arcade.Sprite):
 		self.position = rotate_point(self.center_x, self.center_y, point[0], point[1], degrees)
 
 	def hit(self, oldpos,other):
-		if self.hitcount <= 1:
+		if self.hit_count <= 1:
 			if self.left <= other.left+self.change_x or self.right <= other.right+self.change_x:
 				self.change_x *= -1
 			if self.top <= other.top+self.change_y or self.bottom <= other.bottom+self.change_y:
 				self.change_y *= -1
-			if self.hitcount > 1:
-				logger.warning(f'{self} hit {other} {self.hitcount=}')
-			self.hitcount += 1
+			if self.hit_count > 1:
+				logger.warning(f'{self} hit {other} {self.hit_count=}')
+			self.hit_count += 1
 			self.can_kill = False
 			self.do_shrink = True
 		else:

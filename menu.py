@@ -9,31 +9,20 @@ from loguru import logger
 from game import Bomberdude
 
 class MainView(arcade.View):
-    def __init__(self, window, args, **kwargs):  # , game, window, name, title):
+    def __init__(self, window, args, **kwargs):
         super().__init__()
         self.args = args
         self.debug = args.debug
         self.window = window
         self.game = Bomberdude(args)
         self.manager = UIManager()
-        # self.grid = UIGridLayout(column_count=1, row_count=4)
-        #  self.window.width / 2,   #  self.window.height / 2,
-        self.grid = UIGridLayout(x=300,y=300,align_horizontal='center', align_vertical='center', column_count=8, row_count=8)  # x=30, y=300, column_count=1, row_count=3)  #, vertical_spacing=5, align_horizontal="center", align_vertical="top", )
-        # self.sb = UIFlatButton(text="Start New Game", width=150)
-        self.startbtn = self.grid.add(UIFlatButton(text="Start New Game", width=150), col_num=0,row=1)  # , col_num=0, row_num=10)
-        # self.cb = UIFlatButton(text="Connect", width=250)
-        self.connectb = self.grid.add(UIFlatButton(text="Connect", width=250), col_num=1,row=2)  # , col_num=2, row_num=1)
-        # self.eb = UIFlatButton(text="Exit", width=150)
-        self.exitbtn = self.grid.add(UIFlatButton(text="Exit", width=150), col_num=2,row=3)  # , col_num=0, row_num=2)
-        # self.tb = UIFlatButton(text="test", width=150)
-        self.testbtn = self.grid.add(UIFlatButton(text="test", width=150), col_num=3,row=4)  # , col_num=10, row_num=1)
+        self.grid = UIGridLayout(x=300,y=300,align_horizontal='center', align_vertical='center', column_count=8, row_count=8)
+        self.startbtn = self.grid.add(UIFlatButton(text="Start New Game", width=150), col_num=0,row=1)
+        self.connectb = self.grid.add(UIFlatButton(text="Connect", width=250), col_num=1,row=2)
+        self.exitbtn = self.grid.add(UIFlatButton(text="Exit", width=150), col_num=2,row=3)
+        self.testbtn = self.grid.add(UIFlatButton(text="test", width=150), col_num=3,row=4)
         self.grid.do_layout()
-        # self.grid.add(, col_num=0, row_num=0)
-        # self.grid.add(self.connectb, col_num=0, row_num=1)
-        # self.grid.add(self.exitbtn, col_num=0, row_num=2)
         self.anchor = self.manager.add(self.grid)
-        # self.anchor = self.manager.add(UIAnchorLayout())  # anchor_x='left', anchor_y='top',
-        # self.anchor.add(child=self.grid,)
         self.mouse_pos = Vec2d(x=0, y=0)
 
         @self.testbtn.event("on_click")

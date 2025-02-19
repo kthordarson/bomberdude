@@ -22,7 +22,6 @@ from objects import (
     Bomb,
     BiggerBomb,
     KeysPressed,
-    PlayerEvent,
     UIPlayerLabel,
     Bullet,
 )
@@ -53,8 +52,7 @@ class Bomberdude(arcade.View):
         self.selected_bomb = 1
         self.keys_pressed = KeysPressed(self.playerone.client_id)
         self.hitlist = []
-        self.player_event = PlayerEvent()
-        self.game_state = GameState(game_seconds=0)
+        self.game_state = GameState()
         self.ioctx = Context.instance()
         self.sub_sock = self.ioctx.socket(zmq.SUB)  # : Socket
         # self.data_sock: Socket = self.ioctx.socket(zmq.SUB)
@@ -313,29 +311,6 @@ class Bomberdude(arcade.View):
                 "eventid": gen_randid(),
             }
             self.eventq.put(event)
-        if button == 1000:  # old version
-            cgmpr = get_map_coordinates_rev(self.playerone.position, self.camera)
-            x_diff = x - cgmpr.x
-            y_diff = y - cgmpr.y
-            ba = math.atan2(x_diff, y_diff) + 3.14 / 2
-
-            change_x = 1 - math.cos(ba) * BULLET_SPEED
-            change_y = math.sin(ba) * BULLET_SPEED
-            bullet_vel = Vec2d(x=change_x, y=change_y)
-            bulletpos = Vec2d(x=self.playerone.center_x, y=self.playerone.center_y)
-            event = {
-                "event_time": 0,
-                "event_type": "bulletfired",
-                "bullet_vel": bullet_vel,
-                "shooter": self.playerone.client_id,
-                "pos": bulletpos,  # bullet.position,
-                "ba": ba,
-                "timer": 3515,
-                "handled": False,
-                "handledby": self.playerone.client_id,
-                "eventid": gen_randid(),
-            }
-            self.eventq.put(event)
         else:
             logger.warning(f"{x=} {y=} {button=} {modifiers=}")
             return
@@ -387,9 +362,6 @@ class Bomberdude(arcade.View):
             logger.warning("quit")
             arcade.close_window()
             return
-
-        # self.player_event.keys[key] = True
-        # self.keys_pressed.keys[key] = True
         elif key == arcade.key.UP or key == arcade.key.W:
             self.playerone.change_y = PLAYER_MOVEMENT_SPEED
             self.up_pressed = True
@@ -434,7 +406,6 @@ class Bomberdude(arcade.View):
             self.playerone.change_x = 0
         elif key == arcade.key.SPACE:
             self.playerone.dropbomb(self.selected_bomb, self.eventq)
-        self.player_event.keys[key] = False
         self.keys_pressed.keys[key] = False
 
     def handle_game_events(self, game_event):
@@ -814,7 +785,7 @@ class Bomberdude(arcade.View):
                         self.game_state.scene["Blocks"].remove(hit)
                     case 3:
                         hit.hit_count += 1
-                        logger.debug(f"hitcount: {hit.hit_count} {hit=}")
+                        logger.debug(f"hit_count: {hit.hit_count} {hit=}")
                         if hit.hit_count > 3:
                             event = {
                                 "event_time": 0,
@@ -859,7 +830,7 @@ class Bomberdude(arcade.View):
                         self.game_state.scene["Blocks"].remove(hit)
                     case 10:
                         hit.hit_count += 1
-                        logger.debug(f"hitcount: {hit.hit_count} {hit=}")
+                        logger.debug(f"hit_count: {hit.hit_count} {hit=}")
                         if hit.hit_count > 3:
                             event = {
                                 "event_time": 0,
