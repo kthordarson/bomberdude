@@ -147,7 +147,7 @@ class Bomberdude(arcade.View):
         try:
             resp = json.loads(requests.get(f"http://{self.args.server}:9699/get_tile_map").text)
             mapname = resp.get("mapname")
-            pos = Vec2d(x=64,y=64)  # resp.get("position")
+            pos = Vec2d(x=164,y=64)  # resp.get("position")
             position = pos  # Vec2d(x=123,y=23)  # Vec2d(x=pos[0], y=pos[1])
             logger.debug(f"map {mapname} {pos=} {resp=}")
         except Exception as e:
@@ -166,9 +166,7 @@ class Bomberdude(arcade.View):
     def setup(self, position):
         self.background_color = arcade.color.BLACK
         self.bullet_sprite = arcade.load_texture("data/bullet0.png")
-
         self.setup_panels()
-        self.setup_perf()
         self.setup_labels()
         self.manager.enable()
         self.playerone.position = position
@@ -180,27 +178,6 @@ class Bomberdude(arcade.View):
         self.draw_labels = True
         self.showkilltext = arcade.Text(f"kill: {self.show_kill_timer:.1f}", 100, 100, arcade.color.RED, 22)
         self.netplayer_labels = {}
-
-    def setup_perf(self):
-        # Create a sprite list to put the performance graphs into
-        self.perf_graph_list = arcade.SpriteList()
-        # Calculate position helpers for the row of 3 performance graphs
-        row_y = self.window.height - GRAPH_HEIGHT / 2
-        starting_x = GRAPH_WIDTH / 2
-        step_x = GRAPH_WIDTH + GRAPH_MARGIN
-        # Create the FPS performance graph
-        graph = arcade.PerfGraph(GRAPH_WIDTH, GRAPH_HEIGHT, graph_data="FPS")
-        graph.position = starting_x, row_y
-        self.perf_graph_list.append(graph)
-        graph = arcade.PerfGraph(GRAPH_WIDTH, GRAPH_HEIGHT, graph_data="on_update")
-        graph.position = starting_x + step_x, row_y
-        self.perf_graph_list.append(graph)
-        # Create the on_draw graph
-        graph = arcade.PerfGraph(GRAPH_WIDTH, GRAPH_HEIGHT, graph_data="on_draw")
-        graph.position = starting_x + step_x * 2, row_y
-        self.perf_graph_list.append(graph)
-        # Create a Text object to show the current FPS
-        self.fps_text = arcade.Text(f"FPS: {arcade.get_fps(60):5.1f}", 10, 10, arcade.color.BLACK, 22)
 
     def setup_panels(self):
         self.manager_visible = True
@@ -313,8 +290,31 @@ class Bomberdude(arcade.View):
 
     def on_mouse_press(self, x, y, button, modifiers):
         self.mouse_pos = Vec2d(x=x, y=y)
-        cgmpr = get_map_coordinates_rev(self.playerone.position, self.camera)
         if button == 1:
+            dir_init = (x-self.playerone.position[0], y-self.playerone.position[1])
+            length = math.hypot(*dir_init)
+            dir = (dir_init[0] / length, dir_init[1] / length)
+            bullet_angle = math.degrees(math.atan2(-dir[1], dir[0]))
+            # change_x = 1 - math.cos(bullet_angle) * BULLET_SPEED
+            # change_y = math.sin(bullet_angle) * BULLET_SPEED
+            bullet_vel = Vec2d(x=dir[0], y=dir[1])
+            logger.debug(f'{dir_init=} {dir=} {bullet_angle=} {bullet_vel=} {length=}  {x=} {y=} {self.playerone.position=}')
+            bulletpos = Vec2d(x=self.playerone.center_x, y=self.playerone.center_y)
+            event = {
+                "event_time": 0,
+                "event_type": "bulletfired",
+                "bullet_vel": bullet_vel,
+                "shooter": self.playerone.client_id,
+                "pos": bulletpos,  # bullet.position,
+                "ba": bullet_angle,
+                "timer": 3515,
+                "handled": False,
+                "handledby": self.playerone.client_id,
+                "eventid": gen_randid(),
+            }
+            self.eventq.put(event)
+        if button == 1000:  # old version
+            cgmpr = get_map_coordinates_rev(self.playerone.position, self.camera)
             x_diff = x - cgmpr.x
             y_diff = y - cgmpr.y
             ba = math.atan2(x_diff, y_diff) + 3.14 / 2
@@ -648,7 +648,7 @@ class Bomberdude(arcade.View):
                     )
             case _:
                 # game_events.remove(game_event)
-                logger.warning(f"unknown type:{event_type} {game_events=} ")
+                logger.warning(f"unknown type:{event_type} {game_event=} ")
 
     def update_netplayers(self):
         if self.playerone.client_id in self.game_state.players:
