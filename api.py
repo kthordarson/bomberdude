@@ -3,9 +3,12 @@ from flask import Flask
 
 class ApiServer(Flask):
 	def __init__(self, import_name):
+		self._import_name = import_name
 		super(ApiServer, self).__init__(import_name)
 		self.before_request(self.my_preprocessing)
-		# Set up some logging and template paths.
+
+	def __repr__(self):
+		return f'{super().__repr__()} - {self._import_name}'
 
 	def my_preprocessing(self):
 		pass

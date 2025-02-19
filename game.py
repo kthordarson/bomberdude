@@ -437,255 +437,242 @@ class Bomberdude(arcade.View):
         self.player_event.keys[key] = False
         self.keys_pressed.keys[key] = False
 
-    def handle_game_events(self, game_events):
+    def handle_game_events(self, game_event):
         # gspcopy = copy.copy(self.game_state.game_events)
         # [self.game_state.game_events.remove(game_event) for game_event in self.game_state.game_events if game_event.get('handled')]
         if not self._gotmap:
             self.setup_network()
-        for game_event in game_events:
-            event_type = game_event.get("event_type")
-            if self.debug:
-                pass  # logger.info(f'{event_type=} {game_event=} {game_events=}')
-            clid = game_event.get("client_id")
-            match event_type:
-                case "extrabomb":
-                    logger.info(f"{event_type=} {game_event=}")
+        # for game_event in game_events:
+        # game_event = game_events.get("game_events")
+        event_type = game_event.get("event_type")
+        if self.debug:
+            pass  # logger.info(f'{event_type=} {game_event=} {game_events=}')
+        clid = game_event.get("client_id")
+        match event_type:
+            case "extrabomb":
+                logger.info(f"{event_type=} {game_event=}")
+                if clid == self.playerone.client_id:
+                    self.playerone.bombsleft += 1
+                else:
+                    self.netplayers[clid].bombsleft += 1
+            case "extrahealth":
+                eh = game_event.get("amount")
+                logger.info(f"{event_type=} {game_event=}")
+                if clid == self.playerone.client_id:
+                    self.playerone.health += eh
+                else:
+                    self.netplayers[clid].bombsleft += eh
+            case "playerquit":
+                try:
+                    l0 = len(self.netplayers)
+                    self.netplayers[clid].remove_from_sprite_lists()
+                    self.netplayers.pop(clid)
+                    self.netplayer_labels.pop(clid)
+                    self.game_state.players.pop(clid)
+                    # self.netplayers.pop(self.netplayers[clid])
+                    logger.debug(
+                        f"{event_type} from {clid} {l0} -> {len(self.netplayers)}"
+                    )
+                except KeyError as e:
+                    logger.warning(f"{e} {clid=} {self.netplayers=}")
+                except Exception as e:
+                    logger.error(f"{type(e)} {e} {clid=} {self.netplayers=}")
+            case "ackrespawn":
+                [
+                    self.netplayers[k].set_texture(
+                        arcade.load_texture("data/netplayer.png")
+                    )
+                    for k in self.netplayers
+                    if k == clid
+                ]  # [0]
+                logger.debug(f"{event_type} from {clid}")
+                if clid == self.playerone.client_id:
+                    self.playerone.respawn()
+            case "upgradeblock":
+                upgradetype = game_event.get("upgradetype")
+                blkpos = Vec2d(
+                    x=game_event.get("fpos")[0], y=game_event.get("fpos")[1]
+                )
+                newblk = self.game_state.create_upgrade_block(upgradetype, blkpos)
+                self.game_state.scene.add_sprite("Upgrades", newblk)
+                if self.debug:
+                    logger.info(
+                        f"{event_type} upgradetype {game_event.get('upgradetype')} {newblk}"
+                    )
+            case "acknewconn":
+                name = game_event.get("name", "missingfromacknewconn")
+                if self.debug:
                     if clid == self.playerone.client_id:
+                        logger.debug(f"{event_type} from {clid} {name} my connect ack!")
+                    else:
+                        logger.info(f"{event_type} from {clid} {name} - new player connected!")
+            case "blkxplode":
+                if self.debug:
+                    logger.info(f"{event_type} from {game_event.get('fbomber')}")
+            case "playerkilled" | "dmgkill":
+                # if self.debug:
+                dmgfrom = game_event.get("dmgfrom")
+                dmgto = game_event.get("dmgto")
+                self.game_state.players[dmgto]["score"] += 10
+                kill_score = 1
+                [
+                    self.netplayers[k].set_texture(
+                        arcade.load_texture("data/netplayerdead.png")
+                    )
+                    for k in self.netplayers
+                    if k == dmgto
+                ]  # [0]
+                [
+                    self.netplayers[k].addscore(kill_score)
+                    for k in self.netplayers
+                    if k == dmgfrom
+                ]
+                logger.info(f"{event_type} from {dmgfrom=}  {dmgto=}")
+                if dmgto == self.playerone.client_id:
+                    kill_score += self.playerone.kill(dmgfrom)
+                    logger.debug(f"{event_type} from {dmgfrom=}  {dmgto=} {self.playerone=} {kill_score=}")
+                    self._show_kill_screen = True
+                    self.show_kill_timer = game_event.get("killtimer")
+                    self.show_kill_timer_start = game_event.get("killstart")
+                if dmgfrom == self.playerone.client_id:
+                    self.playerone.score += kill_score
+                    logger.debug(f"{event_type} from {dmgfrom=}  {dmgto=} {self.playerone=} {kill_score=}")
+                self.game_state.players[dmgto]["score"] += kill_score
+
+            case "takedamage":
+                # if self.debug:
+                dmgfrom = game_event.get("dmgfrom")
+                dmgto = game_event.get("dmgto")
+                damage = game_event.get("damage")
+                # self.game_state.players[killed]['score'] += damage
+                # [k.take_damage(damage, dmgfrom) for k in self.netplayers if k.client_id == killed]
+                # logger.info(f'{event_type} from {dmgfrom=}  {killed=} {score=}')
+                if dmgto == self.playerone.client_id:
+                    # self.playerone.score += damage
+                    # self.playerone.take_damage(damage, dmgfrom)
+                    logger.debug(
+                        f"{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} "
+                    )
+                # self.game_state.players[killed]['score'] += score
+            case "acktakedamage":
+                # if self.debug:
+                dmgfrom = game_event.get("dmgfrom")
+                dmgto = game_event.get("dmgto")
+                damage = game_event.get("damage")
+                # self.game_state.players[dmgfrom]['score'] += damage
+                # self.game_state.players[dmgfrom]['health'] -= damage
+                if dmgto == self.playerone.client_id:
+                    self.playerone.take_damage(damage, dmgfrom)
+                    logger.debug(
+                        f"{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} "
+                    )
+                elif dmgfrom == self.playerone.client_id:
+                    # self.playerone.score += damage
+                    logger.info(
+                        f"{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} "
+                    )
+
+            case "ackbombxplode":
+                bomber = game_event.get("bomber")
+                eventid = game_event.get("eventid")
+                # self.game_state.players[bomber]['bombsleft'] += 1
+                if bomber == self.playerone.client_id:
+                    if eventid == self.playerone.lastdrop:
+                        self.playerone.candrop = True
                         self.playerone.bombsleft += 1
-                    else:
-                        self.netplayers[clid].bombsleft += 1
-                case "extrahealth":
-                    eh = game_event.get("amount")
-                    logger.info(f"{event_type=} {game_event=}")
-                    if clid == self.playerone.client_id:
-                        self.playerone.health += eh
-                    else:
-                        self.netplayers[clid].bombsleft += eh
-                case "playerquit":
-                    try:
-                        l0 = len(self.netplayers)
-                        self.netplayers[clid].remove_from_sprite_lists()
-                        self.netplayers.pop(clid)
-                        self.netplayer_labels.pop(clid)
-                        self.game_state.players.pop(clid)
-                        # self.netplayers.pop(self.netplayers[clid])
-                        logger.debug(
-                            f"{event_type} from {clid} {l0} -> {len(self.netplayers)}"
+                        logger.info(
+                            f"{game_event.get('event_type')} ownbombxfrom {bomber} p1={self.playerone}"
                         )
-                    except KeyError as e:
-                        logger.warning(f"{e} {clid=} {self.netplayers=}")
-                    except Exception as e:
-                        logger.error(f"{type(e)} {e} {clid=} {self.netplayers=}")
-                case "ackrespawn":
-                    [
-                        self.netplayers[k].set_texture(
-                            arcade.load_texture("data/netplayer.png")
-                        )
-                        for k in self.netplayers
-                        if k == clid
-                    ]  # [0]
-                    logger.debug(f"{event_type} from {clid}")
-                    if clid == self.playerone.client_id:
-                        self.playerone.respawn()
-                case "upgradeblock":
-                    upgradetype = game_event.get("upgradetype")
-                    blkpos = Vec2d(
-                        x=game_event.get("fpos")[0], y=game_event.get("fpos")[1]
+                else:
+                    logger.info(
+                        f"{game_event.get('event_type')} otherbomb {bomber} p1={self.playerone}"
                     )
-                    newblk = self.game_state.create_upgrade_block(upgradetype, blkpos)
-                    self.game_state.scene.add_sprite("Upgrades", newblk)
-                    if self.debug:
-                        logger.info(
-                            f"{event_type} upgradetype {game_event.get('upgradetype')} {newblk}"
-                        )
-                case "acknewconn":
-                    name = game_event.get("name", "missingfromacknewconn")
-                    if self.debug:
-                        if clid == self.playerone.client_id:  # this is my connect ack
-                            logger.debug(f"{event_type} from {clid} {name}")
-                        else:
-                            logger.info(
-                                f"{event_type} from {clid} {name}"
-                            )  # new player connected
-                case "blkxplode":
-                    if self.debug:
-                        logger.info(f"{event_type} from {game_event.get('fbomber')}")
-                case "playerkilled" | "dmgkill":
-                    # if self.debug:
-                    dmgfrom = game_event.get("dmgfrom")
-                    dmgto = game_event.get("dmgto")
-                    self.game_state.players[dmgto]["score"] += 10
-                    kill_score = 1
-                    [
-                        self.netplayers[k].set_texture(
-                            arcade.load_texture("data/netplayerdead.png")
-                        )
-                        for k in self.netplayers
-                        if k == dmgto
-                    ]  # [0]
-                    [
-                        self.netplayers[k].addscore(kill_score)
-                        for k in self.netplayers
-                        if k == dmgfrom
-                    ]
-                    logger.info(f"{event_type} from {dmgfrom=}  {dmgto=}")
-                    if dmgto == self.playerone.client_id:
-                        kill_score += self.playerone.kill(dmgfrom)
-                        logger.debug(f"{event_type} from {dmgfrom=}  {dmgto=} {self.playerone=} {kill_score=}")
-                        self._show_kill_screen = True
-                        self.show_kill_timer = game_event.get("killtimer")
-                        self.show_kill_timer_start = game_event.get("killstart")
-                    if dmgfrom == self.playerone.client_id:
-                        self.playerone.score += kill_score
-                        logger.debug(f"{event_type} from {dmgfrom=}  {dmgto=} {self.playerone=} {kill_score=}")
-                    self.game_state.players[dmgto]["score"] += kill_score
-
-                case "takedamage":
-                    # if self.debug:
-                    dmgfrom = game_event.get("dmgfrom")
-                    dmgto = game_event.get("dmgto")
-                    damage = game_event.get("damage")
-                    # self.game_state.players[killed]['score'] += damage
-                    # [k.take_damage(damage, dmgfrom) for k in self.netplayers if k.client_id == killed]
-                    # logger.info(f'{event_type} from {dmgfrom=}  {killed=} {score=}')
-                    if dmgto == self.playerone.client_id:
-                        # self.playerone.score += damage
-                        # self.playerone.take_damage(damage, dmgfrom)
-                        logger.debug(
-                            f"{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} "
-                        )
-                    # self.game_state.players[killed]['score'] += score
-                case "acktakedamage":
-                    # if self.debug:
-                    dmgfrom = game_event.get("dmgfrom")
-                    dmgto = game_event.get("dmgto")
-                    damage = game_event.get("damage")
-                    # self.game_state.players[dmgfrom]['score'] += damage
-                    # self.game_state.players[dmgfrom]['health'] -= damage
-                    if dmgto == self.playerone.client_id:
-                        self.playerone.take_damage(damage, dmgfrom)
-                        logger.debug(
-                            f"{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} "
-                        )
-                    elif dmgfrom == self.playerone.client_id:
-                        # self.playerone.score += damage
-                        logger.info(
-                            f"{event_type} {damage} from {dmgfrom=}  {dmgto=} {self.playerone=} "
-                        )
-
-                case "ackbombxplode":
-                    bomber = game_event.get("bomber")
-                    eventid = game_event.get("eventid")
+                    pass  # self.netplayers[bomber].bombsleft += 1
+                    # self.playerone.bombsleft += 1
                     # self.game_state.players[bomber]['bombsleft'] += 1
-                    if bomber == self.playerone.client_id:
-                        if eventid == self.playerone.lastdrop:
-                            self.playerone.candrop = True
-                            self.playerone.bombsleft += 1
-                            logger.info(
-                                f"{game_event.get('event_type')} ownbombxfrom {bomber} p1={self.playerone}"
-                            )
-                    else:
-                        logger.info(
-                            f"{game_event.get('event_type')} otherbomb {bomber} p1={self.playerone}"
-                        )
-                        pass  # self.netplayers[bomber].bombsleft += 1
-                        # self.playerone.bombsleft += 1
-                        # self.game_state.players[bomber]['bombsleft'] += 1
-                        # self.netplayers[bomber].bombsleft += 1
-                        # pass #
-                case "ackbullet":
-                    shooter = game_event.get("shooter")
-                    bullet_vel = Vec2d(
-                        x=game_event.get("bullet_vel")[0],
-                        y=game_event.get("bullet_vel")[1],
-                    )
-                    bulletpos = Vec2d(
-                        x=game_event.get("pos")[0], y=game_event.get("pos")[1]
-                    )
+                    # self.netplayers[bomber].bombsleft += 1
+                    # pass #
+            case "ackbullet":
+                shooter = game_event.get("shooter")
+                bullet_vel = Vec2d(
+                    x=game_event.get("bullet_vel")[0],
+                    y=game_event.get("bullet_vel")[1],
+                )
+                bulletpos = Vec2d(
+                    x=game_event.get("pos")[0], y=game_event.get("pos")[1]
+                )
 
-                    # position = Vec2d(x=self.center_x,y=self.center_y)-_bulletpos
-                    mnorm = bullet_vel.normalized()
-                    bulletpos += mnorm * 22
+                # position = Vec2d(x=self.center_x,y=self.center_y)-_bulletpos
+                mnorm = bullet_vel.normalized()
+                bulletpos += mnorm * 22
 
-                    # bulletpos_fix = get_map_coordinates_rev(bulletpos, self.guicamera)
-                    bullet = Bullet(
-                        texture=self.bullet_sprite, scale=0.8, shooter=shooter
+                # bulletpos_fix = get_map_coordinates_rev(bulletpos, self.guicamera)
+                bullet = Bullet(
+                    texture=self.bullet_sprite, scale=0.8, shooter=shooter
+                )
+                bullet.center_x = bulletpos.x
+                bullet.center_y = bulletpos.y
+                bullet.change_x = bullet_vel.x
+                bullet.change_y = bullet_vel.y
+                bullet.angle = game_event.get("ba")
+                self.game_state.scene.add_sprite("Bullets", bullet)
+            case "ackbombdrop":
+                bomber = game_event.get("bomber")
+                eventid = game_event.get("eventid")
+                bombpos = Vec2d(
+                    x=game_event.get("pos")[0], y=game_event.get("pos")[1]
+                )
+                bombpos_fix = get_map_coordinates_rev(bombpos, self.camera)
+                bombtype = game_event.get("bombtype")
+                if bombtype == 1:
+                    bomb = Bomb(
+                        "data/bomb.png", scale=0.5, bomber=bomber, timer=1500
                     )
-                    bullet.center_x = bulletpos.x
-                    bullet.center_y = bulletpos.y
-                    bullet.change_x = bullet_vel.x
-                    bullet.change_y = bullet_vel.y
-                    bullet.angle = game_event.get("ba")
-                    self.game_state.scene.add_sprite("Bullets", bullet)
-                case "ackbombdrop":
-                    bomber = game_event.get("bomber")
-                    eventid = game_event.get("eventid")
-                    bombpos = Vec2d(
-                        x=game_event.get("pos")[0], y=game_event.get("pos")[1]
+                else:
+                    bomb = BiggerBomb(
+                        "data/bomb.png", scale=0.7, bomber=bomber, timer=1500
                     )
-                    bombpos_fix = get_map_coordinates_rev(bombpos, self.camera)
-                    bombtype = game_event.get("bombtype")
-                    if bombtype == 1:
-                        bomb = Bomb(
-                            "data/bomb.png", scale=0.5, bomber=bomber, timer=1500
-                        )
-                    else:
-                        bomb = BiggerBomb(
-                            "data/bomb.png", scale=0.7, bomber=bomber, timer=1500
-                        )
-                    bomb.center_x = bombpos.x
-                    bomb.center_y = bombpos.y
-                    self.game_state.scene.add_sprite("Bombs", bomb)
-                    if (
-                        bomber == self.playerone.client_id
-                        and eventid == self.playerone.lastdrop
-                    ):
-                        self.playerone.candrop = True  # player can drop again
-                        if self.debug:
-                            logger.info(f"{game_event.get('event_type')} ownbombfrom {bomber} pos {bombpos}  ")  # {eventid=} ld={self.playerone.lastdrop}
-                    else:
-                        logger.debug(
-                            f"{game_event.get('event_type')} from {bomber} pos 	{bombpos} {bombpos_fix=}"
-                        )
-                case _:
-                    # game_events.remove(game_event)
-                    logger.warning(f"unknown type:{event_type} {game_events=} ")
+                bomb.center_x = bombpos.x
+                bomb.center_y = bombpos.y
+                self.game_state.scene.add_sprite("Bombs", bomb)
+                if (
+                    bomber == self.playerone.client_id
+                    and eventid == self.playerone.lastdrop
+                ):
+                    self.playerone.candrop = True  # player can drop again
+                    if self.debug:
+                        logger.info(f"{game_event.get('event_type')} ownbombfrom {bomber} pos {bombpos}  ")  # {eventid=} ld={self.playerone.lastdrop}
+                else:
+                    logger.debug(
+                        f"{game_event.get('event_type')} from {bomber} pos 	{bombpos} {bombpos_fix=}"
+                    )
+            case _:
+                # game_events.remove(game_event)
+                logger.warning(f"unknown type:{event_type} {game_events=} ")
 
     def update_netplayers(self):
-        # gspcopy_ = copy.copy(self.game_state.players)
-        # gspcopy = [{k: self.game_state.players[k]} for k in self.game_state.players if k != self.playerone.client_id]
-        # _ = [self.netplayers[k].set_data(self.game_state.players[pclid]) for k in self.netplayers ] #  and k != self.playerone.client_id
         if self.playerone.client_id in self.game_state.players:
             try:
                 playeronedata = self.game_state.players[self.playerone.client_id]
                 self.playerone.update_netdata(playeronedata)
             except KeyError as e:
-                logger.warning(
-                    f"keyerror {e} {self.game_state.players=} {self.playerone.client_id=}"
-                )
+                logger.warning(f"keyerror {e} {self.game_state.players=} {self.playerone.client_id=}")
 
-        for gsplr in self.game_state.get_players(skip=self.playerone.client_id):  #
-            pclid = gsplr.get("client_id")
-            playerdata = gsplr.get("playerdata")
+        for game_players in self.game_state.get_players(skip=self.playerone.client_id):
+            pclid = game_players.get("client_id")
+            playerdata = game_players.get("playerdata")
             name = playerdata.get("name", "gsmissing")
             score = playerdata.get("score")
             angle = playerdata.get("angle")
             health = playerdata.get("health")
             bombsleft = playerdata.get("bombsleft")
             position = playerdata.get("position", (0, 0))
-            # position = Vec2d(x= ,y=self.game_state.players[pclid].get('position')[1])
-            # netplayerpos = Vec2d(x=position.x,y=position.y)
-
             value = f"  h:{health} s:{score} b:{bombsleft} pos: {position=} "
-            if pclid in [
-                k for k in self.netplayers if k != self.playerone.client_id
-            ]:  # update existing netplayer
+            if pclid in [k for k in self.netplayers if k != self.playerone.client_id]:  # update existing netplayer
                 try:
                     self.netplayer_labels[pclid].value = value
                 except KeyError as e:
-                    logger.warning(
-                        f"KeyError {e} {pclid=} {self.netplayer_labels=} {value=}"
-                    )
+                    logger.warning(f"KeyError {e} {pclid=} {self.netplayer_labels=} {value=}")
                 for np in self.netplayers:
                     self.netplayers[np].position = position
                     self.netplayers[np].angle = angle
@@ -693,96 +680,48 @@ class Bomberdude(arcade.View):
                     self.netplayers[np].health = health
                     self.netplayers[np].score = score
                     self.netplayers[np].bombsleft = bombsleft
-                # _ = [self.netplayers[k].set_data(self.game_state.players[pclid]) for k in self.netplayers if k == pclid] #  and k != self.playerone.client_id
-
             else:  # create new netplayer
                 position_fix = get_map_coordinates_rev(position, self.camera)
                 if pclid == self.playerone.client_id:
                     # logger.warning(f'{gsplr=} {pclid=} {self.playerone.client_id=}')
-                    newplayer = Bomberplayer(
-                        texture="data/playerone.png",
-                        client_id=pclid,
-                        name=name,
-                        position=position_fix,
-                    )
-                    playerlabel = UIPlayerLabel(
-                        client_id=str(newplayer.client_id),
-                        name=name,
-                        text_color=arcade.color.BLUE,
-                    )
+                    newplayer = Bomberplayer(texture="data/playerone.png", client_id=pclid, name=name, position=position_fix,)
+                    playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), name=name, text_color=arcade.color.BLUE,)
                     playerlabel.button.text = f"Me {name}"
                 else:
-                    newplayer = Bomberplayer(
-                        texture="data/netplayer.png",
-                        client_id=pclid,
-                        name=name,
-                        position=position_fix,
-                    )
-                    playerlabel = UIPlayerLabel(
-                        client_id=str(newplayer.client_id),
-                        name=name,
-                        text_color=arcade.color.GREEN,
-                    )
+                    newplayer = Bomberplayer(texture="data/netplayer.png", client_id=pclid, name=name, position=position_fix,)
+                    playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), name=name, text_color=arcade.color.GREEN,)
                     playerlabel.button.text = f"{name}"
-                    logger.info(
-                        f"newplayer: {name} id={newplayer.client_id} pos: {position} fix={position_fix} "
-                    )
+                    logger.info(f"newplayer: {name} id={newplayer.client_id} pos: {position} fix={position_fix} ")
                 if pclid != self.playerone.client_id:
                     self.game_state.scene.add_sprite("Netplayers", newplayer)
-                    self.netplayers[pclid] = (
-                        newplayer  # {'client_id':pclid, 'position':position_fix}
-                    )
+                    self.netplayers[pclid] = (newplayer)  # {'client_id':pclid, 'position':position_fix}
                     self.netplayer_labels[pclid] = playerlabel
-
-                    self.netplayer_grid.add(
-                        playerlabel.button,
-                        col_num=0,
-                        row_num=len(self.netplayer_labels),
-                    )
-                    self.netplayer_grid.add(
-                        playerlabel.textlabel,
-                        col_num=1,
-                        col_span=2,
-                        row_num=len(self.netplayer_labels),
-                    )  # h
+                    self.netplayer_grid.add(playerlabel.button, col_num=0, row_num=len(self.netplayer_labels),)
+                    self.netplayer_grid.add(playerlabel.textlabel, col_num=1, col_span=2, row_num=len(self.netplayer_labels),)  # h
                 # if pclid != self.playerone.client_id:
 
     def update_poplist(self):
         for p in self.poplist:
-            logger.info(
-                f"plist={self.poplist} popping {p} gsp={self.game_state.players}"
-            )
+            logger.info(f"plist={self.poplist} popping {p} gsp={self.game_state.players}")
             self.game_state.players.pop(p)
             logger.info(f"aftergsp={self.game_state.players}")
         self.poplist = []
-
-    # def update_labels(self):
-    # 	self.timer_label.value = f'time {self.timer:.1f}'
-    # 	self.health_label.value = f'health {self.playerone.health}'
-    # 	self.score_label.value = f'score {self.playerone.score}'
-    # 	self.bombs_label.value = f'bombs {self.playerone.bombsleft}'
-    # 	self.info_label.value = f' B {self.selected_bomb}'
 
     def on_update(self, dt):
         self.timer += dt
         if not self._gotmap:
             return
-
-        # self.update_labels()
-        game_events = None
         try:
             game_events = self.game_state.event_queue.get_nowait()
             self.game_state.event_queue.task_done()
         except Empty:
-            pass
+            game_events = []
         except Exception as e:
             logger.error(f"{e} {type(e)}")
-        if game_events:
-            self.handle_game_events(
-                [
-                    game_events,
-                ]
-            )
+        if len(game_events) > 0:
+            if self.debug:
+                logger.debug(f'{game_events=}')
+            self.handle_game_events(game_events)
         # if len(self.game_state.players) > 1:
         self.update_netplayers()
         self.update_poplist()

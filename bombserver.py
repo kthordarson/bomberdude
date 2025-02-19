@@ -170,8 +170,6 @@ class BombServer:
 		self.ctx = Context()
 		self.pushsock = self.ctx.socket(zmq.PUB)  # : Socket
 		self.pushsock.bind(f"tcp://{args.listen}:9696")
-		# self.datasock: Socket = self.ctx.socket(zmq.PUB)
-		# self.datasock.bind(f'tcp://{args.listen}:9699')
 		self.recvsock = self.ctx.socket(zmq.PULL)  # : Socket
 		self.recvsock.bind(f"tcp://{args.listen}:9697")
 		self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock,),)
@@ -297,12 +295,12 @@ class BombServer:
 						logger.warning(f"{self} update_from_clienttuistop {self.tui}")
 						break
 		except asyncio.CancelledError as e:
-			logger.warning(f"update_from_client {e} {type(e)}")
+			logger.warning(f"update_from_client CancelledError {e} ")
 
 	async def ticker(self, sockpush, sockrecv) -> None:
 		tt_updatefromclient = create_task(self.update_from_client(sockrecv))
 		# apitsk =  create_task(self.apiserver._run(host=self.args.listen, port=9699),)
-		logger.debug(f"tickertask: {tt_updatefromclient} {sockpush=} {sockrecv=}")
+		logger.debug(f"tickertask: {tt_updatefromclient}\n{sockpush=}\n{sockrecv=}")
 		# Send out the game state to all players 60 times per second.
 		try:
 			while True:
@@ -321,12 +319,12 @@ class BombServer:
 				await asyncio.sleep(1 / UPDATE_TICK)  # SERVER_UPDATE_TICK_HZ
 				# self.game_state.game_events = []
 				if self.tui.stopped():
-					logger.warning(f"{self} tickertuistop tui: {self.tui} tt: {tt_updatefromclient=}")
+					logger.warning(f"{self} tickertuistop tui: {self.tui}\n")
 					tt_updatefromclient.cancel()
 					await tt_updatefromclient
 					break
 		except asyncio.CancelledError as e:
-			logger.warning(f"tickertask {e} {type(e)} {tt_updatefromclient=}")
+			logger.warning(f"tickertask CancelledError {e}")
 			tt_updatefromclient.cancel()
 			await tt_updatefromclient
 
@@ -336,23 +334,23 @@ async def main(args) -> None:
 	# app = App(signal=fut)
 	ctx = Context()
 	server = BombServer(args)
+	logger.debug(f'{server=} {server.tui=}')
 	# tui = ServerTUI(server, debug=args.debug)
 	server.tui.start()
-	apiserver = ApiServer("bombserver")
+	apiserver = ApiServer("bombapi")
+	logger.debug(f'{apiserver=}')
 	apiserver.add_url_rule("/get_game_state", view_func=server.get_game_state, methods=["GET"])
 	apiserver.add_url_rule("/get_tile_map", view_func=server.get_tile_map, methods=["GET"])
 	apiserver.add_url_rule("/get_position", view_func=server.get_position, methods=["GET"])
-	apithread = Thread(target=apiserver.run, args=(args.listen, 9699), daemon=True)
-	logger.info(f"ticker_task:{server.ticker_task} {server.tui=} {apiserver=} starting {apithread=}")
+	apithread = Thread(target=apiserver.run, name=apiserver._import_name, args=(args.listen, 9699), daemon=True)
+	logger.info(f"ticker_task:{server.ticker_task} starting {apithread=}")
 	apithread.start()
 	logger.info(f"started {apithread=}")
 
 	try:
-		await asyncio.wait(
-			[server.ticker_task, fut], return_when=asyncio.FIRST_COMPLETED
-		)
+		await asyncio.wait([server.ticker_task, fut], return_when=asyncio.FIRST_COMPLETED)
 	except CancelledError as e:
-		logger.warning(f"{e} {type(e)} Cancelled")
+		logger.warning(f"main Cancelled {e}")
 	finally:
 		server.ticker_task.cancel()
 		await server.ticker_task
