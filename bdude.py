@@ -24,10 +24,11 @@ from menu import MainView
 
 
 async def thread_main(game, loop):
-    async def pusher():
+    async def pusher(game):
         # Push the player's INPUT state 60 times per second
         thrmain_cnt = 0
-        # game_events = []
+        if game.debug:
+            logger.info(f'{game} pusher starting')
         while True:
             thrmain_cnt += 1
             try:
@@ -35,19 +36,21 @@ async def thread_main(game, loop):
                 game.eventq.task_done()
             except Empty:
                 game_events = []
+            client_keys = game.client_game_state.keys_pressed.to_json()
             msg = dict(
                 thrmain_cnt=thrmain_cnt,
-                score=game.playerone.score,
+                score=1,
                 game_events=game_events,
-                client_id=game.playerone.client_id,
-                name=game.playerone.name,
-                position=game.playerone.position,
-                angle=game.playerone.angle,
-                health=game.playerone.health,
-                timeout=game.playerone.timeout,
-                killed=game.playerone.killed,
-                bombsleft=game.playerone.bombsleft,
-                gotmap=game._gotmap,
+                client_id=2,
+                name='xxxcasdfa',
+                position=(1,1),
+                angle=1,
+                health=4,
+                timeout=False,
+                killed=False,
+                bombsleft=101,
+                gotmap=True,
+                keyspressed=client_keys,
                 msgsource="pushermsgdict",
                 msg_dt=time.time(),
             )
@@ -58,11 +61,15 @@ async def thread_main(game, loop):
                 logger.warning(f'{game} not connected')
                 await asyncio.sleep(1)
 
-    async def receive_game_state():
+    async def receive_game_state(game):
+        if game.debug:
+            logger.info(f'{game} receive_game_state starting')
         while True:
             game_state_json = await game.sub_sock.recv_json()
             game.game_state.from_json(game_state_json)
-    await asyncio.gather(pusher(),receive_game_state(),)
+            if game.args.debug:
+                logger.info(f"game_state_json: {game_state_json}")
+    await asyncio.gather(pusher(game),receive_game_state(game),)
 
 
 def thread_worker(game):
@@ -85,11 +92,11 @@ async def main():
     args = parser.parse_args()
 
     app = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode="context_gc",)
-    mainview = MainView(window=app, name="bomberdue", title="Bomberdude Main Menu", args=args)
-    thread = Thread(target=thread_worker, args=(mainview.game,), daemon=True)
+    bomberdude_main = MainView(window=app, name="Bomberdude main", title="Bomberdude Main Menu", args=args)
+    thread = Thread(target=thread_worker, args=(bomberdude_main.game,), daemon=True)
     thread.start()
-    app.show_view(mainview)
-    logger.info(f"arcaderun: {app} t={thread} mw={mainview}")
+    app.show_view(bomberdude_main)
+    logger.info(f"app: {app} t={thread} mw={bomberdude_main}")
     arcade.run()
 
 

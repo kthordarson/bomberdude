@@ -81,26 +81,26 @@ class ServerTUI(Thread):
 		return self._stop.is_set()
 
 	def dump_players(self):
-		for p in self.server.game_state.players:
-			# print(f'p={p} pos = {self.server.game_state.players[p]["position"]} score: {self.server.game_state.players[p]["score"]} msgdt:{self.server.game_state.players[p]["msg_dt"]}')
-			print(f"p={p} {self.server.game_state.players[p]}")
+		for p in self.server.server_game_state.players:
+			# print(f'p={p} pos = {self.server.server_game_state.players[p]["position"]} score: {self.server.server_game_state.players[p]["score"]} msgdt:{self.server.server_game_state.players[p]["msg_dt"]}')
+			logger.debug(f"p={p} {self.server.server_game_state.players[p]}")
 
 	def get_serverinfo(self):
-		print(f"players={len(self.server.game_state.players)} threads:{active_count()}")
-		print(f"{self.server.game_state}")
-		# print(f'gamestate: {self.server.game_state}')
-		# print(f'gamestateplayers: {self.server.game_state.players}')
-		for p in self.server.game_state.players:
-			print(f"p={p} pos = {self.server.game_state.players[p]['position']} score: {self.server.game_state.players[p]['score']} msgdt:{self.server.game_state.players[p]['msg_dt']:.2f} timeout:{self.server.game_state.players[p]['timeout']}")
+		logger.debug(f"players={len(self.server.server_game_state.players)} threads:{active_count()}")
+		logger.debug(f"{self.server.server_game_state}")
+		# print(f'gamestate: {self.server.server_game_state}')
+		# print(f'gamestateplayers: {self.server.server_game_state.players}')
+		for p in self.server.server_game_state.players:
+			logger.debug(f"p={p} pos = {self.server.server_game_state.players[p]['position']} score: {self.server.server_game_state.players[p]['score']} msgdt:{self.server.server_game_state.players[p]['msg_dt']:.2f} timeout:{self.server.server_game_state.players[p]['timeout']}")
 
 	def dumpgameevents(self):
-		print(f"gamestate: {self.server.game_state} events: {len(self.server.game_state.game_events)}")
-		for e in self.server.game_state.game_events:
-			print(f"event: {e}")
+		logger.debug(f"gamestate: {self.server.server_game_state} events: {len(self.server.server_game_state.game_events)}")
+		for e in self.server.server_game_state.game_events:
+			logger.debug(f"event: {e}")
 
 	def cleargameevents(self):
-		print(f"clearevents gamestate: {self.server.game_state} events: {len(self.server.game_state.game_events)}")
-		self.server.game_state.game_events = []
+		logger.debug(f"clearevents gamestate: {self.server.server_game_state} events: {len(self.server.server_game_state.game_events)}")
+		self.server.server_game_state.game_events = []
 
 	def printhelp(self):
 		help = f"""
@@ -109,10 +109,10 @@ class ServerTUI(Thread):
 		l = dump player list
 		r = remove timedout players
 		d = toggle debug {self.server.debug}
-		ds = toggle debug for gamestate {self.server.game_state.debug}
-		dst = toggle debug for gamestate {self.server.game_state.debugmode_trace}
+		ds = toggle debug for gamestate {self.server.server_game_state.debug}
+		dst = toggle debug for gamestate {self.server.server_game_state.debugmode_trace}
 		pd = toggle packetdebugmode {self.server.packetdebugmode}
-		e = dump game events {len(self.server.game_state.game_events)}
+		e = dump game events {len(self.server.server_game_state.game_events)}
 		ec = clear game events
 		"""
 		print(help)
@@ -135,17 +135,17 @@ class ServerTUI(Thread):
 					self.cleargameevents()
 				elif cmd[:1] == "d":
 					self.server.debug = not self.server.debug
-					logger.debug(f"sdbg={self.server.debug} {self.server.game_state.debug}")
+					logger.debug(f"sdbg={self.server.debug} {self.server.server_game_state.debug}")
 				elif cmd[:2] == "ds":
-					self.server.game_state.debug = (
-						not self.server.game_state.debug
+					self.server.server_game_state.debug = (
+						not self.server.server_game_state.debug
 					)
-					logger.debug(f"sdbg={self.server.debug} {self.server.game_state.debug}")
+					logger.debug(f"sdbg={self.server.debug} {self.server.server_game_state.debug}")
 				elif cmd[:3] == "dst":
-					self.server.game_state.debugmode_trace = (
-						not self.server.game_state.debugmode_trace
+					self.server.server_game_state.debugmode_trace = (
+						not self.server.server_game_state.debugmode_trace
 					)
-					logger.debug(f"trace sdbg={self.server.debug} {self.server.game_state.debug} {self.server.game_state.debugmode_trace}")
+					logger.debug(f"trace sdbg={self.server.debug} {self.server.server_game_state.debug} {self.server.server_game_state.debugmode_trace}")
 				elif cmd[:2] == "pd":
 					self.server.packetdebugmode = not self.server.packetdebugmode
 				elif cmd[:1] == "q":
@@ -163,8 +163,8 @@ class BombServer:
 	def __init__(self, args):
 		self.args = args
 		self.debug = self.args.debug
-		self.game_state = GameState(debug=self.debug, mapname=args.mapname)
-		self.game_state.load_tile_map(args.mapname)
+		self.server_game_state = GameState(args=self.args, mapname=args.mapname, name='server')
+		self.server_game_state.load_tile_map(args.mapname)
 		self.ctx = Context()
 		self.pushsock = self.ctx.socket(zmq.PUB)  # : Socket
 		self.pushsock.bind(f"tcp://{args.listen}:9696")
@@ -182,10 +182,10 @@ class BombServer:
 		return 'BomberServer()'
 
 	async def get_game_state(self):
-		return self.game_state.to_json()
+		return self.server_game_state.to_json()
 
 	async def get_tile_map(self):
-		mapname = str(self.game_state.tile_map.tiled_map.map_file)
+		mapname = str(self.server_game_state.tile_map.tiled_map.map_file)
 		if "maptest2" in mapname:
 			map4pos = [
 				(2, 2),
@@ -197,7 +197,7 @@ class BombServer:
 				map4pos[self.playerindex][0] * 64,
 				map4pos[self.playerindex][1] * 64,
 			)
-			self.playerindex = len(self.game_state.players)
+			self.playerindex = len(self.server_game_state.players)
 		elif "maptest5" in mapname:
 			map4pos = [
 				(2, 2),
@@ -209,7 +209,7 @@ class BombServer:
 				map4pos[self.playerindex][0] * 32,
 				map4pos[self.playerindex][1] * 32,
 			)
-			self.playerindex = len(self.game_state.players)
+			self.playerindex = len(self.server_game_state.players)
 		elif "maptest4" in mapname:
 			map4pos = [
 				(2, 2),
@@ -221,7 +221,7 @@ class BombServer:
 				map4pos[self.playerindex][0] * 32,
 				map4pos[self.playerindex][1] * 32,
 			)
-			self.playerindex = len(self.game_state.players)
+			self.playerindex = len(self.server_game_state.players)
 		else:
 			position = self.get_position()
 		if self.debug:
@@ -229,50 +229,45 @@ class BombServer:
 		return {"mapname": str(mapname), "position": position}
 
 	def remove_timedout_players(self):
-		pcopy = copy.copy(self.game_state.players)
-		len0 = len(self.game_state.players)
+		pcopy = copy.copy(self.server_game_state.players)
+		len0 = len(self.server_game_state.players)
 		for p in pcopy:
 			try:
-				if self.game_state.players[p].get("timeout", False):
-					self.game_state.players.pop(p)
-					logger.warning(f"remove_timedout_players {p} {len0}->{len(self.game_state.players)} {self.game_state.players[p]}")
-				elif self.game_state.players[p].get("playerquit", False):
-					self.game_state.players.pop(p)
-					logger.debug(f"playerquit {p} {len0}->{len(self.game_state.players)}")
+				if self.server_game_state.players[p].get("timeout", False):
+					self.server_game_state.players.pop(p)
+					logger.warning(f"remove_timedout_players {p} {len0}->{len(self.server_game_state.players)} {self.server_game_state.players[p]}")
+				elif self.server_game_state.players[p].get("playerquit", False):
+					self.server_game_state.players.pop(p)
+					logger.debug(f"playerquit {p} {len0}->{len(self.server_game_state.players)}")
 			except KeyError as e:
-				logger.warning(f"keyerror in remove_timedout_players {e} {self.game_state.players[p]} {self.game_state.players}")
+				logger.warning(f"keyerror in remove_timedout_players {e} {self.server_game_state.players[p]} {self.server_game_state.players}")
 
 	def get_position(self, retas="int"):
 		foundpos = False
-		walls: pytiled_parser.Layer = self.game_state.tile_map.get_tilemap_layer("Walls")
-		blocks: pytiled_parser.Layer = self.game_state.tile_map.get_tilemap_layer("Blocks")
+		walls: pytiled_parser.Layer = self.server_game_state.tile_map.get_tilemap_layer("Walls")
+		blocks: pytiled_parser.Layer = self.server_game_state.tile_map.get_tilemap_layer("Blocks")
 		x = 0
 		y = 0
 		while not foundpos:
-			x = random.randint(2, int(self.game_state.tile_map.width) - 2)
-			y = random.randint(2, int(self.game_state.tile_map.height) - 2)
-			# print(f'checking {x} {y}')
+			x = random.randint(2, int(self.server_game_state.tile_map.width) - 2)
+			y = random.randint(2, int(self.server_game_state.tile_map.height) - 2)
 			if walls.data[x][y] == 0 and blocks.data[x][y] == 0:
 				foundpos = True
-				x1 = x * BLOCK  # self.game_state.tile_map.width
-				y1 = y * BLOCK  # self.game_state.tile_map.width
+				x1 = x * BLOCK  # self.server_game_state.tile_map.width
+				y1 = y * BLOCK  # self.server_game_state.tile_map.width
 				logger.debug(f"foundpos {x}/{x1} {y}/{y1}")
 				return {'position': (x1, y1)}
-				# if retas == "int":
-				# 	return (x1, y1)
-				# else:
-				# 	return str(f"{x1},{y1}")
 
 	async def update_from_client(self, sockrecv) -> None:
 		logger.debug(f"{self} starting update_from_client {sockrecv=}")
 		try:
 			while True:
 				msg = await sockrecv.recv_json()
-				if self.packetdebugmode and msg['msgsource'] != "pushermsgdict":
+				if self.packetdebugmode:  # and msg['msgsource'] != "pushermsgdict":
 					logger.info(f"msg: {msg}")
 				clid = msg["client_id"]
 				try:
-					self.game_state.update_game_state(clid, msg)
+					self.server_game_state.update_game_state(clid, msg)
 				except KeyError as e:
 					logger.warning(f"{type(e)} {e} {msg=}")
 				except Exception as e:
@@ -281,7 +276,7 @@ class BombServer:
 				if evkeycnt > 0:
 					logger.debug(f"evk: {evkeycnt} gameevent: {msg.get('game_events', [])}")
 					try:
-						self.game_state.update_game_events(msg)
+						self.server_game_state.update_game_events(msg)
 					except AttributeError as e:
 						logger.warning(f"{type(e)} {e} {msg=}")
 					except KeyError as e:
@@ -302,16 +297,16 @@ class BombServer:
 		try:
 			while True:
 				try:
-					self.game_state.check_players()
+					self.server_game_state.check_players()
 				except TypeError as e:
-					logger.warning(f"self.game_state.check_players() {e}")
+					logger.warning(f"self.server_game_state.check_players() {e}")
 				try:
 					self.remove_timedout_players()
 				except Exception as e:
 					logger.warning(f"{type(e)} {e} in remove_timedout_players ")
-				await sockpush.send_json(self.game_state.to_json())
+				await sockpush.send_json(self.server_game_state.to_json())
 				await asyncio.sleep(1 / UPDATE_TICK)  # SERVER_UPDATE_TICK_HZ
-				# self.game_state.game_events = []
+				# self.server_game_state.game_events = []
 				if self.tui.stopped():
 					logger.warning(f"{self} tickertuistop tui: {self.tui}\n")
 					tt_updatefromclient.cancel()

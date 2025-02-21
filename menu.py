@@ -55,6 +55,8 @@ class MainView(arcade.View):
             self.connectb.disabled = True
             self.connectb.visible = False
             self.window.show_view(self.game)
+            if self.debug:
+                logger.debug(f"{self} ev: {event}")
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         self.mouse_pos = Vec2d(x=x, y=y)

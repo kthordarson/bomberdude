@@ -34,6 +34,8 @@ MOVE_MAP = {
 	100: (PLAYER_MOVEMENT_SPEED, 0),
 }
 
+KEY_NAME_MAP = {v: k for k, v in arcade.key.__dict__.items() if isinstance(v, int)}
+
 class UIPlayerLabel(UILabel):
 	_value: str = ''
 
@@ -62,13 +64,33 @@ class UIPlayerLabel(UILabel):
 		self.textlabel.text = self._value
 		self.fit_content()
 
+
 class KeysPressed:
-	def __init__(self, client_id):
-		self.client_id = client_id
+	def __init__(self, name):
+		self.name = name
 		self.keys = {k: False for k in MOVE_MAP}
 
 	def __repr__(self):
-		return f'KeyPressed ({self.client_id})'
+		return f'KeyPressed ({self.name})'
+
+	def to_json(self):
+		return json.dumps({
+			"name": self.name,
+			"keys": {KEY_NAME_MAP.get(k, str(k)): v for k, v in self.keys.items()}
+		})
+
+		# return json.dumps({
+		# 	"name": self.name,
+		# 	"keys": {arcade.key.symbol_string(k): v for k, v in self.keys.items()}
+		# })
+
+class oldKeysPressed:
+	def __init__(self, name):
+		self.name = name
+		self.keys = {k: False for k in MOVE_MAP}
+
+	def __repr__(self):
+		return f'KeyPressed ({self.name})'
 
 @dataclass
 class Bomberplayer(arcade.Sprite):

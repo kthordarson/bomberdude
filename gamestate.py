@@ -7,25 +7,24 @@ import time
 from queue import Queue, Empty
 from dataclasses import dataclass
 from utils import gen_randid
-from objects import Upgrade
+from objects import Upgrade, KeysPressed
 
 
 @dataclass
 class GameState:
-	cjsonupdate: int = 0
 
-	def __repr__(self):
-		return f'Gamestate ( events:{len(self.game_events)} players:{len(self.players)} )'
-
-	def __init__(self, debug=False, mapname=None):
+	def __init__(self, args, mapname=None, name='undefined'):
+		self.args = args
+		self.name = name
 		self.mapname = mapname
 		self.players = {}
 		# self.player_states = player_states
-		self.debug = debug
+		self.debug = self.args.debug
 		self.debugmode_trace = False
 		self.game_events = []
 		self.event_queue = Queue()
 		self.raw_event_queue = Queue()
+		self.keys_pressed = KeysPressed('gamestate')
 		# debugstuff
 		self.layer_options = {
 			"Particles": {"use_spatial_hash": True},
@@ -39,6 +38,9 @@ class GameState:
 			"Walls": {"use_spatial_hash": True},
 			"Background": {"use_spatial_hash": True},}
 
+	def __repr__(self):
+		return f'Gamestate ( events:{len(self.game_events)} players:{len(self.players)} )'
+
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
 		self.tile_map = arcade.load_tilemap(self.mapname, layer_options=self.layer_options, scaling=TILE_SCALING, use_spatial_hash=True)
@@ -47,7 +49,7 @@ class GameState:
 		self.scene = arcade.Scene.from_tilemap(self.tile_map)
 		logger.debug(f'loading {self.mapname} done')
 
-	def get_players(self, skip):
+	def get_players(self, skip=None):
 		for p in self.players:
 			if p == skip:
 				pass
@@ -244,6 +246,9 @@ class GameState:
 
 	def to_json(self):
 		dout = {'players':{}, 'game_events': []}
+		dout['keys_pressed'] = self.keys_pressed.to_json()
+		if self.debug and self.name != 'server':
+			logger.debug(f'gamestate to_json {dout=}')
 		try:
 			pending_event = self.event_queue.get_nowait()
 			self.event_queue.task_done()
@@ -271,7 +276,7 @@ class GameState:
 		for ge in dgamest.get('game_events', []):
 			if ge == []:
 				break
-			if self.debug:
+			if self.debug and self.name != 'b':
 				logger.info(f'ge={ge.get("event_type")} dgamest={dgamest=}')
 			self.event_queue.put_nowait(ge)
 		plist = dgamest.get('players',[])
