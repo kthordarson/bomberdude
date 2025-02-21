@@ -546,19 +546,16 @@ class Bomberdude(arcade.View):
             case "ackbombxplode":
                 bomber = game_event.get("bomber")
                 eventid = game_event.get("eventid")
-                # self.game_state.players[bomber]['bombsleft'] += 1
+                self.game_state.players[bomber]['bombsleft'] += 1
                 if bomber == self.playerone.client_id:
                     if eventid == self.playerone.lastdrop:
                         self.playerone.candrop = True
                         self.playerone.bombsleft += 1
-                        logger.info(
-                            f"{game_event.get('event_type')} ownbombxfrom {bomber} p1={self.playerone}"
-                        )
+                        logger.info(f"{game_event.get('event_type')} ownbombxfrom {bomber} p1={self.playerone}")
                 else:
-                    logger.info(
-                        f"{game_event.get('event_type')} otherbomb {bomber} p1={self.playerone}"
-                    )
-                    pass  # self.netplayers[bomber].bombsleft += 1
+                    logger.info(f"{game_event.get('event_type')} otherbomb {bomber} p1={self.playerone}")
+                    pass
+                    # self.netplayers[bomber].bombsleft += 1
                     # self.playerone.bombsleft += 1
                     # self.game_state.players[bomber]['bombsleft'] += 1
                     # self.netplayers[bomber].bombsleft += 1

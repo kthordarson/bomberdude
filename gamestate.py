@@ -61,7 +61,7 @@ class GameState:
 		# old_len = len(self.players)
 		# pops = []
 		for p in playerscopy:
-			dt_diff = dt - self.players[p].get('msg_dt',0)
+			dt_diff = dt - self.players[p]['msg_dt']
 			# playerhealth = self.players[p].get('health',0)
 			if dt_diff > 10:  # player timeout
 				self.players[p]['timeout'] = True
@@ -254,14 +254,14 @@ class GameState:
 			playerdict = {
 				'client_id':player,
 				'name': self.players[player].get('name', 'fjmissing'),
-				'position': self.players[player].get('position', (0,0)),
+				'position': self.players[player].get('position', (123,123)),
 				'angle': self.players[player].get('angle',0),
-				'health': self.players[player].get('health',0),
+				'health': self.players[player].get('health',1110),
 				'msg_dt': self.players[player].get('msg_dt',time.time()),
 				'timeout': self.players[player].get('timeout',False),
 				'killed': self.players[player].get('killed', False),
 				'score': self.players[player].get('score',0),
-				'bombsleft': self.players[player].get('bombsleft',0),
+				'bombsleft': self.players[player].get('bombsleft',110),
 				'msgsource': 'to_json',
 			}
 			dout['players'][player] = playerdict  # Q = playerdict

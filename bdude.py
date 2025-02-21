@@ -55,13 +55,13 @@ async def thread_main(game, loop):
                 await game.push_sock.send_json(msg)
                 await asyncio.sleep(1 / UPDATE_TICK)
             else:
+                logger.warning(f'{game} not connected')
                 await asyncio.sleep(1)
 
     async def receive_game_state():
         while True:
             game_state_json = await game.sub_sock.recv_json()
             game.game_state.from_json(game_state_json)
-
     await asyncio.gather(pusher(),receive_game_state(),)
 
 

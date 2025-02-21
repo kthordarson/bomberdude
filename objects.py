@@ -90,7 +90,7 @@ class Bomberplayer(arcade.Sprite):
 		self.all_bomb_drops = {}  # keep track of bombs
 
 	def __repr__(self):
-		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} pos:{self.position} )'
+		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} b:{self.bombsleft} pos:{self.position} )'
 
 	def __hash__(self):
 		return self.client_id
