@@ -5,7 +5,8 @@ from threading import Thread
 import time
 from argparse import ArgumentParser
 from queue import Empty
-import arcade
+# import arcade
+import pygame
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
 from menu import MainView
@@ -69,11 +70,14 @@ async def thread_main(game, loop):
         if game.debug:
             logger.info(f'{game} receive_game_state starting')
         while True:
-            game_state_json = await game.sub_sock.recv_json()
-            game.game_state.from_json(game_state_json)
-            if game.args.debug:
-                logger.info(f"game_state_json: {game_state_json}")
-    await asyncio.gather(pusher(game), receive_game_state(game))
+            try:
+                game_state_json = await game.sub_sock.recv_json()
+                game.game_state.from_json(game_state_json)
+                if game.args.debug:
+                    logger.info(f"game_state_json: {game_state_json}")
+            except Exception as e:
+                logger.error(f"Error in receive_game_state: {e}")
+                await asyncio.sleep(1)  # Prevent tight loop on error
 
 
 def thread_worker(game):
@@ -84,8 +88,7 @@ def thread_worker(game):
     logger.info(f"threadworker loop: {loop} lt={looptask} ")
     loop.run_forever()
 
-
-async def main():
+def get_args():
     parser = ArgumentParser(description="bdude")
     parser.add_argument("--testclient", default=False, action="store_true", dest="testclient")
     parser.add_argument("--name", action="store", dest="name", default="bdude")
@@ -94,27 +97,45 @@ async def main():
     parser.add_argument("--port", action="store", dest="port", default=9696)
     parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
     parser.add_argument("-dp", "--debugpacket", action="store_true", dest="packetdebugmode", default=False,)
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    window = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode="context_gc",)
+async def new_main():
+    pygame.init()
+    args = get_args()
     eventq = asyncio.Queue()
-    bomberdude_main = MainView(window=window, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption(SCREEN_TITLE)
+    bomberdude_main = MainView(screen=screen, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
     logger.info(f"Starting thread_worker for {bomberdude_main}")
     thread = Thread(target=thread_worker, args=(bomberdude_main.game,), daemon=True)
     thread.start()
-    window.show_view(bomberdude_main)
-    logger.info(f"app: {window} t={thread} mw={bomberdude_main}")
-    arcade.run()
+    logger.info(f"app: {screen} t={thread} mw={bomberdude_main}")
+    while thread.is_alive():
+        await asyncio.sleep(0.1)
+    # await asyncio.gather(thread_worker(bomberdude_main.game))
+
+
+def old_main():
+    args = get_args()
+    # window = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode="context_gc",)
+    # eventq = asyncio.Queue()
+    # bomberdude_main = MainView(window=window, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
+    # logger.info(f"Starting thread_worker for {bomberdude_main}")
+    # thread = Thread(target=thread_worker, args=(bomberdude_main.game,), daemon=True)
+    # thread.start()
+    # window.show_view(bomberdude_main)
+    # logger.info(f"app: {window} t={thread} mw={bomberdude_main}")
+    # arcade.run()
     # Run arcade in a separate thread
     # arcade_thread = Thread(target=arcade.run, daemon=True)
     # arcade_thread.start()
 
     # Keep the asyncio event loop running
-    #while arcade_thread.is_alive():
+    # while arcade_thread.is_alive():
 #        await asyncio.sleep(0.1)
 
 
 if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    asyncio.run(main())
+    asyncio.run(new_main())
