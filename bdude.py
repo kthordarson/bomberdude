@@ -4,7 +4,7 @@ import asyncio
 from threading import Thread
 import time
 from argparse import ArgumentParser
-from queue import Empty, Queue
+from queue import Empty  # , Queue
 import arcade
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
@@ -100,13 +100,19 @@ async def main():
     args = parser.parse_args()
 
     app = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode="context_gc",)
-    eventq = Queue()
+    eventq = asyncio.Queue()
     bomberdude_main = MainView(window=app, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
     thread = Thread(target=thread_worker, args=(bomberdude_main.game,), daemon=True)
     thread.start()
     app.show_view(bomberdude_main)
     logger.info(f"app: {app} t={thread} mw={bomberdude_main}")
     arcade.run()
+
+    # arcade_thread = Thread(target=app.run, daemon=True)
+    # logger.info(f"starting arcade_thread: {arcade_thread} ")
+    # arcade_thread.start()
+    # while arcade_thread.is_alive():
+    #     await asyncio.sleep(0.1)
 
 
 if __name__ == "__main__":

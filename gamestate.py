@@ -1,10 +1,11 @@
+import asyncio
 import copy
 import arcade
 import random
 from loguru import logger
 from constants import EXTRA_HEALTH, TILE_SCALING
 import time
-from queue import Queue, Empty
+from queue import Empty  # Queue,
 from dataclasses import dataclass
 from utils import gen_randid
 from objects import Upgrade, KeysPressed
@@ -22,8 +23,8 @@ class GameState:
 		self.debug = self.args.debug
 		self.debugmode_trace = False
 		self.game_events = []
-		self.event_queue = Queue()
-		self.raw_event_queue = Queue()
+		self.event_queue = asyncio.Queue()
+		self.raw_event_queue = asyncio.Queue()
 		self.keys_pressed = KeysPressed('gamestate')
 		# debugstuff
 		self.layer_options = {

@@ -1,3 +1,4 @@
+import asyncio
 import requests
 # import zmq
 # from zmq.asyncio import Context
@@ -5,7 +6,7 @@ import socket
 from pymunk import Vec2d
 import math
 import json
-from queue import Queue, Empty
+from queue import Empty
 import arcade
 from arcade import get_window
 from arcade import draw_line
@@ -92,7 +93,7 @@ class Bomberdude(arcade.View):
             self.window.set_caption(f"{self.title} respawned")
         return self._show_kill_screen
 
-    def do_connect(self):
+    async def do_connect(self):
         logger.info(f'{self} connecting to sub_sock: {self.sub_sock} ')
         self.sub_sock.connect((self.args.server, 9696))
         logger.info(f'{self} connecting to push_sock: {self.push_sock} ')
@@ -103,7 +104,7 @@ class Bomberdude(arcade.View):
         self.window.set_caption(f"{self.title} connecting to {self.args.server} ")
         if self.debug:
             logger.debug(f'{self} connecting map: {self._gotmap=}')
-        self.setup_network()
+        await self.setup_network()
 
     def on_show_view(self):
         self.window.background_color = arcade.color.GRAY_BLUE
@@ -112,7 +113,7 @@ class Bomberdude(arcade.View):
     def on_hide_view(self):
         pass  # self.manager.disable()
 
-    def setup_network(self):
+    async def setup_network(self):
         # get tilemap and scene from server
         try:
             resp = json.loads(requests.get(f"http://{self.args.server}:9699/get_tile_map").text)
@@ -132,9 +133,9 @@ class Bomberdude(arcade.View):
         # pos = resp.text
         if self.debug:
             logger.debug(f'{self} map: {self._gotmap} conn: {self.connected()} - {self._connected} {pos=}')
-        self.setup(position)
+        await self.setup(position)
 
-    def setup(self, position):
+    async def setup(self, position):
         self.background_color = arcade.color.BLACK
         self.bullet_sprite = arcade.load_texture("data/bullet0.png")
         self.setup_panels()
@@ -154,7 +155,7 @@ class Bomberdude(arcade.View):
             "handledby": "do_connect",
             "eventid": gen_randid(),
         }
-        self.eventq.put(connection_event)
+        await self.eventq.put(connection_event)
         self._connected = True
         if self.debug:
             logger.debug(f'{self} map: {self._gotmap} conn: {self.connected()} - {self._connected} setup done player {player_one.name} : {player_one.client_id}')
@@ -167,7 +168,7 @@ class Bomberdude(arcade.View):
         self.netplayer_labels = {}
 
     def setup_panels(self):
-        self.manager_visible = True
+        # self.manager_visible = True
         # self.grid = UIGridLayout(x=123,y=123,column_count=2, row_count=3, vertical_spacing=5)
         self.grid = self.manager.add(UIGridLayout(column_count=4, row_count=4, vertical_spacing=5, align_horizontal="center", align_vertical="center", size_hint=(26, 27),))
         # gridsb = self.grid.add(self.startbtn, col_num=0, row_num=0)
@@ -206,10 +207,10 @@ class Bomberdude(arcade.View):
         self.client_game_state.scene["Particles"].draw()
         self.client_game_state.scene["Upgrades"].draw()
         self.client_game_state.scene["Netplayers"].draw()
-        if self.manager_visible:
-            self.manager.draw()
+        #if self.manager_visible:
+        #    self.manager.draw()
         self.guicamera.use()
-        self.panel.draw()
+        # self.panel.draw()
         self.player_list.draw()
         # self.center_camera_on_player()
 
@@ -251,6 +252,9 @@ class Bomberdude(arcade.View):
         return Vec2d(x=int(v.x), y=int(-v.y + self.window.height))
 
     def on_mouse_press(self, x, y, button, modifiers):
+        asyncio.create_task(self.handle_on_mouse_press(x, y, button, modifiers))
+
+    async def handle_on_mouse_press(self, x, y, button, modifiers):
         self.mouse_pos = Vec2d(x=x, y=y)
         if button == 1:
             dir_init = self.mouse_pos  # (x-self.playerone.position[0], y-self.playerone.position[1])
@@ -273,15 +277,20 @@ class Bomberdude(arcade.View):
                 "handledby": "kremer",  # self.playerone.client_id,
                 "eventid": gen_randid(),
             }
-            self.eventq.put(event)
+            await self.eventq.put(event)
             logger.debug(f'eventq: {self.eventq.qsize()} {dir_init=} {dir=} {bullet_angle=} {bullet_vel=} {length=}  {x=} {y=}')
         else:
             logger.warning(f"{x=} {y=} {button=} {modifiers=}")
             return
 
     def on_key_press(self, key, modifiers):
+        asyncio.create_task(self.handle_on_key_press(key, modifiers))
+
+    async def handle_on_key_press(self, key, modifiers):
         # todo check collisions before sending keypress...
         # sendmove = False
+        if len(self.player_list) == 0:
+            return
         if self.debug:
             logger.info(f'{key=} {modifiers=} ')
             # logger.debug(f'{self.client_game_state.to_json()}')
@@ -312,8 +321,8 @@ class Bomberdude(arcade.View):
             # width, height = self.window.get_size()
             self.window.set_viewport(0, SCREEN_WIDTH, 0, SCREEN_HEIGHT)
             self.camera = arcade.Camera(viewport=(0, 0, self.window.width, self.window.height))
-        elif key == arcade.key.TAB:
-            self.manager_visible = not self.manager_visible
+        # elif key == arcade.key.TAB:
+        #   self.manager_visible = not self.manager_visible
         elif key == arcade.key.ESCAPE or key == arcade.key.Q:
             self._connected = False
             quitevent = {
@@ -322,7 +331,7 @@ class Bomberdude(arcade.View):
                 "client_id": 0,  # self.playerone.client_id,
                 "eventid": gen_randid(),
             }
-            self.eventq.put(quitevent)
+            await self.eventq.put(quitevent)  # todo fix
             logger.warning("quit")
             arcade.close_window()
             return
@@ -352,6 +361,8 @@ class Bomberdude(arcade.View):
 
     def on_key_release(self, key, modifiers):
         # TODO get local client to send keys
+        if len(self.player_list) == 0:
+            return
         if key == arcade.key.UP or key == arcade.key.W:
             # self.playerone.change_y = PLAYER_MOVEMENT_SPEED
             [k for k in self.player_list][0].change_y = 0
