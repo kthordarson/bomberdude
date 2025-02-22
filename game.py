@@ -104,16 +104,6 @@ class Bomberdude(arcade.View):
         self.window.set_caption(f"{self.title} connecting to {self.args.server} ")
         if self.debug:
             logger.debug(f'{self} connecting map: {self._gotmap=}')
-        await self.setup_network()
-
-    def on_show_view(self):
-        self.window.background_color = arcade.color.GRAY_BLUE
-        self.manager.enable()
-
-    def on_hide_view(self):
-        pass  # self.manager.disable()
-
-    async def setup_network(self):
         # get tilemap and scene from server
         try:
             resp = json.loads(requests.get(f"http://{self.args.server}:9699/get_tile_map").text)
@@ -133,9 +123,6 @@ class Bomberdude(arcade.View):
         # pos = resp.text
         if self.debug:
             logger.debug(f'{self} map: {self._gotmap} conn: {self.connected()} - {self._connected} {pos=}')
-        await self.setup(position)
-
-    async def setup(self, position):
         self.background_color = arcade.color.BLACK
         self.bullet_sprite = arcade.load_texture("data/bullet0.png")
         self.setup_panels()
@@ -161,6 +148,15 @@ class Bomberdude(arcade.View):
             logger.debug(f'{self} map: {self._gotmap} conn: {self.connected()} - {self._connected} setup done player {player_one.name} : {player_one.client_id}')
         self.window.set_caption(f"{self.title} connected {self.args.server} ")
         self.manager.enable()
+        await asyncio.sleep(1)
+        return 1
+
+    def on_show_view(self):
+        self.window.background_color = arcade.color.GRAY_BLUE
+        self.manager.enable()
+
+    def on_hide_view(self):
+        pass  # self.manager.disable()
 
     def setup_labels(self):
         self.draw_labels = True
@@ -207,7 +203,8 @@ class Bomberdude(arcade.View):
         self.client_game_state.scene["Particles"].draw()
         self.client_game_state.scene["Upgrades"].draw()
         self.client_game_state.scene["Netplayers"].draw()
-        #if self.manager_visible:
+        self.manager.draw()
+        # if self.manager_visible:
         #    self.manager.draw()
         self.guicamera.use()
         # self.panel.draw()

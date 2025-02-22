@@ -1,3 +1,4 @@
+import asyncio
 from pymunk import Vec2d
 import arcade
 from arcade.gui import (
@@ -46,7 +47,7 @@ class MainView(arcade.View):
 
         @self.connectb.event("on_click")
         def on_connect_to_server(event):
-            self.game.do_connect()
+            # self.game.do_connect()
             self.startbtn.visible = False
             self.exitbtn.visible = False
             self.startbtn.disabled = True
@@ -58,6 +59,7 @@ class MainView(arcade.View):
             self.window.show_view(self.game)
             if self.debug:
                 logger.debug(f"{self} ev: {event}")
+            asyncio.create_task(self.game.do_connect())
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         self.mouse_pos = Vec2d(x=x, y=y)
