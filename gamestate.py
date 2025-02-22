@@ -84,12 +84,20 @@ class GameState:
 				logger.warning(f'unknown upgradetype {upgradetype=} {blkpos=}')
 		return upgrade
 
+	def debug_keypress_status(self, keypress_status):
+		pass  # logger.debug(f'keypress_status: {keypress_status}')
+
 	def update_game_state(self, clid, msg):
-		if self.debugmode_trace:
-			logger.debug(f' from: {clid} msg={msg}')
 		msghealth = msg.get('health')
 		msgtimeout = msg.get('timeout')
 		msgkilled = msg.get('killed')
+
+		keypress_status = msg.get('keyspressed')
+		# todo make this work
+		# handle keypresses sent from client, update position, angle, etc
+		if self.debug:
+			self.debug_keypress_status(keypress_status)
+
 		playerdict = {
 			'client_id':clid,
 			'name': msg.get('name', 'ugsmissing'),
@@ -115,6 +123,7 @@ class GameState:
 		game_event['event_time'] += 1
 		eventid = game_event.get('eventid')
 		evntchk = [k for k in self.game_events if k.get('eventid') == eventid]
+		msg_client_id = str(game_event.get("client_id"))
 		if len(evntchk) > 0:
 			logger.warning(f'dupeevntchk {len(evntchk)} eventid {eventid} {game_event} already in game_events')  # :  msg={msg} selfgameevents:{self.game_events}')
 		match event_type:
@@ -127,7 +136,7 @@ class GameState:
 				game_event['handled'] = True
 				game_event['handledby'] = 'ugsnc'
 				game_event['event_type'] = 'acknewconn'
-				clid = game_event['client_id']
+				clid = str(game_event['client_id'])
 				name = game_event['name']
 				self.players[clid] = {'client_id':clid, 'name': name,'timeout':False,'msg_dt':time.time(),}
 				self.event_queue.put_nowait(game_event)
@@ -136,7 +145,7 @@ class GameState:
 			case 'blkxplode':  # todo make upgradeblock here....
 				# game_event['handled'] = True
 				uptype = random.choice([1,2,3])
-				newevent = {'event_time':0, 'event_type': 'upgradeblock', 'client_id': game_event.get("client_id"), 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
+				newevent = {'event_time':0, 'event_type': 'upgradeblock', 'client_id': msg_client_id, 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
 				self.event_queue.put_nowait(newevent)
 				if self.debug:
 					logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
@@ -222,9 +231,8 @@ class GameState:
 				self.event_queue.put_nowait(game_event)
 
 			case 'respawn':  # increase score for dmgfrom
-				clid = game_event.get("client_id")
-				self.players[clid]['health'] = 100
-				self.players[clid]['killed'] = False
+				self.players[msg_client_id]['health'] = 100
+				self.players[msg_client_id]['killed'] = False
 				game_event['handled'] = True
 				game_event['handledby'] = 'ugsrspwn'
 				game_event['event_type'] = 'ackrespawn'
@@ -232,9 +240,8 @@ class GameState:
 				# if self.debug:
 				logger.debug(f'{event_type} {clid=} {self.players[clid]}')
 			case 'getmap':  # send map to client
-				clid = game_event.get("client_id")
 				payload = {'msgtype': 'scenedata', 'payload':self.scene}
-				logger.info(f'{event_type} from {clid} {len(payload)} {game_event=}')
+				logger.info(f'{event_type} from {msg_client_id} {len(payload)} {game_event=}')
 				# await sockpush.send(payload)
 				# game_event['event_type'] = 'ackgetmap'
 				# game_event['payload'] = pickle.dumps(self.scene)
@@ -248,7 +255,7 @@ class GameState:
 		dout = {'players':{}, 'game_events': []}
 		dout['keys_pressed'] = self.keys_pressed.to_json()
 		if self.debug and self.name != 'server':
-			logger.debug(f'gamestate to_json {dout=}')
+			pass  # logger.debug(f'gamestate to_json {dout=}')
 		try:
 			pending_event = self.event_queue.get_nowait()
 			self.event_queue.task_done()
@@ -286,7 +293,8 @@ class GameState:
 			elif plist.get(player).get('killed'):
 				logger.warning(f'timeoutfromjson: p={player} dgamest:{dgamest} selfplayers={self.players}')
 			else:
-				self.players[plist.get(player).get('client_id')] = plist.get(player)
-				# logger.info(f'player={player} dgamest={dgamest} selfplayers={self.players}')
+				logger.debug(f'player={player} dgamest={dgamest} selfplayers={self.players}')
+				localid = plist.get(player).get('client_id')
+				self.players[localid] = plist.get(player)
 		if self.debug:
 			pass  # logger.debug(f'dgamest={dgamest}')# selfplayers={self.players}')

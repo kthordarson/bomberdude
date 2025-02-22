@@ -4,7 +4,7 @@ import asyncio
 from threading import Thread
 import time
 from argparse import ArgumentParser
-from queue import Empty
+from queue import Empty, Queue
 import arcade
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
@@ -24,25 +24,31 @@ from menu import MainView
 
 
 async def thread_main(game, loop):
+    logger.info(f'{game} thread_main starting eventq: {game.eventq.qsize()}')
+
     async def pusher(game):
+        logger.info(f'{game} pushstarting eventq: {game.eventq.qsize()}')
         # Push the player's INPUT state 60 times per second
         thrmain_cnt = 0
         if game.debug:
-            logger.info(f'{game} pusher starting')
+            logger.info(f'{game} pusher starting eventq: {game.eventq.qsize()}')
         while True:
             thrmain_cnt += 1
             try:
-                game_events = game.eventq.get_nowait()
+                game_events = await game.eventq.get()  # game.eventq.get_nowait()
                 game.eventq.task_done()
+                logger.debug(f'game_events={game_events}')
             except Empty:
                 game_events = []
+            # TODO get local client to send keys
             client_keys = game.client_game_state.keys_pressed.to_json()
+            clidpush = str([k for k in game.player_list][0].client_id)
             msg = dict(
                 thrmain_cnt=thrmain_cnt,
                 score=1,
                 game_events=game_events,
-                client_id=2,
-                name='xxxcasdfa',
+                client_id=clidpush,
+                name=f'xxxcasdfa-{clidpush}',
                 position=(1,1),
                 angle=1,
                 health=4,
@@ -56,6 +62,7 @@ async def thread_main(game, loop):
             )
             if game.connected():
                 await game.push_sock.send_json(msg)
+                logger.debug(f'{thrmain_cnt}')
                 await asyncio.sleep(1 / UPDATE_TICK)
             else:
                 logger.warning(f'{game} not connected')
@@ -73,6 +80,7 @@ async def thread_main(game, loop):
 
 
 def thread_worker(game):
+    logger.info(f"Starting thread_worker for {game}")
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     looptask = loop.create_task(thread_main(game, loop))
@@ -92,7 +100,8 @@ async def main():
     args = parser.parse_args()
 
     app = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode="context_gc",)
-    bomberdude_main = MainView(window=app, name="Bomberdude main", title="Bomberdude Main Menu", args=args)
+    eventq = Queue()
+    bomberdude_main = MainView(window=app, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
     thread = Thread(target=thread_worker, args=(bomberdude_main.game,), daemon=True)
     thread.start()
     app.show_view(bomberdude_main)

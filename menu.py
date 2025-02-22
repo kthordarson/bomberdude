@@ -9,12 +9,13 @@ from loguru import logger
 from game import Bomberdude
 
 class MainView(arcade.View):
-    def __init__(self, window, args, **kwargs):
+    def __init__(self, window, args, eventq, **kwargs):
         super().__init__()
         self.args = args
         self.debug = args.debug
         self.window = window
-        self.game = Bomberdude(args)
+        self.eventq = eventq
+        self.game = Bomberdude(args, self.eventq)
         self.manager = UIManager()
         self.grid = UIGridLayout(x=300,y=300,align_horizontal='center', align_vertical='center', column_count=8, row_count=8)
         self.startbtn = self.grid.add(UIFlatButton(text="Start New Game", width=150), col_num=0,row=1)

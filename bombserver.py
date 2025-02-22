@@ -11,8 +11,9 @@ from constants import BLOCK, GRIDSIZE, UPDATE_TICK
 from gamestate import GameState
 from asyncio import run, create_task, CancelledError
 from api import ApiServer
-import zmq
-from zmq.asyncio import Context
+# import zmq
+# from zmq.asyncio import Context
+import socket
 import pytiled_parser
 
 
@@ -151,6 +152,8 @@ class ServerTUI(Thread):
 				elif cmd[:1] == "q":
 					logger.warning(f"{self} {self.server} tuiquit")
 					self.stop()
+					self.server.sub_sock.close()
+					self.server.push_sock.close()
 				else:
 					pass  # logger.info(f'[tui] cmds: s=serverinfo, d=debug, p=playerlist, q=quit')
 			except (EOFError, KeyboardInterrupt) as e:
@@ -165,12 +168,20 @@ class BombServer:
 		self.debug = self.args.debug
 		self.server_game_state = GameState(args=self.args, mapname=args.mapname, name='server')
 		self.server_game_state.load_tile_map(args.mapname)
-		self.ctx = Context()
-		self.pushsock = self.ctx.socket(zmq.PUB)  # : Socket
-		self.pushsock.bind(f"tcp://{args.listen}:9696")
-		self.recvsock = self.ctx.socket(zmq.PULL)  # : Socket
-		self.recvsock.bind(f"tcp://{args.listen}:9697")
-		self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock,),)
+		# self.ctx = Context()
+		# self.pushsock = self.ctx.socket(zmq.PUB)  # : Socket
+		# self.pushsock.bind(f"tcp://{args.listen}:9696")
+		# self.recvsock = self.ctx.socket(zmq.PULL)  # : Socket
+		# self.recvsock.bind(f"tcp://{args.listen}:9697")
+		self.sub_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.push_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.sub_sock.bind((self.args.host, 9696))
+		self.push_sock.bind((self.args.host, 9697))
+		self.sub_sock.listen(5)
+		self.push_sock.listen(5)
+		self.loop = asyncio.get_event_loop()
+		# self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock,),)
+		self.ticker_task = asyncio.create_task(self.ticker(),)
 		self.packetdebugmode = self.args.packetdebugmode
 		self.tui = ServerTUI(self, debug=args.debug)
 		self.playerindex = 0
@@ -180,6 +191,85 @@ class BombServer:
 
 	def __repr__(self):
 		return 'BomberServer()'
+
+	async def handle_connections(self):
+		logger.debug(f"{self} starting handle_connections {self.loop}")
+		while True:
+			conn, addr = await self.loop.sock_accept(self.sub_sock)
+			logger.debug(f"Accepted connection from {addr}")
+			self.loop.create_task(self.handle_client(conn))
+			logger.debug(f"Task created for {addr}")
+
+	async def handle_client(self, conn):
+		try:
+			data = await self.loop.sock_recv(conn, 4096)
+			if not data:
+				return
+			msg = json.loads(data.decode('utf-8'))
+			logger.info(f"msg: {msg}")
+			clid = str(msg["client_id"])
+			try:
+				self.server_game_state.update_game_state(clid, msg)
+			except KeyError as e:
+				logger.warning(f"{type(e)} {e} {msg=}")
+			except Exception as e:
+				logger.error(f"{type(e)} {e} {msg=}")
+			evkeycnt = len(msg.get("game_events", []))
+			if evkeycnt > 0:
+				logger.debug(f"evk: {evkeycnt} gameevent: {msg.get('game_events', [])}")
+				try:
+					self.server_game_state.update_game_events(msg)
+				except AttributeError as e:
+					logger.warning(f"{type(e)} {e} {msg=}")
+				except KeyError as e:
+					logger.warning(f"{type(e)} {e} {msg=}")
+				except TypeError as e:
+					logger.warning(f"{type(e)} {e} {msg=}")
+				except Exception as e:
+					logger.error(f"{type(e)} {e} {msg=}")
+		except socket.error as e:
+			logger.error(f"Socket error: {e}")
+		finally:
+			logger.debug(f"{self} Socket closing")
+			conn.close()
+
+	def oldhandle_connections(self):
+		logger.debug(f"{self} starting handle_connections")
+		while True:
+			conn, addr = self.sub_sock.accept()
+			logger.debug(f"Accepted connection from {addr}")
+			try:
+				data = conn.recv(4096)
+				if not data:
+					break
+				msg = json.loads(data.decode('utf-8'))
+				# if self.packetdebugmode and len(msg.get('game_events')) > 0:
+				logger.info(f"msg: {msg}")
+				clid = str(msg["client_id"])
+				try:
+					self.server_game_state.update_game_state(clid, msg)
+				except KeyError as e:
+					logger.warning(f"{type(e)} {e} {msg=}")
+				except Exception as e:
+					logger.error(f"{type(e)} {e} {msg=}")
+				evkeycnt = len(msg.get("game_events", []))
+				if evkeycnt > 0:
+					logger.debug(f"evk: {evkeycnt} gameevent: {msg.get('game_events', [])}")
+					try:
+						self.server_game_state.update_game_events(msg)
+					except AttributeError as e:
+						logger.warning(f"{type(e)} {e} {msg=}")
+					except KeyError as e:
+						logger.warning(f"{type(e)} {e} {msg=}")
+					except TypeError as e:
+						logger.warning(f"{type(e)} {e} {msg=}")
+					except Exception as e:
+						logger.error(f"{type(e)} {e} {msg=}")
+			except socket.error as e:
+				logger.error(f"Socket error: {e}")
+			finally:
+				logger.debug(f"{self} Socket closing")
+				conn.close()
 
 	async def get_game_state(self):
 		return self.server_game_state.to_json()
@@ -263,9 +353,9 @@ class BombServer:
 		try:
 			while True:
 				msg = await sockrecv.recv_json()
-				if self.packetdebugmode:  # and msg['msgsource'] != "pushermsgdict":
+				if self.packetdebugmode and len(msg.get('game_events')) > 0:  # and msg['msgsource'] != "pushermsgdict":
 					logger.info(f"msg: {msg}")
-				clid = msg["client_id"]
+				clid = str(msg["client_id"])
 				try:
 					self.server_game_state.update_game_state(clid, msg)
 				except KeyError as e:
@@ -281,6 +371,8 @@ class BombServer:
 						logger.warning(f"{type(e)} {e} {msg=}")
 					except KeyError as e:
 						logger.warning(f"{type(e)} {e} {msg=}")
+					except TypeError as e:
+						logger.warning(f"{type(e)} {e} {msg=}")
 					except Exception as e:
 						logger.error(f"{type(e)} {e} {msg=}")
 					if self.tui.stopped():
@@ -289,13 +381,25 @@ class BombServer:
 		except asyncio.CancelledError as e:
 			logger.warning(f"update_from_client CancelledError {e} ")
 
-	async def ticker(self, sockpush, sockrecv) -> None:
-		tt_updatefromclient = create_task(self.update_from_client(sockrecv))
+	def send_data(self, data):
+		try:
+			for conn, addr in self.push_sock.accept():
+				try:
+					conn.sendall(json.dumps(data).encode('utf-8'))
+					conn.close()
+				except Exception as e:
+					logger.warning(f"{type(e)} {e} in send_data {conn} {addr}")
+		except Exception as e:
+			logger.error(f"{type(e)} {e} in send_data {data}")
+
+	async def ticker(self) -> None:
+		# tt_updatefromclient = create_task(self.update_from_client(sockrecv))
 		# apitsk =  create_task(self.apiserver._run(host=self.args.listen, port=9699),)
-		logger.debug(f"tickertask: {tt_updatefromclient}\n{sockpush=}\n{sockrecv=}")
+		logger.debug(f"tickertask: {self.push_sock=}\n{self.sub_sock=}")
 		# Send out the game state to all players 60 times per second.
 		try:
 			while True:
+				await self.handle_connections()
 				try:
 					self.server_game_state.check_players()
 				except TypeError as e:
@@ -304,24 +408,24 @@ class BombServer:
 					self.remove_timedout_players()
 				except Exception as e:
 					logger.warning(f"{type(e)} {e} in remove_timedout_players ")
-				await sockpush.send_json(self.server_game_state.to_json())
+				self.send_data(self.server_game_state.to_json())  # Send updated game state to clients
 				await asyncio.sleep(1 / UPDATE_TICK)  # SERVER_UPDATE_TICK_HZ
-				# self.server_game_state.game_events = []
 				if self.tui.stopped():
 					logger.warning(f"{self} tickertuistop tui: {self.tui}\n")
-					tt_updatefromclient.cancel()
-					await tt_updatefromclient
+					break
+				if self.tui.stopped():
+					logger.warning(f"{self} tickertuistop tui: {self.tui}\n")
 					break
 		except asyncio.CancelledError as e:
 			logger.warning(f"tickertask CancelledError {e}")
-			tt_updatefromclient.cancel()
-			await tt_updatefromclient
+		except Exception as e:
+			logger.error(f"tickertask {e} {type(e)}")
 
 
 async def main(args) -> None:
 	fut = asyncio.Future()
 	# app = App(signal=fut)
-	ctx = Context()
+	# ctx = Context()
 	server = BombServer(args)
 	logger.debug(f'{server=} {server.tui=}')
 	# tui = ServerTUI(server, debug=args.debug)
@@ -343,15 +447,16 @@ async def main(args) -> None:
 	finally:
 		server.ticker_task.cancel()
 		await server.ticker_task
-		server.pushsock.close(1)
-		server.recvsock.close(1)
-		ctx.destroy(linger=1000)
+		server.push_sock.close(1)
+		server.sub_sock.close(1)
+		# ctx.destroy(linger=1000)
 
 
 if __name__ == "__main__":
 	if sys.platform == "win32":
 		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 	parser = ArgumentParser(description="server")
+	parser.add_argument("--host", action="store", dest="host", default="127.0.0.1")
 	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1")
 	parser.add_argument("--port", action="store", dest="port", default=9696, type=int)
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)

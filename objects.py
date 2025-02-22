@@ -74,10 +74,7 @@ class KeysPressed:
 		return f'KeyPressed ({self.name})'
 
 	def to_json(self):
-		return json.dumps({
-			"name": self.name,
-			"keys": {KEY_NAME_MAP.get(k, str(k)): v for k, v in self.keys.items()}
-		})
+		return json.dumps({"name": self.name, "keys": {KEY_NAME_MAP.get(k, str(k)): v for k, v in self.keys.items()}})
 
 		# return json.dumps({
 		# 	"name": self.name,
@@ -95,8 +92,9 @@ class oldKeysPressed:
 @dataclass
 class Bomberplayer(arcade.Sprite):
 	# def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99,y=99)):
-	def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99,y=99), name='xnonex'):
+	def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99,y=99), name='xnonex', eventq=None):
 		super().__init__(texture,scale)
+		self.eventq = eventq
 		self.name = name
 		self.client_id = client_id
 		self.position = position
@@ -110,6 +108,7 @@ class Bomberplayer(arcade.Sprite):
 		self.candrop = True
 		self.lastdrop = 0  # last bomb dropped
 		self.all_bomb_drops = {}  # keep track of bombs
+		self.keys_pressed = KeysPressed('gamestate')
 
 	def __repr__(self):
 		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} b:{self.bombsleft} pos:{self.position} )'
@@ -117,7 +116,7 @@ class Bomberplayer(arcade.Sprite):
 	def __hash__(self):
 		return self.client_id
 
-	def dropbomb(self, bombtype, eventq) -> None:
+	def dropbomb(self, bombtype) -> None:
 		if not self.candrop:  # dunno about this logic....
 			logger.warning(f'{self} cannot drop bomb ! candrop: {self.candrop} last: {self.lastdrop} drops: {len(self.all_bomb_drops)}')
 			return
@@ -128,7 +127,7 @@ class Bomberplayer(arcade.Sprite):
 			bombpos = Vec2d(x=self.center_x,y=self.center_y)
 			bombevent = {'event_time':0, 'event_type':'bombdrop', 'bombtype':bombtype, 'bomber': self.client_id, 'pos': bombpos, 'timer': 1, 'handled': False, 'handledby': self.client_id, 'ld':self.lastdrop, 'eventid': gen_randid()}
 			self.all_bomb_drops[bombevent['eventid']] = bombevent
-			eventq.put(bombevent)
+			self.eventq.put(bombevent)
 			self.candrop = False
 			self.lastdrop = bombevent['eventid']
 			logger.debug(f'{self} dropped bomb {bombevent["eventid"]}')
@@ -218,8 +217,9 @@ class Bomberplayer(arcade.Sprite):
 		self.update()
 
 class Bomb(arcade.Sprite):
-	def __init__(self, image=None, scale=1.0, bomber=None, timer=1000):
+	def __init__(self, image=None, scale=1.0, bomber=None, timer=1000, eventq=None):
 		super().__init__(image,scale)
+		self.eventq = eventq
 		self.bomber = bomber
 		self.timer = timer
 		self.spatial_hash = SpatialHash(cell_size=32)
@@ -227,7 +227,7 @@ class Bomb(arcade.Sprite):
 	def __repr__(self):
 		return f'Bomb(pos={self.center_x},{self.center_y} bomber={self.bomber} t:{self.timer})'
 
-	def update(self, scene, eventq):
+	def update(self, scene, eventq=None):
 		if self.timer <= 0:
 			for k in range(PARTICLE_COUNT):
 				p = Particle()
@@ -240,14 +240,15 @@ class Bomb(arcade.Sprite):
 				f.center_y = self.center_y
 				scene.add_sprite('Flames', f)
 			event = {'event_time':0, 'event_type':'bombxplode', 'bomber':self.bomber, 'eventid': gen_randid()}
-			eventq.put(event)
+			self.eventq.put(event)
 			self.remove_from_sprite_lists()
 		else:
 			self.timer -= BOMBTICKER
 
 class BiggerBomb(arcade.Sprite):
-	def __init__(self, image=None, scale=1.0, bomber=None, timer=1000):
+	def __init__(self, image=None, scale=1.0, bomber=None, timer=1000, eventq=None):
 		super().__init__(image,scale)
+		self.eventq = eventq
 		self.bomber = bomber
 		self.timer = timer
 		self.spatial_hash = SpatialHash(cell_size=32)
@@ -255,7 +256,7 @@ class BiggerBomb(arcade.Sprite):
 	def __repr__(self):
 		return f'BiggerBomb(pos={self.center_x},{self.center_y} bomber={self.bomber} t:{self.timer})'
 
-	def update(self, scene, eventq):
+	def update(self, scene):
 		if self.timer <= 0:
 			for k in range(PARTICLE_COUNT*2):
 				p = Particle(xtra=3)
@@ -268,7 +269,7 @@ class BiggerBomb(arcade.Sprite):
 				f.center_y = self.center_y
 				scene.add_sprite('Flames', f)
 			event = {'event_time':0, 'event_type':'bombxplode', 'bomber':self.bomber, 'eventid': gen_randid()}
-			eventq.put(event)
+			self.eventq.put(event)
 			self.remove_from_sprite_lists()
 		else:
 			self.timer -= BOMBTICKER

@@ -1,6 +1,7 @@
 import requests
-import zmq
-from zmq.asyncio import Context
+# import zmq
+# from zmq.asyncio import Context
+import socket
 from pymunk import Vec2d
 import math
 import json
@@ -31,7 +32,7 @@ from gamestate import GameState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, BULLET_SPEED, BULLETDEBUG,GRAPH_HEIGHT, GRAPH_WIDTH, GRAPH_MARGIN, SCREEN_WIDTH, SCREEN_HEIGHT
 
 class Bomberdude(arcade.View):
-    def __init__(self, args):
+    def __init__(self, args, eventq):
         super().__init__()
         self.title = "Bomberdude"
         self.args = args
@@ -50,13 +51,13 @@ class Bomberdude(arcade.View):
         self.selected_bomb = 1
         self.client_game_state = GameState(args=self.args, name='client')
         self.hitlist = []
-        self.ioctx = Context.instance()
-        self.sub_sock = self.ioctx.socket(zmq.SUB)  # : Socket
+        # self.ioctx = Context.instance()
+        # self.ioctx.socket(zmq.SUB)  # : Socket
         # self.data_sock: Socket = self.ioctx.socket(zmq.SUB)
-        self.push_sock = self.ioctx.socket(zmq.PUSH)  # : Socket
+        # self.ioctx.socket(zmq.PUSH)  # : Socket
         self._connected = False
         self.physics_engine = None
-        self.eventq = Queue()
+        self.eventq = eventq  # Queue()
         self.draw_graphs = False
         self.poplist = []
         self.netplayers = {}
@@ -74,6 +75,8 @@ class Bomberdude(arcade.View):
         self.mouse_pos = Vec2d(x=0, y=0)
         self.camera = arcade.Camera2D()
         self.guicamera = arcade.Camera2D()
+        self.sub_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.push_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def __repr__(self):
         return f"Bomberdude( {self.title} np: {len(self.client_game_state.players)}  )"
@@ -90,26 +93,17 @@ class Bomberdude(arcade.View):
         return self._show_kill_screen
 
     def do_connect(self):
-        player_one = Bomberplayer(texture="data/playerone.png", name=self.args.name, client_id=gen_randid())
-        self.player_list.append(player_one)
-        self.sub_sock.connect(f"tcp://{self.args.server}:9696")
-        self.sub_sock.subscribe("")
-        self.push_sock.connect(f"tcp://{self.args.server}:9697")
-        connection_event = {
-            "event_time": 0,
-            "event_type": "newconnection",
-            "client_id": player_one.client_id,
-            "name": player_one.name,
-            "handled": False,
-            "handledby": "do_connect",
-            "eventid": gen_randid(),
-        }
-        self.eventq.put(connection_event)
-        self._connected = True
-        self.setup_network()
-        self.window.set_caption(f"{self.title} connected to {self.args.server} player {player_one.name} : {player_one.client_id}")
+        logger.info(f'{self} connecting to sub_sock: {self.sub_sock} ')
+        self.sub_sock.connect((self.args.server, 9696))
+        logger.info(f'{self} connecting to push_sock: {self.push_sock} ')
+        self.push_sock.connect((self.args.server, 9697))
+        # self.sub_sock.connect(f"tcp://{self.args.server}:9696")
+        # self.sub_sock.subscribe("")
+        # self.push_sock.connect(f"tcp://{self.args.server}:9697")
+        self.window.set_caption(f"{self.title} connecting to {self.args.server} ")
         if self.debug:
-            logger.debug(f'{self} connected map: {self._gotmap=} player_one: {player_one} ')
+            logger.debug(f'{self} connecting map: {self._gotmap=}')
+        self.setup_network()
 
     def on_show_view(self):
         self.window.background_color = arcade.color.GRAY_BLUE
@@ -123,7 +117,7 @@ class Bomberdude(arcade.View):
         try:
             resp = json.loads(requests.get(f"http://{self.args.server}:9699/get_tile_map").text)
             mapname = resp.get("mapname")
-            pos = Vec2d(x=164,y=64)  # resp.get("position")
+            pos = Vec2d(x=464,y=464)  # resp.get("position")
             position = pos  # Vec2d(x=123,y=23)  # Vec2d(x=pos[0], y=pos[1])
             logger.debug(f"map {mapname} {pos=} {resp=}")
         except Exception as e:
@@ -137,7 +131,7 @@ class Bomberdude(arcade.View):
         # resp = requests.get(f'http://{self.args.server}:9699/get_position')
         # pos = resp.text
         if self.debug:
-            logger.debug(f'{self} {self._gotmap=} {self.connected()=} {pos=}')
+            logger.debug(f'{self} map: {self._gotmap} conn: {self.connected()} - {self._connected} {pos=}')
         self.setup(position)
 
     def setup(self, position):
@@ -145,12 +139,27 @@ class Bomberdude(arcade.View):
         self.bullet_sprite = arcade.load_texture("data/bullet0.png")
         self.setup_panels()
         self.setup_labels()
-        self.manager.enable()
         self.client_game_state.scene.add_sprite_list("static")
         self.client_game_state.scene["static"].sprite_list.extend(self.client_game_state.tile_map.sprite_lists["Blocks"])
         self.client_game_state.scene["static"].sprite_list.extend(self.client_game_state.tile_map.sprite_lists["Walls"])
+        player_one = Bomberplayer(texture="data/playerone.png", name=self.args.name, client_id=gen_randid(), eventq=self.eventq)
+        player_one.position = position
+        self.player_list.append(player_one)
+        connection_event = {
+            "event_time": 0,
+            "event_type": "newconnection",
+            "client_id": str(player_one.client_id),
+            "name": player_one.name,
+            "handled": False,
+            "handledby": "do_connect",
+            "eventid": gen_randid(),
+        }
+        self.eventq.put(connection_event)
+        self._connected = True
         if self.debug:
-            logger.debug(f'{self} {self._gotmap=} {self.connected()=} setup done')
+            logger.debug(f'{self} map: {self._gotmap} conn: {self.connected()} - {self._connected} setup done player {player_one.name} : {player_one.client_id}')
+        self.window.set_caption(f"{self.title} connected {self.args.server} ")
+        self.manager.enable()
 
     def setup_labels(self):
         self.draw_labels = True
@@ -172,16 +181,16 @@ class Bomberdude(arcade.View):
         self.panel = Panel(10, 10, 250, 50, self.window)
 
     def center_camera_on_player(self, speed=0.2):
-        screen_center_x = 1   # * (self.playerone.center_x - (self.camera.viewport_width / 2))
-        screen_center_y = 1   # * (self.playerone.center_y - (self.camera.viewport_height / 2))
+        player = self.player_list[0]  # Assuming the first player in the list is the main player
+        screen_center_x = player.center_x - (self.camera.viewport_width / 2)
+        screen_center_y = player.center_y - (self.camera.viewport_height / 2)
         if screen_center_x < 0:
             screen_center_x = 0
         if screen_center_y < 0:
             screen_center_y = 0
-        player_centered = (screen_center_x, screen_center_y)
-        self.camera.top_center = (player_centered)
-        self.guicamera.top_center = (player_centered)
-        # self.guicamera.move_to(player_centered, speed)
+        # player_centered = (screen_center_x, screen_center_y)
+        # self.camera.move(player_centered, speed)
+        self.camera.position = (screen_center_x, screen_center_y)
 
     def on_draw(self):
         if not self._gotmap:
@@ -202,6 +211,8 @@ class Bomberdude(arcade.View):
         self.guicamera.use()
         self.panel.draw()
         self.player_list.draw()
+        # self.center_camera_on_player()
+
         if self._show_kill_screen:
             self.guicamera.use()
             self.show_kill_screen()
@@ -249,7 +260,6 @@ class Bomberdude(arcade.View):
             # change_x = 1 - math.cos(bullet_angle) * BULLET_SPEED
             # change_y = math.sin(bullet_angle) * BULLET_SPEED
             bullet_vel = Vec2d(x=dir[0], y=dir[1])
-            logger.debug(f'{dir_init=} {dir=} {bullet_angle=} {bullet_vel=} {length=}  {x=} {y=}')
             bulletpos = self.mouse_pos  # Vec2d(x=self.playerone.center_x, y=self.playerone.center_y)
             event = {
                 "event_time": 0,
@@ -264,6 +274,7 @@ class Bomberdude(arcade.View):
                 "eventid": gen_randid(),
             }
             self.eventq.put(event)
+            logger.debug(f'eventq: {self.eventq.qsize()} {dir_init=} {dir=} {bullet_angle=} {bullet_vel=} {length=}  {x=} {y=}')
         else:
             logger.warning(f"{x=} {y=} {button=} {modifiers=}")
             return
@@ -273,7 +284,7 @@ class Bomberdude(arcade.View):
         # sendmove = False
         if self.debug:
             logger.info(f'{key=} {modifiers=} ')
-            logger.debug(f'{self.client_game_state.to_json()}')
+            # logger.debug(f'{self.client_game_state.to_json()}')
         # if self.playerone.killed:
         #   logger.warning("playerone killed")
             # return
@@ -315,39 +326,50 @@ class Bomberdude(arcade.View):
             logger.warning("quit")
             arcade.close_window()
             return
+
+        # TODO get local client to send keys
         elif key == arcade.key.UP or key == arcade.key.W:
             # self.playerone.change_y = PLAYER_MOVEMENT_SPEED
+            [k for k in self.player_list][0].change_y = PLAYER_MOVEMENT_SPEED
             self.up_pressed = True
             self.client_game_state.keys_pressed.keys[key] = True
         elif key == arcade.key.DOWN or key == arcade.key.S:
             # self.playerone.change_y = -PLAYER_MOVEMENT_SPEED
+            [k for k in self.player_list][0].change_y = -PLAYER_MOVEMENT_SPEED
             self.down_pressed = True
             self.client_game_state.keys_pressed.keys[key] = True
         elif key == arcade.key.LEFT or key == arcade.key.A:
             # self.playerone.change_x = -PLAYER_MOVEMENT_SPEED
+            [k for k in self.player_list][0].change_x = -PLAYER_MOVEMENT_SPEED
             self.left_pressed = True
             self.client_game_state.keys_pressed.keys[key] = True
         elif key == arcade.key.RIGHT or key == arcade.key.D:
             # self.playerone.change_x = PLAYER_MOVEMENT_SPEED
+            [k for k in self.player_list][0].change_x = PLAYER_MOVEMENT_SPEED
             self.right_pressed = True
             self.client_game_state.keys_pressed.keys[key] = True
             # self.client.send_queue.put({'msgtype': 'playermove', 'key': key, 'pos' : self.playerone.position, 'client_id': self.client.client_id})
 
     def on_key_release(self, key, modifiers):
+        # TODO get local client to send keys
         if key == arcade.key.UP or key == arcade.key.W:
             # self.playerone.change_y = PLAYER_MOVEMENT_SPEED
+            [k for k in self.player_list][0].change_y = 0
             self.up_pressed = False
             self.client_game_state.keys_pressed.keys[key] = False
         elif key == arcade.key.DOWN or key == arcade.key.S:
             # self.playerone.change_y = -PLAYER_MOVEMENT_SPEED
+            [k for k in self.player_list][0].change_y = 0
             self.down_pressed = False
             self.client_game_state.keys_pressed.keys[key] = False
         elif key == arcade.key.LEFT or key == arcade.key.A:
             # self.playerone.change_x = -PLAYER_MOVEMENT_SPEED
+            [k for k in self.player_list][0].change_x = 0
             self.left_pressed = False
             self.client_game_state.keys_pressed.keys[key] = False
         elif key == arcade.key.RIGHT or key == arcade.key.D:
             # self.playerone.change_x = PLAYER_MOVEMENT_SPEED
+            [k for k in self.player_list][0].change_x = 0
             self.right_pressed = False
             self.client_game_state.keys_pressed.keys[key] = False
             # self.client.send_queue.put({'msgtype': 'playermove', 'key': key, 'pos' : self.playerone.position, 'client_id': self.client.client_id})
@@ -357,7 +379,7 @@ class Bomberdude(arcade.View):
             or key == arcade.key.W
             or key == arcade.key.S
         ):
-            pass
+            [k for k in self.player_list][0].change_y = 0
             # self.playerone.change_y = 0
         elif (
             key == arcade.key.LEFT
@@ -365,9 +387,9 @@ class Bomberdude(arcade.View):
             or key == arcade.key.A
             or key == arcade.key.D
         ):
-            pass  # self.playerone.change_x = 0
+            [k for k in self.player_list][0].change_x = 0  # self.playerone.change_x = 0
         elif key == arcade.key.SPACE:
-            pass  # self.playerone.dropbomb(self.selected_bomb, self.eventq)
+            _ = [k.dropbomb(self.selected_bomb) for k in self.player_list]  # self.playerone.dropbomb(self.selected_bomb, self.eventq)
         self.client_game_state.keys_pressed.keys[key] = False
 
     def handle_game_events(self, game_event):
@@ -378,9 +400,9 @@ class Bomberdude(arcade.View):
         # for game_event in game_events:
         # game_event = game_events.get("game_events")
         event_type = game_event.get("event_type")
+        gameevent_clid = game_event.get("client_id")
         if self.debug:
-            logger.info(f'{event_type=} {game_event=} ')
-        clid = game_event.get("client_id")
+            logger.info(f'gameevent_clid: {gameevent_clid} {event_type=} {game_event=} ')
         match event_type:
             case "extrabomb":
                 logger.info(f"{event_type=} {game_event=}")
@@ -390,27 +412,27 @@ class Bomberdude(arcade.View):
             case "playerquit":
                 try:
                     l0 = len(self.netplayers)
-                    self.netplayers[clid].remove_from_sprite_lists()
-                    self.netplayers.pop(clid)
-                    self.netplayer_labels.pop(clid)
-                    self.client_game_state.players.pop(clid)
+                    self.netplayers[gameevent_clid].remove_from_sprite_lists()
+                    self.netplayers.pop(gameevent_clid)
+                    self.netplayer_labels.pop(gameevent_clid)
+                    self.client_game_state.players.pop(gameevent_clid)
                     # self.netplayers.pop(self.netplayers[clid])
                     logger.debug(
-                        f"{event_type} from {clid} {l0} -> {len(self.netplayers)}"
+                        f"{event_type} from {gameevent_clid} {l0} -> {len(self.netplayers)}"
                     )
                 except KeyError as e:
-                    logger.warning(f"{e} {clid=} {self.netplayers=}")
+                    logger.warning(f"{e} {gameevent_clid=} {self.netplayers=}")
                 except Exception as e:
-                    logger.error(f"{type(e)} {e} {clid=} {self.netplayers=}")
+                    logger.error(f"{type(e)} {e} {gameevent_clid=} {self.netplayers=}")
             case "ackrespawn":
                 [
                     self.netplayers[k].set_texture(
                         arcade.load_texture("data/netplayer.png")
                     )
                     for k in self.netplayers
-                    if k == clid
+                    if k == gameevent_clid
                 ]  # [0]
-                logger.debug(f"{event_type} from {clid}")
+                logger.debug(f"{event_type} from {gameevent_clid}")
                 # if clid == self.playerone.client_id:
                 #    self.playerone.respawn()
             case "upgradeblock":
@@ -426,7 +448,7 @@ class Bomberdude(arcade.View):
                     )
             case "acknewconn":
                 name = game_event.get("name", "missingfromacknewconn")
-                logger.debug(f"{event_type} from {clid} {name} ")
+                logger.debug(f"{event_type} from {gameevent_clid} {name} ")
                 # if self.debug:
                 #     if clid == self.playerone.client_id:
                 #         logger.debug(f"{event_type} from {clid} {name} my connect ack!")
@@ -600,11 +622,11 @@ class Bomberdude(arcade.View):
                 position_fix = get_map_coordinates_rev(position, self.camera)
                 if pclid == self.playerone.client_id:
                     # logger.warning(f'{gsplr=} {pclid=} {self.playerone.client_id=}')
-                    newplayer = Bomberplayer(texture="data/playerone.png", client_id=pclid, name=name, position=position_fix,)
+                    newplayer = Bomberplayer(texture="data/playerone.png", client_id=pclid, name=name, position=position_fix, eventq=self.eventq)
                     playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), name=name, text_color=arcade.color.BLUE,)
                     playerlabel.button.text = f"Me {name}"
                 else:
-                    newplayer = Bomberplayer(texture="data/netplayer.png", client_id=pclid, name=name, position=position_fix,)
+                    newplayer = Bomberplayer(texture="data/netplayer.png", client_id=pclid, name=name, position=position_fix, eventq=self.eventq)
                     playerlabel = UIPlayerLabel(client_id=str(newplayer.client_id), name=name, text_color=arcade.color.GREEN,)
                     playerlabel.button.text = f"{name}"
                     logger.info(f"newplayer: {name} id={newplayer.client_id} pos: {position} fix={position_fix} ")
@@ -623,22 +645,23 @@ class Bomberdude(arcade.View):
             logger.info(f"aftergsp={self.client_game_state.players}")
         self.poplist = []
 
-    def on_update(self, dt):
-        self.timer += dt
-        if not self._gotmap:
-            if self.debug:
-                logger.warning(f"{self} no map!")
-            return
-        try:
-            self.handle_game_events(self.client_game_state.event_queue.get_nowait())
-            # game_events = self.client_game_state.event_queue.get_nowait()
-            self.client_game_state.event_queue.task_done()
-        except Empty:
-            pass  # game_events = []
-        self.update_netplayers()
-        self.update_poplist()
-        # checklist = arcade.SpriteList(use_spatial_hash=False)
-        # checklist.sprite_list.extend(self.client_game_state.scene["Walls"].sprite_list)
-        # checklist.sprite_list.extend(self.client_game_state.scene["Blocks"].sprite_list)
-        for b in self.client_game_state.scene["Bullets"]:
-            b.update()
+def on_update(self, dt):
+    self.timer += dt
+    if not self._gotmap:
+        if self.debug:
+            logger.warning(f"{self} no map!")
+        return
+
+    try:
+        self.handle_game_events(self.client_game_state.event_queue.get_nowait())
+        # game_events = self.client_game_state.event_queue.get_nowait()
+        self.client_game_state.event_queue.task_done()
+    except Empty:
+        pass
+
+    self.update_netplayers()
+    self.update_poplist()
+    for b in self.client_game_state.scene["Bullets"]:
+        b.update()
+    self.center_camera_on_player()  # Center the camera on the player
+    self.player_list.update()
