@@ -32,3 +32,17 @@ class Bullet(pygame.sprite.Sprite):
 		# Update position using velocity
 		self.position += self.velocity
 		self.rect.center = self.position
+		# Check for collisions with collidable tiles
+		for tile in collidable_tiles:
+			if self.rect.colliderect(tile):
+				# Calculate the new direction based on the collision
+				if abs(self.rect.right - tile.rect.left) < self.velocity.length() or abs(self.rect.left - tile.rect.right) < self.velocity.length():
+					self.velocity.x *= -1  # Reverse the x-direction
+				if abs(self.rect.bottom - tile.rect.top) < self.velocity.length() or abs(self.rect.top - tile.rect.bottom) < self.velocity.length():
+					self.velocity.y *= -1  # Reverse the y-direction
+
+				# Decrease the bounce count
+				self.bounce_count -= 1
+				if self.bounce_count <= 0:
+					self.kill()  # Remove the bullet if bounce count is zero
+				break  # Only handle one collision per update
