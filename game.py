@@ -19,6 +19,7 @@ from panels import Panel
 from utils import get_map_coordinates_rev, gen_randid
 from gamestate import GameState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, BULLET_SPEED, BULLETDEBUG,GRAPH_HEIGHT, GRAPH_WIDTH, GRAPH_MARGIN, SCREEN_WIDTH, SCREEN_HEIGHT
+from camera import Camera
 
 class Bomberdude():
     def __init__(self, args, eventq):
@@ -60,6 +61,10 @@ class Bomberdude():
         self.guicamera = None  # Replace with pygame camera if needed
         self.sub_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.push_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
+        map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
+        map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
+        self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
         asyncio.create_task(self.do_connect())
 
     def __repr__(self):
@@ -139,9 +144,10 @@ class Bomberdude():
         # self.screen.fill(self.background_color)
         # Draw game elements here
         self.screen.fill((200, 249, 237))
-        self.client_game_state.render_map(self.screen)
+        self.client_game_state.render_map(self.screen, self.camera)
         for player in self.player_list:
-            player.draw(self.screen)
+            # player.draw(self.screen)
+            self.screen.blit(player.image, self.camera.apply(player))
         # for sprite in self.client_game_state.scene:
         #     sprite.draw()
 
@@ -268,6 +274,7 @@ class Bomberdude():
         # logger.debug(f'{self=}')
         for player in self.player_list:
             player.update(self.client_game_state.collidable_tiles)
+            self.camera.update(player)
             # logger.debug(f'{player} {player.position=}')
             # player.draw(self.screen)
         if not self._gotmap:

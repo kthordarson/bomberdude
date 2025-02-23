@@ -58,14 +58,16 @@ class GameState:
 							self.collidable_tiles.append(sprite.rect)
 		logger.debug(f'loading {self.mapname} done. Sprites = {len(self.scene)}')
 
-	def render_map(self, screen):
+	def render_map(self, screen, camera):
 		# self.scene.draw(screen)
 		for layer in self.tile_map.visible_layers:
 			if isinstance(layer, pytmx.TiledTileLayer):
 				for x, y, gid in layer:
 					tile = self.tile_map.get_tile_image_by_gid(gid)
 					if tile:
-						screen.blit(tile, (x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
+						# screen.blit(tile, (x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
+						# screen.blit(tile, camera.apply(pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)))
+						screen.blit(tile, camera.apply(pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)))
 
 	def get_players(self, skip=None):
 		for p in self.players:
