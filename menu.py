@@ -18,10 +18,12 @@ class MainView:
         self.game.on_draw()
 
     def on_key_press(self, key):
-        key = pygame.key.get_pressed()
+        # key = pygame.key.get_pressed()
+        logger.info(f'key={key}')
         self.game.on_key_press(key)
 
     def on_key_release(self, key):
+        logger.debug(f'key={key}')
         self.game.on_key_release(key)
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):

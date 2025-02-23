@@ -2,7 +2,7 @@ import asyncio
 import requests
 import pygame
 import socket
-from pymunk import Vec2d
+from pygame.math import Vector2 as Vec2d
 import math
 import json
 from queue import Empty
@@ -28,10 +28,12 @@ class Bomberdude():
         self.right_pressed = False
         self.up_pressed = False
         self.down_pressed = False
-        self.screen = pygame.display.get_surface()
+        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # self.screen = pygame.display.get_surface()
         self.debug = self.args.debug
         self.manager = None  # Replace with pygame UI manager if needed
         self.t = 0
+        self.running = True
         self._gotmap = False
         self.selected_bomb = 1
         self.client_game_state = GameState(args=self.args, name='client')
@@ -53,6 +55,7 @@ class Bomberdude():
         self.view_bottom = 0
         self.view_left = 0
         self.mouse_pos = Vec2d(x=0, y=0)
+        self.background_color = (100, 149, 237)
         self.camera = None  # Replace with pygame camera if needed
         self.guicamera = None  # Replace with pygame camera if needed
         self.sub_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -70,7 +73,7 @@ class Bomberdude():
         self.sub_sock.connect((self.args.server, 9696))
         logger.info(f'{self} connecting to push_sock: {self.push_sock} ')
         self.push_sock.connect((self.args.server, 9697))
-        if self.debug:
+        if self.args.debug:
             logger.debug(f'{self} connecting map: {self._gotmap=}')
         try:
             resp = json.loads(requests.get(f"http://{self.args.server}:9699/get_tile_map").text)
@@ -83,9 +86,9 @@ class Bomberdude():
             raise e
         self.client_game_state.load_tile_map(mapname)
         self._gotmap = True
-        if self.debug:
+        if self.args.debug:
             logger.debug(f'{self} map: {self._gotmap} conn: {self.connected()} - {self._connected} {pos=}')
-        self.background_color = (0, 0, 0)
+
         self.bullet_sprite = pygame.image.load("data/bullet0.png")
         self.setup_panels()
         self.setup_labels()
@@ -103,13 +106,13 @@ class Bomberdude():
         }
         await self.eventq.put(connection_event)
         self._connected = True
-        if self.debug:
+        if self.args.debug:
             logger.debug(f'{self} map: {self._gotmap} conn: {self.connected()} - {self._connected} setup done player {player_one.name} : {player_one.client_id}')
         await asyncio.sleep(1)
         return 1
 
     def on_show_view(self):
-        self.screen.fill((100, 149, 237))  # GRAY_BLUE equivalent
+        pass  # self.screen.fill((100, 149, 237))  # GRAY_BLUE equivalent
 
     def on_hide_view(self):
         pass
@@ -133,32 +136,14 @@ class Bomberdude():
         self.camera.position = (screen_center_x, screen_center_y)
 
     def on_draw(self):
-        if not self._gotmap:
-            return
-        self.screen.fill(self.background_color)
+        # self.screen.fill(self.background_color)
         # Draw game elements here
+        self.screen.fill((100, 149, 237))
+        self.client_game_state.render_map(self.screen)
+        for sprite in self.client_game_state.scene:
+            sprite.draw()
         for player in self.player_list:
             player.draw(self.screen)
-        if self._show_kill_screen:
-            self.show_kill_screen()
-            self.screen.blit(self.showkilltext, (100, 100))
-        if self.debug:
-            self.on_draw_debug()
-
-    def on_draw_debug(self):
-        if BULLETDEBUG:
-            for b in self.client_game_state.scene["Bullets"]:
-                if b.can_kill:
-                    textpos = get_map_coordinates_rev(b.position, self.camera)
-                    try:
-                        textpos += Vec2d(10, 0)
-                        debug_text = pygame.font.Font(None, 10).render(f"bxc: {b.change_x:.2f} bcy: {b.change_y:.2f}", True, (0, 0, 0))
-                        self.screen.blit(debug_text, (int(textpos.x), int(textpos.y)))
-                        textpos += Vec2d(0, 11)
-                        debug_text = pygame.font.Font(None, 10).render(f"ba: {b.angle:.2f}", True, (0, 0, 0))
-                        self.screen.blit(debug_text, (int(textpos.x), int(textpos.y)))
-                    except AttributeError as e:
-                        logger.error(f"{e} textpos={textpos} {b=}")
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         self.mouse_pos = Vec2d(x=x, y=y)
@@ -193,15 +178,16 @@ class Bomberdude():
             logger.warning(f"{x=} {y=} {button=} {modifiers=}")
             return
 
-    def on_key_press(self, key):
+    def xon_key_press(self, key):
         # key = pygame.key.get_pressed()
-        asyncio.create_task(self.handle_on_key_press(key))
+        pass  # asyncio.create_task(self.handle_on_key_press(key))
 
-    def on_key_release(self, key):
+    def xon_key_release(self, key):
         # key = pygame.key.get_pressed()
-        asyncio.create_task(self.handle_on_key_release(key))
+        pass  # asyncio.create_task(self.handle_on_key_release(key))
 
-    async def handle_on_key_press(self, key):
+    def handle_on_key_press(self, key):
+        key_ = pygame.key.get_pressed()
         if key == pygame.K_1:
             self.selected_bomb = 1
         elif key == pygame.K_2:
@@ -222,37 +208,37 @@ class Bomberdude():
             self.draw_labels = not self.draw_labels
         elif key == pygame.K_F7:
             pygame.display.toggle_fullscreen()
-        elif key == pygame.K_ESCAPE or key == pygame.K_q:
+        elif key == pygame.K_ESCAPE or key == pygame.K_q or key == 27:
             self._connected = False
-            quitevent = {
-                "event_time": 0,
-                "event_type": "playerquit",
-                "client_id": 0,
-                "eventid": gen_randid(),
-            }
-            await self.eventq.put(quitevent)
+            self.running = False
             logger.warning("quit")
-            pygame.quit()
+            # pygame.display.quit()
+            # pygame.quit()
             return
-        elif key == pygame.K_UP or key == pygame.K_w:
-            self.player_list[0].change_y = PLAYER_MOVEMENT_SPEED
+        elif key == pygame.K_UP or key == pygame.K_w or key == 119:
+            self.player_list[0].change_y = -PLAYER_MOVEMENT_SPEED
             self.up_pressed = True
             self.client_game_state.keys_pressed.keys[key] = True
-        elif key == pygame.K_DOWN or key == pygame.K_s:
-            self.player_list[0].change_y = -PLAYER_MOVEMENT_SPEED
+            logger.debug(f'{key=}')
+        elif key == pygame.K_DOWN or key == pygame.K_s or key == 115:
+            self.player_list[0].change_y = PLAYER_MOVEMENT_SPEED
             self.down_pressed = True
             self.client_game_state.keys_pressed.keys[key] = True
-        elif key == pygame.K_LEFT or key == pygame.K_a:
+            logger.debug(f'{key=}')
+        elif key == pygame.K_LEFT or key == pygame.K_a or key == 97:
             self.player_list[0].change_x = -PLAYER_MOVEMENT_SPEED
             self.left_pressed = True
             self.client_game_state.keys_pressed.keys[key] = True
-        elif key == pygame.K_RIGHT or key == pygame.K_d:
+            logger.debug(f'{key=}')
+        elif key == pygame.K_RIGHT or key == pygame.K_d or key == 100:
             self.player_list[0].change_x = PLAYER_MOVEMENT_SPEED
             self.right_pressed = True
             self.client_game_state.keys_pressed.keys[key] = True
+            logger.debug(f'{key=}')
 
-    async def handle_on_key_release(self, key):
+    def handle_on_key_release(self, key):
         # key = pygame.key.get_pressed()
+        # logger.info(f'{key=}')
         if key == pygame.K_UP or key == pygame.K_w:
             self.player_list[0].change_y = 0
             self.up_pressed = False
@@ -270,26 +256,31 @@ class Bomberdude():
             self.right_pressed = False
             self.client_game_state.keys_pressed.keys[key] = False
         if key == pygame.K_SPACE:
-            _ = [await k.dropbomb(self.selected_bomb) for k in self.player_list]
+            pass  # _ = [k.dropbomb(self.selected_bomb) for k in self.player_list]
         self.client_game_state.keys_pressed.keys[key] = False
-        await asyncio.sleep(0.1)
+        # await asyncio.sleep(0.1)
 
     def handle_game_events(self, game_events):
         logger.debug(f'{game_events=}')
 
     async def update(self):
         self.timer += 1 / 60
+        # logger.debug(f'{self=}')
+        for player in self.player_list:
+            player.update()
+            # logger.debug(f'{player} {player.position=}')
+            player.draw(self.screen)
         if not self._gotmap:
-            if self.debug:
+            if self.args.debug:
                 logger.warning(f"{self} no map!")
-            return
+            await asyncio.sleep(0.5)
+            # return
         try:
-            await self.handle_game_events(self.client_game_state.event_queue.get())
+            events = await self.client_game_state.event_queue.get_nowait()
+            await self.handle_game_events(events)
             # self.client_game_state.event_queue.task_done()
-        except Empty:
+        except (Empty, asyncio.queues.QueueEmpty):
             pass
         # self.update_netplayers()
         # self.update_poplist()
         # self.center_camera_on_player()
-        for player in self.player_list:
-            player.update()

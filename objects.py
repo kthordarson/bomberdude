@@ -65,6 +65,8 @@ class Bomberplayer(Sprite):
 		self.name = name
 		self.client_id = client_id
 		self.position = position
+		self.change_x = 0
+		self.change_y = 0
 		self.bombsleft = 3
 		self.health = 100
 		self.killed = False
@@ -73,31 +75,36 @@ class Bomberplayer(Sprite):
 		self.angle = 0
 		self.candrop = True
 		self.lastdrop = 0  # last bomb dropped
-		self.all_bomb_drops = {}  # keep track of bombs
 		self.keys_pressed = KeysPressed('gamestate')
 
-	def update(self):
+	def oldupdate(self):
+		self.position.x += self.keys_pressed.keys[pygame.K_RIGHT] * PLAYER_MOVEMENT_SPEED
+		self.position.x -= self.keys_pressed.keys[pygame.K_LEFT] * PLAYER_MOVEMENT_SPEED
+		self.position.y += self.keys_pressed.keys[pygame.K_DOWN] * PLAYER_MOVEMENT_SPEED
+		self.position.y -= self.keys_pressed.keys[pygame.K_UP] * PLAYER_MOVEMENT_SPEED
 		self.rect.topleft = self.position
+
+	def update(self):
+		self.position.update(self.position.x + self.change_x, self.position.y + self.change_y)
+		# self.position.x += self.change_x
+		# self.position.y += self.change_y
+		self.rect.topleft = self.position
+		# logger.debug(f'{self} {self.position=}')
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
 
 	async def dropbomb(self, bombtype) -> None:
-		if not self.candrop:
-			logger.warning(f'{self} cannot drop bomb ! candrop: {self.candrop} last: {self.lastdrop} drops: {len(self.all_bomb_drops)}')
-			return
 		if self.bombsleft <= 0:
 			logger.warning(f'p1: {self} has no bombs left {self.lastdrop}...')
-			return
-		if self.candrop:
+			return None
+		else:
 			bombpos = Vec2d(self.rect.centerx, self.rect.centery)
 			bombevent = {'event_time': 0, 'event_type': 'bombdrop', 'bombtype': bombtype, 'bomber': self.client_id, 'pos': bombpos, 'timer': 1, 'handled': False, 'handledby': self.client_id, 'ld': self.lastdrop, 'eventid': gen_randid()}
-			self.all_bomb_drops[bombevent['eventid']] = bombevent
 			await self.eventq.put(bombevent)
-			self.candrop = False
 			self.lastdrop = bombevent['eventid']
 			logger.debug(f'{self} dropped bomb {bombevent["eventid"]}')
-			return
+			# return bombevent
 
 	def rotate_around_point(self, point, degrees):
 		self.angle += degrees

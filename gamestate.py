@@ -39,9 +39,11 @@ class GameState:
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
-		self.tile_map = load_pygame(self.mapname)
+		self.tile_map = pytmx.TiledMap('data/map3.tmx')
+		# self.tile_map = load_pygame(self.mapname)
 		self.scene = pygame.sprite.Group()  # add_sprite_list
 		for layer in self.tile_map.visible_layers:
+			logger.info(f'loading {self.mapname} layer {layer}')
 			if isinstance(layer, pytmx.TiledTileLayer):
 				for x, y, gid in layer:
 					tile = self.tile_map.get_tile_image_by_gid(gid)
@@ -50,7 +52,15 @@ class GameState:
 						sprite.image = tile
 						sprite.rect = pygame.Rect(x * TILE_SCALING, y * TILE_SCALING, TILE_SCALING, TILE_SCALING)
 						self.scene.add(sprite)
-		logger.debug(f'loading {self.mapname} done')
+		logger.debug(f'loading {self.mapname} done. Sprites = {len(self.scene)}')
+
+	def render_map(self, screen):
+		for layer in self.tile_map.visible_layers:
+			if isinstance(layer, pytmx.TiledTileLayer):
+				for x, y, gid in layer:
+					tile = self.tile_map.get_tile_image_by_gid(gid)
+					if tile:
+						screen.blit(tile, (x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
 
 	def get_players(self, skip=None):
 		for p in self.players:
@@ -93,7 +103,7 @@ class GameState:
 		msgkilled = msg.get('killed')
 
 		keypress_status = msg.get('keyspressed')
-		if self.debug:
+		if self.args.debug:
 			self.debug_keypress_status(keypress_status)
 
 		playerdict = {
@@ -133,13 +143,13 @@ class GameState:
 				name = game_event['name']
 				self.players[clid] = {'client_id': clid, 'name': name, 'timeout': False, 'msg_dt': time.time()}
 				self.event_queue.put_nowait(game_event)
-				if self.debug:
+				if self.args.debug:
 					logger.info(f'{event_type} from {clid} {name}')
 			case 'blkxplode':
 				uptype = random.choice([1, 2, 3])
 				newevent = {'event_time': 0, 'event_type': 'upgradeblock', 'client_id': msg_client_id, 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
 				self.event_queue.put_nowait(newevent)
-				if self.debug:
+				if self.args.debug:
 					logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
 			case 'takeupgrade':
 				game_event['handledby'] = 'ugstakeupgrade'
@@ -169,16 +179,16 @@ class GameState:
 					game_event['event_type'] = 'ackbombdrop'
 					self.players[bomber]['bombsleft'] -= 1
 					self.event_queue.put_nowait(game_event)
-					if self.debug:
+					if self.args.debug:
 						logger.debug(f'{event_type} from {name=} {bomber} {eventid=} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
 				else:
-					if self.debug:
+					if self.args.debug:
 						logger.debug(f'nobombsleft ! {event_type} {name=}  from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
 			case 'bulletfired':
 				game_event['handledby'] = 'ugsbomb'
 				game_event['event_type'] = 'ackbullet'
 				self.event_queue.put_nowait(game_event)
-				if self.debug:
+				if self.args.debug:
 					pass
 			case 'bombxplode':
 				game_event['handledby'] = 'ugsbomb'
@@ -187,7 +197,7 @@ class GameState:
 				bomber = game_event.get("bomber")
 				self.players[bomber]['bombsleft'] += 1
 				self.event_queue.put_nowait(game_event)
-				if self.debug:
+				if self.args.debug:
 					logger.debug(f'{event_type} from {bomber}  bl={self.players[bomber].get("bombsleft")} {eventid=}')
 			case 'playerkilled':
 				dmgfrom = game_event.get("dmgfrom")
@@ -196,7 +206,7 @@ class GameState:
 				game_event['handled'] = True
 				game_event['handledby'] = 'ugskill'
 				self.event_queue.put_nowait(game_event)
-				if self.debug:
+				if self.args.debug:
 					logger.debug(f'{event_type} {dmgfrom=} {dmgto=} {self.players[dmgfrom]}')
 			case 'takedamage':
 				dmgfrom = game_event.get("dmgfrom")
@@ -276,7 +286,7 @@ class GameState:
 				logger.debug(f'player={player} dgamest={dgamest} selfplayers={self.players}')
 				localid = plist.get(player).get('client_id')
 				self.players[localid] = plist.get(player)
-		if self.debug:
+		if self.args.debug:
 			pass
 
 @dataclass
@@ -361,7 +371,7 @@ class GameStateold:
 		keypress_status = msg.get('keyspressed')
 		# todo make this work
 		# handle keypresses sent from client, update position, angle, etc
-		if self.debug:
+		if self.args.debug:
 			self.debug_keypress_status(keypress_status)
 
 		playerdict = {
@@ -406,14 +416,14 @@ class GameStateold:
 				name = game_event['name']
 				self.players[clid] = {'client_id':clid, 'name': name,'timeout':False,'msg_dt':time.time(),}
 				self.event_queue.put_nowait(game_event)
-				if self.debug:
+				if self.args.debug:
 					logger.info(f'{event_type} from {clid} {name}')
 			case 'blkxplode':  # todo make upgradeblock here....
 				# game_event['handled'] = True
 				uptype = random.choice([1,2,3])
 				newevent = {'event_time':0, 'event_type': 'upgradeblock', 'client_id': msg_client_id, 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
 				self.event_queue.put_nowait(newevent)
-				if self.debug:
+				if self.args.debug:
 					logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
 			case 'takeupgrade':  # todo decide on somethingsomething..
 				game_event['handledby'] = 'ugstakeupgrade'
@@ -443,10 +453,10 @@ class GameStateold:
 					game_event['event_type'] = 'ackbombdrop'
 					self.players[bomber]['bombsleft'] -= 1
 					self.event_queue.put_nowait(game_event)
-					if self.debug:
+					if self.args.debug:
 						logger.debug(f'{event_type} from {name=} {bomber} {eventid=} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
 				else:
-					if self.debug:
+					if self.args.debug:
 						logger.debug(f'nobombsleft ! {event_type} {name=}  from {bomber} pos:{game_event.get("pos")} bl={self.players[bomber].get("bombsleft")}')
 
 			case 'bulletfired':  # decide on somethingsomething..
@@ -456,7 +466,7 @@ class GameStateold:
 				# self.players[bomber]['bulletsleft'] -= 1
 				game_event['event_type'] = 'ackbullet'
 				self.event_queue.put_nowait(game_event)
-				if self.debug:
+				if self.args.debug:
 					pass  # logger.debug(f'{event_type} from {shooter}')
 			case 'bombxplode':  # decide on somethingsomething..
 				game_event['handledby'] = 'ugsbomb'
@@ -465,7 +475,7 @@ class GameStateold:
 				bomber = game_event.get("bomber")
 				self.players[bomber]['bombsleft'] += 1
 				self.event_queue.put_nowait(game_event)
-				if self.debug:
+				if self.args.debug:
 					logger.debug(f'{event_type} from {bomber}  bl={self.players[bomber].get("bombsleft")} {eventid=}')
 			case 'playerkilled':  # increase score for dmgfrom
 				dmgfrom = game_event.get("dmgfrom")
@@ -474,7 +484,7 @@ class GameStateold:
 				game_event['handled'] = True
 				game_event['handledby'] = 'ugskill'
 				self.event_queue.put_nowait(game_event)
-				if self.debug:
+				if self.args.debug:
 					logger.debug(f'{event_type} {dmgfrom=} {dmgto=} {self.players[dmgfrom]}')
 			case 'takedamage':  # increase score for dmgfrom
 				dmgfrom = game_event.get("dmgfrom")
@@ -503,7 +513,7 @@ class GameStateold:
 				game_event['handledby'] = 'ugsrspwn'
 				game_event['event_type'] = 'ackrespawn'
 				self.event_queue.put_nowait(game_event)
-				# if self.debug:
+				# if self.args.debug:
 				logger.debug(f'{event_type} {clid=} {self.players[clid]}')
 			case 'getmap':  # send map to client
 				payload = {'msgtype': 'scenedata', 'payload':self.scene}
@@ -562,5 +572,5 @@ class GameStateold:
 				logger.debug(f'player={player} dgamest={dgamest} selfplayers={self.players}')
 				localid = plist.get(player).get('client_id')
 				self.players[localid] = plist.get(player)
-		if self.debug:
+		if self.args.debug:
 			pass  # logger.debug(f'dgamest={dgamest}')# selfplayers={self.players}')

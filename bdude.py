@@ -10,7 +10,7 @@ import pygame
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
 from menu import MainView
-
+from game import Bomberdude
 # todo get inital pos from server
 # done draw netbombs
 # done sync info bewteen Client and Bomberplayer
@@ -35,7 +35,7 @@ async def thread_main(game, loop):
         while True:
             thrmain_cnt += 1
             try:
-                game_events = await game.eventq.get()
+                game_events = await game.eventq.get_nowait()
                 logger.debug(f'game_events={game_events}')
             except asyncio.QueueEmpty:
                 game_events = []
@@ -103,33 +103,35 @@ async def new_main():
     pygame.init()
     args = get_args()
     eventq = asyncio.Queue()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    # screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(SCREEN_TITLE)
-    bomberdude_main = MainView(screen=screen, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
+    # bomberdude_main = MainView(screen=screen, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
+    bomberdude_main = Bomberdude(args=args, eventq=eventq)
     logger.info(f"Starting thread_worker for {bomberdude_main}")
-    thread = Thread(target=thread_worker, args=(bomberdude_main.game,), daemon=True)
+    thread = Thread(target=thread_worker, args=(bomberdude_main,), daemon=True)
     thread.start()
     logger.info(f"t={thread} mw={bomberdude_main}")
 
     # Main loop
-    running = True
     logger.debug(f"mainloop t={thread} mw={bomberdude_main}")
+    running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
+                bomberdude_main.running = False
+                bomberdude_main._connected = False
             elif event.type == pygame.KEYDOWN:
-                logger.debug(f'event.key={event.key}')
-                await bomberdude_main.game.handle_on_key_press(event.key)
+                # logger.debug(f'keydown {event} event.key={event.key}')
+                bomberdude_main.handle_on_key_press(event.key)
             elif event.type == pygame.KEYUP:
-                logger.debug(f'event.key={event.key}')
-                bomberdude_main.game.on_key_release(event.key)
-        bomberdude_main.update()
-        bomberdude_main.draw()
+                # logger.info(f'keyup {event} event.key={event.key}')
+                bomberdude_main.handle_on_key_release(event.key)
+        await bomberdude_main.update()
+        # bomberdude_main.draw()
         pygame.display.flip()
-
         await asyncio.sleep(0.01)
 
+    pygame.display.quit()
     pygame.quit()
     # while thread.is_alive():
     #    await asyncio.sleep(0.1)

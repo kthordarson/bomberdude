@@ -99,17 +99,10 @@ class ServerTUI(Thread):
 		self.server.server_game_state.game_events = []
 
 	def printhelp(self):
-		help = f"""
+		help = """
 		cmds:
 		s = show server info
 		l = dump player list
-		r = remove timedout players
-		d = toggle debug {self.server.debug}
-		ds = toggle debug for gamestate {self.server.server_game_state.debug}
-		dst = toggle debug for gamestate {self.server.server_game_state.debugmode_trace}
-		pd = toggle packetdebugmode {self.server.packetdebugmode}
-		e = dump game events {len(self.server.server_game_state.game_events)}
-		ec = clear game events
 		"""
 		print(help)
 
@@ -130,20 +123,13 @@ class ServerTUI(Thread):
 				elif cmd[:2] == "ec":
 					self.cleargameevents()
 				elif cmd[:1] == "d":
-					self.server.debug = not self.server.debug
-					logger.debug(f"sdbg={self.server.debug} {self.server.server_game_state.debug}")
+					...
 				elif cmd[:2] == "ds":
-					self.server.server_game_state.debug = (
-						not self.server.server_game_state.debug
-					)
-					logger.debug(f"sdbg={self.server.debug} {self.server.server_game_state.debug}")
+					...
 				elif cmd[:3] == "dst":
-					self.server.server_game_state.debugmode_trace = (
-						not self.server.server_game_state.debugmode_trace
-					)
-					logger.debug(f"trace sdbg={self.server.debug} {self.server.server_game_state.debug} {self.server.server_game_state.debugmode_trace}")
+					...
 				elif cmd[:2] == "pd":
-					self.server.packetdebugmode = not self.server.packetdebugmode
+					...
 				elif cmd[:1] == "q":
 					logger.warning(f"{self} {self.server} tuiquit")
 					self.stop()
@@ -310,7 +296,7 @@ class BombServer:
 			self.playerindex = len(self.server_game_state.players)
 		else:
 			position = self.get_position()
-		if self.debug:
+		if self.args.debug:
 			logger.debug(f'get_tile_map {self.args.mapname} {position}')
 		return {"mapname": str(self.args.mapname), "position": position}
 

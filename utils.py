@@ -1,5 +1,5 @@
 from typing import Tuple, Union
-from pymunk import Vec2d
+from pygame.math import Vector2 as Vec2d
 import struct
 import random
 import hashlib as md5lib
