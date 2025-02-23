@@ -1,4 +1,5 @@
 import pygame
+from pygame.math import Vector2 as Vec2d
 
 class Camera:
     def __init__(self, width, height, map_width, map_height):
@@ -7,6 +8,12 @@ class Camera:
         self.height = height
         self.map_width = map_width
         self.map_height = map_height
+        self.position = Vec2d(0, 0)
+
+    def screen_to_world(self, screen_pos):
+        world_x = screen_pos.x - self.position.x
+        world_y = screen_pos.y - self.position.y
+        return Vec2d(world_x, world_y)
 
     def apply(self, target):
         if isinstance(target, pygame.Rect):
@@ -23,5 +30,5 @@ class Camera:
         y = min(0, y)  # Top
         x = max(-(self.map_width - self.width), x)  # Right
         y = max(-(self.map_height - self.height), y)  # Bottom
-
         self.camera = pygame.Rect(x, y, self.width, self.height)
+        self.position = Vec2d(x, y)

@@ -130,7 +130,6 @@ async def new_main():
                 # logger.info(f'keyup {event} event.key={event.key}')
                 bomberdude_main.handle_on_key_release(event.key)
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                # bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button)
                 asyncio.create_task(bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button))
         # await asyncio.sleep(1 / UPDATE_TICK)
     pygame.display.quit()

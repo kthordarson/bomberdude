@@ -164,7 +164,8 @@ class Bomberdude():
         if button == 1:
             player_one = self.client_game_state.get_playerone()
             if player_one:
-                bullet = player_one.shoot(self.mouse_pos)
+                world_mouse_pos = self.camera.screen_to_world(self.mouse_pos)
+                bullet = player_one.shoot(world_mouse_pos)
                 self.client_game_state.bullets.add(bullet)
                 self.client_game_state.scene.add(bullet)
                 event = {
@@ -264,8 +265,13 @@ class Bomberdude():
             pass  # _ = [k.dropbomb(self.selected_bomb) for k in self.player_list]
         self.client_game_state.keys_pressed.keys[key] = False
 
-    def handle_game_events(self, game_events):
-        logger.debug(f'{game_events=}')
+    async def handle_game_events(self):
+        while not self.eventq.empty():
+            event = await self.eventq.get()
+            # Process the event here
+            logger.debug(f'Processing event: {event}')
+            self.eventq.task_done()
+        # logger.debug(f'{game_events=}')
 
     async def update(self):
         self.timer += 1 / 60
@@ -280,8 +286,8 @@ class Bomberdude():
             await asyncio.sleep(1)
         try:
             # events = await self.client_game_state.event_queue.get()
-            events = await asyncio.wait_for(self.client_game_state.event_queue.get(), timeout=0.01)
-            await self.handle_game_events(events)
+            # events = await asyncio.wait_for(self.client_game_state.event_queue.get(), timeout=0.051)
+            await self.handle_game_events()
             # self.client_game_state.event_queue.task_done()
         except (Empty, asyncio.queues.QueueEmpty, asyncio.TimeoutError):
             pass

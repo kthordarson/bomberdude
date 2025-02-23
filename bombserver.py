@@ -160,8 +160,14 @@ class BombServer:
 		# self.recvsock.bind(f"tcp://{args.listen}:9697")
 		self.sub_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.push_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+		# Set socket options to allow port reuse
+		self.sub_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.push_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
 		self.sub_sock.bind((self.args.host, 9696))
 		self.push_sock.bind((self.args.host, 9697))
+
 		self.sub_sock.listen(5)
 		self.push_sock.listen(5)
 		self.loop = asyncio.get_event_loop()

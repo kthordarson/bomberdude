@@ -100,10 +100,16 @@ class Bomberplayer(Sprite):
 		# self.bullets.update()
 
 	def shoot(self, target_pos):
-		direction = Vec2d(target_pos) - self.position
-		direction = direction.normalize() * 10
+		# Calculate direction from player's position to target
+		start_pos = Vec2d(self.rect.center)
+		target = Vec2d(target_pos)
+		direction = target - start_pos
+
+		# direction = Vec2d(target_pos) - self.position
+		if direction.length() > 0:
+			direction = direction.normalize() * 10
 		# bullet = Bullet(self.position, direction, pygame.display.get_surface().get_rect())
-		bullet = Bullet(self.position, direction, pygame.display.get_surface().get_rect(), bounce_count=115)  # Increase bounce count
+		bullet = Bullet(self.position, direction, pygame.display.get_surface().get_rect(), bounce_count=5)  # Increase bounce count
 		return bullet  # self.bullets.add(bullet)
 
 	def draw(self, screen):
@@ -226,115 +232,233 @@ class BiggerBomb(Sprite):
 			self.timer -= BOMBTICKER
 
 class Bullet(pygame.sprite.Sprite):
-	def __init__(self, position, velocity, screen_rect, bounce_count=113):
+	def __init__(self, position, velocity, screen_rect, bounce_count=3):
 		super().__init__()
 		self.image = pygame.Surface((10, 10))
 		self.image.fill((255, 0, 0))
-		self.rect = self.image.get_rect(center=position)
+		self.position = Vec2d(position)
+		self.rect = self.image.get_rect(center=self.position)
 		self.velocity = Vec2d(velocity)
 		self.screen_rect = screen_rect
 		self.bounce_count = bounce_count
-		self.position = position
 
 	def update(self, collidable_tiles):
-		# self.rect.x += self.velocity.x
-		# self.rect.y += self.velocity.y
+		if self.bounce_count <= 0:
+			self.kill()
+			return
 
+		# Update position based on velocity
 		new_x = self.position.x + self.velocity.x
 		new_y = self.position.y + self.velocity.y
 
-		# Check for collisions
-		new_rect = self.rect.copy()
-		new_rect.topleft = (new_x, new_y)
-		collision = any(new_rect.colliderect(tile) for tile in collidable_tiles)
-		if not collision:
-			self.position.update(new_x, new_y)
-			self.rect.topleft = self.position
-		else:
-			# Check for collisions with screen boundaries and bounce
-			if self.rect.left <= self.screen_rect.left or self.rect.right >= self.screen_rect.right:
+		# Store original position for collision resolution
+		original_x = self.position.x
+		original_y = self.position.y
+
+		# Move and check collisions
+		self.position.x = new_x
+		self.position.y = new_y
+		self.rect.center = (int(self.position.x), int(self.position.y))
+
+		# Check collisions only with collidable tiles
+		hit_tile = None
+		for tile in collidable_tiles:
+			if hasattr(tile, 'collidable') and tile.collidable and self.rect.colliderect(tile):
+				hit_tile = tile
+				break
+
+		if hit_tile:
+			# Determine which side was hit by checking the previous position
+			left_collision = original_x < hit_tile.left and self.rect.right > hit_tile.left
+			right_collision = original_x > hit_tile.right and self.rect.left < hit_tile.right
+			top_collision = original_y < hit_tile.top and self.rect.bottom > hit_tile.top
+			bottom_collision = original_y > hit_tile.bottom and self.rect.top < hit_tile.bottom
+
+			if left_collision or right_collision:
 				self.velocity.x *= -1
-				self.bounce_count -= 1
-			if self.rect.top <= self.screen_rect.top or self.rect.bottom >= self.screen_rect.bottom:
+			if top_collision or bottom_collision:
 				self.velocity.y *= -1
-				self.bounce_count -= 1
 
-		# Destroy the bullet if it has bounced too many times
-		if self.bounce_count <= 0:
-			self.kill()
+			# Reset position and update with new velocity
+			self.position.x = original_x
+			self.position.y = original_y
+			self.rect.center = (int(self.position.x), int(self.position.y))
+			self.bounce_count -= 1
 
-class xoldBullet(pygame.sprite.Sprite):
+		# Handle screen boundaries
+		if self.rect.left <= self.screen_rect.left:
+			self.velocity.x = abs(self.velocity.x)
+			self.bounce_count -= 1
+		elif self.rect.right >= self.screen_rect.right:
+			self.velocity.x = -abs(self.velocity.x)
+			self.bounce_count -= 1
+		if self.rect.top <= self.screen_rect.top:
+			self.velocity.y = abs(self.velocity.y)
+			self.bounce_count -= 1
+		elif self.rect.bottom >= self.screen_rect.bottom:
+			self.velocity.y = -abs(self.velocity.y)
+			self.bounce_count -= 1
+
+
+class Bxxxullet(pygame.sprite.Sprite):
 	def __init__(self, position, velocity, screen_rect, bounce_count=3):
 		super().__init__()
-		self.image = pygame.image.load('data/bullet0.png').convert_alpha()
-		self.rect = self.image.get_rect(center=position)
-		# self.image = pygame.Surface((10, 10))
-		# self.image.fill((255, 0, 0))
-		# self.rect = self.image.get_rect(center=position)
+		self.image = pygame.Surface((10, 10))
+		self.image.fill((255, 0, 0))
+		self.position = Vec2d(position)
+		self.rect = self.image.get_rect(center=self.position)
 		self.velocity = Vec2d(velocity)
 		self.screen_rect = screen_rect
 		self.bounce_count = bounce_count
 
-	def update(self):
-		self.rect.move_ip(self.velocity)
-		self.rect.x += self.velocity.x
-		self.rect.y += self.velocity.y
+	def update(self, collidable_tiles):
+		if self.bounce_count <= 0:
+			self.kill()
+			return
 
-		# Check for collisions with screen boundaries and bounce
-		if self.rect.left <= self.screen_rect.left or self.rect.right >= self.screen_rect.right:
+		# Update position based on velocity
+		new_x = self.position.x + self.velocity.x
+		new_y = self.position.y + self.velocity.y
+
+		# Move horizontally first and check for collisions
+		self.position.x = new_x
+		self.rect.centerx = int(self.position.x)
+		self.collided = False
+
+		# Only check collisions with actually collidable tiles
+		for tile in [t for t in collidable_tiles if hasattr(t, 'collidable') and t.collidable]:
+			if self.rect.colliderect(tile):
+				self.collided = True
+				if self.velocity.x > 0:  # Moving right
+					self.rect.right = tile.left
+					self.velocity.x *= -1
+				elif self.velocity.x < 0:  # Moving left
+					self.rect.left = tile.right
+					self.velocity.x *= -1
+				self.position.x = self.rect.centerx
+				break
+
+		# Move vertically and check for collisions
+		self.position.y = new_y
+		self.rect.centery = int(self.position.y)
+
+		# Only check collisions with actually collidable tiles
+		for tile in [t for t in collidable_tiles if hasattr(t, 'collidable') and t.collidable]:
+			if self.rect.colliderect(tile):
+				self.collided = True
+				if self.velocity.y > 0:  # Moving down
+					self.rect.bottom = tile.top
+					self.velocity.y *= -1
+				elif self.velocity.y < 0:  # Moving up
+					self.rect.top = tile.bottom
+					self.velocity.y *= -1
+				self.position.y = self.rect.centery
+				break
+
+		# Only decrement bounce count if we actually collided with something
+		if self.collided:
+			self.bounce_count -= 1
+
+		# Keep bullet within screen bounds
+		if self.rect.left <= self.screen_rect.left:
+			self.rect.left = self.screen_rect.left
 			self.velocity.x *= -1
 			self.bounce_count -= 1
-		if self.rect.top <= self.screen_rect.top or self.rect.bottom >= self.screen_rect.bottom:
+		elif self.rect.right >= self.screen_rect.right:
+			self.rect.right = self.screen_rect.right
+			self.velocity.x *= -1
+			self.bounce_count -= 1
+
+		if self.rect.top <= self.screen_rect.top:
+			self.rect.top = self.screen_rect.top
+			self.velocity.y *= -1
+			self.bounce_count -= 1
+		elif self.rect.bottom >= self.screen_rect.bottom:
+			self.rect.bottom = self.screen_rect.bottom
 			self.velocity.y *= -1
 			self.bounce_count -= 1
 
-		# Destroy the bullet if it has bounced too many times
+		# Update position from rect
+		self.position = Vec2d(self.rect.center)
+
+class xBullet(pygame.sprite.Sprite):
+	def __init__(self, position, velocity, screen_rect, bounce_count=3):
+		super().__init__()
+		self.image = pygame.Surface((10, 10))
+		self.image.fill((255, 0, 0))
+		self.position = Vec2d(position)
+		self.rect = self.image.get_rect(center=self.position)
+		self.velocity = Vec2d(velocity)
+		self.screen_rect = screen_rect
+		self.bounce_count = bounce_count
+
+	def update(self, collidable_tiles):
 		if self.bounce_count <= 0:
 			self.kill()
+			return
 
-class oldBullet(Sprite):
-	def __init__(self, texture, scale=1, shooter=None, timer=1000):
-		super().__init__()
-		self.image = pygame.image.load(texture)
-		self.rect = self.image.get_rect()
-		self.shooter = shooter
-		self.timer = timer
-		self.angle = 90
-		self.do_rotate = False
-		self.do_shrink = False
-		self.can_kill = True
-		self.bullet_id = gen_randid()
-		self.hit_count = 0
-		self.damage = 1
+		# Update position based on velocity
+		new_x = self.position.x + self.velocity.x
+		new_y = self.position.y + self.velocity.y
 
-	def rotate_around_point(self, point, degrees):
-		self.angle += degrees
-		self.position = pygame.math.Vector2(self.rect.center).rotate_around(point, degrees)
+		# Move horizontally first and check for collisions
+		self.position.x = new_x
+		self.rect.centerx = int(self.position.x)
+		self.collided = False
 
-	def hit(self, oldpos, other):
-		if self.hit_count <= 1:
-			if self.rect.left <= other.rect.left + self.change_x or self.rect.right <= other.rect.right + self.change_x:
-				self.change_x *= -1
-			if self.rect.top <= other.rect.top + self.change_y or self.rect.bottom <= other.rect.bottom + self.change_y:
-				self.change_y *= -1
-			if self.hit_count > 1:
-				logger.warning(f'{self} hit {other} {self.hit_count=}')
-			self.hit_count += 1
-			self.can_kill = False
-			self.do_shrink = True
-		else:
-			self.kill()
+		for tile in collidable_tiles:
+			if self.rect.colliderect(tile):
+				self.collided = True
+				if self.velocity.x > 0:  # Moving right
+					self.rect.right = tile.left
+					self.velocity.x *= -1
+				elif self.velocity.x < 0:  # Moving left
+					self.rect.left = tile.right
+					self.velocity.x *= -1
+				self.position.x = self.rect.centerx
+				break
 
-	def update(self):
-		self.timer -= BULLET_TIMER
-		if self.do_shrink:
-			self.scale -= 0.02
-			if self.scale <= 0.1:
-				self.kill()
-		self.rect.x += self.change_x
-		self.rect.y += self.change_y
-		if self.timer <= 0:
-			self.kill()
+		# Move vertically and check for collisions
+		self.position.y = new_y
+		self.rect.centery = int(self.position.y)
+
+		for tile in collidable_tiles:
+			if self.rect.colliderect(tile):
+				self.collided = True
+				if self.velocity.y > 0:  # Moving down
+					self.rect.bottom = tile.top
+					self.velocity.y *= -1
+				elif self.velocity.y < 0:  # Moving up
+					self.rect.top = tile.bottom
+					self.velocity.y *= -1
+				self.position.y = self.rect.centery
+				break
+
+		# Only decrement bounce count if we actually collided with something
+		if self.collided:
+			self.bounce_count -= 1
+
+		# Keep bullet within screen bounds
+		if self.rect.left <= self.screen_rect.left:
+			self.rect.left = self.screen_rect.left
+			self.velocity.x *= -1
+			self.bounce_count -= 1
+		elif self.rect.right >= self.screen_rect.right:
+			self.rect.right = self.screen_rect.right
+			self.velocity.x *= -1
+			self.bounce_count -= 1
+
+		if self.rect.top <= self.screen_rect.top:
+			self.rect.top = self.screen_rect.top
+			self.velocity.y *= -1
+			self.bounce_count -= 1
+		elif self.rect.bottom >= self.screen_rect.bottom:
+			self.rect.bottom = self.screen_rect.bottom
+			self.velocity.y *= -1
+			self.bounce_count -= 1
+
+		# Update position from rect
+		self.position = Vec2d(self.rect.center)
 
 class Particle(Sprite):
 	def __init__(self, my_list=None, xtra=0):
