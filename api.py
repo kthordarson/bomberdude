@@ -23,5 +23,4 @@ class ApiServer(Flask):
 if __name__ == '__main__':
 	app = ApiServer(__name__)
 	app.add_url_rule('/get_data', view_func=app.get_data, methods=['GET'])
-
 	app.run(host='127.0.0.1', port=9699)

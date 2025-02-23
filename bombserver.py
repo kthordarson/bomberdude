@@ -71,7 +71,8 @@ class ServerTUI(Thread):
 
 	def stop(self):
 		self._stop.set()
-		logger.warning(f"{self} stop")
+		# self.server.stop()
+		logger.warning(f"{self} stop {self.stopped()} server: {self.server.stopped()}")
 
 	def stopped(self):
 		return self._stop.is_set()
@@ -132,8 +133,11 @@ class ServerTUI(Thread):
 					...
 				elif cmd[:1] == "q":
 					logger.warning(f"{self} {self.server} tuiquit")
-					self.stop()
-					self.server.stop()
+					# self.stop()
+					asyncio.run_coroutine_threadsafe(self.server.stop(), self.server.loop)
+					break
+					# asyncio.run(self.server.stop())
+					# asyncio.run_coroutine_threadsafe(self.server.stop(), self.server.loop)
 					# self.server.sub_sock.close()
 					# self.server.push_sock.close()
 				else:
@@ -141,7 +145,8 @@ class ServerTUI(Thread):
 			except (EOFError, KeyboardInterrupt) as e:
 				logger.warning(f"{type(e)} {e}")
 				self.stop()
-				self.server.stop()
+				asyncio.run_coroutine_threadsafe(self.server.stop(), self.server.loop)
+				# self.server.stop()
 				break
 
 
@@ -176,6 +181,7 @@ class BombServer:
 		self.packetdebugmode = self.args.packetdebugmode
 		self.tui = ServerTUI(self, debug=args.debug)
 		self.playerindex = 0
+		self._stop = Event()
 		# debugstuff
 		# self.app = Flask(import_name='bombserver')
 		# self.app.run(host=args.listen, port=args.port)
@@ -224,44 +230,6 @@ class BombServer:
 			logger.debug(f"{self} Socket closing")
 			conn.close()
 
-	def oldhandle_connections(self):
-		logger.debug(f"{self} starting handle_connections")
-		while True:
-			conn, addr = self.sub_sock.accept()
-			logger.debug(f"Accepted connection from {addr}")
-			try:
-				data = conn.recv(4096)
-				if not data:
-					break
-				msg = json.loads(data.decode('utf-8'))
-				# if self.packetdebugmode and len(msg.get('game_events')) > 0:
-				logger.info(f"msg: {msg}")
-				clid = str(msg["client_id"])
-				try:
-					self.server_game_state.update_game_state(clid, msg)
-				except KeyError as e:
-					logger.warning(f"{type(e)} {e} {msg=}")
-				except Exception as e:
-					logger.error(f"{type(e)} {e} {msg=}")
-				evkeycnt = len(msg.get("game_events", []))
-				if evkeycnt > 0:
-					logger.debug(f"evk: {evkeycnt} gameevent: {msg.get('game_events', [])}")
-					try:
-						self.server_game_state.update_game_events(msg)
-					except AttributeError as e:
-						logger.warning(f"{type(e)} {e} {msg=}")
-					except KeyError as e:
-						logger.warning(f"{type(e)} {e} {msg=}")
-					except TypeError as e:
-						logger.warning(f"{type(e)} {e} {msg=}")
-					except Exception as e:
-						logger.error(f"{type(e)} {e} {msg=}")
-			except socket.error as e:
-				logger.error(f"Socket error: {e}")
-			finally:
-				logger.debug(f"{self} Socket closing")
-				conn.close()
-
 	async def get_game_state(self):
 		return self.server_game_state.to_json()
 
@@ -308,7 +276,7 @@ class BombServer:
 			logger.debug(f'get_tile_map {self.args.mapname} {position}')
 		return {"mapname": str(self.args.mapname), "position": position}
 
-	def remove_timedout_players(self):
+	async def remove_timedout_players(self):
 		pcopy = copy.copy(self.server_game_state.players)
 		len0 = len(self.server_game_state.players)
 		for p in pcopy:
@@ -329,10 +297,14 @@ class BombServer:
 
 		# Get all collidable tiles
 		collidable_positions = set()
-		for layer in self.server_game_state.tile_map.visible_layers:
-			if isinstance(layer, pytmx.TiledTileLayer) and layer.properties.get('collidable'):
-				for x, y, _ in layer:
-					collidable_positions.add((x, y))
+		layer = self.server_game_state.tile_map.get_layer_by_name('Walls')
+		for x, y, gid in layer:
+			if gid != 0:
+				collidable_positions.add((x, y))
+		# for layer in self.server_game_state.tile_map.visible_layers:
+		# 	if isinstance(layer, pytmx.TiledTileLayer) and layer.properties.get('collidable'):
+		# 		for x, y, _ in layer:
+		# 			collidable_positions.add((x, y))
 
 		# Generate list of all possible positions excluding collidable tiles
 		valid_positions = []
@@ -352,20 +324,6 @@ class BombServer:
 		if self.args.debug:
 			logger.debug(f'Generated valid position: {position}')
 
-		return {'position': position}
-
-	def xxxxget_position(self, retas="int"):
-		# Assuming the map is a grid of size GRIDSIZE x GRIDSIZE
-		map_width = self.server_game_state.tile_map.width
-		map_height = self.server_game_state.tile_map.height
-
-		# Generate a random position within the map bounds
-		x = random.randint(0, map_width - 1) * BLOCK
-		y = random.randint(0, map_height - 1) * BLOCK
-
-		position = (x, y)
-		if self.args.debug:
-			logger.debug(f'Generated position: {position}')
 		return {'position': position}
 
 	async def update_from_client(self, sockrecv) -> None:
@@ -401,22 +359,31 @@ class BombServer:
 		except asyncio.CancelledError as e:
 			logger.warning(f"update_from_client CancelledError {e} ")
 
-	def send_data(self, data):
+	async def send_data(self, data):
 		try:
 			for conn, addr in self.push_sock.accept():
 				try:
-					conn.sendall(json.dumps(data).encode('utf-8'))
+					await conn.sendall(json.dumps(data).encode('utf-8'))
 					conn.close()
 				except Exception as e:
 					logger.warning(f"{type(e)} {e} in send_data {conn} {addr}")
 		except Exception as e:
 			logger.error(f"{type(e)} {e} in send_data {data}")
 
-	def stop(self):
-		logger.warning(f"{self} stopping server")
-		self.ticker_task.cancel()
+	async def stop(self):
+		self._stop.set()
+		logger.warning(f"{self} stopping {self.stopped()} tui: {self.tui} {self.tui.stopped()}")
 		self.sub_sock.close()
+		logger.warning(f"{self} {self.sub_sock} closed")
 		self.push_sock.close()
+		logger.warning(f"{self} {self.push_sock} closed")
+		self.ticker_task.cancel()
+		logger.warning(f"{self} {self.ticker_task} cancelled")
+		await self.ticker_task
+		logger.warning(f"{self} stop {self.stopped()}")
+
+	def stopped(self):
+		return self._stop.is_set()
 
 	async def ticker(self) -> None:
 		# tt_updatefromclient = create_task(self.update_from_client(sockrecv))
@@ -424,7 +391,7 @@ class BombServer:
 		logger.debug(f"tickertask: {self.push_sock=}\n{self.sub_sock=}")
 		# Send out the game state to all players 60 times per second.
 		try:
-			while True:
+			while not self.stopped():
 				await self.handle_connections()
 				try:
 					self.server_game_state.check_players()
@@ -435,14 +402,13 @@ class BombServer:
 				except Exception as e:
 					logger.warning(f"{type(e)} {e} in remove_timedout_players ")
 				self.send_data(self.server_game_state.to_json())  # Send updated game state to clients
-				if self.tui.stopped():
-					logger.warning(f"{self} tickertuistop tui: {self.tui}\n")
-					break
 				await asyncio.sleep(1 / UPDATE_TICK)  # SERVER_UPDATE_TICK_HZ
 		except asyncio.CancelledError as e:
 			logger.warning(f"tickertask CancelledError {e}")
 		except Exception as e:
 			logger.error(f"tickertask {e} {type(e)}")
+		finally:
+			logger.debug("Ticker task exiting")
 
 
 async def main(args) -> None:
@@ -468,10 +434,11 @@ async def main(args) -> None:
 	except CancelledError as e:
 		logger.warning(f"main Cancelled {e}")
 	finally:
-		server.tui.stop()
-		server.stop()
-		await server.ticker_task
-		server.loop.stop()
+		logger.info(f"main exit {server}")
+		# server.tui.stop()
+		# server.stop()
+		# await server.ticker_task
+		# server.loop.stop()
 		# server.push_sock.close(1)
 		# server.sub_sock.close(1)
 		# ctx.destroy(linger=1000)

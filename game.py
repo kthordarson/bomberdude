@@ -263,10 +263,6 @@ class Bomberdude():
         player_one = self.client_game_state.get_playerone()
         if player_one:
             player_one.update(self.client_game_state.collidable_tiles)
-            # Calculate camera position relative to player (centered)
-            target_x = player_one.rect.centerx - (SCREEN_WIDTH // 2)
-            target_y = player_one.rect.centery - (SCREEN_HEIGHT // 2)
-            # Constrain player to map bounds
             map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
             map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
 
@@ -276,10 +272,6 @@ class Bomberdude():
 
             # Update camera using Camera.update2 method which handles bounds correctly
             self.camera.update2(player_one)
-
-            # Update camera position with correct signs
-            # self.camera.position = Vec2d(-target_x, -target_y)
-            # self.camera.update(player_one)
         try:
             await self.handle_game_events()
         except (Empty, asyncio.queues.QueueEmpty, asyncio.TimeoutError):
