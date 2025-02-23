@@ -116,24 +116,25 @@ async def new_main():
     logger.debug(f"mainloop t={thread} mw={bomberdude_main}")
     running = True
     while running:
+        await bomberdude_main.update()
+        bomberdude_main.on_draw()
+        # bomberdude_main.draw()
+        pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 bomberdude_main.running = False
                 bomberdude_main._connected = False
+                running = False
             elif event.type == pygame.KEYDOWN:
                 # logger.debug(f'keydown {event} event.key={event.key}')
                 bomberdude_main.handle_on_key_press(event.key)
             elif event.type == pygame.KEYUP:
                 # logger.info(f'keyup {event} event.key={event.key}')
                 bomberdude_main.handle_on_key_release(event.key)
-        await bomberdude_main.update()
-        bomberdude_main.on_draw()
-        # bomberdude_main.draw()
-        pygame.display.flip()
         await asyncio.sleep(0.01)
-
     pygame.display.quit()
     pygame.quit()
+
     # while thread.is_alive():
     #    await asyncio.sleep(0.1)
     # await asyncio.gather(thread_worker(bomberdude_main.game))

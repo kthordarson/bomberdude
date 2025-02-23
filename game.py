@@ -184,16 +184,7 @@ class Bomberdude():
             logger.warning(f"{x=} {y=} {button=} {modifiers=}")
             return
 
-    def xon_key_press(self, key):
-        # key = pygame.key.get_pressed()
-        pass  # asyncio.create_task(self.handle_on_key_press(key))
-
-    def xon_key_release(self, key):
-        # key = pygame.key.get_pressed()
-        pass  # asyncio.create_task(self.handle_on_key_release(key))
-
     def handle_on_key_press(self, key):
-        key_ = pygame.key.get_pressed()
         if key == pygame.K_1:
             self.selected_bomb = 1
         elif key == pygame.K_2:
@@ -218,6 +209,7 @@ class Bomberdude():
             self._connected = False
             self.running = False
             logger.warning("quit")
+            pygame.event.post(pygame.event.Event(pygame.QUIT))
             # pygame.display.quit()
             # pygame.quit()
             return
