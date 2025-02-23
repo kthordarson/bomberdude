@@ -321,7 +321,7 @@
     ],
     "map.height": 3,
     "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
-    "map.lastUsedFormat": "json",
+    "map.lastUsedFormat": "tmx",
     "map.width": 3,
     "openFiles": [
     ],

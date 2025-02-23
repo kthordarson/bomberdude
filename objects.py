@@ -1,69 +1,35 @@
-from typing import Dict
-from pymunk import Vec2d
-import arcade
-from arcade.gui import UIFlatButton
-from arcade.gui import UILabel
-from arcade.math import (rotate_point,)
-from arcade.sprite_list import SpatialHash
-import random
-import math
+from dataclasses import dataclass
 from loguru import logger
-from constants import PLAYER_MOVEMENT_SPEED, PARTICLE_COUNT, PARTICLE_COLORS, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED, PARTICLE_FADE_RATE, PARTICLE_GRAVITY, FLAME_SPEED, FLAME_TIME, FLAME_RATE, BOMBTICKER, BULLET_TIMER, FLAMEX, FLAMEY
-import time
+from pygame.math import Vector2 as Vec2d
+from pygame.sprite import Sprite
+# from pymunk import Vec2d
 import json
-from dataclasses import dataclass, asdict, field
-from arcade.types import Point
-
+import math
+import pygame
+import random
+import time
 from utils import gen_randid
+from constants import PLAYER_MOVEMENT_SPEED, PARTICLE_COUNT, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED, PARTICLE_FADE_RATE, PARTICLE_GRAVITY, FLAME_SPEED, FLAME_TIME, FLAME_RATE, BOMBTICKER, BULLET_TIMER, FLAMEX, FLAMEY
 
 MOVE_MAP = {
-	arcade.key.UP: (0, PLAYER_MOVEMENT_SPEED),
-	arcade.key.W: (0, PLAYER_MOVEMENT_SPEED),
+	pygame.K_UP: (0, PLAYER_MOVEMENT_SPEED),
+	pygame.K_w: (0, PLAYER_MOVEMENT_SPEED),
 	119: (0, PLAYER_MOVEMENT_SPEED),
 
-	arcade.key.DOWN: (0, -PLAYER_MOVEMENT_SPEED),
-	arcade.key.S: (0, -PLAYER_MOVEMENT_SPEED),
+	pygame.K_DOWN: (0, -PLAYER_MOVEMENT_SPEED),
+	pygame.K_s: (0, -PLAYER_MOVEMENT_SPEED),
 	115: (0, -PLAYER_MOVEMENT_SPEED),
 
-	arcade.key.LEFT: (-PLAYER_MOVEMENT_SPEED, 0),
-	arcade.key.A: (-PLAYER_MOVEMENT_SPEED, 0),
+	pygame.K_LEFT: (-PLAYER_MOVEMENT_SPEED, 0),
+	pygame.K_a: (-PLAYER_MOVEMENT_SPEED, 0),
 	97: (-PLAYER_MOVEMENT_SPEED, 0),
 
-	arcade.key.RIGHT: (PLAYER_MOVEMENT_SPEED, 0),
-	arcade.key.D: (PLAYER_MOVEMENT_SPEED, 0),
+	pygame.K_RIGHT: (PLAYER_MOVEMENT_SPEED, 0),
+	pygame.K_d: (PLAYER_MOVEMENT_SPEED, 0),
 	100: (PLAYER_MOVEMENT_SPEED, 0),
 }
 
-KEY_NAME_MAP = {v: k for k, v in arcade.key.__dict__.items() if isinstance(v, int)}
-
-class UIPlayerLabel(UILabel):
-	_value: str = ''
-
-	def __init__(self, client_id, value='', l_text='', text_color=arcade.color.HAN_BLUE, *args, **kwargs):
-		super().__init__()  # width=120,text=client_id,text_color=text_color, multiline=False, *args, **kwargs)
-		self.client_id = client_id
-		self.name = str(client_id)
-		self.button = UIFlatButton(text=f'{self.client_id}', height=20, width=120)
-		self.textlabel = UIFlatButton(text=' ', height=20, width=400)
-
-	@property
-	def value(self):
-		return f'{self._value}'
-
-	@value.setter
-	def value(self, value):
-		self._value = f'{value}'
-		self.text = f'{self._value}'  # self._value # f'{self.client_id}\\n{value}'
-		self.textlabel.text = self._value
-		self.fit_content()
-
-	def set_value(self, value):
-		# logger.debug(f'old={self._value} new={value}')
-		self._value = f'{value}'
-		self.text = f'{self._value}'  # self._value # f'{self.client_id}\\n{value}'
-		self.textlabel.text = self._value
-		self.fit_content()
-
+KEY_NAME_MAP = {v: k for k, v in pygame.key.__dict__.items() if isinstance(v, int)}
 
 class KeysPressed:
 	def __init__(self, name):
@@ -90,10 +56,11 @@ class oldKeysPressed:
 		return f'KeyPressed ({self.name})'
 
 @dataclass
-class Bomberplayer(arcade.Sprite):
-	# def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99,y=99)):
-	def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(x=99,y=99), name='xnonex', eventq=None):
-		super().__init__(texture,scale)
+class Bomberplayer(Sprite):
+	def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(99, 99), name='xnonex', eventq=None):
+		super().__init__()
+		self.image = pygame.image.load(texture)
+		self.rect = self.image.get_rect()
 		self.eventq = eventq
 		self.name = name
 		self.client_id = client_id
@@ -104,67 +71,50 @@ class Bomberplayer(arcade.Sprite):
 		self.timeout = False
 		self.score = 0
 		self.angle = 0
-		self.spatial_hash = SpatialHash(cell_size=32)
 		self.candrop = True
 		self.lastdrop = 0  # last bomb dropped
 		self.all_bomb_drops = {}  # keep track of bombs
 		self.keys_pressed = KeysPressed('gamestate')
 
-	def __repr__(self):
-		return f'Bomberplayer ({self.client_id} s:{self.score} h:{self.health} b:{self.bombsleft} pos:{self.position} )'
+	def update(self):
+		self.rect.topleft = self.position
 
-	def __hash__(self):
-		return self.client_id
+	def draw(self, screen):
+		screen.blit(self.image, self.rect.topleft)
 
-	def dropbomb(self, bombtype) -> None:
-		if not self.candrop:  # dunno about this logic....
+	async def dropbomb(self, bombtype) -> None:
+		if not self.candrop:
 			logger.warning(f'{self} cannot drop bomb ! candrop: {self.candrop} last: {self.lastdrop} drops: {len(self.all_bomb_drops)}')
 			return
 		if self.bombsleft <= 0:
 			logger.warning(f'p1: {self} has no bombs left {self.lastdrop}...')
 			return
 		if self.candrop:
-			bombpos = Vec2d(x=self.center_x,y=self.center_y)
-			bombevent = {'event_time':0, 'event_type':'bombdrop', 'bombtype':bombtype, 'bomber': self.client_id, 'pos': bombpos, 'timer': 1, 'handled': False, 'handledby': self.client_id, 'ld':self.lastdrop, 'eventid': gen_randid()}
+			bombpos = Vec2d(self.rect.centerx, self.rect.centery)
+			bombevent = {'event_time': 0, 'event_type': 'bombdrop', 'bombtype': bombtype, 'bomber': self.client_id, 'pos': bombpos, 'timer': 1, 'handled': False, 'handledby': self.client_id, 'ld': self.lastdrop, 'eventid': gen_randid()}
 			self.all_bomb_drops[bombevent['eventid']] = bombevent
-			self.eventq.put(bombevent)
+			await self.eventq.put(bombevent)
 			self.candrop = False
 			self.lastdrop = bombevent['eventid']
 			logger.debug(f'{self} dropped bomb {bombevent["eventid"]}')
 			return
 
-	def update_netdata(self, playeronedata):
-		self.score = playeronedata['score']
-		self.health = playeronedata['health']
-		self.bombsleft = playeronedata['bombsleft']
-		# self.score = playeronedata['score']
-
-	def rotate_around_point(self, point: Point, degrees: float):
-		"""
-		Rotate the sprite around a point by the set amount of degrees
-
-		:param point: The point that the sprite will rotate about
-		:param degrees: How many degrees to rotate the sprite
-		"""
-
-		# Make the sprite turn as its position is moved
+	def rotate_around_point(self, point, degrees):
 		self.angle += degrees
-
-		# Move the sprite along a circle centered around the passed point
-		self.position = rotate_point(self.center_x, self.center_y, point[0], point[1], degrees)
+		self.position = pygame.math.Vector2(self.rect.center).rotate_around(point, degrees)
 
 	def respawn(self):
 		self.killed = False
 		self.health = 100
-		self.position = Vec2d(x=101,y=101)
+		self.position = Vec2d(101, 101)
 		self.bombsleft = 3
 		self.score = 0
 		self.timeout = False
-		self.set_texture(arcade.load_texture('data/playerone.png'))
+		self.image = pygame.image.load('data/playerone.png')
 		logger.info(f'{self} respawned')
 
 	def set_texture(self, texture):
-		self.texture = texture
+		self.image = pygame.image.load(texture)
 
 	def addscore(self, score):
 		self.score += score
@@ -196,87 +146,68 @@ class Bomberplayer(arcade.Sprite):
 	def kill(self, dmgfrom):
 		logger.info(f'{self} killed by {dmgfrom}')
 		self.killed = True
-		self.texture = arcade.load_texture('data/netplayerdead.png')
+		self.image = pygame.image.load('data/netplayerdead.png')
 		return 11
 
-	def set_data(self, data):
-		pass
-		# self.client_id = data['client_id']
-		# self.position = data['position']
-		# self.angle = data['angle']
-		# self.health = data['health']
-		# self.timeout = data['timeout']
-		# self.killed = data['killed']
-		# self.score = data['score']
-		# self.bombsleft = data['bombsleft']
-
 	def set_pos(self, newpos):
-		# logger.debug(f'setpos {newpos=} oldc={self.center_x},{self.center_y} selfposition={self.position}')
-		self.center_x = newpos.x
-		self.center_y = newpos.y
+		self.rect.topleft = newpos
 		self.update()
 
-class Bomb(arcade.Sprite):
+class Bomb(Sprite):
 	def __init__(self, image=None, scale=1.0, bomber=None, timer=1000, eventq=None):
-		super().__init__(image,scale)
+		super().__init__()
+		self.image = pygame.image.load(image)
+		self.rect = self.image.get_rect()
 		self.eventq = eventq
 		self.bomber = bomber
 		self.timer = timer
-		self.spatial_hash = SpatialHash(cell_size=32)
-
-	def __repr__(self):
-		return f'Bomb(pos={self.center_x},{self.center_y} bomber={self.bomber} t:{self.timer})'
 
 	def update(self, scene, eventq=None):
 		if self.timer <= 0:
 			for k in range(PARTICLE_COUNT):
 				p = Particle()
-				p.center_x = self.center_x
-				p.center_y = self.center_y
-				scene.add_sprite('Particles', p)
-			for k in ['left','right','up','down']:
+				p.rect.center = self.rect.center
+				scene.add(p)
+			for k in ['left', 'right', 'up', 'down']:
 				f = Flame(flamespeed=FLAME_SPEED, timer=FLAME_TIME, direction=k, bomber=self.bomber)
-				f.center_x = self.center_x
-				f.center_y = self.center_y
-				scene.add_sprite('Flames', f)
-			event = {'event_time':0, 'event_type':'bombxplode', 'bomber':self.bomber, 'eventid': gen_randid()}
+				f.rect.center = self.rect.center
+				scene.add(f)
+			event = {'event_time': 0, 'event_type': 'bombxplode', 'bomber': self.bomber, 'eventid': gen_randid()}
 			self.eventq.put(event)
-			self.remove_from_sprite_lists()
+			self.kill()
 		else:
 			self.timer -= BOMBTICKER
 
-class BiggerBomb(arcade.Sprite):
+class BiggerBomb(Sprite):
 	def __init__(self, image=None, scale=1.0, bomber=None, timer=1000, eventq=None):
-		super().__init__(image,scale)
+		super().__init__()
+		self.image = pygame.image.load(image)
+		self.rect = self.image.get_rect()
 		self.eventq = eventq
 		self.bomber = bomber
 		self.timer = timer
-		self.spatial_hash = SpatialHash(cell_size=32)
-
-	def __repr__(self):
-		return f'BiggerBomb(pos={self.center_x},{self.center_y} bomber={self.bomber} t:{self.timer})'
 
 	def update(self, scene):
 		if self.timer <= 0:
-			for k in range(PARTICLE_COUNT*2):
+			for k in range(PARTICLE_COUNT * 2):
 				p = Particle(xtra=3)
-				p.center_x = self.center_x
-				p.center_y = self.center_y
-				scene.add_sprite('Particles', p)
-			for k in ['left','right','up','down']:
-				f = Flame(flamespeed=FLAME_SPEED*2, timer=FLAME_TIME, direction=k, bomber=self.bomber)
-				f.center_x = self.center_x
-				f.center_y = self.center_y
-				scene.add_sprite('Flames', f)
-			event = {'event_time':0, 'event_type':'bombxplode', 'bomber':self.bomber, 'eventid': gen_randid()}
+				p.rect.center = self.rect.center
+				scene.add(p)
+			for k in ['left', 'right', 'up', 'down']:
+				f = Flame(flamespeed=FLAME_SPEED * 2, timer=FLAME_TIME, direction=k, bomber=self.bomber)
+				f.rect.center = self.rect.center
+				scene.add(f)
+			event = {'event_time': 0, 'event_type': 'bombxplode', 'bomber': self.bomber, 'eventid': gen_randid()}
 			self.eventq.put(event)
-			self.remove_from_sprite_lists()
+			self.kill()
 		else:
 			self.timer -= BOMBTICKER
 
-class Bullet(arcade.Sprite):
+class Bullet(Sprite):
 	def __init__(self, texture, scale=1, shooter=None, timer=1000):
-		super().__init__(texture)
+		super().__init__()
+		self.image = pygame.image.load(texture)
+		self.rect = self.image.get_rect()
 		self.shooter = shooter
 		self.timer = timer
 		self.angle = 90
@@ -284,27 +215,18 @@ class Bullet(arcade.Sprite):
 		self.do_shrink = False
 		self.can_kill = True
 		self.bullet_id = gen_randid()
-		self.spatial_hash = SpatialHash(cell_size=32)
 		self.hit_count = 0
 		self.damage = 1
-		# self.spatial_hash: self.bullet_id
-		# self.velocity = Vec2d(x=0, y=0)
 
-	def __hash__(self):
-		return self.bullet_id
-
-	def __repr__(self):
-		return f'Bullet( id: {self.bullet_id} pos={self.center_x:.2f},{self.center_y:.2f} shooter={self.shooter} t:{self.timer} angle={self.angle:.2f} cx:{self.change_x:.2f} cy:{self.change_y:.2f} )'
-
-	def rotate_around_point(self, point: Point, degrees: float):
+	def rotate_around_point(self, point, degrees):
 		self.angle += degrees
-		self.position = rotate_point(self.center_x, self.center_y, point[0], point[1], degrees)
+		self.position = pygame.math.Vector2(self.rect.center).rotate_around(point, degrees)
 
-	def hit(self, oldpos,other):
+	def hit(self, oldpos, other):
 		if self.hit_count <= 1:
-			if self.left <= other.left+self.change_x or self.right <= other.right+self.change_x:
+			if self.rect.left <= other.rect.left + self.change_x or self.rect.right <= other.rect.right + self.change_x:
 				self.change_x *= -1
-			if self.top <= other.top+self.change_y or self.bottom <= other.bottom+self.change_y:
+			if self.rect.top <= other.rect.top + self.change_y or self.rect.bottom <= other.rect.bottom + self.change_y:
 				self.change_y *= -1
 			if self.hit_count > 1:
 				logger.warning(f'{self} hit {other} {self.hit_count=}')
@@ -312,58 +234,49 @@ class Bullet(arcade.Sprite):
 			self.can_kill = False
 			self.do_shrink = True
 		else:
-			self.remove_from_sprite_lists()
+			self.kill()
 
 	def update(self):
-		# self.velocity = Vec2d(x=self.velocity[0], y=self.velocity[1])
 		self.timer -= BULLET_TIMER
 		if self.do_shrink:
-			# self.draw_hit_box()
-			# self.angle += 10
-			# self.angle_change = 10
 			self.scale -= 0.02
 			if self.scale <= 0.1:
-				# logger.debug(f'{self} scaleout ')
-				self.remove_from_sprite_lists()
-		self.center_x += self.change_x
-		self.center_y += self.change_y
+				self.kill()
+		self.rect.x += self.change_x
+		self.rect.y += self.change_y
 		if self.timer <= 0:
-			# logger.debug(f'{self} timeout ')
-			self.remove_from_sprite_lists()
+			self.kill()
 
-
-class Particle(arcade.SpriteCircle):
+class Particle(Sprite):
 	def __init__(self, my_list=None, xtra=0):
-		color = random.choice(PARTICLE_COLORS)
-		super().__init__(PARTICLE_RADIUS, color)
-		self.normal_texture = self.texture
+		super().__init__()
+		color = (123,123,123)  # random.choice(PARTICLE_COLORS)
+		self.image = pygame.Surface((PARTICLE_RADIUS * 2, PARTICLE_RADIUS * 2), pygame.SRCALPHA)
+		pygame.draw.circle(self.image, color, (PARTICLE_RADIUS, PARTICLE_RADIUS), PARTICLE_RADIUS)
+		self.rect = self.image.get_rect()
 		speed = random.random() * PARTICLE_SPEED_RANGE + PARTICLE_MIN_SPEED
 		direction = random.randrange(360)
-		self.change_x = math.sin(math.radians(direction)) * speed+xtra
-		self.change_y = math.cos(math.radians(direction)) * speed+xtra
+		self.change_x = math.sin(math.radians(direction)) * speed + xtra
+		self.change_y = math.cos(math.radians(direction)) * speed + xtra
 		self.my_alpha = 255
 		self.my_list = my_list
 
-	def __repr__(self) -> str:
-		return f'Particle({self.my_alpha} pos={self.center_x},{self.center_y})'
-
 	def update(self):
 		if self.my_alpha <= 0:
-			self.remove_from_sprite_lists()
-			# logger.debug(f'{self} timeout')
+			self.kill()
 		else:
-			# Update
 			self.my_alpha -= PARTICLE_FADE_RATE
-			self.alpha = self.my_alpha
-			self.center_x += self.change_x
-			self.center_y += self.change_y
+			self.image.set_alpha(self.my_alpha)
+			self.rect.x += self.change_x
+			self.rect.y += self.change_y
 			self.change_y -= PARTICLE_GRAVITY
 
-class Flame(arcade.SpriteSolidColor):
+class Flame(Sprite):
 	def __init__(self, flamespeed=10, timer=3000, direction='', bomber=None):
-		color = arcade.color.ORANGE
-		super().__init__(FLAMEX,FLAMEY, color=color)
-		self.normal_texture = self.texture
+		super().__init__()
+		self.image = pygame.Surface((FLAMEX, FLAMEY))
+		self.image.fill((255, 165, 0))  # ORANGE equivalent
+		self.rect = self.image.get_rect()
 		self.bomber = bomber
 		self.speed = flamespeed
 		self.timer = timer
@@ -381,37 +294,26 @@ class Flame(arcade.SpriteSolidColor):
 			self.change_y = self.speed
 			self.change_x = 0
 
-	def __repr__(self) -> str:
-		return f'Flame(bomber={self.bomber} pos={self.center_x},{self.center_y})'
-
 	def update(self):
-
 		if self.timer <= 0:
-			self.remove_from_sprite_lists()
-			# logger.debug(f'{self} timeout')
+			self.kill()
 		else:
-			# Update
 			self.timer -= FLAME_RATE
-			self.center_x += self.change_x
-			self.center_y += self.change_y
+			self.rect.x += self.change_x
+			self.rect.y += self.change_y
 
-class Upgrade(arcade.Sprite):
+class Upgrade(Sprite):
 	def __init__(self, upgradetype, image, position, scale, timer=1000):
-		super().__init__(scale=scale)
-		self.image = image
+		super().__init__()
+		self.image = pygame.image.load(image)
+		self.rect = self.image.get_rect()
 		self.upgradetype = upgradetype
 		self.position = position
-		self.center_x = self.position.x
-		self.center_y = self.position.y
-		self.texture = arcade.load_texture(self.image)
+		self.rect.topleft = self.position
 		self.timer = timer
-		self.spatial_hash = SpatialHash(cell_size=32)
-
-	def __repr__(self):
-		return f'upgrade( {self.upgradetype} pos={self.center_x},{self.center_y}  t:{self.timer})'
 
 	def update(self):
 		if self.timer <= 0:
-			self.remove_from_sprite_lists()
+			self.kill()
 		else:
 			self.timer -= 1

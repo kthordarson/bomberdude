@@ -15,26 +15,21 @@ from api import ApiServer
 # from zmq.asyncio import Context
 import socket
 import pytiled_parser
-
+import pytmx
 
 SERVER_UPDATE_TICK_HZ = 10
-
 
 def generate_grid(gsz=GRIDSIZE):
 	return json.loads(open("data/map.json", "r").read())
 
-
 class ServerSendException(Exception):
 	pass
-
 
 class HandlerException(Exception):
 	pass
 
-
 class TuiException(Exception):
 	pass
-
 
 class RepeatedTimer:
 	def __init__(self, interval, function, *args, **kwargs):
@@ -167,7 +162,9 @@ class BombServer:
 		self.args = args
 		self.debug = self.args.debug
 		self.server_game_state = GameState(args=self.args, mapname=args.mapname, name='server')
-		self.server_game_state.load_tile_map(args.mapname)
+		# self.server_game_state.load_tile_map(args.mapname)
+		tmxdata = pytmx.TiledMap(args.mapname)
+
 		# self.ctx = Context()
 		# self.pushsock = self.ctx.socket(zmq.PUB)  # : Socket
 		# self.pushsock.bind(f"tcp://{args.listen}:9696")
@@ -275,8 +272,7 @@ class BombServer:
 		return self.server_game_state.to_json()
 
 	async def get_tile_map(self):
-		mapname = str(self.server_game_state.tile_map.tiled_map.map_file)
-		if "maptest2" in mapname:
+		if "maptest2" in self.args.mapname:
 			map4pos = [
 				(2, 2),
 				(3, 25),
@@ -288,7 +284,7 @@ class BombServer:
 				map4pos[self.playerindex][1] * 64,
 			)
 			self.playerindex = len(self.server_game_state.players)
-		elif "maptest5" in mapname:
+		elif "maptest5" in self.args.mapname:
 			map4pos = [
 				(2, 2),
 				(2, 38),
@@ -300,7 +296,7 @@ class BombServer:
 				map4pos[self.playerindex][1] * 32,
 			)
 			self.playerindex = len(self.server_game_state.players)
-		elif "maptest4" in mapname:
+		elif "maptest4" in self.args.mapname:
 			map4pos = [
 				(2, 2),
 				(25, 27),
@@ -315,8 +311,8 @@ class BombServer:
 		else:
 			position = self.get_position()
 		if self.debug:
-			logger.debug(f'get_tile_map {mapname} {position}')
-		return {"mapname": str(mapname), "position": position}
+			logger.debug(f'get_tile_map {self.args.mapname} {position}')
+		return {"mapname": str(self.args.mapname), "position": position}
 
 	def remove_timedout_players(self):
 		pcopy = copy.copy(self.server_game_state.players)
@@ -333,20 +329,7 @@ class BombServer:
 				logger.warning(f"keyerror in remove_timedout_players {e} {self.server_game_state.players[p]} {self.server_game_state.players}")
 
 	def get_position(self, retas="int"):
-		foundpos = False
-		walls: pytiled_parser.Layer = self.server_game_state.tile_map.get_tilemap_layer("Walls")
-		blocks: pytiled_parser.Layer = self.server_game_state.tile_map.get_tilemap_layer("Blocks")
-		x = 0
-		y = 0
-		while not foundpos:
-			x = random.randint(2, int(self.server_game_state.tile_map.width) - 2)
-			y = random.randint(2, int(self.server_game_state.tile_map.height) - 2)
-			if walls.data[x][y] == 0 and blocks.data[x][y] == 0:
-				foundpos = True
-				x1 = x * BLOCK  # self.server_game_state.tile_map.width
-				y1 = y * BLOCK  # self.server_game_state.tile_map.width
-				logger.debug(f"foundpos {x}/{x1} {y}/{y1}")
-				return {'position': (x1, y1)}
+		return {'position': (11, 11)}
 
 	async def update_from_client(self, sockrecv) -> None:
 		logger.debug(f"{self} starting update_from_client {sockrecv=}")
@@ -461,6 +444,6 @@ if __name__ == "__main__":
 	parser.add_argument("--port", action="store", dest="port", default=9696, type=int)
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
 	parser.add_argument("-dp", "--debugpacket", action="store_true", dest="packetdebugmode", default=False,)
-	parser.add_argument("--map", action="store", dest="mapname", default="data/maptest2.json")
+	parser.add_argument("--map", action="store", dest="mapname", default="data/map3.tmx")
 	args = parser.parse_args()
 	run(main(args))

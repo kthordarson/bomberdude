@@ -109,30 +109,31 @@ async def new_main():
     logger.info(f"Starting thread_worker for {bomberdude_main}")
     thread = Thread(target=thread_worker, args=(bomberdude_main.game,), daemon=True)
     thread.start()
-    logger.info(f"app: {screen} t={thread} mw={bomberdude_main}")
-    while thread.is_alive():
-        await asyncio.sleep(0.1)
+    logger.info(f"t={thread} mw={bomberdude_main}")
+
+    # Main loop
+    running = True
+    logger.debug(f"mainloop t={thread} mw={bomberdude_main}")
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                logger.debug(f'event.key={event.key}')
+                await bomberdude_main.game.handle_on_key_press(event.key)
+            elif event.type == pygame.KEYUP:
+                logger.debug(f'event.key={event.key}')
+                bomberdude_main.game.on_key_release(event.key)
+        bomberdude_main.update()
+        bomberdude_main.draw()
+        pygame.display.flip()
+
+        await asyncio.sleep(0.01)
+
+    pygame.quit()
+    # while thread.is_alive():
+    #    await asyncio.sleep(0.1)
     # await asyncio.gather(thread_worker(bomberdude_main.game))
-
-
-def old_main():
-    args = get_args()
-    # window = arcade.Window(width=SCREEN_WIDTH, height=SCREEN_HEIGHT, title=SCREEN_TITLE, resizable=True, gc_mode="context_gc",)
-    # eventq = asyncio.Queue()
-    # bomberdude_main = MainView(window=window, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
-    # logger.info(f"Starting thread_worker for {bomberdude_main}")
-    # thread = Thread(target=thread_worker, args=(bomberdude_main.game,), daemon=True)
-    # thread.start()
-    # window.show_view(bomberdude_main)
-    # logger.info(f"app: {window} t={thread} mw={bomberdude_main}")
-    # arcade.run()
-    # Run arcade in a separate thread
-    # arcade_thread = Thread(target=arcade.run, daemon=True)
-    # arcade_thread.start()
-
-    # Keep the asyncio event loop running
-    # while arcade_thread.is_alive():
-#        await asyncio.sleep(0.1)
 
 
 if __name__ == "__main__":

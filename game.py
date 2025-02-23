@@ -13,7 +13,6 @@ from objects import (
     Bomb,
     BiggerBomb,
     KeysPressed,
-    UIPlayerLabel,
     Bullet,
 )
 from panels import Panel
@@ -90,9 +89,6 @@ class Bomberdude():
         self.bullet_sprite = pygame.image.load("data/bullet0.png")
         self.setup_panels()
         self.setup_labels()
-        self.client_game_state.scene.add_sprite_list("static")
-        self.client_game_state.scene["static"].sprite_list.extend(self.client_game_state.tile_map.sprite_lists["Blocks"])
-        self.client_game_state.scene["static"].sprite_list.extend(self.client_game_state.tile_map.sprite_lists["Walls"])
         player_one = Bomberplayer(texture="data/playerone.png", name=self.args.name, client_id=gen_randid(), eventq=self.eventq)
         player_one.position = position
         self.player_list.append(player_one)
@@ -197,14 +193,15 @@ class Bomberdude():
             logger.warning(f"{x=} {y=} {button=} {modifiers=}")
             return
 
-    def on_key_press(self, key, modifiers):
-        asyncio.create_task(self.handle_on_key_press(key, modifiers))
+    def on_key_press(self, key):
+        # key = pygame.key.get_pressed()
+        asyncio.create_task(self.handle_on_key_press(key))
 
-    async def handle_on_key_press(self, key, modifiers):
-        if len(self.player_list) == 0:
-            return
-        if self.debug:
-            logger.info(f'{key=} {modifiers=} ')
+    def on_key_release(self, key):
+        # key = pygame.key.get_pressed()
+        asyncio.create_task(self.handle_on_key_release(key))
+
+    async def handle_on_key_press(self, key):
         if key == pygame.K_1:
             self.selected_bomb = 1
         elif key == pygame.K_2:
@@ -254,9 +251,8 @@ class Bomberdude():
             self.right_pressed = True
             self.client_game_state.keys_pressed.keys[key] = True
 
-    def on_key_release(self, key, modifiers):
-        if len(self.player_list) == 0:
-            return
+    async def handle_on_key_release(self, key):
+        # key = pygame.key.get_pressed()
         if key == pygame.K_UP or key == pygame.K_w:
             self.player_list[0].change_y = 0
             self.up_pressed = False
@@ -274,24 +270,26 @@ class Bomberdude():
             self.right_pressed = False
             self.client_game_state.keys_pressed.keys[key] = False
         if key == pygame.K_SPACE:
-            _ = [k.dropbomb(self.selected_bomb) for k in self.player_list]
+            _ = [await k.dropbomb(self.selected_bomb) for k in self.player_list]
         self.client_game_state.keys_pressed.keys[key] = False
+        await asyncio.sleep(0.1)
 
-    def update(self):
+    def handle_game_events(self, game_events):
+        logger.debug(f'{game_events=}')
+
+    async def update(self):
         self.timer += 1 / 60
         if not self._gotmap:
             if self.debug:
                 logger.warning(f"{self} no map!")
             return
         try:
-            self.handle_game_events(self.client_game_state.event_queue.get_nowait())
-            self.client_game_state.event_queue.task_done()
+            await self.handle_game_events(self.client_game_state.event_queue.get())
+            # self.client_game_state.event_queue.task_done()
         except Empty:
             pass
-        self.update_netplayers()
-        self.update_poplist()
-        for b in self.client_game_state.scene["Bullets"]:
-            b.update()
-        self.center_camera_on_player()
+        # self.update_netplayers()
+        # self.update_poplist()
+        # self.center_camera_on_player()
         for player in self.player_list:
             player.update()
