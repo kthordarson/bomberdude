@@ -144,44 +144,62 @@ class Bomberdude():
         # Draw game elements here
         self.screen.fill((200, 249, 237))
         self.client_game_state.render_map(self.screen, self.camera)
+        for bullet in self.client_game_state.bullets:
+            self.screen.blit(bullet.image, self.camera.apply(bullet))
         for player in self.client_game_state.players:
             # player.draw(self.screen)
             self.screen.blit(player.image, self.camera.apply(player))
+            # player.bullets.draw(self.screen)
         # for sprite in self.client_game_state.scene:
         #     sprite.draw()
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         self.mouse_pos = Vec2d(x=x, y=y)
 
-    def on_mouse_press(self, x, y, button, modifiers):
-        asyncio.create_task(self.handle_on_mouse_press(x, y, button, modifiers))
+    # def on_mouse_press(self, x, y, button, modifiers):
+    #    asyncio.create_task(self.handle_on_mouse_press(x, y, button, modifiers))
 
-    async def handle_on_mouse_press(self, x, y, button, modifiers):
+    async def handle_on_mouse_press(self, x, y, button):
         self.mouse_pos = Vec2d(x=x, y=y)
         if button == 1:
-            dir_init = self.mouse_pos
-            length = math.hypot(*dir_init)
-            dir = (dir_init[0] / length, dir_init[1] / length)
-            bullet_angle = math.degrees(math.atan2(-dir[1], dir[0]))
-            bullet_vel = Vec2d(x=dir[0], y=dir[1])
-            bulletpos = self.mouse_pos
-            event = {
-                "event_time": 0,
-                "event_type": "bulletfired",
-                "bullet_vel": bullet_vel,
-                "shooter": 0,
-                "pos": bulletpos,
-                "ba": bullet_angle,
-                "timer": 3515,
-                "handled": False,
-                "handledby": "kremer",
-                "eventid": gen_randid(),
-            }
-            await self.eventq.put(event)
-            logger.debug(f'eventq: {self.eventq.qsize()} {dir_init=} {dir=} {bullet_angle=} {bullet_vel=} {length=}  {x=} {y=}')
-        else:
-            logger.warning(f"{x=} {y=} {button=} {modifiers=}")
-            return
+            player_one = self.client_game_state.get_playerone()
+            if player_one:
+                bullet = player_one.shoot(self.mouse_pos)
+                self.client_game_state.bullets.add(bullet)
+                self.client_game_state.scene.add(bullet)
+                event = {
+                    "event_time": 0,
+                    "event_type": "bulletfired",
+                    "bullet_vel": (bullet.velocity.x, bullet.velocity.y),
+                    "shooter": 0,
+                    "pos": (bullet.rect.x, bullet.rect.y),
+                    "ba": 33,
+                    "timer": 3515,
+                    "handled": False,
+                    "handledby": "kremer",
+                    "eventid": gen_randid(),
+                }
+                await self.eventq.put(event)
+                logger.debug(f'eventq: {self.eventq.qsize()} bullet: {bullet} ')
+
+    async def oldhandle_on_mouse_press(self, x, y, button):
+        bullet_angle = math.degrees(math.atan2(-dir[1], dir[0]))
+        bullet_vel = Vec2d(x=dir[0], y=dir[1])
+        bulletpos = self.mouse_pos
+        event = {
+            "event_time": 0,
+            "event_type": "bulletfired",
+            "bullet_vel": bullet_vel,
+            "shooter": 0,
+            "pos": bulletpos,
+            "ba": bullet_angle,
+            "timer": 3515,
+            "handled": False,
+            "handledby": "kremer",
+            "eventid": gen_randid(),
+        }
+        await self.eventq.put(event)
+        logger.debug(f'eventq: {self.eventq.qsize()} ')
 
     def handle_on_key_press(self, key):
         player_one = self.client_game_state.get_playerone()
@@ -255,6 +273,7 @@ class Bomberdude():
         if player_one:
             player_one.update(self.client_game_state.collidable_tiles)
             self.camera.update(player_one)
+        self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
         if not self._gotmap:
             if self.args.debug:
                 logger.warning(f"{self} no map!")

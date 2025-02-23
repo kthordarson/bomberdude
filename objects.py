@@ -80,6 +80,7 @@ class Bomberplayer(Sprite):
 		self.candrop = True
 		self.lastdrop = 0
 		self.keys_pressed = KeysPressed('gamestate')
+		# self.bullets = pygame.sprite.Group()
 
 	def __hash__(self):
 		return hash((self.client_id, self.name))
@@ -96,6 +97,14 @@ class Bomberplayer(Sprite):
 		if not collision:
 			self.position.update(new_x, new_y)
 			self.rect.topleft = self.position
+		# self.bullets.update()
+
+	def shoot(self, target_pos):
+		direction = Vec2d(target_pos) - self.position
+		direction = direction.normalize() * 10
+		# bullet = Bullet(self.position, direction, pygame.display.get_surface().get_rect())
+		bullet = Bullet(self.position, direction, pygame.display.get_surface().get_rect(), bounce_count=115)  # Increase bounce count
+		return bullet  # self.bullets.add(bullet)
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
@@ -111,121 +120,6 @@ class Bomberplayer(Sprite):
 	# 		self.lastdrop = bombevent['eventid']
 	# 		logger.debug(f'{self} dropped bomb {bombevent["eventid"]}')
 	# 		# return bombevent
-
-	def rotate_around_point(self, point, degrees):
-		self.angle += degrees
-		self.position = pygame.math.Vector2(self.rect.center).rotate_around(point, degrees)
-
-	def respawn(self):
-		self.killed = False
-		self.health = 100
-		self.position = Vec2d(101, 101)
-		self.bombsleft = 3
-		self.score = 0
-		self.timeout = False
-		self.image = pygame.image.load('data/playerone.png')
-		logger.info(f'{self} respawned')
-
-	def set_texture(self, texture):
-		self.image = pygame.image.load(texture)
-
-	def addscore(self, score):
-		self.score += score
-		logger.info(f'{self} score:{self.score}')
-
-	def get_playerstate(self):
-		playerstate = {
-			'client_id': self.client_id,
-			'position': self.position,
-			'health': self.health,
-			'msgsource': 'get_playerstate',
-			'msg_dt': time.time(),
-			'timeout': self.timeout,
-			'killed': self.killed,
-			'score': self.score,
-			'bombsleft': self.bombsleft,
-		}
-		return json.dumps({self.client_id: playerstate})
-
-	def take_damage(self, damage, dmgfrom):
-		self.health -= damage
-		logger.info(f'{self} health:{self.health} {damage=} {dmgfrom=}')
-		if self.health <= 0:
-			self.killed = True
-			self.kill(dmgfrom)
-			return 5
-		return 1
-
-	def kill(self, dmgfrom):
-		logger.info(f'{self} killed by {dmgfrom}')
-		self.killed = True
-		self.image = pygame.image.load('data/netplayerdead.png')
-		return 11
-
-	def set_pos(self, newpos):
-		self.rect.topleft = newpos
-		self.update()
-
-@dataclass(eq=True)
-class oldBomberplayer(Sprite):
-	def __init__(self, texture, scale=0.7, client_id=None, position=Vec2d(99, 99), name='xnonex', eventq=None):
-		super().__init__()
-		self.image = pygame.image.load(texture)
-		self.rect = self.image.get_rect()
-		self.eventq = eventq
-		self.name = name
-		self.client_id = client_id
-		self.position = position
-		self.change_x = 0
-		self.change_y = 0
-		self.bombsleft = 3
-		self.health = 100
-		self.killed = False
-		self.timeout = False
-		self.score = 0
-		self.angle = 0
-		self.candrop = True
-		self.lastdrop = 0  # last bomb dropped
-		self.keys_pressed = KeysPressed('gamestate')
-
-	def oldupdate(self):
-		self.position.x += self.keys_pressed.keys[pygame.K_RIGHT] * PLAYER_MOVEMENT_SPEED
-		self.position.x -= self.keys_pressed.keys[pygame.K_LEFT] * PLAYER_MOVEMENT_SPEED
-		self.position.y += self.keys_pressed.keys[pygame.K_DOWN] * PLAYER_MOVEMENT_SPEED
-		self.position.y -= self.keys_pressed.keys[pygame.K_UP] * PLAYER_MOVEMENT_SPEED
-		self.rect.topleft = self.position
-
-	def update(self, collidable_tiles):
-		# self.position.update(self.position.x + self.change_x, self.position.y + self.change_y)
-		# self.position.x += self.change_x
-		# self.position.y += self.change_y
-		# self.rect.topleft = self.position
-		# logger.debug(f'{self} {self.position=}')
-		# Check for collisions
-		new_x = self.position.x + self.change_x
-		new_y = self.position.y + self.change_y
-		new_rect = self.rect.copy()
-		new_rect.topleft = (new_x, new_y)
-		collision = any(new_rect.colliderect(tile) for tile in collidable_tiles)
-
-		if not collision:
-			self.position.update(new_x, new_y)
-			self.rect.topleft = self.position
-
-	def draw(self, screen):
-		screen.blit(self.image, self.rect.topleft)
-
-	async def dropbomb(self, bombtype) -> None:
-		if self.bombsleft <= 0:
-			logger.warning(f'p1: {self} has no bombs left {self.lastdrop}...')
-			return None
-		else:
-			bombpos = Vec2d(self.rect.centerx, self.rect.centery)
-			bombevent = {'event_time': 0, 'event_type': 'bombdrop', 'bombtype': bombtype, 'bomber': self.client_id, 'pos': bombpos, 'timer': 1, 'handled': False, 'handledby': self.client_id, 'ld': self.lastdrop, 'eventid': gen_randid()}
-			await self.eventq.put(bombevent)
-			self.lastdrop = bombevent['eventid']
-			logger.debug(f'{self} dropped bomb {bombevent["eventid"]}')
-			# return bombevent
 
 	def rotate_around_point(self, point, degrees):
 		self.angle += degrees
@@ -331,7 +225,74 @@ class BiggerBomb(Sprite):
 		else:
 			self.timer -= BOMBTICKER
 
-class Bullet(Sprite):
+class Bullet(pygame.sprite.Sprite):
+	def __init__(self, position, velocity, screen_rect, bounce_count=113):
+		super().__init__()
+		self.image = pygame.Surface((10, 10))
+		self.image.fill((255, 0, 0))
+		self.rect = self.image.get_rect(center=position)
+		self.velocity = Vec2d(velocity)
+		self.screen_rect = screen_rect
+		self.bounce_count = bounce_count
+		self.position = position
+
+	def update(self, collidable_tiles):
+		# self.rect.x += self.velocity.x
+		# self.rect.y += self.velocity.y
+
+		new_x = self.position.x + self.velocity.x
+		new_y = self.position.y + self.velocity.y
+
+		# Check for collisions
+		new_rect = self.rect.copy()
+		new_rect.topleft = (new_x, new_y)
+		collision = any(new_rect.colliderect(tile) for tile in collidable_tiles)
+		if not collision:
+			self.position.update(new_x, new_y)
+			self.rect.topleft = self.position
+		else:
+			# Check for collisions with screen boundaries and bounce
+			if self.rect.left <= self.screen_rect.left or self.rect.right >= self.screen_rect.right:
+				self.velocity.x *= -1
+				self.bounce_count -= 1
+			if self.rect.top <= self.screen_rect.top or self.rect.bottom >= self.screen_rect.bottom:
+				self.velocity.y *= -1
+				self.bounce_count -= 1
+
+		# Destroy the bullet if it has bounced too many times
+		if self.bounce_count <= 0:
+			self.kill()
+
+class xoldBullet(pygame.sprite.Sprite):
+	def __init__(self, position, velocity, screen_rect, bounce_count=3):
+		super().__init__()
+		self.image = pygame.image.load('data/bullet0.png').convert_alpha()
+		self.rect = self.image.get_rect(center=position)
+		# self.image = pygame.Surface((10, 10))
+		# self.image.fill((255, 0, 0))
+		# self.rect = self.image.get_rect(center=position)
+		self.velocity = Vec2d(velocity)
+		self.screen_rect = screen_rect
+		self.bounce_count = bounce_count
+
+	def update(self):
+		self.rect.move_ip(self.velocity)
+		self.rect.x += self.velocity.x
+		self.rect.y += self.velocity.y
+
+		# Check for collisions with screen boundaries and bounce
+		if self.rect.left <= self.screen_rect.left or self.rect.right >= self.screen_rect.right:
+			self.velocity.x *= -1
+			self.bounce_count -= 1
+		if self.rect.top <= self.screen_rect.top or self.rect.bottom >= self.screen_rect.bottom:
+			self.velocity.y *= -1
+			self.bounce_count -= 1
+
+		# Destroy the bullet if it has bounced too many times
+		if self.bounce_count <= 0:
+			self.kill()
+
+class oldBullet(Sprite):
 	def __init__(self, texture, scale=1, shooter=None, timer=1000):
 		super().__init__()
 		self.image = pygame.image.load(texture)
