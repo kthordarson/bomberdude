@@ -9,7 +9,8 @@ import time
 from queue import Empty  # Queue,
 from dataclasses import dataclass
 from utils import gen_randid
-from objects import Upgrade, KeysPressed, Bomberplayer
+from objects.player import Bomberplayer, KeysPressed
+from objects.blocks import Upgrade
 import pytmx
 from pytmx import load_pygame
 

@@ -8,18 +8,12 @@ import json
 from queue import Empty
 
 from loguru import logger
-from objects import (
-    Bomberplayer,
-    Bomb,
-    BiggerBomb,
-    KeysPressed,
-    Bullet,
-)
 from panels import Panel
 from utils import get_map_coordinates_rev, gen_randid
 from gamestate import GameState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, BULLET_SPEED, BULLETDEBUG,GRAPH_HEIGHT, GRAPH_WIDTH, GRAPH_MARGIN, SCREEN_WIDTH, SCREEN_HEIGHT
 from camera import Camera
+from objects.player import Bomberplayer
 
 class Bomberdude():
     def __init__(self, args, eventq):
@@ -160,18 +154,31 @@ class Bomberdude():
     #    asyncio.create_task(self.handle_on_mouse_press(x, y, button, modifiers))
 
     async def handle_on_mouse_press(self, x, y, button):
-        self.mouse_pos = Vec2d(x=x, y=y)
         if button == 1:
             player_one = self.client_game_state.get_playerone()
             if player_one:
-                world_mouse_pos = self.camera.screen_to_world(self.mouse_pos)
-                bullet = player_one.shoot(world_mouse_pos)
+                # Mouse screen pos
+                mouse_screen_pos = Vec2d(x, y)
+                # Player screen pos (adjust world pos by camera)
+                player_screen_pos = Vec2d(player_one.rect.centerx - self.camera.position.x, player_one.rect.centery - self.camera.position.y)
+                # Direction in screen space
+                direction = (mouse_screen_pos - player_screen_pos).normalize()
+
+                dx = mouse_screen_pos[0] - player_screen_pos[0]
+                dy = mouse_screen_pos[1] - player_screen_pos[1]
+                length = math.sqrt(dx * dx + dy * dy)
+                if length > 0:
+                    direction = [dx / length, dy / length]
+                else:
+                    direction = [0, 0]
+                print(f"Direction: {direction}")  # Debug
+
+                bullet = player_one.shoot(direction)
                 self.client_game_state.bullets.add(bullet)
-                self.client_game_state.scene.add(bullet)
                 event = {
                     "event_time": 0,
                     "event_type": "bulletfired",
-                    "bullet_vel": (bullet.velocity.x, bullet.velocity.y),
+                    "bullet_vel": (bullet.velocity[0], bullet.velocity[1]),
                     "shooter": 0,
                     "pos": (bullet.rect.x, bullet.rect.y),
                     "ba": 33,
@@ -181,26 +188,41 @@ class Bomberdude():
                     "eventid": gen_randid(),
                 }
                 await self.eventq.put(event)
-                logger.debug(f'eventq: {self.eventq.qsize()} bullet: {bullet} ')
+                # logger.debug(f'eventq: {self.eventq.qsize()} bullet: {bullet}')
+                logger.debug(f'bullet: {bullet} direction: {direction} player_screen_pos: {player_screen_pos} Mouse screen pos: {mouse_screen_pos}  Camera pos: {self.camera.position}')
 
-    async def oldhandle_on_mouse_press(self, x, y, button):
-        bullet_angle = math.degrees(math.atan2(-dir[1], dir[0]))
-        bullet_vel = Vec2d(x=dir[0], y=dir[1])
-        bulletpos = self.mouse_pos
-        event = {
-            "event_time": 0,
-            "event_type": "bulletfired",
-            "bullet_vel": bullet_vel,
-            "shooter": 0,
-            "pos": bulletpos,
-            "ba": bullet_angle,
-            "timer": 3515,
-            "handled": False,
-            "handledby": "kremer",
-            "eventid": gen_randid(),
-        }
-        await self.eventq.put(event)
-        logger.debug(f'eventq: {self.eventq.qsize()} ')
+    async def handle_on_mouse_presszxczxc(self, x, y, button):
+        self.mouse_pos = Vec2d(x=x, y=y)
+        if button == 1:
+            player_one = self.client_game_state.get_playerone()
+            if player_one:
+                # Convert screen coordinates to world coordinates
+                mouse_screen_pos = Vec2d(x, y)
+                mouse_world_pos = Vec2d(x + self.camera.position.x, y + self.camera.position.y)
+                player_screen_pos = Vec2d(player_one.rect.centerx - self.camera.position.x, player_one.rect.centery - self.camera.position.y)
+                player_world_pos = Vec2d(player_one.rect.center)
+                screen_direction = mouse_world_pos - player_world_pos
+                target_world_pos = Vec2d(player_one.rect.centerx + screen_direction.x, player_one.rect.centery + screen_direction.y)
+                # relative_offset = screen_pos - player_screen_pos
+                # target_world_pos = Vec2d(player_one.rect.centerx + relative_offset.x, player_one.rect.centery + relative_offset.y)
+                direction = mouse_world_pos - player_world_pos
+                bullet = player_one.shoot(direction)
+                self.client_game_state.bullets.add(bullet)
+                event = {
+                    "event_time": 0,
+                    "event_type": "bulletfired",
+                    "bullet_vel": (bullet.velocity[0], bullet.velocity[1]),
+                    "shooter": 0,
+                    "pos": (bullet.rect.x, bullet.rect.y),
+                    "ba": 33,
+                    "timer": 3515,
+                    "handled": False,
+                    "handledby": "kremer",
+                    "eventid": gen_randid(),
+                }
+                await self.eventq.put(event)
+                # logger.debug(f'eventq: {self.eventq.qsize()} bullet: {bullet}')
+                logger.debug(f'bullet: {bullet} direction: {direction} player_screen_pos: {player_screen_pos} target_world_pos: {target_world_pos} Mouse screen pos: {mouse_screen_pos} Mouse world pos: {mouse_world_pos} Player world pos: {player_world_pos} screen_direction: {screen_direction} Camera pos: {self.camera.position}')
 
     def handle_on_key_press(self, key):
         player_one = self.client_game_state.get_playerone()

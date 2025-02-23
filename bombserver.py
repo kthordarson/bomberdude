@@ -322,17 +322,46 @@ class BombServer:
 			except KeyError as e:
 				logger.warning(f"keyerror in remove_timedout_players {e} {self.server_game_state.players[p]} {self.server_game_state.players}")
 
-	def oldget_position(self, retas="int"):
-		return {'position': (4, 5)}
-
 	def get_position(self, retas="int"):
+		# Get map dimensions in tiles
+		map_width = self.server_game_state.tile_map.width
+		map_height = self.server_game_state.tile_map.height
+
+		# Get all collidable tiles
+		collidable_positions = set()
+		for layer in self.server_game_state.tile_map.visible_layers:
+			if isinstance(layer, pytmx.TiledTileLayer) and layer.properties.get('collidable'):
+				for x, y, _ in layer:
+					collidable_positions.add((x, y))
+
+		# Generate list of all possible positions excluding collidable tiles
+		valid_positions = []
+		for x in range(map_width):
+			for y in range(map_height):
+				if (x, y) not in collidable_positions:
+					valid_positions.append((x, y))
+
+		if not valid_positions:
+			logger.error("No valid spawn positions found!")
+			return {'position': (BLOCK, BLOCK)}  # fallback position
+
+		# Choose random valid position
+		pos = random.choice(valid_positions)
+		position = (pos[0] * BLOCK, pos[1] * BLOCK)
+
+		if self.args.debug:
+			logger.debug(f'Generated valid position: {position}')
+
+		return {'position': position}
+
+	def xxxxget_position(self, retas="int"):
 		# Assuming the map is a grid of size GRIDSIZE x GRIDSIZE
 		map_width = self.server_game_state.tile_map.width
 		map_height = self.server_game_state.tile_map.height
 
 		# Generate a random position within the map bounds
-		x = random.randint(0, map_width - 1) * 32  # Assuming each tile is 32x32 pixels
-		y = random.randint(0, map_height - 1) * 32
+		x = random.randint(0, map_width - 1) * BLOCK
+		y = random.randint(0, map_height - 1) * BLOCK
 
 		position = (x, y)
 		if self.args.debug:
