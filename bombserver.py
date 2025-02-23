@@ -133,13 +133,15 @@ class ServerTUI(Thread):
 				elif cmd[:1] == "q":
 					logger.warning(f"{self} {self.server} tuiquit")
 					self.stop()
-					self.server.sub_sock.close()
-					self.server.push_sock.close()
+					self.server.stop()
+					# self.server.sub_sock.close()
+					# self.server.push_sock.close()
 				else:
 					pass  # logger.info(f'[tui] cmds: s=serverinfo, d=debug, p=playerlist, q=quit')
 			except (EOFError, KeyboardInterrupt) as e:
 				logger.warning(f"{type(e)} {e}")
 				self.stop()
+				self.server.stop()
 				break
 
 
@@ -149,7 +151,7 @@ class BombServer:
 		self.debug = self.args.debug
 		self.server_game_state = GameState(args=self.args, mapname=args.mapname, name='server')
 		# self.server_game_state.load_tile_map(args.mapname)
-		tmxdata = pytmx.TiledMap(args.mapname)
+		# tmxdata = pytmx.TiledMap(args.mapname)
 
 		# self.ctx = Context()
 		# self.pushsock = self.ctx.socket(zmq.PUB)  # : Socket
@@ -314,8 +316,22 @@ class BombServer:
 			except KeyError as e:
 				logger.warning(f"keyerror in remove_timedout_players {e} {self.server_game_state.players[p]} {self.server_game_state.players}")
 
+	def oldget_position(self, retas="int"):
+		return {'position': (4, 5)}
+
 	def get_position(self, retas="int"):
-		return {'position': (11, 11)}
+		# Assuming the map is a grid of size GRIDSIZE x GRIDSIZE
+		map_width = self.server_game_state.tile_map.width
+		map_height = self.server_game_state.tile_map.height
+
+		# Generate a random position within the map bounds
+		x = random.randint(0, map_width - 1) * 32  # Assuming each tile is 32x32 pixels
+		y = random.randint(0, map_height - 1) * 32
+
+		position = (x, y)
+		if self.args.debug:
+			logger.debug(f'Generated position: {position}')
+		return {'position': position}
 
 	async def update_from_client(self, sockrecv) -> None:
 		logger.debug(f"{self} starting update_from_client {sockrecv=}")
@@ -361,6 +377,12 @@ class BombServer:
 		except Exception as e:
 			logger.error(f"{type(e)} {e} in send_data {data}")
 
+	def stop(self):
+		logger.warning(f"{self} stopping server")
+		self.ticker_task.cancel()
+		self.sub_sock.close()
+		self.push_sock.close()
+
 	async def ticker(self) -> None:
 		# tt_updatefromclient = create_task(self.update_from_client(sockrecv))
 		# apitsk =  create_task(self.apiserver._run(host=self.args.listen, port=9699),)
@@ -378,13 +400,10 @@ class BombServer:
 				except Exception as e:
 					logger.warning(f"{type(e)} {e} in remove_timedout_players ")
 				self.send_data(self.server_game_state.to_json())  # Send updated game state to clients
+				if self.tui.stopped():
+					logger.warning(f"{self} tickertuistop tui: {self.tui}\n")
+					break
 				await asyncio.sleep(1 / UPDATE_TICK)  # SERVER_UPDATE_TICK_HZ
-				if self.tui.stopped():
-					logger.warning(f"{self} tickertuistop tui: {self.tui}\n")
-					break
-				if self.tui.stopped():
-					logger.warning(f"{self} tickertuistop tui: {self.tui}\n")
-					break
 		except asyncio.CancelledError as e:
 			logger.warning(f"tickertask CancelledError {e}")
 		except Exception as e:
@@ -414,10 +433,12 @@ async def main(args) -> None:
 	except CancelledError as e:
 		logger.warning(f"main Cancelled {e}")
 	finally:
-		server.ticker_task.cancel()
+		server.tui.stop()
+		server.stop()
 		await server.ticker_task
-		server.push_sock.close(1)
-		server.sub_sock.close(1)
+		server.loop.stop()
+		# server.push_sock.close(1)
+		# server.sub_sock.close(1)
 		# ctx.destroy(linger=1000)
 
 

@@ -9,7 +9,7 @@ import time
 from queue import Empty  # Queue,
 from dataclasses import dataclass
 from utils import gen_randid
-from objects import Upgrade, KeysPressed
+from objects import Upgrade, KeysPressed, Bomberplayer
 import pytmx
 from pytmx import load_pygame
 
@@ -38,13 +38,17 @@ class GameState:
 	def __repr__(self):
 		return f'Gamestate ( events:{len(self.game_events)} players:{len(self.players)} )'
 
+	def get_playerone(self):
+		for player in self.players:
+			if isinstance(player, Bomberplayer):
+				return player
+
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
 		# self.tile_map = pytmx.TiledMap('data/map3.tmx')
 		self.tile_map = load_pygame(self.mapname)
 		self.scene = pygame.sprite.Group()  # add_sprite_list
 		for layer in self.tile_map.visible_layers:
-			logger.info(f'loading {self.mapname} layer {layer}')
 			if isinstance(layer, pytmx.TiledTileLayer):
 				for x, y, gid in layer:
 					tile = self.tile_map.get_tile_image_by_gid(gid)
@@ -254,7 +258,7 @@ class GameState:
 		if self.debug and self.name != 'server':
 			pass
 		try:
-			pending_event = self.event_queue.get_nowait()
+			pending_event = self.event_queue.get()
 			self.event_queue.task_done()
 			dout['game_events'].append(pending_event)
 		except Empty:
@@ -537,10 +541,8 @@ class GameStateold:
 	def to_json(self):
 		dout = {'players':{}, 'game_events': []}
 		dout['keys_pressed'] = self.keys_pressed.to_json()
-		if self.debug and self.name != 'server':
-			pass  # logger.debug(f'gamestate to_json {dout=}')
 		try:
-			pending_event = self.event_queue.get_nowait()
+			pending_event = self.event_queue.get()
 			self.event_queue.task_done()
 			dout['game_events'].append(pending_event)
 		except Empty:

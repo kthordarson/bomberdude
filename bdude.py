@@ -35,12 +35,12 @@ async def thread_main(game, loop):
         while True:
             thrmain_cnt += 1
             try:
-                game_events = await game.eventq.get_nowait()
-                logger.debug(f'game_events={game_events}')
+                game_events = await game.eventq.get()
             except asyncio.QueueEmpty:
                 game_events = []
             client_keys = game.client_game_state.keys_pressed.to_json()
-            clidpush = str([k for k in game.player_list][0].client_id)
+            player_one = game.client_game_state.get_playerone()
+            clidpush = player_one.client_id  # str([k for k in game.player_list][0].client_id)
             msg = dict(
                 thrmain_cnt=thrmain_cnt,
                 score=1,
@@ -60,11 +60,10 @@ async def thread_main(game, loop):
             )
             if game.connected():
                 await game.push_sock.send_json(msg)
-                logger.debug(f'{thrmain_cnt}')
-                await asyncio.sleep(1 / UPDATE_TICK)
             else:
                 logger.warning(f'{game} not connected')
                 await asyncio.sleep(1)
+            # await asyncio.sleep(1 / UPDATE_TICK)
 
     async def receive_game_state(game):
         if game.debug:
@@ -78,6 +77,7 @@ async def thread_main(game, loop):
             except Exception as e:
                 logger.error(f"Error in receive_game_state: {e}")
                 await asyncio.sleep(1)  # Prevent tight loop on error
+            # await asyncio.sleep(1 / UPDATE_TICK)
 
 
 def thread_worker(game):
@@ -113,12 +113,10 @@ async def new_main():
     logger.info(f"t={thread} mw={bomberdude_main}")
 
     # Main loop
-    logger.debug(f"mainloop t={thread} mw={bomberdude_main}")
     running = True
     while running:
         await bomberdude_main.update()
         bomberdude_main.on_draw()
-        # bomberdude_main.draw()
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -131,14 +129,9 @@ async def new_main():
             elif event.type == pygame.KEYUP:
                 # logger.info(f'keyup {event} event.key={event.key}')
                 bomberdude_main.handle_on_key_release(event.key)
-        await asyncio.sleep(0.01)
+        # await asyncio.sleep(1 / UPDATE_TICK)
     pygame.display.quit()
     pygame.quit()
-
-    # while thread.is_alive():
-    #    await asyncio.sleep(0.1)
-    # await asyncio.gather(thread_worker(bomberdude_main.game))
-
 
 if __name__ == "__main__":
     if sys.platform == "win32":
