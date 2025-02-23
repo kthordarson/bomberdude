@@ -326,6 +326,7 @@
     "openFiles": [
     ],
     "project": "bomberdude.tiled-project",
+    "property.type": "bool",
     "recentFiles": [
         "data/maptest5.json",
         "data/maptest4.json",

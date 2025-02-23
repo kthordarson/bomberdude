@@ -138,12 +138,12 @@ class Bomberdude():
     def on_draw(self):
         # self.screen.fill(self.background_color)
         # Draw game elements here
-        self.screen.fill((100, 149, 237))
+        self.screen.fill((200, 249, 237))
         self.client_game_state.render_map(self.screen)
-        for sprite in self.client_game_state.scene:
-            sprite.draw()
         for player in self.player_list:
             player.draw(self.screen)
+        # for sprite in self.client_game_state.scene:
+        #     sprite.draw()
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         self.mouse_pos = Vec2d(x=x, y=y)
@@ -267,9 +267,9 @@ class Bomberdude():
         self.timer += 1 / 60
         # logger.debug(f'{self=}')
         for player in self.player_list:
-            player.update()
+            player.update(self.client_game_state.collidable_tiles)
             # logger.debug(f'{player} {player.position=}')
-            player.draw(self.screen)
+            # player.draw(self.screen)
         if not self._gotmap:
             if self.args.debug:
                 logger.warning(f"{self} no map!")

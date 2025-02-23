@@ -84,12 +84,22 @@ class Bomberplayer(Sprite):
 		self.position.y -= self.keys_pressed.keys[pygame.K_UP] * PLAYER_MOVEMENT_SPEED
 		self.rect.topleft = self.position
 
-	def update(self):
-		self.position.update(self.position.x + self.change_x, self.position.y + self.change_y)
+	def update(self, collidable_tiles):
+		# self.position.update(self.position.x + self.change_x, self.position.y + self.change_y)
 		# self.position.x += self.change_x
 		# self.position.y += self.change_y
-		self.rect.topleft = self.position
+		# self.rect.topleft = self.position
 		# logger.debug(f'{self} {self.position=}')
+		# Check for collisions
+		new_x = self.position.x + self.change_x
+		new_y = self.position.y + self.change_y
+		new_rect = self.rect.copy()
+		new_rect.topleft = (new_x, new_y)
+		collision = any(new_rect.colliderect(tile) for tile in collidable_tiles)
+
+		if not collision:
+			self.position.update(new_x, new_y)
+			self.rect.topleft = self.position
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)

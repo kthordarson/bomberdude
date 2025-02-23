@@ -33,14 +33,15 @@ class GameState:
 		self.keys_pressed = KeysPressed('gamestate')
 		# self.tile_map = load_pygame('data/map3.tmx')
 		self.tile_map = pytmx.TiledMap('data/map3.tmx')
+		self.collidable_tiles = []
 
 	def __repr__(self):
 		return f'Gamestate ( events:{len(self.game_events)} players:{len(self.players)} )'
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
-		self.tile_map = pytmx.TiledMap('data/map3.tmx')
-		# self.tile_map = load_pygame(self.mapname)
+		# self.tile_map = pytmx.TiledMap('data/map3.tmx')
+		self.tile_map = load_pygame(self.mapname)
 		self.scene = pygame.sprite.Group()  # add_sprite_list
 		for layer in self.tile_map.visible_layers:
 			logger.info(f'loading {self.mapname} layer {layer}')
@@ -50,11 +51,15 @@ class GameState:
 					if tile:
 						sprite = pygame.sprite.Sprite()
 						sprite.image = tile
-						sprite.rect = pygame.Rect(x * TILE_SCALING, y * TILE_SCALING, TILE_SCALING, TILE_SCALING)
+						# sprite.rect = pygame.Rect(x * TILE_SCALING, y * TILE_SCALING, TILE_SCALING, TILE_SCALING)
+						sprite.rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
 						self.scene.add(sprite)
+						if layer.properties.get('collidable', False):
+							self.collidable_tiles.append(sprite.rect)
 		logger.debug(f'loading {self.mapname} done. Sprites = {len(self.scene)}')
 
 	def render_map(self, screen):
+		# self.scene.draw(screen)
 		for layer in self.tile_map.visible_layers:
 			if isinstance(layer, pytmx.TiledTileLayer):
 				for x, y, gid in layer:

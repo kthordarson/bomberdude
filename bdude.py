@@ -127,6 +127,7 @@ async def new_main():
                 # logger.info(f'keyup {event} event.key={event.key}')
                 bomberdude_main.handle_on_key_release(event.key)
         await bomberdude_main.update()
+        bomberdude_main.on_draw()
         # bomberdude_main.draw()
         pygame.display.flip()
         await asyncio.sleep(0.01)
