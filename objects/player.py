@@ -93,19 +93,11 @@ class Bomberplayer(Sprite):
 			self.rect.topleft = self.position
 		# self.bullets.update()
 
-	def shoot(self, target_pos):
+	def shoot(self, direction):
 		# Calculate direction from player's position to target
-		start_pos = Vec2d(self.rect.center)
-		target = Vec2d(target_pos)
-		direction = target - start_pos
-		# direction = Vec2d(target_pos) - self.position
-		if direction.length() > 0:
-			direction = direction.normalize() * 10
-		# bullet = Bullet(self.position, direction, pygame.display.get_surface().get_rect())
-		speed = 100  # Adjust as needed
-		bullet = Bullet(self.position, direction, pygame.display.get_surface().get_rect(), bounce_count=5)  # Increase bounce count
-		bullet.velocity = [direction[0] * speed, direction[1] * speed]
-		print(f"Bullet velocity set to: {bullet.velocity}")  # Debug
+		bullet_pos = Vec2d(self.rect.center)
+		bullet = Bullet(position=bullet_pos,direction=direction, screen_rect=self.rect)
+		print(f"Bullet: {bullet}")  # Debug
 		return bullet  # self.bullets.add(bullet)
 
 	def draw(self, screen):

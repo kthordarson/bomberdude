@@ -150,35 +150,26 @@ class Bomberdude():
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
         self.mouse_pos = Vec2d(x=x, y=y)
 
-    # def on_mouse_press(self, x, y, button, modifiers):
-    #    asyncio.create_task(self.handle_on_mouse_press(x, y, button, modifiers))
-
     async def handle_on_mouse_press(self, x, y, button):
         if button == 1:
             player_one = self.client_game_state.get_playerone()
             if player_one:
-                # Mouse screen pos
-                mouse_screen_pos = Vec2d(x, y)
-                # Player screen pos (adjust world pos by camera)
-                player_screen_pos = Vec2d(player_one.rect.centerx - self.camera.position.x, player_one.rect.centery - self.camera.position.y)
-                # Direction in screen space
-                direction = (mouse_screen_pos - player_screen_pos).normalize()
+                # Convert to world coordinates by subtracting camera offset
+                # Camera position is already negative of the world offset
+                mouse_world = Vec2d(
+                    x - self.camera.position.x,
+                    y - self.camera.position.y
+                )
+                player_world = Vec2d(player_one.rect.center)
 
-                dx = mouse_screen_pos[0] - player_screen_pos[0]
-                dy = mouse_screen_pos[1] - player_screen_pos[1]
-                length = math.sqrt(dx * dx + dy * dy)
-                if length > 0:
-                    direction = [dx / length, dy / length]
-                else:
-                    direction = [0, 0]
-                print(f"Direction: {direction}")  # Debug
-
+                # Calculate direction in world space
+                direction = (mouse_world - player_world).normalize()
                 bullet = player_one.shoot(direction)
                 self.client_game_state.bullets.add(bullet)
                 event = {
                     "event_time": 0,
                     "event_type": "bulletfired",
-                    "bullet_vel": (bullet.velocity[0], bullet.velocity[1]),
+
                     "shooter": 0,
                     "pos": (bullet.rect.x, bullet.rect.y),
                     "ba": 33,
@@ -188,41 +179,7 @@ class Bomberdude():
                     "eventid": gen_randid(),
                 }
                 await self.eventq.put(event)
-                # logger.debug(f'eventq: {self.eventq.qsize()} bullet: {bullet}')
-                logger.debug(f'bullet: {bullet} direction: {direction} player_screen_pos: {player_screen_pos} Mouse screen pos: {mouse_screen_pos}  Camera pos: {self.camera.position}')
-
-    async def handle_on_mouse_presszxczxc(self, x, y, button):
-        self.mouse_pos = Vec2d(x=x, y=y)
-        if button == 1:
-            player_one = self.client_game_state.get_playerone()
-            if player_one:
-                # Convert screen coordinates to world coordinates
-                mouse_screen_pos = Vec2d(x, y)
-                mouse_world_pos = Vec2d(x + self.camera.position.x, y + self.camera.position.y)
-                player_screen_pos = Vec2d(player_one.rect.centerx - self.camera.position.x, player_one.rect.centery - self.camera.position.y)
-                player_world_pos = Vec2d(player_one.rect.center)
-                screen_direction = mouse_world_pos - player_world_pos
-                target_world_pos = Vec2d(player_one.rect.centerx + screen_direction.x, player_one.rect.centery + screen_direction.y)
-                # relative_offset = screen_pos - player_screen_pos
-                # target_world_pos = Vec2d(player_one.rect.centerx + relative_offset.x, player_one.rect.centery + relative_offset.y)
-                direction = mouse_world_pos - player_world_pos
-                bullet = player_one.shoot(direction)
-                self.client_game_state.bullets.add(bullet)
-                event = {
-                    "event_time": 0,
-                    "event_type": "bulletfired",
-                    "bullet_vel": (bullet.velocity[0], bullet.velocity[1]),
-                    "shooter": 0,
-                    "pos": (bullet.rect.x, bullet.rect.y),
-                    "ba": 33,
-                    "timer": 3515,
-                    "handled": False,
-                    "handledby": "kremer",
-                    "eventid": gen_randid(),
-                }
-                await self.eventq.put(event)
-                # logger.debug(f'eventq: {self.eventq.qsize()} bullet: {bullet}')
-                logger.debug(f'bullet: {bullet} direction: {direction} player_screen_pos: {player_screen_pos} target_world_pos: {target_world_pos} Mouse screen pos: {mouse_screen_pos} Mouse world pos: {mouse_world_pos} Player world pos: {player_world_pos} screen_direction: {screen_direction} Camera pos: {self.camera.position}')
+                logger.debug(f'bullet: {bullet} {direction=} {mouse_world=} {player_world=} {self.camera.position=}')
 
     def handle_on_key_press(self, key):
         player_one = self.client_game_state.get_playerone()
@@ -296,27 +253,35 @@ class Bomberdude():
         # logger.debug(f'{game_events=}')
 
     async def update(self):
-        self.timer += 1 / 60
-        player_one = self.client_game_state.get_playerone()
-        if player_one:
-            player_one.update(self.client_game_state.collidable_tiles)
-            self.camera.update(player_one)
-        self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
         if not self._gotmap:
             if self.args.debug:
                 logger.warning(f"{self} no map!")
             await asyncio.sleep(1)
+            return
+        self.timer += 1 / 60
+        self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
+        player_one = self.client_game_state.get_playerone()
+        if player_one:
+            player_one.update(self.client_game_state.collidable_tiles)
+            # Calculate camera position relative to player (centered)
+            target_x = player_one.rect.centerx - (SCREEN_WIDTH // 2)
+            target_y = player_one.rect.centery - (SCREEN_HEIGHT // 2)
+            # Constrain player to map bounds
+            map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
+            map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
+
+            player_one.position.x = max(0, min(player_one.position.x, map_width - player_one.rect.width))
+            player_one.position.y = max(0, min(player_one.position.y, map_height - player_one.rect.height))
+            player_one.rect.topleft = player_one.position
+
+            # Update camera using Camera.update2 method which handles bounds correctly
+            self.camera.update2(player_one)
+
+            # Update camera position with correct signs
+            # self.camera.position = Vec2d(-target_x, -target_y)
+            # self.camera.update(player_one)
         try:
-            # events = await self.client_game_state.event_queue.get()
-            # events = await asyncio.wait_for(self.client_game_state.event_queue.get(), timeout=0.051)
             await self.handle_game_events()
-            # self.client_game_state.event_queue.task_done()
         except (Empty, asyncio.queues.QueueEmpty, asyncio.TimeoutError):
             pass
         await asyncio.sleep(1 / UPDATE_TICK)
-        # self.update_netplayers()
-        # self.update_poplist()
-        # self.center_camera_on_player()
-        # for player in self.client_game_state.players:
-        #     player.update(self.client_game_state.collidable_tiles)
-        #     self.camera.update(player)
