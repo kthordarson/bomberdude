@@ -13,6 +13,7 @@ from objects.player import Bomberplayer, KeysPressed
 from objects.blocks import Upgrade
 import pytmx
 from pytmx import load_pygame
+import json
 
 @dataclass
 class GameState:
@@ -26,7 +27,6 @@ class GameState:
 		self.flames = Group()
 		self.particles = Group()
 		self.event_queue = []
-
 		self.mapname = mapname
 		self.game_events = []
 		self.event_queue = asyncio.Queue()
@@ -35,9 +35,25 @@ class GameState:
 		# self.tile_map = load_pygame('data/map3.tmx')
 		self.tile_map = pytmx.TiledMap('data/map3.tmx')
 		self.collidable_tiles = []
+		self.connections = set()
+		self.client_queue = asyncio.Queue()
 
 	def __repr__(self):
 		return f'Gamestate ( events:{len(self.game_events)} players:{len(self.players)} )'
+
+	def debug_dump(self):
+		logger.debug(f'{self.name} {self} {self.players} {self.game_events}')
+
+	async def broadcast_state(self, game_state):
+		"""Broadcast game state to all connected clients"""
+		logger.debug(f'broadcast_state {len(self.connections)}')
+		for conn in self.connections:
+			try:
+				data = json.dumps(game_state)
+				await self.loop.sock_sendall(conn, data.encode('utf-8'))
+			except Exception as e:
+				logger.error(f"Error broadcasting to client: {e}")
+				self.connections.remove(conn)
 
 	def get_playerone(self):
 		for player in self.players:

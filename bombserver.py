@@ -18,8 +18,6 @@ import socket
 import pytiled_parser
 import pytmx
 
-SERVER_UPDATE_TICK_HZ = 10
-
 def generate_grid(gsz=GRIDSIZE):
 	return json.loads(open("data/map.json", "r").read())
 
@@ -86,6 +84,7 @@ class ServerTUI(Thread):
 	def get_serverinfo(self):
 		logger.debug(f"players={len(self.server.server_game_state.players)} threads:{active_count()}")
 		logger.debug(f"{self.server.server_game_state}")
+		logger.debug(f"{self.server.server_game_state.debug_dump()}")
 		# print(f'gamestate: {self.server.server_game_state}')
 		# print(f'gamestateplayers: {self.server.server_game_state.players}')
 		for p in self.server.server_game_state.players:
@@ -150,7 +149,6 @@ class ServerTUI(Thread):
 				# self.server.stop()
 				break
 
-
 class BombServer:
 	def __init__(self, args):
 		self.args = args
@@ -212,6 +210,7 @@ class BombServer:
 	async def handle_client(self, conn):
 		logger.info(f"handle_client: starting for conn: {conn}")
 		try:
+			self.server_game_state.connections.add(conn)
 			while not self.stopped():
 				try:
 					data = await self.loop.sock_recv(conn, 4096)
@@ -225,6 +224,7 @@ class BombServer:
 		except Exception as e:
 			logger.error(f"handle_client: {e} {type(e)}")
 		finally:
+			self.server_game_state.connections.remove(conn)
 			logger.debug(f"{self} Socket closing")
 			conn.close()
 
@@ -248,7 +248,10 @@ class BombServer:
 					clid = str(msg["client_id"])
 					self.server_game_state.update_game_state(clid, msg)
 					if evts := msg.get("game_events", []):
-						await self.process_game_events(msg)
+						# await self.process_game_events(msg)
+						await self.server_game_state.update_game_events(msg)
+					game_state = await self.server_game_state.to_json()
+					await self.server_game_state.broadcast_state(game_state)
 				except Exception as e:
 					logger.error(f"Error processing message: {e}")
 				finally:
@@ -410,11 +413,12 @@ class BombServer:
 					# self.server_game_state.check_players()
 					# await self.remove_timedout_players()
 					game_state = await self.server_game_state.to_json()
-					await self.send_data(game_state)
+					# await self.send_data(game_state)
+					await self.server_game_state.broadcast_state(game_state)
 					# await self.send_data(self.server_game_state.to_json())  # Send updated game state to clients
 				except Exception as e:
 					logger.error(f"{type(e)} {e} ")
-				await asyncio.sleep(1 / UPDATE_TICK)  # SERVER_UPDATE_TICK_HZ
+				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError as e:
 			logger.warning(f"tickertask CancelledError {e}")
 		except Exception as e:
