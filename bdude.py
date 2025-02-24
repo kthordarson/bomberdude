@@ -38,7 +38,7 @@ async def thread_main(game, loop):
                 game_events = await game.eventq.get()
             except asyncio.QueueEmpty:
                 game_events = []
-            client_keys = game.client_game_state.keys_pressed.to_json()
+            client_keys = await game.client_game_state.keys_pressed.to_json()
             player_one = game.client_game_state.get_playerone()
             clidpush = player_one.client_id  # str([k for k in game.player_list][0].client_id)
             msg = dict(

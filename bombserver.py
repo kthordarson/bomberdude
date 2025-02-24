@@ -13,6 +13,7 @@ from asyncio import run, create_task, CancelledError
 from api import ApiServer
 # import zmq
 # from zmq.asyncio import Context
+from aiohttp import web
 import socket
 import pytiled_parser
 import pytmx
@@ -155,6 +156,11 @@ class BombServer:
 		self.args = args
 		self.debug = self.args.debug
 		self.server_game_state = GameState(args=self.args, mapname=args.mapname, name='server')
+		self.client_queue = asyncio.Queue()  # Add queue for client messages
+		self.connections = set()  # Track active connections
+		self.client_tasks = set()  # Track active client tasks
+		self.process_task = None
+
 		# self.server_game_state.load_tile_map(args.mapname)
 		# tmxdata = pytmx.TiledMap(args.mapname)
 
@@ -191,90 +197,75 @@ class BombServer:
 
 	async def handle_connections(self):
 		logger.debug(f"{self} starting handle_connections {self.loop}")
-		while True:
+		try:
 			conn, addr = await self.loop.sock_accept(self.sub_sock)
-			logger.debug(f"Accepted connection from {addr}")
-			self.loop.create_task(self.handle_client(conn))
-			logger.debug(f"Task created for {addr}")
+			self.connections.add(conn)
+			logger.debug(f"Accepted connection {len(self.connections)} from {addr}")
+			# self.loop.create_task(self.handle_client(conn))
+			task = self.loop.create_task(self.handle_client(conn))
+			self.client_tasks.add(task)
+			task.add_done_callback(lambda t: self.connections.remove(conn))
+			logger.debug(f"Task {len(self.client_tasks)} {task} created for {addr} ")
+		except Exception as e:
+			logger.error(f'Error in handle_connections: {e} {type(e)}')
 
 	async def handle_client(self, conn):
+		logger.info(f"handle_client: starting for conn: {conn}")
 		try:
-			data = await self.loop.sock_recv(conn, 4096)
-			if not data:
-				return
-			msg = json.loads(data.decode('utf-8'))
-			logger.info(f"msg: {msg}")
-			clid = str(msg["client_id"])
-			try:
-				self.server_game_state.update_game_state(clid, msg)
-			except KeyError as e:
-				logger.warning(f"{type(e)} {e} {msg=}")
-			except Exception as e:
-				logger.error(f"{type(e)} {e} {msg=}")
-			evkeycnt = len(msg.get("game_events", []))
-			if evkeycnt > 0:
-				logger.debug(f"evk: {evkeycnt} gameevent: {msg.get('game_events', [])}")
+			while not self.stopped():
 				try:
-					self.server_game_state.update_game_events(msg)
-				except AttributeError as e:
-					logger.warning(f"{type(e)} {e} {msg=}")
-				except KeyError as e:
-					logger.warning(f"{type(e)} {e} {msg=}")
-				except TypeError as e:
-					logger.warning(f"{type(e)} {e} {msg=}")
+					data = await self.loop.sock_recv(conn, 4096)
+					if not data:
+						break
+					msg = json.loads(data.decode('utf-8'))
+					logger.info(f"msg: {msg}")
+					await self.client_queue.put(msg)  # Put message in queue instead of processing directly
 				except Exception as e:
-					logger.error(f"{type(e)} {e} {msg=}")
-		except socket.error as e:
-			logger.error(f"Socket error: {e}")
+					logger.error(f"Socket error: {e} {type(e)}")
+		except Exception as e:
+			logger.error(f"handle_client: {e} {type(e)}")
 		finally:
 			logger.debug(f"{self} Socket closing")
 			conn.close()
 
-	async def get_game_state(self):
-		return self.server_game_state.to_json()
+	def cleanup_client(self, task, conn):
+		"""Clean up client connection and task"""
+		try:
+			self.connections.remove(conn)
+			self.client_tasks.remove(task)
+		except (KeyError, ValueError):
+			pass
+		finally:
+			if not conn.closed:
+				conn.close()
 
-	async def get_tile_map(self):
-		if "maptest2" in self.args.mapname:
-			map4pos = [
-				(2, 2),
-				(3, 25),
-				(27, 2),
-				(25, 25),
-			]
-			position = (
-				map4pos[self.playerindex][0] * 64,
-				map4pos[self.playerindex][1] * 64,
-			)
-			self.playerindex = len(self.server_game_state.players)
-		elif "maptest5" in self.args.mapname:
-			map4pos = [
-				(2, 2),
-				(2, 38),
-				(58, 2),
-				(58, 38),
-			]
-			position = (
-				map4pos[self.playerindex][0] * 32,
-				map4pos[self.playerindex][1] * 32,
-			)
-			self.playerindex = len(self.server_game_state.players)
-		elif "maptest4" in self.args.mapname:
-			map4pos = [
-				(2, 2),
-				(25, 27),
-				(27, 2),
-				(2, 22),
-			]
-			position = (
-				map4pos[self.playerindex][0] * 32,
-				map4pos[self.playerindex][1] * 32,
-			)
-			self.playerindex = len(self.server_game_state.players)
-		else:
-			position = self.get_position()
+	async def process_messages(self):
+		"""Process messages from client queue"""
+		while not self.stopped():
+			try:
+				msg = await self.client_queue.get()
+				try:
+					clid = str(msg["client_id"])
+					self.server_game_state.update_game_state(clid, msg)
+					if evts := msg.get("game_events", []):
+						await self.process_game_events(msg)
+				except Exception as e:
+					logger.error(f"Error processing message: {e}")
+				finally:
+					self.client_queue.task_done()
+			except asyncio.CancelledError:
+				break
+			except Exception as e:
+				logger.error(f"Message processing error: {e}")
+
+	async def get_game_state(self):
+		return await self.server_game_state.to_json()
+
+	async def get_tile_map(self, request):
+		position = self.get_position()
 		if self.args.debug:
-			logger.debug(f'get_tile_map {self.args.mapname} {position}')
-		return {"mapname": str(self.args.mapname), "position": position}
+			logger.debug(f'get_tile_map request: {request}  {self.args.mapname} {position}')
+		return web.json_response({"mapname": str(self.args.mapname), "position": position})
 
 	async def remove_timedout_players(self):
 		pcopy = copy.copy(self.server_game_state.players)
@@ -361,9 +352,24 @@ class BombServer:
 
 	async def send_data(self, data):
 		try:
+			# Accept a single connection
+			conn, addr = await self.loop.sock_accept(self.push_sock)
+			try:
+				# Use asyncio's sock_sendall
+				await self.loop.sock_sendall(conn, json.dumps(await data).encode('utf-8'))
+			except Exception as e:
+				logger.warning(f"{type(e)} {e} in send_data {conn} {addr}")
+			finally:
+				conn.close()
+		except Exception as e:
+			logger.error(f"{type(e)} {e} in send_data {data}")
+
+	async def oldsend_data(self, data):
+		try:
 			for conn, addr in self.push_sock.accept():
 				try:
-					await conn.sendall(json.dumps(data).encode('utf-8'))
+					# await conn.sendall(json.dumps(data).encode('utf-8'))
+					await self.loop.sock_sendall(conn, json.dumps(data).encode('utf-8'))
 					conn.close()
 				except Exception as e:
 					logger.warning(f"{type(e)} {e} in send_data {conn} {addr}")
@@ -377,9 +383,15 @@ class BombServer:
 		logger.warning(f"{self} {self.sub_sock} closed")
 		self.push_sock.close()
 		logger.warning(f"{self} {self.push_sock} closed")
-		self.ticker_task.cancel()
-		logger.warning(f"{self} {self.ticker_task} cancelled")
-		await self.ticker_task
+
+		# Cancel ticker task
+		if not self.ticker_task.done():
+			self.ticker_task.cancel()
+			logger.warning(f"{self} {self.ticker_task} cancelled")
+			try:
+				await self.ticker_task
+			except asyncio.CancelledError:
+				pass
 		logger.warning(f"{self} stop {self.stopped()}")
 
 	def stopped(self):
@@ -389,19 +401,19 @@ class BombServer:
 		# tt_updatefromclient = create_task(self.update_from_client(sockrecv))
 		# apitsk =  create_task(self.apiserver._run(host=self.args.listen, port=9699),)
 		logger.debug(f"tickertask: {self.push_sock=}\n{self.sub_sock=}")
+		self.process_task = self.loop.create_task(self.process_messages())
 		# Send out the game state to all players 60 times per second.
 		try:
 			while not self.stopped():
 				await self.handle_connections()
 				try:
-					self.server_game_state.check_players()
-				except TypeError as e:
-					logger.warning(f"self.server_game_state.check_players() {e}")
-				try:
-					self.remove_timedout_players()
+					# self.server_game_state.check_players()
+					# await self.remove_timedout_players()
+					game_state = await self.server_game_state.to_json()
+					await self.send_data(game_state)
+					# await self.send_data(self.server_game_state.to_json())  # Send updated game state to clients
 				except Exception as e:
-					logger.warning(f"{type(e)} {e} in remove_timedout_players ")
-				self.send_data(self.server_game_state.to_json())  # Send updated game state to clients
+					logger.error(f"{type(e)} {e} ")
 				await asyncio.sleep(1 / UPDATE_TICK)  # SERVER_UPDATE_TICK_HZ
 		except asyncio.CancelledError as e:
 			logger.warning(f"tickertask CancelledError {e}")
@@ -409,6 +421,19 @@ class BombServer:
 			logger.error(f"tickertask {e} {type(e)}")
 		finally:
 			logger.debug("Ticker task exiting")
+			# Cancel message processing task
+			if self.process_task:
+				self.process_task.cancel()
+				try:
+					await self.process_task
+				except asyncio.CancelledError:
+					pass
+
+			# Cancel all client tasks
+			for task in self.client_tasks:
+				task.cancel()
+			if self.client_tasks:
+				await asyncio.gather(*self.client_tasks, return_exceptions=True)
 
 
 async def main(args) -> None:
@@ -416,21 +441,20 @@ async def main(args) -> None:
 	# app = App(signal=fut)
 	# ctx = Context()
 	server = BombServer(args)
-	logger.debug(f'{server=} {server.tui=}')
 	# tui = ServerTUI(server, debug=args.debug)
 	server.tui.start()
 	apiserver = ApiServer("bombapi")
-	logger.debug(f'{apiserver=}')
 	apiserver.add_url_rule("/get_game_state", view_func=server.get_game_state, methods=["GET"])
 	apiserver.add_url_rule("/get_tile_map", view_func=server.get_tile_map, methods=["GET"])
 	apiserver.add_url_rule("/get_position", view_func=server.get_position, methods=["GET"])
-	apithread = Thread(target=apiserver.run, name=apiserver._import_name, args=(args.listen, 9699), daemon=True)
-	logger.info(f"ticker_task:{server.ticker_task} starting {apithread=}")
-	apithread.start()
-	logger.info(f"started {apithread=}")
-
+	# apithread = Thread(target=apiserver.run, name=apiserver._import_name, args=(args.listen, 9699), daemon=True)
+	api_task = asyncio.create_task(apiserver.run(args.listen, 9699))
 	try:
-		await asyncio.wait([server.ticker_task, fut], return_when=asyncio.FIRST_COMPLETED)
+		await asyncio.wait_for(apiserver.wait_until_ready(), timeout=5.0)
+		# apithread.start()
+		logger.debug(f'{server=} {server.tui=} {apiserver=}')
+		# await asyncio.wait([server.ticker_task, fut], return_when=asyncio.FIRST_COMPLETED)
+		await asyncio.wait([api_task, server.ticker_task, fut], return_when=asyncio.FIRST_COMPLETED)
 	except CancelledError as e:
 		logger.warning(f"main Cancelled {e}")
 	finally:

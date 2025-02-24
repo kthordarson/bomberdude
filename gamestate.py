@@ -253,13 +253,13 @@ class GameState:
 			case _:
 				logger.warning(f'unknown game_event:{event_type} from msg={msg}')
 
-	def to_json(self):
+	async def to_json(self):
 		dout = {'players': {}, 'game_events': []}
-		dout['keys_pressed'] = self.keys_pressed.to_json()
-		if self.debug and self.name != 'server':
+		dout['keys_pressed'] = await self.keys_pressed.to_json()
+		if self.args.debug and self.name != 'server':
 			pass
 		try:
-			pending_event = self.event_queue.get()
+			pending_event = await self.event_queue.get()
 			self.event_queue.task_done()
 			dout['game_events'].append(pending_event)
 		except Empty:
@@ -285,7 +285,7 @@ class GameState:
 		for ge in dgamest.get('game_events', []):
 			if ge == []:
 				break
-			if self.debug and self.name != 'b':
+			if self.args.debug and self.name != 'b':
 				logger.info(f'ge={ge.get("event_type")} dgamest={dgamest=}')
 			self.event_queue.put_nowait(ge)
 		plist = dgamest.get('players', [])

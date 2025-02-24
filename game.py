@@ -75,7 +75,8 @@ class Bomberdude():
         if self.args.debug:
             logger.debug(f'{self} connecting map: {self._gotmap=}')
         try:
-            resp = json.loads(requests.get(f"http://{self.args.server}:9699/get_tile_map").text)
+            resp = requests.get(f"http://{self.args.server}:9699/get_tile_map").text
+            resp = json.loads(resp)
             mapname = resp.get("mapname")
             pos = Vec2d(x=resp.get('position').get('position')[0], y=resp.get('position').get('position')[1])
             logger.debug(f"map {mapname} {pos=} {resp=}")
@@ -137,7 +138,10 @@ class Bomberdude():
         # self.screen.fill(self.background_color)
         # Draw game elements here
         self.screen.fill((200, 249, 237))
-        self.client_game_state.render_map(self.screen, self.camera)
+        try:
+            self.client_game_state.render_map(self.screen, self.camera)
+        except Exception as e:
+            logger.error(f'{e} {type(e)}')
         for bullet in self.client_game_state.bullets:
             self.screen.blit(bullet.image, self.camera.apply(bullet))
         for player in self.client_game_state.players:

@@ -42,7 +42,7 @@ class KeysPressed:
 	def __repr__(self):
 		return f'KeyPressed ({self.name})'
 
-	def to_json(self):
+	async def to_json(self):
 		return json.dumps({"name": self.name, "keys": {KEY_NAME_MAP.get(k, str(k)): v for k, v in self.keys.items()}})
 
 		# return json.dumps({
