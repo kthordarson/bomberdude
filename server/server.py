@@ -35,18 +35,14 @@ class BombServer:
 		# self.pushsock.bind(f"tcp://{args.listen}:9696")
 		# self.recvsock = self.ctx.socket(zmq.PULL)  # : Socket
 		# self.recvsock.bind(f"tcp://{args.listen}:9697")
-		self.sub_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.push_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 		# Set socket options to allow port reuse
-		self.sub_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self.push_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-		self.sub_sock.bind((self.args.host, 9696))
-		self.push_sock.bind((self.args.host, 9697))
+		self.sock.bind((self.args.host, 9696))
 
-		self.sub_sock.listen(5)
-		self.push_sock.listen(5)
+		self.sock.listen(5)
 		self.loop = asyncio.get_event_loop()
 		# self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock,),)
 		self.ticker_task = asyncio.create_task(self.ticker(),)
@@ -92,10 +88,10 @@ class BombServer:
 	async def handle_connections(self):
 		logger.debug(f"{self} starting handle_connections {self.loop}")
 		try:
-			self.sub_sock.setblocking(False)
+			self.sock.setblocking(False)
 			while not self.stopped():
 				try:
-					conn, addr = await self.loop.sock_accept(self.sub_sock)
+					conn, addr = await self.loop.sock_accept(self.sock)
 					conn.setblocking(False)
 					logger.debug(f"Accepted connection {len(self.connections)} from {addr}")
 					await self.add_connection(conn, addr)
@@ -113,12 +109,13 @@ class BombServer:
 	async def handle_client(self, conn):
 		logger.info(f"handle_client: starting for conn: {conn} conns: {len(self.server_game_state.connections)}")
 		try:
-			while not self.stopped():
+			while True:
 				try:
 					# data = await self.loop.sock_recv(conn, 4096)
-					data = await asyncio.wait_for(self.loop.sock_recv(conn, 4096),timeout=1.0)
+					data = await asyncio.wait_for(self.loop.sock_recv(conn, 4096),timeout=0.2)
 					if not data:
 						break
+					logger.debug(f'data={data}')
 					msg = json.loads(data.decode('utf-8'))
 					if self.args.debug:
 						logger.info(f"msg: {msg}")
@@ -182,15 +179,19 @@ class BombServer:
 				if self.args.debug:
 					logger.debug(f"Processing message: {msg}")
 				try:
-					clid = str(msg["client_id"])
+					clid = msg.get("client_id","000000")
+				except Exception as e:
+					logger.error(f"Error processing message: {e}")
+					continue
+				try:
 					self.server_game_state.update_game_state(clid, msg)
-					if evts := msg.get("game_events", []):
+					if evts := msg.get("game_events", {'foo': 'bar'}):
 						# await self.process_game_events(msg)
 						await self.server_game_state.update_game_events(msg)
 					game_state = self.server_game_state.to_json()
 					await self.server_game_state.broadcast_state(game_state)
 				except Exception as e:
-					logger.error(f"Error processing message: {e}")
+					logger.error(f"Error processing message: {e} {type(e)} {msg}")
 				finally:
 					self.server_game_state.client_queue.task_done()
 			except asyncio.CancelledError:
@@ -213,10 +214,10 @@ class BombServer:
 		for p in pcopy:
 			try:
 				if self.server_game_state.players[p].get("timeout", False):
-					self.server_game_state.players.pop(p)
+					self.server_game_state.players_sprites.pop(p)
 					logger.warning(f"remove_timedout_players {p} {len0}->{len(self.server_game_state.players)} {self.server_game_state.players[p]}")
 				elif self.server_game_state.players[p].get("playerquit", False):
-					self.server_game_state.players.pop(p)
+					self.server_game_state.players_sprites.pop(p)
 					logger.debug(f"playerquit {p} {len0}->{len(self.server_game_state.players)}")
 			except KeyError as e:
 				logger.warning(f"keyerror in remove_timedout_players {e} {self.server_game_state.players[p]} {self.server_game_state.players}")
@@ -293,7 +294,7 @@ class BombServer:
 	async def send_data(self, data):
 		try:
 			# Accept a single connection
-			conn, addr = await self.loop.sock_accept(self.push_sock)
+			conn, addr = await self.loop.sock_accept(self.sock)
 			try:
 				# Use asyncio's sock_sendall
 				await self.loop.sock_sendall(conn, json.dumps(await data).encode('utf-8'))
@@ -304,25 +305,11 @@ class BombServer:
 		except Exception as e:
 			logger.error(f"{type(e)} {e} in send_data {data}")
 
-	async def oldsend_data(self, data):
-		try:
-			for conn, addr in self.push_sock.accept():
-				try:
-					# await conn.sendall(json.dumps(data).encode('utf-8'))
-					await self.loop.sock_sendall(conn, json.dumps(data).encode('utf-8'))
-					conn.close()
-				except Exception as e:
-					logger.warning(f"{type(e)} {e} in send_data {conn} {addr}")
-		except Exception as e:
-			logger.error(f"{type(e)} {e} in send_data {data}")
-
 	async def stop(self):
 		self._stop.set()
 		logger.warning(f"{self} stopping {self.stopped()} ")
-		self.sub_sock.close()
-		logger.warning(f"{self} {self.sub_sock} closed")
-		self.push_sock.close()
-		logger.warning(f"{self} {self.push_sock} closed")
+		self.sock.close()
+		logger.warning(f"{self} {self.sock} closed")
 
 		# Cancel ticker task
 		if not self.ticker_task.done():
@@ -338,7 +325,7 @@ class BombServer:
 		return self._stop.is_set()
 
 	async def ticker(self) -> None:
-		logger.debug(f"tickertask: {self.push_sock=}\n{self.sub_sock=}")
+		logger.debug(f"tickertask: {self.sock=}")
 		self.process_task = self.loop.create_task(self.process_messages())
 		# Send out the game state to all players 60 times per second.
 		try:

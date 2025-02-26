@@ -53,17 +53,15 @@ class Bomberdude():
         self.background_color = (100, 149, 237)
         self.camera = None  # Replace with pygame camera if needed
         self.guicamera = None  # Replace with pygame camera if needed
-        self.sub_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sub_sock.setblocking(False)  # Make non-blocking
-        self.push_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.push_sock.setblocking(False)  # Make non-blocking
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setblocking(False)  # Make non-blocking
         map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
         map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
         # asyncio.create_task(self.do_connect())
 
     def __repr__(self):
-        return f"Bomberdude( {self.title} np: {len(self.client_game_state.players)}  )"
+        return f"Bomberdude( {self.title} np: {len(self.client_game_state.players)} c:{self._connected} )"
 
     def connected(self):
         return self._connected
@@ -72,8 +70,7 @@ class Bomberdude():
         """Connect to server and set up sockets"""
         try:
             self._connected = False
-            self.sub_sock.setblocking(False)  # Make non-blocking
-            self.push_sock.setblocking(False)  # Make non-blocking
+            self.sock.setblocking(False)  # Make non-blocking
 
             await self.do_connect()
             self._connected = True
@@ -81,25 +78,21 @@ class Bomberdude():
             if self.args.debug:
                 logger.info(f'{self} connected successfully')
             return True
-
         except Exception as e:
             logger.error(f"Connection failed: {e}")
             self._connected = False
             return False
 
     async def do_connect(self):
-        logger.info(f'{self} connecting to sub_sock: {self.sub_sock} ')
-        await asyncio.get_event_loop().sock_connect(self.sub_sock, (self.args.server, 9696))
+        logger.info(f'{self} connecting to sock: {self.sock} ')
+        await asyncio.get_event_loop().sock_connect(self.sock, (self.args.server, 9696))
 
-        logger.info(f'{self} connecting to push_sock: {self.push_sock} ')
-        await asyncio.get_event_loop().sock_connect(self.push_sock, (self.args.server, 9697))
+        self._connected = True
 
-        # logger.info(f'{self} connecting to sub_sock: {self.sub_sock} ')
-        # self.sub_sock.connect((self.args.server, 9696))
-        # logger.info(f'{self} connecting to push_sock: {self.push_sock} ')
-        # self.push_sock.connect((self.args.server, 9697))
+        # logger.info(f'{self} connecting to sock: {self.sock} ')
+        # self.sock.connect((self.args.server, 9696))
         if self.args.debug:
-            logger.debug(f'{self} connecting map: {self._gotmap=}')
+            logger.debug(f'{self} connecting map: {self._gotmap=} conn: {self.connected()}/{self._connected}')
         try:
             resp = requests.get(f"http://{self.args.server}:9699/get_tile_map").text
             resp = json.loads(resp)
@@ -119,7 +112,7 @@ class Bomberdude():
         player_one = Bomberplayer(texture="data/playerone.png", name=self.args.name, client_id=gen_randid())  # , eventq=self.eventq
         player_one.position = pos
         # self.player_list.append(player_one)
-        self.client_game_state.players.add(player_one)
+        self.client_game_state.players_sprites.add(player_one)
         connection_event = {
             "event_time": 0,
             "event_type": "newconnection",
@@ -130,7 +123,6 @@ class Bomberdude():
             "eventid": gen_randid(),
         }
         await self.eventq.put(connection_event)
-        self._connected = True
         if self.args.debug:
             logger.debug(f'{self} map: {self._gotmap} conn: {self.connected()} - {self._connected} setup done player {player_one.name} : {player_one.client_id} {player_one.position}')
         # await asyncio.sleep(1 / UPDATE_TICK)
@@ -170,7 +162,7 @@ class Bomberdude():
             logger.error(f'{e} {type(e)}')
         for bullet in self.client_game_state.bullets:
             self.screen.blit(bullet.image, self.camera.apply(bullet))
-        for player in self.client_game_state.players:
+        for player in self.client_game_state.players_sprites:
             # player.draw(self.screen)
             self.screen.blit(player.image, self.camera.apply(player))
             # player.bullets.draw(self.screen)
@@ -214,6 +206,8 @@ class Bomberdude():
 
     def handle_on_key_press(self, key):
         player_one = self.client_game_state.get_playerone()
+        if not player_one:
+            return
         if key == pygame.K_1:
             self.selected_bomb = 1
         elif key == pygame.K_2:
@@ -303,8 +297,8 @@ class Bomberdude():
 
             # Update camera using Camera.update2 method which handles bounds correctly
             self.camera.update2(player_one)
-        try:
-            await self.handle_game_events()
-        except (Empty, asyncio.queues.QueueEmpty, asyncio.TimeoutError):
-            pass
+        # try:
+        #     await self.handle_game_events()
+        # except (Empty, asyncio.queues.QueueEmpty, asyncio.TimeoutError):
+        #     pass
         await asyncio.sleep(1 / UPDATE_TICK)

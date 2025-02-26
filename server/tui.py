@@ -22,16 +22,11 @@ class ServerTUI():
 	def stopped(self):
 		return self._stop.is_set()
 
-	def dump_players(self):
-		for p in self.server.server_game_state.players:
-			# print(f'p={p} pos = {self.server.server_game_state.players[p]["position"]} score: {self.server.server_game_state.players[p]["score"]} msgdt:{self.server.server_game_state.players[p]["msg_dt"]}')
-			logger.debug(f"p={p} {self.server.server_game_state.players[p]}")
-
 	async def get_serverinfo(self):
 		"""Get current server state information"""
 		try:
 			state = {
-				'players': len(self.server.server_game_state.players),
+				'players_sprites': len(self.server.server_game_state.players_sprites),
 				'connections': len(self.server.server_game_state.connections)
 			}
 			dump = await self.server.server_game_state.debug_dump()
@@ -140,8 +135,7 @@ class ServerTUI():
 					break
 					# asyncio.run(self.server.stop())
 					# asyncio.run_coroutine_threadsafe(self.server.stop(), self.server.loop)
-					# self.server.sub_sock.close()
-					# self.server.push_sock.close()
+					# self.server.sock.close()
 				else:
 					pass  # logger.info(f'[tui] cmds: s=serverinfo, d=debug, p=playerlist, q=quit')
 			except (EOFError, KeyboardInterrupt) as e:
