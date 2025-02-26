@@ -1,8 +1,4 @@
 from dataclasses import dataclass
-from arcade.gui.style import UIStyleBase, UIStyledWidget
-from arcade.text import FontNameOrNames
-from arcade.types import Color, RGBA255, PointList
-import arcade
 import array
 import math
 from typing import Optional, Tuple

@@ -5,7 +5,6 @@ from threading import Thread
 import time
 from argparse import ArgumentParser
 from queue import Empty
-# import arcade
 import pygame
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK

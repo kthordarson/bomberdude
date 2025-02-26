@@ -45,11 +45,6 @@ class KeysPressed:
 	async def to_json(self):
 		return json.dumps({"name": self.name, "keys": {KEY_NAME_MAP.get(k, str(k)): v for k, v in self.keys.items()}})
 
-		# return json.dumps({
-		# 	"name": self.name,
-		# 	"keys": {arcade.key.symbol_string(k): v for k, v in self.keys.items()}
-		# })
-
 @dataclass(eq=True)
 class Bomberplayer(Sprite):
 	texture: str
