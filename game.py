@@ -54,12 +54,13 @@ class Bomberdude():
         self.camera = None  # Replace with pygame camera if needed
         self.guicamera = None  # Replace with pygame camera if needed
         self.sub_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sub_sock.setblocking(False)  # Make non-blocking
         self.push_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.push_sock.setblocking(False)  # Make non-blocking
         map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
         map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
-        asyncio.create_task(self.do_connect())
+        # asyncio.create_task(self.do_connect())
 
     def __repr__(self):
         return f"Bomberdude( {self.title} np: {len(self.client_game_state.players)}  )"
@@ -67,11 +68,36 @@ class Bomberdude():
     def connected(self):
         return self._connected
 
+    async def connect(self):
+        """Connect to server and set up sockets"""
+        try:
+            self._connected = False
+            self.sub_sock.setblocking(False)  # Make non-blocking
+            self.push_sock.setblocking(False)  # Make non-blocking
+
+            await self.do_connect()
+            self._connected = True
+
+            if self.args.debug:
+                logger.info(f'{self} connected successfully')
+            return True
+
+        except Exception as e:
+            logger.error(f"Connection failed: {e}")
+            self._connected = False
+            return False
+
     async def do_connect(self):
         logger.info(f'{self} connecting to sub_sock: {self.sub_sock} ')
-        self.sub_sock.connect((self.args.server, 9696))
+        await asyncio.get_event_loop().sock_connect(self.sub_sock, (self.args.server, 9696))
+
         logger.info(f'{self} connecting to push_sock: {self.push_sock} ')
-        self.push_sock.connect((self.args.server, 9697))
+        await asyncio.get_event_loop().sock_connect(self.push_sock, (self.args.server, 9697))
+
+        # logger.info(f'{self} connecting to sub_sock: {self.sub_sock} ')
+        # self.sub_sock.connect((self.args.server, 9696))
+        # logger.info(f'{self} connecting to push_sock: {self.push_sock} ')
+        # self.push_sock.connect((self.args.server, 9697))
         if self.args.debug:
             logger.debug(f'{self} connecting map: {self._gotmap=}')
         try:

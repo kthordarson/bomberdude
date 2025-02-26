@@ -10,7 +10,6 @@ import random
 from constants import BLOCK, GRIDSIZE, UPDATE_TICK
 from gamestate import GameState
 from asyncio import run, create_task, CancelledError
-from api import ApiServer
 # import zmq
 # from zmq.asyncio import Context
 from aiohttp import web
@@ -23,7 +22,7 @@ class BombServer:
 		self.args = args
 		self.debug = self.args.debug
 		self.server_game_state = GameState(args=self.args, mapname=args.mapname, name='server')
-		self.client_queue = asyncio.Queue()  # Add queue for client messages
+		# self.client_queue = asyncio.Queue()  # Add queue for client messages
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
 		self.process_task = None
@@ -62,24 +61,56 @@ class BombServer:
 	def __repr__(self):
 		return 'BomberServer()'
 
+	async def add_connection(self, conn, addr):
+		"""Add a new client connection and set up handling"""
+		try:
+			# Add to server connections
+			self.connections.add(conn)
+
+			# Add to game state connections
+			self.server_game_state.add_connection(conn)
+
+			# Create and track client handling task
+			task = self.loop.create_task(self.handle_client(conn))
+			self.client_tasks.add(task)
+
+			# Add cleanup callback when task is done
+			task.add_done_callback(lambda t: self.cleanup_client(t, conn))
+
+			logger.info(f"New connection added from {addr}. Total connections: {len(self.connections)} server_game_state: {len(self.server_game_state.connections)}")
+
+			return task
+
+		except Exception as e:
+			logger.error(f"Error adding connection: {e}")
+			if conn in self.connections:
+				self.connections.remove(conn)
+			return None
+
 	async def handle_connections(self):
 		logger.debug(f"{self} starting handle_connections {self.loop}")
 		try:
-			conn, addr = await self.loop.sock_accept(self.sub_sock)
-			self.connections.add(conn)
-			logger.debug(f"Accepted connection {len(self.connections)} from {addr}")
-			# self.loop.create_task(self.handle_client(conn))
-			task = self.loop.create_task(self.handle_client(conn))
-			self.client_tasks.add(task)
-			task.add_done_callback(lambda t: self.connections.remove(conn))
-			logger.debug(f"Task {len(self.client_tasks)} {task} created for {addr} ")
+			self.sub_sock.setblocking(False)
+			while not self.stopped():
+				try:
+					conn, addr = await self.loop.sock_accept(self.sub_sock)
+					conn.setblocking(False)
+					logger.debug(f"Accepted connection {len(self.connections)} from {addr}")
+					await self.add_connection(conn, addr)
+					# self.loop.create_task(self.handle_client(conn))
+					# task = self.loop.create_task(self.handle_client(conn))
+					# self.client_tasks.add(task)
+					# task.add_done_callback(lambda t: self.connections.remove(conn))
+					# logger.debug(f"Task {len(self.client_tasks)} {task} created for {addr} ")
+				except (BlockingIOError, InterruptedError):
+					await asyncio.sleep(0.01)
+					continue
 		except Exception as e:
 			logger.error(f'Error in handle_connections: {e} {type(e)}')
 
 	async def handle_client(self, conn):
-		logger.info(f"handle_client: starting for conn: {conn}")
+		logger.info(f"handle_client: starting for conn: {conn} conns: {len(self.server_game_state.connections)}")
 		try:
-			self.server_game_state.connections.add(conn)
 			while not self.stopped():
 				try:
 					data = await self.loop.sock_recv(conn, 4096)
@@ -87,7 +118,7 @@ class BombServer:
 						break
 					msg = json.loads(data.decode('utf-8'))
 					logger.info(f"msg: {msg}")
-					await self.client_queue.put(msg)  # Put message in queue instead of processing directly
+					await self.server_game_state.client_queue.put(msg)  # Put message in queue instead of processing directly
 				except Exception as e:
 					logger.error(f"Socket error: {e} {type(e)}")
 		except Exception as e:
@@ -99,20 +130,24 @@ class BombServer:
 
 	def cleanup_client(self, task, conn):
 		"""Clean up client connection and task"""
+		logger.info(f'Cleaning up client {conn} task:{task}')
 		try:
 			self.connections.remove(conn)
 			self.client_tasks.remove(task)
-		except (KeyError, ValueError):
-			pass
+		except (KeyError, ValueError) as e:
+			logger.warning(f'{e} {type(e)} while cleaning up client {conn} task:{task}')
 		finally:
-			if not conn.closed:
+			if not conn._closed:
 				conn.close()
 
 	async def process_messages(self):
 		"""Process messages from client queue"""
+		logger.debug(f"{self} message processing starting")
 		while not self.stopped():
 			try:
-				msg = await self.client_queue.get()
+				msg = await self.server_game_state.client_queue.get()
+				if self.args.debug:
+					logger.debug(f"Processing message: {msg}")
 				try:
 					clid = str(msg["client_id"])
 					self.server_game_state.update_game_state(clid, msg)
@@ -124,7 +159,7 @@ class BombServer:
 				except Exception as e:
 					logger.error(f"Error processing message: {e}")
 				finally:
-					self.client_queue.task_done()
+					self.server_game_state.client_queue.task_done()
 			except asyncio.CancelledError:
 				break
 			except Exception as e:
@@ -270,8 +305,6 @@ class BombServer:
 		return self._stop.is_set()
 
 	async def ticker(self) -> None:
-		# tt_updatefromclient = create_task(self.update_from_client(sockrecv))
-		# apitsk =  create_task(self.apiserver._run(host=self.args.listen, port=9699),)
 		logger.debug(f"tickertask: {self.push_sock=}\n{self.sub_sock=}")
 		self.process_task = self.loop.create_task(self.process_messages())
 		# Send out the game state to all players 60 times per second.
@@ -307,5 +340,3 @@ class BombServer:
 				task.cancel()
 			if self.client_tasks:
 				await asyncio.gather(*self.client_tasks, return_exceptions=True)
-
-

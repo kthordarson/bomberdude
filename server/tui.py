@@ -27,7 +27,7 @@ class ServerTUI(Thread):
 			logger.debug(f"p={p} {self.server.server_game_state.players[p]}")
 
 	def get_serverinfo(self):
-		logger.debug(f"players={len(self.server.server_game_state.players)} threads:{active_count()}")
+		logger.debug(f"players={len(self.server.server_game_state.players)} threads:{active_count()} conns: {len(self.server.server_game_state.connections)}")
 		logger.debug(f"{self.server.server_game_state}")
 		logger.debug(f"{self.server.server_game_state.debug_dump()}")
 		# print(f'gamestate: {self.server.server_game_state}')

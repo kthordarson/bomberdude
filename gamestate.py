@@ -42,9 +42,47 @@ class GameState:
 		return f'Gamestate ( events:{len(self.game_events)} players:{len(self.players)} )'
 
 	def debug_dump(self):
-		logger.debug(f'{self.name} {self} {self.players} {self.game_events}')
+		logger.debug(f'{self.name} {self} players: {self.players} events: {self.game_events} conns: {len(self.connections)}')
+
+	def add_connection(self, connection):
+		"""Add a new client connection"""
+		self.connections.add(connection)
+		logger.info(f"New connection added. Total connections: {len(self.connections)}")
+
+	def remove_connection(self, connection):
+		"""Remove a client connection"""
+		if connection in self.connections:
+			self.connections.remove(connection)
+			logger.info(f"Connection removed. Total connections: {len(self.connections)}")
 
 	async def broadcast_state(self, game_state):
+		"""Broadcast game state to all connected clients"""
+		if not self.connections:
+			logger.warning(f'{self} got no connections....')
+			return
+
+		data = json.dumps(game_state).encode('utf-8')
+		loop = asyncio.get_event_loop()
+
+		logger.debug(f'broadcast_state to {len(self.connections)} clients')
+		dead_connections = set()
+
+		for conn in self.connections:
+			try:
+				# data = json.dumps(game_state)
+				# Get the current event loop
+				# loop = asyncio.get_event_loop()
+				await loop.sock_sendall(conn, data)
+			except Exception as e:
+				logger.error(f"Error broadcasting to client: {e}")
+				dead_connections.add(conn)
+
+		# Clean up dead connections
+		for dead_conn in dead_connections:
+			logger.warning(f"Removing {dead_conn} from connections")
+			self.remove_connection(dead_conn)
+
+	async def oldbroadcast_state(self, game_state):
 		"""Broadcast game state to all connected clients"""
 		logger.debug(f'broadcast_state {len(self.connections)}')
 		for conn in self.connections:
@@ -160,19 +198,21 @@ class GameState:
 			logger.warning(f'dupeevntchk {len(evntchk)} eventid {eventid} {game_event} already in game_events')
 		match event_type:
 			case 'playerquit':
-				clid = game_event['client_id']
-				self.players[clid]['playerquit'] = True
+				self.players[msg_client_id]['playerquit'] = True
 				self.event_queue.put_nowait(game_event)
 			case 'newconnection':
+				name = game_event['name']
+				if self.args.debug:
+					logger.info(f'{event_type} from {msg_client_id} {name}')
+				if msg.get('connection'):
+					self.add_connection(msg.get('connection'))
+				else:
+					logger.warning(f'newconnection missing conn {msg=}')
 				game_event['handled'] = True
 				game_event['handledby'] = 'ugsnc'
 				game_event['event_type'] = 'acknewconn'
-				clid = str(game_event['client_id'])
-				name = game_event['name']
-				self.players[clid] = {'client_id': clid, 'name': name, 'timeout': False, 'msg_dt': time.time()}
+				self.players[msg_client_id] = {'client_id': msg_client_id, 'name': name, 'timeout': False, 'msg_dt': time.time()}
 				self.event_queue.put_nowait(game_event)
-				if self.args.debug:
-					logger.info(f'{event_type} from {clid} {name}')
 			case 'blkxplode':
 				uptype = random.choice([1, 2, 3])
 				newevent = {'event_time': 0, 'event_type': 'upgradeblock', 'client_id': msg_client_id, 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
@@ -182,17 +222,17 @@ class GameState:
 			case 'takeupgrade':
 				game_event['handledby'] = 'ugstakeupgrade'
 				upgradetype = game_event.get("upgradetype")
-				clid = game_event['client_id']
+				msg_client_id = game_event['client_id']
 				match upgradetype:
 					case 1:
-						self.players[clid]['health'] += EXTRA_HEALTH
-						logger.debug(f'{clid} got extrahealth -> {self.players[clid].get("health")}')
-						event = {'event_time': 0, 'event_type': 'extrahealth', 'amount': EXTRA_HEALTH, 'client_id': clid, 'eventid': gen_randid()}
+						self.players[msg_client_id]['health'] += EXTRA_HEALTH
+						logger.debug(f'{msg_client_id} got extrahealth -> {self.players[msg_client_id].get("health")}')
+						event = {'event_time': 0, 'event_type': 'extrahealth', 'amount': EXTRA_HEALTH, 'client_id': msg_client_id, 'eventid': gen_randid()}
 						self.event_queue.put_nowait(event)
 					case 2:
-						self.players[clid]['bombsleft'] += 1
-						logger.debug(f'{clid} got extrabomb -> {self.players[clid].get("bombsleft")}')
-						event = {'event_time': 0, 'event_type': 'extrabomb', 'client_id': clid, 'eventid': gen_randid()}
+						self.players[msg_client_id]['bombsleft'] += 1
+						logger.debug(f'{msg_client_id} got extrabomb -> {self.players[msg_client_id].get("bombsleft")}')
+						event = {'event_time': 0, 'event_type': 'extrabomb', 'client_id': msg_client_id, 'eventid': gen_randid()}
 						self.event_queue.put_nowait(event)
 					case 3:
 						pass
@@ -262,7 +302,7 @@ class GameState:
 				game_event['handledby'] = 'ugsrspwn'
 				game_event['event_type'] = 'ackrespawn'
 				self.event_queue.put_nowait(game_event)
-				logger.debug(f'{event_type} {clid=} {self.players[clid]}')
+				logger.debug(f'{event_type} {msg_client_id=} {self.players[msg_client_id]}')
 			case 'getmap':
 				payload = {'msgtype': 'scenedata', 'payload': self.scene}
 				logger.info(f'{event_type} from {msg_client_id} {len(payload)} {game_event=}')
