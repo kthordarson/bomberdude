@@ -32,7 +32,7 @@ async def pusher(game):
                 game_events = await game.eventq.get()
             except asyncio.QueueEmpty:
                 game_events = []
-            client_keys = await game.client_game_state.keys_pressed.to_json()
+            client_keys = game.client_game_state.keys_pressed.to_json()
             player_one = game.client_game_state.get_playerone()
             msg = dict(game_events=game_events, client_id=player_one.client_id, name=f'xxxcasdfa-{player_one.client_id}', keyspressed=client_keys, msgsource="pushermsgdict",msg_dt=time.time(),)
             if game.connected():
@@ -41,6 +41,7 @@ async def pusher(game):
                     # await self.loop.sock_sendall(conn, data.encode('utf-8'))
                     data_out = json.dumps(msg).encode('utf-8')
                     # await game.push_sock.send(data_out)
+                    logger.debug(f'{game} sending data: {data_out}')
                     await asyncio.get_event_loop().sock_sendall(game.push_sock, data_out)
                 except Exception as e:
                     logger.error(f'{e} {type(e)}')
@@ -58,14 +59,19 @@ async def receive_game_state(game):
     while True:
         try:
             # data = await game.sub_sock.recv(4096)
-            data = await asyncio.wait_for(game.sub_sock.recv(4096), timeout=1.0)
+            # data = await asyncio.wait_for(game.sub_sock.recv(4096), timeout=1.0)
+            data = await asyncio.get_event_loop().sock_recv(game.sub_sock, 4096)
             if not data:
-                logger.debug("No data received, continuing...")
+                logger.debug(f"No data received, continuing...game.sub_sock: {game.sub_sock._closed}")
+                if game.sub_sock._closed:
+                    game._connected = False
+                    logger.warning(f'game.sub_sock._closed {game.sub_sock._closed}')
+                    break
                 await asyncio.sleep(0.1)  # Short sleep to prevent CPU spinning
                 continue
             game_state_json = json.loads(data.decode('utf-8'))
             # game_state_json = await game.sub_sock.recv_json()
-            game.game_state.from_json(game_state_json)
+            game.client_game_state.from_json(game_state_json)
             if game.args.debug:
                 logger.info(f"game_state_json: {game_state_json}")
         except (BlockingIOError, InterruptedError):

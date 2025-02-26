@@ -42,7 +42,7 @@ class KeysPressed:
 	def __repr__(self):
 		return f'KeyPressed ({self.name})'
 
-	async def to_json(self):
+	def to_json(self):
 		return json.dumps({"name": self.name, "keys": {KEY_NAME_MAP.get(k, str(k)): v for k, v in self.keys.items()}})
 
 @dataclass(eq=True)
@@ -73,6 +73,39 @@ class Bomberplayer(Sprite):
 
 	def __hash__(self):
 		return hash((self.client_id, self.name))
+
+	def to_dict(self):
+		"""Convert player object to dictionary"""
+		try:
+			return {
+				'id': self.client_id,
+				'position': [float(self.position.x), float(self.position.y)],
+				'score': self.score,
+				'health': self.health,
+				'name': self.name,
+				'timeout': self.timeout,
+				'msg_dt': time.time(),
+				'killed': self.killed,
+				'bombsleft': self.bombsleft,
+				'angle': self.angle
+			}
+		except Exception as e:
+			logger.error(f"Error converting player to dict: {e}")
+			return {}
+
+	def oldxto_dict(self):
+		"""Convert player object to dictionary"""
+		return {
+			'id': self.client_id,
+			'position': [float(self.position.x), float(self.position.y)],  # Convert Vec2d to list
+			'score': self.score,
+			'health': self.health,
+			'name': self.name,
+			'timeout': self.timeout,
+			'msg_dt': getattr(self, 'msg_dt', time.time()),  # Handle missing msg_dt
+			'killed': self.killed,
+			'bombsleft': self.bombsleft
+		}
 
 	def update(self, collidable_tiles):
 		# Calculate new position

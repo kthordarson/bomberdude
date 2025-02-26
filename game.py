@@ -208,8 +208,9 @@ class Bomberdude():
                     "handledby": "kremer",
                     "eventid": gen_randid(),
                 }
+                if self.args.debug:
+                    logger.debug(f'bullet: {bullet} {direction=} {mouse_world=} {player_world=} {self.camera.position=} {self.eventq.qsize()}')
                 await self.eventq.put(event)
-                logger.debug(f'bullet: {bullet} {direction=} {mouse_world=} {player_world=} {self.camera.position=}')
 
     def handle_on_key_press(self, key):
         player_one = self.client_game_state.get_playerone()

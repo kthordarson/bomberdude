@@ -15,15 +15,18 @@ from server.api import ApiServer
 # from zmq.asyncio import Context
 from aiohttp import web
 from server.server import BombServer
-
+from server.tui import ServerTUI
 
 async def start_server(args) -> None:
 	server = BombServer(args)
-	server.tui.start()
 	apiserver = ApiServer("bombapi", server)
+	tui = ServerTUI(server, args.debug)
+
 	api_task = asyncio.create_task(apiserver.run(args.listen, 9699))
-	logger.debug(f'{server=} {server.tui=} {apiserver=}')
-	await asyncio.wait([api_task, server.ticker_task], return_when=asyncio.FIRST_COMPLETED)
+	tui_task = asyncio.create_task(tui.start())
+
+	logger.debug(f'{server=} {tui=} {apiserver=}')
+	await asyncio.wait([api_task, server.ticker_task, tui_task], return_when=asyncio.FIRST_COMPLETED)
 
 
 if __name__ == "__main__":

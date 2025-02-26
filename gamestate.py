@@ -41,8 +41,24 @@ class GameState:
 	def __repr__(self):
 		return f'Gamestate ( events:{len(self.game_events)} players:{len(self.players)} )'
 
-	def debug_dump(self):
-		logger.debug(f'{self.name} {self} players: {self.players} events: {self.game_events} conns: {len(self.connections)}')
+	async def debug_dump(self):
+		"""Debug dump of game state"""
+		try:
+			state = self.to_json()
+			await self.broadcast_state({
+				'msgtype': 'debugdump',
+				'payload': state
+			})
+			return (f'{self.name} players: {len(self.players)} '
+					f'events: {len(self.game_events)} '
+					f'conns: {len(self.connections)}')
+		except Exception as e:
+			logger.error(f"Error in debug_dump: {e}")
+			return f"Error: {e}"
+
+	async def old_debug_dump(self):
+		await self.broadcast_state({'msgtype': 'debugdump', 'payload': self.players})
+		return f'{self.name} {self} players: {self.players} events: {self.game_events} conns: {len(self.connections)}'
 
 	def add_connection(self, connection):
 		"""Add a new client connection"""
@@ -60,38 +76,29 @@ class GameState:
 		if not self.connections:
 			logger.warning(f'{self} got no connections....')
 			return
+		try:
+			data = json.dumps(game_state).encode('utf-8')
+			loop = asyncio.get_event_loop()
 
-		data = json.dumps(game_state).encode('utf-8')
-		loop = asyncio.get_event_loop()
+			logger.debug(f'broadcast_state to {len(self.connections)} clients')
+			dead_connections = set()
 
-		logger.debug(f'broadcast_state to {len(self.connections)} clients')
-		dead_connections = set()
+			for conn in self.connections:
+				try:
+					# data = json.dumps(game_state)
+					# Get the current event loop
+					# loop = asyncio.get_event_loop()
+					await loop.sock_sendall(conn, data)
+				except Exception as e:
+					logger.error(f"Error broadcasting to client: {e}")
+					dead_connections.add(conn)
 
-		for conn in self.connections:
-			try:
-				# data = json.dumps(game_state)
-				# Get the current event loop
-				# loop = asyncio.get_event_loop()
-				await loop.sock_sendall(conn, data)
-			except Exception as e:
-				logger.error(f"Error broadcasting to client: {e}")
-				dead_connections.add(conn)
-
-		# Clean up dead connections
-		for dead_conn in dead_connections:
-			logger.warning(f"Removing {dead_conn} from connections")
-			self.remove_connection(dead_conn)
-
-	async def oldbroadcast_state(self, game_state):
-		"""Broadcast game state to all connected clients"""
-		logger.debug(f'broadcast_state {len(self.connections)}')
-		for conn in self.connections:
-			try:
-				data = json.dumps(game_state)
-				await self.loop.sock_sendall(conn, data.encode('utf-8'))
-			except Exception as e:
-				logger.error(f"Error broadcasting to client: {e}")
-				self.connections.remove(conn)
+			# Clean up dead connections
+			for dead_conn in dead_connections:
+				logger.warning(f"Removing {dead_conn} from connections")
+				self.remove_connection(dead_conn)
+		except Exception as e:
+			logger.error(f"Error in broadcast_state: {e} {type(e)}")
 
 	def get_playerone(self):
 		for player in self.players:
@@ -309,9 +316,18 @@ class GameState:
 			case _:
 				logger.warning(f'unknown game_event:{event_type} from msg={msg}')
 
-	async def to_json(self):
+	def to_json(self):
+		"""Convert game state to JSON-serializable format"""
+		return {
+			'players': [p.to_dict() for p in self.players],
+			'events': len(self.game_events),
+			'connections': len(self.connections),
+			'name': self.name
+		}
+
+	async def old_to_json(self):
 		dout = {'players': {}, 'game_events': []}
-		dout['keys_pressed'] = await self.keys_pressed.to_json()
+		dout['keys_pressed'] = self.keys_pressed.to_json()
 		if self.args.debug and self.name != 'server':
 			pass
 		try:

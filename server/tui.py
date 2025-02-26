@@ -2,13 +2,14 @@ import asyncio
 from loguru import logger
 from threading import Thread, Timer, active_count, Event
 
-class ServerTUI(Thread):
+class ServerTUI():
 	def __init__(self, server, debug=False, gq=None):
 		Thread.__init__(self, daemon=True, name="tui")
 		self.gq = gq
 		self.server = server
 		self.debug = debug
 		self._stop = Event()
+		self.loop = asyncio.get_event_loop()
 
 	def __repr__(self):
 		return f"ServerTUI (s:{self.stopped()})"
@@ -26,10 +27,26 @@ class ServerTUI(Thread):
 			# print(f'p={p} pos = {self.server.server_game_state.players[p]["position"]} score: {self.server.server_game_state.players[p]["score"]} msgdt:{self.server.server_game_state.players[p]["msg_dt"]}')
 			logger.debug(f"p={p} {self.server.server_game_state.players[p]}")
 
-	def get_serverinfo(self):
+	async def get_serverinfo(self):
+		"""Get current server state information"""
+		try:
+			state = {
+				'players': len(self.server.server_game_state.players),
+				'connections': len(self.server.server_game_state.connections)
+			}
+			dump = await self.server.server_game_state.debug_dump()
+			logger.debug(f"Server info: {state}")
+			logger.debug(f"debugdump: {dump}")
+			return state
+		except Exception as e:
+			logger.error(f"Error getting server info: {e}")
+			return {'error': str(e)}
+
+	async def oldget_serverinfo(self):
 		logger.debug(f"players={len(self.server.server_game_state.players)} threads:{active_count()} conns: {len(self.server.server_game_state.connections)}")
 		logger.debug(f"{self.server.server_game_state}")
-		logger.debug(f"{self.server.server_game_state.debug_dump()}")
+		dump = await self.server.server_game_state.debug_dump()
+		logger.debug(f"debugdump: {dump}")
 		# print(f'gamestate: {self.server.server_game_state}')
 		# print(f'gamestateplayers: {self.server.server_game_state.players}')
 		for p in self.server.server_game_state.players:
@@ -52,14 +69,54 @@ class ServerTUI(Thread):
 		"""
 		print(help)
 
-	def run(self) -> None:
+	async def input_handler(self):
+		"""Handle command input asynchronously"""
+		while not self.stopped():
+			try:
+				cmd = await self.loop.run_in_executor(None, input, ":> ")
+				await self.handle_command(cmd)
+			except (EOFError, KeyboardInterrupt) as e:
+				logger.warning(f"{type(e)} {e}")
+				self.stop()
+				await self.server.stop()
+				break
+
+	async def handle_command(self, cmd):
+		"""Handle individual commands"""
+		if cmd[:1] == "?" or cmd[:1] == "h":
+			self.printhelp()
+		elif cmd[:1] == "s":
+			await self.get_serverinfo()
+		elif cmd[:1] == "r":
+			self.server.remove_timedout_players()
+		elif cmd[:1] == "l":
+			self.dump_players()
+		elif cmd[:1] == "e":
+			self.dumpgameevents()
+		elif cmd[:2] == "ec":
+			self.cleargameevents()
+		elif cmd[:1] == "q":
+			logger.warning(f"{self} {self.server} tuiquit")
+			await self.server.stop()
+			self.stop()
+
+	async def start(self):
+		"""Start the TUI"""
+		try:
+			await self.input_handler()
+		except Exception as e:
+			logger.error(f"TUI error: {e}")
+			self.stop()
+			await self.server.stop()
+
+	async def oldrun(self) -> None:
 		while not self.stopped():
 			try:
 				cmd = input(":> ")
 				if cmd[:1] == "?" or cmd[:1] == "h":
 					self.printhelp()
 				elif cmd[:1] == "s":
-					self.get_serverinfo()
+					await self.get_serverinfo()
 				elif cmd[:1] == "r":
 					self.server.remove_timedout_players()
 				elif cmd[:1] == "l":
