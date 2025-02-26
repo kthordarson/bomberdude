@@ -1,116 +1,33 @@
-from pymunk import Vec2d
-import arcade
-from arcade.gui import (
-    UIFlatButton,
-    UIGridLayout,
-    UIManager,
-)
+import pygame
 from loguru import logger
 from game import Bomberdude
-
-class MainView(arcade.View):
-    def __init__(self, window, args, **kwargs):
-        super().__init__()
+class MainView:
+    def __init__(self, screen, name, title, args, eventq):
+        self.screen = screen
+        self.name = name
+        self.title = title
         self.args = args
+        self.eventq = eventq
         self.debug = args.debug
-        self.window = window
-        self.game = Bomberdude(args)
-        self.manager = UIManager()
-        self.grid = UIGridLayout(x=300,y=300,align_horizontal='center', align_vertical='center', column_count=8, row_count=8)
-        self.startbtn = self.grid.add(UIFlatButton(text="Start New Game", width=150), col_num=0,row=1)
-        self.connectb = self.grid.add(UIFlatButton(text="Connect", width=250), col_num=1,row=2)
-        self.exitbtn = self.grid.add(UIFlatButton(text="Exit", width=150), col_num=2,row=3)
-        self.testbtn = self.grid.add(UIFlatButton(text="test", width=150), col_num=3,row=4)
-        self.grid.do_layout()
-        self.anchor = self.manager.add(self.grid)
-        self.mouse_pos = Vec2d(x=0, y=0)
+        self.game = Bomberdude(args, eventq)
 
-        @self.testbtn.event("on_click")
-        def on_testbtn_click(event):
-            logger.debug(f"{self} {event=}")
+    def update(self):
+        self.game.update()
 
-        @self.startbtn.event("on_click")
-        def on_click_start_new_game_button(event):
-            self.startbtn.visible = False
-            self.exitbtn.visible = False
-            self.startbtn.disabled = True
-            self.exitbtn.disabled = True
-            self.connectb.disabled = True
-            self.connectb.visible = False
-            self.window.show_view(self.game)
+    def draw(self):
+        self.game.on_draw()
 
-        @self.exitbtn.event("on_click")
-        def on_click_exit_button(event):
-            arcade.exit()
+    def on_key_press(self, key):
+        # key = pygame.key.get_pressed()
+        logger.info(f'key={key}')
+        self.game.on_key_press(key)
 
-        @self.connectb.event("on_click")
-        def on_connect_to_server(event):
-            self.game.do_connect()
-            self.startbtn.visible = False
-            self.exitbtn.visible = False
-            self.startbtn.disabled = True
-            self.exitbtn.disabled = True
-            # self.game._connected = True
-            self.connectb.text = f"{self.game.args.server}"
-            self.connectb.disabled = True
-            self.connectb.visible = False
-            self.window.show_view(self.game)
+    def on_key_release(self, key):
+        logger.debug(f'key={key}')
+        self.game.on_key_release(key)
 
     def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
-        self.mouse_pos = Vec2d(x=x, y=y)
+        self.game.on_mouse_motion(x, y, dx, dy)
 
-    def on_key_press(self, key, modifiers):
-        if self.debug:
-            pass  # logger.debug(f'{key=} {modifiers=} ap={self.anchor.position} gp={self.grid.position}')
-        if key == arcade.key.F1:
-            self.debug = not self.debug
-            logger.debug(f"debug: {self.debug}")
-        elif key == arcade.key.F2:
-            pass
-        elif key == arcade.key.F3:
-            pass
-        elif key == arcade.key.F4:
-            pass
-        elif key == arcade.key.F5:
-            pass
-        elif key == arcade.key.F6:
-            pass
-        elif key == arcade.key.F7:
-            pass
-        elif key == arcade.key.ESCAPE or key == arcade.key.Q:
-            logger.warning("quit")
-            arcade.close_window()
-            return
-        elif key == arcade.key.SPACE:
-            pass
-        elif key == arcade.key.UP or key == arcade.key.W:
-            if modifiers == 16:
-                pass  # self.anchor.move(0,1)
-            if modifiers == 18:
-                pass  # self.anchor.move(0,11)
-        elif key == arcade.key.DOWN or key == arcade.key.S:
-            if modifiers == 16:
-                pass  # self.anchor.move(0,-1)
-            if modifiers == 18:
-                pass  # self.anchor.move(0, -11)
-        elif key == arcade.key.LEFT or key == arcade.key.A:
-            if modifiers == 16:
-                pass  # self.anchor.move(-1,0)
-            if modifiers == 18:
-                pass  # self.anchor.move(-11,0)
-        elif key == arcade.key.RIGHT or key == arcade.key.D:
-            if modifiers == 16:
-                pass  # self.anchor.move(1,0)
-            if modifiers == 18:
-                pass  # self.anchor.move(11,0)
-
-    def on_show_view(self):
-        self.window.background_color = arcade.color.BLACK
-        self.manager.enable()
-
-    def on_draw(self):
-        self.clear()
-        self.manager.draw()
-
-    def on_hide_view(self):
-        self.manager.disable()  # pass
+    def on_mouse_press(self, x, y, button):
+        self.game.on_mouse_press(x, y, button)

@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "",
+    "activeFile": "data/map3.tmx",
     "automapping.whileDrawing": false,
     "expandedProjectPaths": [
         ".",
@@ -233,6 +233,14 @@
                 "y": 1023
             }
         },
+        "data/map3.tmx": {
+            "scale": 0.5,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 960,
+                "y": 1087
+            }
+        },
         "data/map4.json": {
             "scale": 0.41655273437499996,
             "selectedLayer": 3,
@@ -321,24 +329,30 @@
     ],
     "map.height": 3,
     "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
-    "map.lastUsedFormat": "json",
+    "map.lastUsedFormat": "tmx",
     "map.width": 3,
     "openFiles": [
+        "data/map2tiles.tsx",
+        "data/map2.tmj",
+        "data/map.json",
+        "data/btiles.tsx",
+        "data/map3.tmx"
     ],
     "project": "bomberdude.tiled-project",
+    "property.type": "bool",
     "recentFiles": [
+        "data/map2tiles.tsx",
+        "data/map2.tmj",
+        "data/map.json",
+        "data/btiles.tsx",
+        "data/map3.tmx",
         "data/maptest5.json",
         "data/maptest4.json",
         "data/maptest2.json",
         "data/maptest5.tmx",
         "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json",
         "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/indoor.json",
-        "data/map4.json",
-        "data/maptest3.json",
-        "data/map3.json",
-        "data/map.json",
-        "/home/kth/development2/games/tiled-automap-example/tiled-automap.tmx",
-        "/home/kth/development2/games/tiled-automap-example/wall-rules.tmx"
+        "data/map4.json"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1
