@@ -104,11 +104,7 @@ class BombServer:
 					data = await asyncio.wait_for(self.loop.sock_recv(conn, 4096),timeout=0.2)
 					if not data:
 						break
-					logger.debug(f'data={data}')
-					msg = json.loads(data.decode('utf-8'))
-					if self.args.debug:
-						logger.info(f"msg: {msg}")
-					await self.server_game_state.client_queue.put(msg)  # Put message in queue instead of processing directly
+					# logger.debug(f'data={data}')
 				except asyncio.TimeoutError:
 					# Timeout is normal, just continue
 					continue
@@ -121,6 +117,20 @@ class BombServer:
 				except Exception as e:
 					logger.error(f"Unexpected error in handle_client: {e}")
 					break
+				messages = data.decode('utf-8').split('\n')
+				for message in messages:
+					if message.strip():  # Ignore empty messages
+						try:
+							msg = json.loads(message)
+							await self.server_game_state.client_queue.put(msg)  # Put message in queue instead of processing directly
+						except json.JSONDecodeError as e:
+							logger.warning(f"Error decoding json: {e} data: {data}")
+							await asyncio.sleep(0.1)  # Short sleep to prevent CPU spinning
+							continue
+					# msg = json.loads(data.decode('utf-8'))
+					# if self.args.debug:
+					# 	logger.info(f"msg: {msg}")
+					# await self.server_game_state.client_queue.put(msg)  # Put message in queue instead of processing directly
 		except Exception as e:
 			logger.error(f"handle_client: {e} {type(e)}")
 		finally:
@@ -165,8 +175,8 @@ class BombServer:
 		while not self.stopped():
 			try:
 				msg = await self.server_game_state.client_queue.get()
-				if self.args.debug:
-					logger.debug(f"Processing message: {msg}")
+				# if self.args.debug:
+				# 	logger.debug(f"Processing message: {msg}")
 				try:
 					clid = msg.get("client_id","000000")
 				except Exception as e:
@@ -323,7 +333,7 @@ class BombServer:
 				try:
 					game_state = self.server_game_state.to_json()
 					await self.broadcast_state(game_state)  # Use new broadcast method
-					logger.info(f'{self} broadcast_state {game_state}')
+					# logger.info(f'{self} broadcast_state {game_state}')
 				except Exception as e:
 					logger.error(f"{type(e)} {e} ")
 				await asyncio.sleep(1 / UPDATE_TICK)

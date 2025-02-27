@@ -68,7 +68,7 @@ class Bomberplayer(Sprite):
 		self.angle = 0
 		self.candrop = True
 		self.lastdrop = 0
-		self.keys_pressed = KeysPressed('gamestate')
+		self.keyspressed = KeysPressed('gamestate')
 		# self.bullets = pygame.sprite.Group()
 
 	def __hash__(self):
@@ -92,20 +92,6 @@ class Bomberplayer(Sprite):
 		except Exception as e:
 			logger.error(f"Error converting player to dict: {e}")
 			return {}
-
-	def oldxto_dict(self):
-		"""Convert player object to dictionary"""
-		return {
-			'id': self.client_id,
-			'position': [float(self.position.x), float(self.position.y)],  # Convert Vec2d to list
-			'score': self.score,
-			'health': self.health,
-			'name': self.name,
-			'timeout': self.timeout,
-			'msg_dt': getattr(self, 'msg_dt', time.time()),  # Handle missing msg_dt
-			'killed': self.killed,
-			'bombsleft': self.bombsleft
-		}
 
 	def update(self, collidable_tiles):
 		# Calculate new position
