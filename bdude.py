@@ -10,6 +10,7 @@ import pygame
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
 from menu import MainView
+from panels import Mainmenu
 from game import Bomberdude
 # todo get inital pos from server
 # done draw netbombs
@@ -117,15 +118,8 @@ def get_args():
     parser.add_argument("-dp", "--debugpacket", action="store_true", dest="packetdebugmode", default=False,)
     return parser.parse_args()
 
-async def main():
-    pygame.init()
-    args = get_args()
-    eventq = asyncio.Queue()
-    # screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption(SCREEN_TITLE)
-    # bomberdude_main = MainView(screen=screen, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
+async def start_game(args, eventq):
     bomberdude_main = Bomberdude(args=args, eventq=eventq)
-
     connection_timeout = 5  # seconds
     try:
         connected = await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout)
@@ -171,6 +165,20 @@ async def main():
     await asyncio.gather(push_task, receive_task, return_exceptions=True)
     pygame.display.quit()
     pygame.quit()
+
+async def main():
+    pygame.init()
+    args = get_args()
+    eventq = asyncio.Queue()
+    # screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption(SCREEN_TITLE)
+    # bomberdude_main = MainView(screen=screen, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
+
+    mainmenu = Mainmenu(screen=screen, args=args, eventq=eventq)
+    action = mainmenu.run()
+    if action == "start":
+        await start_game(args, eventq)
 
 if __name__ == "__main__":
     if sys.platform == "win32":

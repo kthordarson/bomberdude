@@ -8,7 +8,6 @@ import json
 from queue import Empty
 
 from loguru import logger
-from panels import Panel
 from utils import get_map_coordinates_rev, gen_randid
 from gamestate import GameState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, BULLET_SPEED, BULLETDEBUG,GRAPH_HEIGHT, GRAPH_WIDTH, GRAPH_MARGIN, SCREEN_WIDTH, SCREEN_HEIGHT
