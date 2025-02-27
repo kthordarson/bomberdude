@@ -27,21 +27,10 @@ class BombServer:
 		self.client_tasks = set()  # Track active client tasks
 		self.process_task = None
 
-		# self.server_game_state.load_tile_map(args.mapname)
-		# tmxdata = pytmx.TiledMap(args.mapname)
-
-		# self.ctx = Context()
-		# self.pushsock = self.ctx.socket(zmq.PUB)  # : Socket
-		# self.pushsock.bind(f"tcp://{args.listen}:9696")
-		# self.recvsock = self.ctx.socket(zmq.PULL)  # : Socket
-		# self.recvsock.bind(f"tcp://{args.listen}:9697")
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
 		# Set socket options to allow port reuse
 		self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
 		self.sock.bind((self.args.host, 9696))
-
 		self.sock.listen(5)
 		self.loop = asyncio.get_event_loop()
 		# self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock,),)
@@ -155,10 +144,10 @@ class BombServer:
 		"""Broadcast game state to all connected clients"""
 		data = json.dumps(state).encode('utf-8')
 		failed_conns = []
-
 		for conn in self.connections:
 			try:
 				await self.loop.sock_sendall(conn, data)
+				logger.debug(f'{data=} Sent data to {conn}')
 			except (ConnectionError, BrokenPipeError) as e:
 				logger.warning(f"Failed to send to client {conn}: {e}")
 				failed_conns.append(conn)
@@ -332,13 +321,9 @@ class BombServer:
 			while not self.stopped():
 				await self.handle_connections()
 				try:
-					# self.server_game_state.check_players()
-					# await self.remove_timedout_players()
 					game_state = self.server_game_state.to_json()
-					# await self.send_data(game_state)
 					await self.broadcast_state(game_state)  # Use new broadcast method
-					# await self.server_game_state.broadcast_state(game_state)
-					# await self.send_data(self.server_game_state.to_json())  # Send updated game state to clients
+					logger.info(f'{self} broadcast_state {game_state}')
 				except Exception as e:
 					logger.error(f"{type(e)} {e} ")
 				await asyncio.sleep(1 / UPDATE_TICK)
