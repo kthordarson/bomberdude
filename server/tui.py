@@ -24,14 +24,12 @@ class ServerTUI():
 
 	async def get_serverinfo(self):
 		"""Get current server state information"""
-		state = {'players_sprites': len(self.server.server_game_state.players_sprites),'connections': len(self.server.server_game_state.connections)}
-		logger.debug(f"Server state: {state}")
+		logger.debug(f"Server state: {self.server.server_game_state.to_json()}")
 		try:
-			debug_dump = await self.server.server_game_state.debug_dump()
-			logger.debug(f"debug_dump: {debug_dump}")
+			await self.server.server_game_state.debug_dump()
 		except Exception as e:
 			logger.error(f"Error getting server info: {e}")
-		await asyncio.sleep(0.5)
+			await asyncio.sleep(0.5)
 
 	def dumpgameevents(self):
 		logger.debug(f"gamestate: {self.server.server_game_state} events: {len(self.server.server_game_state.game_events)}")
@@ -71,7 +69,7 @@ class ServerTUI():
 		elif cmd[:1] == "r":
 			self.server.remove_timedout_players()
 		elif cmd[:1] == "l":
-			self.dump_players()
+			pass  # self.dump_players()
 		elif cmd[:1] == "e":
 			self.dumpgameevents()
 		elif cmd[:2] == "ec":

@@ -137,20 +137,6 @@ class Bomberplayer(Sprite):
 		self.score += score
 		logger.info(f'{self} score:{self.score}')
 
-	def get_playerstate(self):
-		playerstate = {
-			'client_id': self.client_id,
-			'position': self.position,
-			'health': self.health,
-			'msgtype': 'get_playerstate',
-			'msg_dt': time.time(),
-			'timeout': self.timeout,
-			'killed': self.killed,
-			'score': self.score,
-			'bombsleft': self.bombsleft,
-		}
-		return json.dumps({self.client_id: playerstate})
-
 	def take_damage(self, damage, dmgfrom):
 		self.health -= damage
 		logger.info(f'{self} health:{self.health} {damage=} {dmgfrom=}')

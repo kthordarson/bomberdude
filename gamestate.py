@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from utils import gen_randid
 from objects.player import Bomberplayer, KeysPressed
 from objects.blocks import Upgrade
+from constants import UPDATE_TICK
 import pytmx
 from pytmx import load_pygame
 import json
@@ -32,7 +33,8 @@ class PlayerState:
 @dataclass
 class GameState:
 
-	def __init__(self, args, mapname=None, name='undefined'):
+	def __init__(self, args, mapname=None, name='undefined', client_id=None):
+		self.client_id = client_id
 		self.args = args
 		self.name = name
 		self.players_sprites = Group()
@@ -44,7 +46,6 @@ class GameState:
 		self.mapname = mapname
 		self.game_events = []
 		self.event_queue = asyncio.Queue()
-		self.raw_event_queue = asyncio.Queue()
 		self.keyspressed = KeysPressed('gamestate')
 		# self.tile_map = load_pygame('data/map3.tmx')
 		self.tile_map = pytmx.TiledMap('data/map3.tmx')
@@ -105,12 +106,14 @@ class GameState:
 				self.remove_connection(dead_conn)
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
-		await asyncio.sleep(0.1)
+		await asyncio.sleep(1 / UPDATE_TICK)
 
 	def get_playerone(self):
 		for player in self.players_sprites:
-			if isinstance(player, Bomberplayer):
+			if player.client_id == self.client_id:
 				return player
+			# if isinstance(player, Bomberplayer):
+			# 	return player
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
@@ -206,6 +209,8 @@ class GameState:
 		msg_client_id = game_event.get("client_id", "8888888888")
 		match event_type:
 			case 'player_update':
+				if msg_client_id == self.client_id:
+					return
 				if msg_client_id not in self.playerlist:
 					# Initialize player state if it does not exist
 					self.playerlist[msg_client_id] = {
@@ -289,7 +294,7 @@ class GameState:
 				game_event['handledby'] = 'ugsbomb'
 				game_event['event_type'] = 'ackbullet'
 				if self.args.debug:
-					logger.debug(f'type: {event_type} msg: {msg}')
+					logger.debug(f'type: {event_type} {self.event_queue.qsize()} msg: {msg}')
 				await self.event_queue.put(game_event)
 			case 'bombxplode':
 				game_event['handledby'] = 'ugsbomb'
@@ -339,6 +344,9 @@ class GameState:
 			case 'getmap':
 				payload = {'msgtype': 'scenedata', 'payload': self.scene}
 				logger.info(f'{event_type} from {msg_client_id} {len(payload)} {game_event=}')
+				await self.event_queue.put(payload)
+			case 'ackbullet':
+				payload = {'msgtype': 'ackbullet', 'payload': ''}
 				await self.event_queue.put(payload)
 			case _:
 				payload = {'msgtype': 'error99', 'payload': ''}

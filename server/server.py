@@ -22,7 +22,6 @@ class BombServer:
 		self.args = args
 		self.debug = self.args.debug
 		self.server_game_state = GameState(args=self.args, mapname=args.mapname, name='server')
-		# self.client_queue = asyncio.Queue()  # Add queue for client messages
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
 		self.process_task = None
@@ -94,7 +93,7 @@ class BombServer:
 					# task.add_done_callback(lambda t: self.connections.remove(conn))
 					# logger.debug(f"Task {len(self.client_tasks)} {task} created for {addr} ")
 				except (BlockingIOError, InterruptedError):
-					await asyncio.sleep(0.01)
+					await asyncio.sleep(0.101)
 					continue
 		except Exception as e:
 			logger.error(f'Error in handle_connections: {e} {type(e)}')
@@ -129,12 +128,8 @@ class BombServer:
 							await self.server_game_state.client_queue.put(msg)  # Put message in queue instead of processing directly
 						except json.JSONDecodeError as e:
 							logger.warning(f"Error decoding json: {e} data: {data}")
-							await asyncio.sleep(0.1)  # Short sleep to prevent CPU spinning
+							await asyncio.sleep(1 / UPDATE_TICK)  # Short sleep to prevent CPU spinning
 							continue
-					# msg = json.loads(data.decode('utf-8'))
-					# if self.args.debug:
-					# 	logger.info(f"msg: {msg}")
-					# await self.server_game_state.client_queue.put(msg)  # Put message in queue instead of processing directly
 		except Exception as e:
 			logger.error(f"handle_client: {e} {type(e)}")
 		finally:
@@ -185,6 +180,7 @@ class BombServer:
 					clid = msg.get("client_id","000000")
 				except Exception as e:
 					logger.error(f"Error processing message: {e}")
+					await asyncio.sleep(0.5)
 					continue
 				try:
 					self.server_game_state.update_game_state(clid, msg)
@@ -195,12 +191,15 @@ class BombServer:
 					await self.server_game_state.broadcast_state(game_state)
 				except Exception as e:
 					logger.error(f"Error processing message: {e} {type(e)} {msg}")
+					await asyncio.sleep(0.5)
 				finally:
 					self.server_game_state.client_queue.task_done()
 			except asyncio.CancelledError:
+				await asyncio.sleep(0.5)
 				break
 			except Exception as e:
 				logger.error(f"Message processing error: {e}")
+				await asyncio.sleep(0.5)
 
 	def get_game_state(self):
 		return self.server_game_state.to_json()
@@ -273,26 +272,31 @@ class BombServer:
 					self.server_game_state.update_game_state(clid, msg)
 				except KeyError as e:
 					logger.warning(f"{type(e)} {e} {msg=}")
+					await asyncio.sleep(0.5)
 				except Exception as e:
 					logger.error(f"{type(e)} {e} {msg=}")
-				evkeycnt = len(msg.get("game_events", []))
-				if evkeycnt > 0:
-					logger.debug(f"evk: {evkeycnt} gameevent: {msg.get('game_events', [])}")
-					try:
-						self.server_game_state.update_game_events(msg)
-					except AttributeError as e:
-						logger.warning(f"{type(e)} {e} {msg=}")
-					except KeyError as e:
-						logger.warning(f"{type(e)} {e} {msg=}")
-					except TypeError as e:
-						logger.warning(f"{type(e)} {e} {msg=}")
-					except Exception as e:
-						logger.error(f"{type(e)} {e} {msg=}")
+					await asyncio.sleep(0.5)
+				try:
+					self.server_game_state.update_game_events(msg)
+				except AttributeError as e:
+					logger.warning(f"{type(e)} {e} {msg=}")
+					await asyncio.sleep(0.5)
+				except KeyError as e:
+					logger.warning(f"{type(e)} {e} {msg=}")
+					await asyncio.sleep(0.5)
+				except TypeError as e:
+					logger.warning(f"{type(e)} {e} {msg=}")
+					await asyncio.sleep(0.5)
+				except Exception as e:
+					logger.error(f"{type(e)} {e} {msg=}")
+					await asyncio.sleep(0.5)
 					# if self.tui.stopped():
 					# 	logger.warning(f"{self} update_from_clienttuistop {self.tui}")
 					# 	break
 		except asyncio.CancelledError as e:
 			logger.warning(f"update_from_client CancelledError {e} ")
+			await asyncio.sleep(0.5)
+		await asyncio.sleep(1 / UPDATE_TICK)
 
 	async def send_data(self, data):
 		try:
@@ -303,10 +307,14 @@ class BombServer:
 				await self.loop.sock_sendall(conn, json.dumps(await data).encode('utf-8'))
 			except Exception as e:
 				logger.warning(f"{type(e)} {e} in send_data {conn} {addr}")
+				await asyncio.sleep(0.5)
 			finally:
 				conn.close()
+				await asyncio.sleep(1 / UPDATE_TICK)
 		except Exception as e:
 			logger.error(f"{type(e)} {e} in send_data {data}")
+			await asyncio.sleep(0.5)
+		await asyncio.sleep(1 / UPDATE_TICK)
 
 	async def stop(self):
 		self._stop.set()

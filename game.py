@@ -26,14 +26,12 @@ class Bomberdude():
 		# self.screen = pygame.display.get_surface()
 		self.debug = self.args.debug
 		self.manager = None  # Replace with pygame UI manager if needed
-		self.t = 0
 		self.running = True
 		self._gotmap = False
 		self.selected_bomb = 1
-		self.client_game_state = GameState(args=self.args, name='client')
-		self.hitlist = []
+		self.client_id = str(gen_randid())
+		self.client_game_state = GameState(args=self.args, name='client', client_id=self.client_id)
 		self._connected = False
-		self.physics_engine = None
 		self.eventq = eventq
 		self.draw_graphs = False
 		self.poplist = []
@@ -46,18 +44,13 @@ class Bomberdude():
 		self.show_kill_timer = 1
 		self.show_kill_timer_start = 1
 		self.timer = 0
-		self.view_bottom = 0
-		self.view_left = 0
 		self.mouse_pos = Vec2d(x=0, y=0)
 		self.background_color = (100, 149, 237)
-		self.camera = None  # Replace with pygame camera if needed
-		self.guicamera = None  # Replace with pygame camera if needed
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.sock.setblocking(False)  # Make non-blocking
 		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
 		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
 		self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
-		self.client_id = str(gen_randid())
 		# asyncio.create_task(self.do_connect())
 
 	def __repr__(self):
@@ -122,7 +115,7 @@ class Bomberdude():
 			"handledby": "do_connect",
 			"eventid": gen_randid(),
 		}
-		await self.eventq.put(connection_event)
+		await self.client_game_state.event_queue.put(connection_event)
 		if self.args.debug:
 			logger.debug(f'{self} map: {self._gotmap} conn: {self.connected()} - {self._connected} setup done player {player_one.name} : {player_one.client_id} {player_one.position}')
 		# await asyncio.sleep(1 / UPDATE_TICK)
@@ -185,7 +178,7 @@ class Bomberdude():
 		for player in self.client_game_state.playerlist.values():
 			if player.client_id != self.client_id:
 				self.draw_player(player)
-				logger.info(f'drawing player: {player}')
+				# logger.info(f'drawing player: {player}')
 			# self.draw_player(player)
 		player_one = self.client_game_state.get_playerone()
 		if player_one:
@@ -223,8 +216,9 @@ class Bomberdude():
 					"eventid": gen_randid(),
 				}
 				if self.args.debug:
+					logger.debug(f'{bullet} {self.client_game_state.event_queue.qsize()} {self.eventq.qsize()} ')
 					pass  # logger.debug(f'bullet: {bullet} {direction=} {mouse_world=} {player_world=} {self.camera.position=} {self.eventq.qsize()}')
-				await self.eventq.put(event)
+				await self.client_game_state.event_queue.put(event)
 
 	def handle_on_key_press(self, key):
 		player_one = self.client_game_state.get_playerone()
@@ -291,14 +285,6 @@ class Bomberdude():
 			pass  # _ = [k.dropbomb(self.selected_bomb) for k in self.player_list]
 		self.client_game_state.keyspressed.keys[key] = False
 
-	async def handle_game_events(self):
-		while not self.eventq.empty():
-			event = await self.eventq.get()
-			# Process the event here
-			logger.debug(f'Processing event: {event}')
-			self.eventq.task_done()
-		# logger.debug(f'{game_events=}')
-
 	async def update(self):
 		if not self._gotmap:
 			if self.args.debug:
@@ -330,7 +316,7 @@ class Bomberdude():
 				"handled": False,
 				"handledby": "update",
 				"eventid": gen_randid(),}
-			await self.eventq.put(update_event)
+			await self.client_game_state.event_queue.put(update_event)
 
 		else:
 			logger.warning(f'{self} no player_one !')
