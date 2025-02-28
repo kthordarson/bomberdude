@@ -57,10 +57,11 @@ class Bomberdude():
 		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
 		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
 		self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
+		self.client_id = str(gen_randid())
 		# asyncio.create_task(self.do_connect())
 
 	def __repr__(self):
-		return f"Bomberdude( {self.title} np: {len(self.client_game_state.players)} c:{self._connected} )"
+		return f"Bomberdude( {self.title} np: {len(self.client_game_state.playerlist)} c:{self._connected} )"
 
 	def connected(self):
 		return self._connected
@@ -108,7 +109,7 @@ class Bomberdude():
 
 		self.setup_panels()
 		self.setup_labels()
-		player_one = Bomberplayer(texture="data/playerone.png", name=self.args.name, client_id=gen_randid())  # , eventq=self.eventq
+		player_one = Bomberplayer(texture="data/playerone.png", name=self.args.name, client_id=self.client_id)  # , eventq=self.eventq
 		player_one.position = pos
 		# self.player_list.append(player_one)
 		self.client_game_state.players_sprites.add(player_one)
@@ -157,7 +158,8 @@ class Bomberdude():
 				logger.error(f'Player position is None: {player}')
 				return
 			color = (0, 255, 0) if player.client_id == self.client_game_state.get_playerone().client_id else (255, 0, 0)
-			position = (int(player.position[0]), int(player.position[1]))  # Ensure position is a tuple of integers
+			# position = (int(player.position[0]), int(player.position[1]))  # Ensure position is a tuple of integers
+			position = self.camera.apply(pygame.Rect(player.position[0], player.position[1], 0, 0)).topleft
 			pygame.draw.circle(self.screen, color, position, 10)
 			# logger.info(f'drawing player: {player}')
 		except Exception as e:
@@ -180,13 +182,15 @@ class Bomberdude():
 			logger.error(f'{e} {type(e)}')
 		for bullet in self.client_game_state.bullets:
 			self.screen.blit(bullet.image, self.camera.apply(bullet))
-		for player in self.client_game_state.players.values():
-			# logger.info(f'drawing player: {player}')
-			self.draw_player(player)
+		for player in self.client_game_state.playerlist.values():
+			if player.client_id != self.client_id:
+				self.draw_player(player)
+				logger.info(f'drawing player: {player}')
+			# self.draw_player(player)
 		player_one = self.client_game_state.get_playerone()
 		if player_one:
 			self.screen.blit(player_one.image, self.camera.apply(player_one))
-		pygame.display.flip()
+		# pygame.display.flip()
 
 	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
 		self.mouse_pos = Vec2d(x=x, y=y)
@@ -210,7 +214,7 @@ class Bomberdude():
 				event = {
 					"event_time": 0,
 					"event_type": "bulletfired",
-					"shooter": 0,
+					"client_id": self.client_id,
 					"position": (bullet.rect.x, bullet.rect.y),
 					"ba": 33,
 					"timer": 3515,
@@ -219,7 +223,7 @@ class Bomberdude():
 					"eventid": gen_randid(),
 				}
 				if self.args.debug:
-					logger.debug(f'bullet: {bullet} {direction=} {mouse_world=} {player_world=} {self.camera.position=} {self.eventq.qsize()}')
+					pass  # logger.debug(f'bullet: {bullet} {direction=} {mouse_world=} {player_world=} {self.camera.position=} {self.eventq.qsize()}')
 				await self.eventq.put(event)
 
 	def handle_on_key_press(self, key):
@@ -315,6 +319,7 @@ class Bomberdude():
 			self.camera.update2(player_one)
 			update_event = {
 				"event_time": self.timer,
+				"msgtype": "player_update",
 				"event_type": "player_update",
 				"client_id": str(player_one.client_id),
 				"position": (player_one.position.x, player_one.position.y),

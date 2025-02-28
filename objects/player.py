@@ -111,23 +111,10 @@ class Bomberplayer(Sprite):
 		# Calculate direction from player's position to target
 		bullet_pos = Vec2d(self.rect.center)
 		bullet = Bullet(position=bullet_pos,direction=direction, screen_rect=self.rect)
-		print(f"Bullet: {bullet}")  # Debug
 		return bullet  # self.bullets.add(bullet)
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
-
-	# async def dropbomb(self, bombtype) -> None:
-	# 	if self.bombsleft <= 0:
-	# 		logger.warning(f'p1: {self} has no bombs left {self.lastdrop}...')
-	# 		return None
-	# 	else:
-	# 		bombpos = Vec2d(self.rect.centerx, self.rect.centery)
-	# 		bombevent = {'event_time': 0, 'event_type': 'bombdrop', 'bombtype': bombtype, 'bomber': self.client_id, 'pos': bombpos, 'timer': 1, 'handled': False, 'handledby': self.client_id, 'ld': self.lastdrop, 'eventid': gen_randid()}
-	# 		await self.eventq.put(bombevent)
-	# 		self.lastdrop = bombevent['eventid']
-	# 		logger.debug(f'{self} dropped bomb {bombevent["eventid"]}')
-	# 		# return bombevent
 
 	def rotate_around_point(self, point, degrees):
 		self.angle += degrees
@@ -155,7 +142,7 @@ class Bomberplayer(Sprite):
 			'client_id': self.client_id,
 			'position': self.position,
 			'health': self.health,
-			'msgsource': 'get_playerstate',
+			'msgtype': 'get_playerstate',
 			'msg_dt': time.time(),
 			'timeout': self.timeout,
 			'killed': self.killed,

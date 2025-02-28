@@ -64,6 +64,10 @@ class BombServer:
 
 			logger.info(f"New connection added from {addr}. Total connections: {len(self.connections)} server_game_state: {len(self.server_game_state.connections)}")
 
+			# Broadcast the updated game state to all clients
+			game_state = self.server_game_state.to_json()
+			await self.broadcast_state(game_state)
+
 			return task
 
 		except Exception as e:
@@ -208,18 +212,18 @@ class BombServer:
 		return web.json_response({"mapname": str(self.args.mapname), "position": position})
 
 	async def remove_timedout_players(self):
-		pcopy = copy.copy(self.server_game_state.players)
-		len0 = len(self.server_game_state.players)
+		pcopy = copy.copy(self.server_game_state.playerlist)
+		len0 = len(self.server_game_state.playerlist)
 		for p in pcopy:
 			try:
-				if self.server_game_state.players[p].get("timeout", False):
+				if self.server_game_state.playerlist[p].get("timeout", False):
 					self.server_game_state.players_sprites.pop(p)
-					logger.warning(f"remove_timedout_players {p} {len0}->{len(self.server_game_state.players)} {self.server_game_state.players[p]}")
-				elif self.server_game_state.players[p].get("playerquit", False):
+					logger.warning(f"remove_timedout_players {p} {len0}->{len(self.server_game_state.playerlist)} {self.server_game_state.playerlist[p]}")
+				elif self.server_game_state.playerlist[p].get("playerquit", False):
 					self.server_game_state.players_sprites.pop(p)
-					logger.debug(f"playerquit {p} {len0}->{len(self.server_game_state.players)}")
+					logger.debug(f"playerquit {p} {len0}->{len(self.server_game_state.playerlist)}")
 			except KeyError as e:
-				logger.warning(f"keyerror in remove_timedout_players {e} {self.server_game_state.players[p]} {self.server_game_state.players}")
+				logger.warning(f"keyerror in remove_timedout_players {e} {self.server_game_state.playerlist[p]} {self.server_game_state.playerlist}")
 
 	def get_position(self, retas="int"):
 		# Get map dimensions in tiles
@@ -262,7 +266,7 @@ class BombServer:
 		try:
 			while True:
 				msg = await sockrecv.recv_json()
-				if self.packetdebugmode and len(msg.get('game_events')) > 0:  # and msg['msgsource'] != "pushermsgdict":
+				if self.packetdebugmode and len(msg.get('game_events')) > 0:
 					logger.info(f"msg: {msg}")
 				clid = str(msg["client_id"])
 				try:
