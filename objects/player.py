@@ -68,7 +68,7 @@ class Bomberplayer(Sprite):
 		self.angle = 0
 		self.candrop = True
 		self.lastdrop = 0
-		self.keys_pressed = KeysPressed('gamestate')
+		self.keyspressed = KeysPressed('gamestate')
 		# self.bullets = pygame.sprite.Group()
 
 	def __hash__(self):
@@ -93,20 +93,6 @@ class Bomberplayer(Sprite):
 			logger.error(f"Error converting player to dict: {e}")
 			return {}
 
-	def oldxto_dict(self):
-		"""Convert player object to dictionary"""
-		return {
-			'id': self.client_id,
-			'position': [float(self.position.x), float(self.position.y)],  # Convert Vec2d to list
-			'score': self.score,
-			'health': self.health,
-			'name': self.name,
-			'timeout': self.timeout,
-			'msg_dt': getattr(self, 'msg_dt', time.time()),  # Handle missing msg_dt
-			'killed': self.killed,
-			'bombsleft': self.bombsleft
-		}
-
 	def update(self, collidable_tiles):
 		# Calculate new position
 		new_x = self.position.x + self.change_x
@@ -125,23 +111,10 @@ class Bomberplayer(Sprite):
 		# Calculate direction from player's position to target
 		bullet_pos = Vec2d(self.rect.center)
 		bullet = Bullet(position=bullet_pos,direction=direction, screen_rect=self.rect)
-		print(f"Bullet: {bullet}")  # Debug
 		return bullet  # self.bullets.add(bullet)
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
-
-	# async def dropbomb(self, bombtype) -> None:
-	# 	if self.bombsleft <= 0:
-	# 		logger.warning(f'p1: {self} has no bombs left {self.lastdrop}...')
-	# 		return None
-	# 	else:
-	# 		bombpos = Vec2d(self.rect.centerx, self.rect.centery)
-	# 		bombevent = {'event_time': 0, 'event_type': 'bombdrop', 'bombtype': bombtype, 'bomber': self.client_id, 'pos': bombpos, 'timer': 1, 'handled': False, 'handledby': self.client_id, 'ld': self.lastdrop, 'eventid': gen_randid()}
-	# 		await self.eventq.put(bombevent)
-	# 		self.lastdrop = bombevent['eventid']
-	# 		logger.debug(f'{self} dropped bomb {bombevent["eventid"]}')
-	# 		# return bombevent
 
 	def rotate_around_point(self, point, degrees):
 		self.angle += degrees
@@ -163,20 +136,6 @@ class Bomberplayer(Sprite):
 	def addscore(self, score):
 		self.score += score
 		logger.info(f'{self} score:{self.score}')
-
-	def get_playerstate(self):
-		playerstate = {
-			'client_id': self.client_id,
-			'position': self.position,
-			'health': self.health,
-			'msgsource': 'get_playerstate',
-			'msg_dt': time.time(),
-			'timeout': self.timeout,
-			'killed': self.killed,
-			'score': self.score,
-			'bombsleft': self.bombsleft,
-		}
-		return json.dumps({self.client_id: playerstate})
 
 	def take_damage(self, damage, dmgfrom):
 		self.health -= damage
