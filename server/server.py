@@ -151,7 +151,7 @@ class BombServer:
 
 	async def broadcast_state(self, state):
 		"""Broadcast game state to all connected clients"""
-		data = json.dumps(state).encode('utf-8')
+		data = json.dumps(state).encode('utf-8') + b'\n'
 		failed_conns = []
 		for conn in self.connections:
 			try:
@@ -304,7 +304,9 @@ class BombServer:
 			conn, addr = await self.loop.sock_accept(self.sock)
 			try:
 				# Use asyncio's sock_sendall
-				await self.loop.sock_sendall(conn, json.dumps(await data).encode('utf-8'))
+				data_out = json.dumps(data).encode('utf-8') + b'\n'
+				await self.loop.sock_sendall(conn, data_out)
+				# await self.loop.sock_sendall(conn, json.dumps(await data).encode('utf-8'))
 			except Exception as e:
 				logger.warning(f"{type(e)} {e} in send_data {conn} {addr}")
 				await asyncio.sleep(0.5)

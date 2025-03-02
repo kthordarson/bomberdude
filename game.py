@@ -158,13 +158,6 @@ class Bomberdude():
 		except Exception as e:
 			logger.error(f'{e} {type(e)} player: {player}')
 
-	def olddraw_player(self, player):
-		try:
-			color = (0, 255, 0) if player.client_id == self.client_game_state.get_playerone().client_id else (255, 0, 0)
-			pygame.draw.circle(self.screen, color, player.position, 10)
-		except Exception as e:
-			logger.error(f'{e} {type(e)} player: {player}')
-
 	def on_draw(self):
 		# self.screen.fill(self.background_color)
 		# Draw game elements here

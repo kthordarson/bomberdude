@@ -78,6 +78,17 @@ class GameState:
 			self.connections.remove(connection)
 			logger.info(f"Connection removed. Total connections: {len(self.connections)}")
 
+	async def broadcast_events(self):
+		while True:
+			if not self.event_queue.empty():
+				events = []
+				while not self.event_queue.empty():
+					event = await self.event_queue.get()
+					events.append(event)
+				if events:
+					await self.broadcast_state({"msgtype": "game_events", "events": events})
+			await asyncio.sleep(1 / UPDATE_TICK)
+
 	async def broadcast_state(self, game_state):
 		"""Broadcast game state to all connected clients"""
 		if not self.connections:
@@ -86,20 +97,14 @@ class GameState:
 		try:
 			data = json.dumps(game_state).encode('utf-8') + b'\n'
 			loop = asyncio.get_event_loop()
-
 			# logger.debug(f'broadcast_state to {len(self.connections)} clients')
 			dead_connections = set()
-
 			for conn in self.connections:
 				try:
-					# data = json.dumps(game_state)
-					# Get the current event loop
-					# loop = asyncio.get_event_loop()
 					await loop.sock_sendall(conn, data)
 				except Exception as e:
 					logger.error(f"Error broadcasting to client: {e}")
 					dead_connections.add(conn)
-
 			# Clean up dead connections
 			for dead_conn in dead_connections:
 				logger.warning(f"Removing {dead_conn} from connections")
