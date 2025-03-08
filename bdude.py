@@ -83,6 +83,8 @@ async def receive_game_state(game):
                         if game_state_json.get("msgtype") == "game_events":
                             for event in game_state_json["events"]:
                                 await game.client_game_state.update_game_events(event)
+                        elif game_state_json.get("msgtype") == "game_event":
+                            await game.client_game_state.update_game_event(game_state_json["event"])
                         else:
                             game.client_game_state.from_json(game_state_json)
                         if game.args.debug:
@@ -96,15 +98,23 @@ async def receive_game_state(game):
             await asyncio.sleep(1)
             continue
         except ConnectionResetError as e:
-            logger.warning(f"Error in receive_game_state: {e} {type(e)}")
+            logger.warning(f"ConnectionResetError in receive_game_state: {e} {type(e)}")
             game._connected = False
             break
+        except KeyError as e:
+            logger.warning(f"KeyError in receive_game_state: {e} data: {data}")
+            await asyncio.sleep(0.101)
+            continue
+        except AttributeError as e:
+            logger.warning(f"AttributeError in receive_game_state: {e} data: {data}")
+            await asyncio.sleep(0.101)
+            continue
         except TypeError as e:
-            logger.error(f"Error in receive_game_state: {e} data: {data}")
+            logger.error(f"TypeError in receive_game_state: {e} data: {data}")
             await asyncio.sleep(0.101)
             continue
         except Exception as e:
-            logger.error(f"Error in receive_game_state: {e} {type(e)} data: {data}")
+            logger.error(f"Exception in receive_game_state: {e} {type(e)} data: {data}")
             game._connected = False
             await asyncio.sleep(1)  # Prevent tight loop on error
             break

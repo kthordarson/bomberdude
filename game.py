@@ -13,6 +13,7 @@ from gamestate import GameState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, BULLET_SPEED, BULLETDEBUG,GRAPH_HEIGHT, GRAPH_WIDTH, GRAPH_MARGIN, SCREEN_WIDTH, SCREEN_HEIGHT
 from camera import Camera
 from objects.player import Bomberplayer
+from objects.bullets import Bullet
 
 class Bomberdude():
 	def __init__(self, args, eventq):
@@ -187,12 +188,13 @@ class Bomberdude():
 				# Calculate direction in world space
 				direction = (mouse_world - player_world).normalize()
 				bullet = player_one.shoot(direction)
-				self.client_game_state.bullets.add(bullet)
+				# self.client_game_state.bullets.add(bullet)
 				event = {
 					"event_time": 0,
 					"event_type": "bulletfired",
 					"client_id": self.client_id,
 					"position": (bullet.rect.x, bullet.rect.y),
+					"direction": (direction.x, direction.y),
 					"ba": 33,
 					"timer": 3515,
 					"handled": False,
