@@ -98,11 +98,11 @@ class GameState:
 
 	async def broadcast_event(self, event):
 		if self.args.debug:
-			logger.info(f'broadcast_event {event=}')
+			logger.info(f'broadcast_event {event.get('event_type')}')
 		try:
 			await self.broadcast_state({"msgtype": "game_event", "event": event})
 		except Exception as e:
-			logger.error(f"Error in broadcast_event: {e} {type(e)}")
+			logger.error(f"Error in broadcast_event: {e} {type(e)} {event}")
 			await asyncio.sleep(3)
 		finally:
 			await asyncio.sleep(1 / UPDATE_TICK)
@@ -226,7 +226,8 @@ class GameState:
 		self.playerlist[clid] = playerdict
 
 	async def update_game_events(self, msg):
-		# logger.info(f'update_game_events {msg=}')
+		if self.args.debug:
+			logger.info(f'update_game_events {msg.get('event_type')}')
 		game_event = msg.get('game_events')
 		event_type = game_event.get('event_type')
 		eventid = game_event.get('eventid')
@@ -381,7 +382,8 @@ class GameState:
 
 	async def update_game_event(self, game_event):
 		if self.args.debug:
-			logger.info(f'update_game_event {game_event}')
+			if game_event.get('event_type') != 'player_update':
+				logger.info(f'update_game_event {game_event.get('event_type')}')
 		event_type = game_event.get('event_type')
 		eventid = game_event.get('eventid')
 		msg_client_id = game_event.get("client_id", "8888888888")
@@ -470,6 +472,7 @@ class GameState:
 			case 'bulletfired':
 				game_event['handledby'] = 'update_game_event'
 				game_event['event_type'] = 'ackbullet'
+				game_event['handled'] = True
 				if self.args.debug:
 					logger.debug(f'type: {event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()} ')
 				# await self.event_queue.put(game_event)
@@ -480,10 +483,10 @@ class GameState:
 				player_one = self.get_playerone()
 				if msg_client_id == player_one.client_id:
 					bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=player_one.rect)
-					logger.info(f'{event_type} from {msg_client_id} {game_event}')
+					logger.info(f'{event_type} from self {msg_client_id}')
 				else:
 					bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=player_one.rect, bullet_size=(5,5))
-					logger.debug(f'{event_type} from {msg_client_id} {game_event}')
+					logger.debug(f'{event_type} from other {msg_client_id}')
 				self.bullets.add(bullet)
 				# await self.event_queue.put(payload)
 

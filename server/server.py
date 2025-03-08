@@ -189,7 +189,11 @@ class BombServer:
 					self.server_game_state.update_game_state(clid, msg)
 					if evts := msg.get("game_events", {'foo': 'bar'}):
 						# await self.process_game_events(msg)
-						await self.server_game_state.update_game_events(msg)
+						game_event = msg.get('game_events')
+						if self.args.debug:
+							if evts.get('event_type') != 'player_update':
+								logger.debug(f"game_event: {game_event}")
+						await self.server_game_state.update_game_event(game_event)
 					game_state = self.server_game_state.to_json()
 					await self.server_game_state.broadcast_state(game_state)
 				except Exception as e:

@@ -34,6 +34,7 @@ async def pusher(game):
             'position': (player_one.position[0], player_one.position[1]),
             'keyspressed': client_keys,
             'msgtype': "pushermsgdict",
+            'handledby': "pusher",
             'msg_dt': time.time(),
         }
         game.client_game_state.event_queue.task_done()

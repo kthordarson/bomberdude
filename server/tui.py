@@ -34,13 +34,7 @@ class ServerTUI():
 			await asyncio.sleep(1 / 60)
 
 	def dumpgameevents(self):
-		logger.debug(f"gamestate: {self.server.server_game_state} events: {len(self.server.server_game_state.game_events)}")
-		for e in self.server.server_game_state.game_events:
-			logger.debug(f"event: {e}")
-
-	def cleargameevents(self):
-		logger.debug(f"clearevents gamestate: {self.server.server_game_state} events: {len(self.server.server_game_state.game_events)}")
-		self.server.server_game_state.game_events = []
+		logger.debug(f"gamestate: {self.server.server_game_state} ")
 
 	def printhelp(self):
 		help = """
@@ -75,7 +69,7 @@ class ServerTUI():
 		elif cmd[:1] == "e":
 			self.dumpgameevents()
 		elif cmd[:2] == "ec":
-			self.cleargameevents()
+			pass  # self.cleargameevents()
 		elif cmd[:1] == "q":
 			logger.warning(f"{self} {self.server} tuiquit")
 			await self.server.stop()

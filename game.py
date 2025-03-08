@@ -195,10 +195,10 @@ class Bomberdude():
 					"client_id": self.client_id,
 					"position": (bullet.rect.x, bullet.rect.y),
 					"direction": (direction.x, direction.y),
-					"ba": 33,
-					"timer": 3515,
+					"ba": 1,
+					"timer": 1,
 					"handled": False,
-					"handledby": "kremer",
+					"handledby": self.client_id,
 					"eventid": gen_randid(),
 				}
 				if self.args.debug:
