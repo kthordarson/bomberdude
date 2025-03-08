@@ -22,7 +22,7 @@ class oldBomb(Sprite):
 		self.timer = timer
 
 class Bomb(Sprite):
-	def __init__(self, position, screen_rect, speed=10, bounce_count=3, bomb_size=(10,10)):
+	def __init__(self, position, screen_rect, speed=10, timer=3, bomb_size=(10,10)):
 		super().__init__()
 		# self.image = pygame.Surface(bomb_size)
 		self.image = pygame.image.load('data/bomb.png')
@@ -33,10 +33,15 @@ class Bomb(Sprite):
 		self.position = Vec2d(position)
 		# self.rect = self.image.get_rect(center=self.position)
 		self.screen_rect = screen_rect
-		self.bounce_count = bounce_count
+		self.timer = timer
+		self.start_time = pygame.time.get_ticks() / 1000
+		self.rect.topleft = self.position
 
 	def __repr__(self):
 		return f'Bomb (pos: {self.position} )'
 
-	def update(self, collidable_tiles):
-		...
+	def update(self):
+		# print(f'[pu] {dt  - self.start_time} {self.timer}')
+		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:
+			logger.info(f'{self} BOOM!')
+			self.kill()

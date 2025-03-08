@@ -154,6 +154,7 @@ class Bomberdude():
 		# self.screen.fill(self.background_color)
 		# Draw game elements here
 		self.screen.fill((200, 249, 237))
+		player_one = self.client_game_state.get_playerone()
 		try:
 			self.client_game_state.render_map(self.screen, self.camera)
 		except Exception as e:
@@ -162,16 +163,14 @@ class Bomberdude():
 			self.screen.blit(bullet.image, self.camera.apply(bullet))
 		for bomb in self.client_game_state.bombs:
 			self.screen.blit(bomb.image, self.camera.apply(bomb))
-			pygame.draw.circle(self.screen, (123,123,123), bomb.position, 20)
 		for player in self.client_game_state.playerlist.values():
 			if player.client_id != self.client_id:
 				self.draw_player(player)
 				# logger.info(f'drawing player: {player}')
 			# self.draw_player(player)
-		player_one = self.client_game_state.get_playerone()
 		if player_one:
 			self.screen.blit(player_one.image, self.camera.apply(player_one))
-		# pygame.display.flip()
+		pygame.display.flip()
 
 	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
 		self.mouse_pos = Vec2d(x=x, y=y)
@@ -283,6 +282,7 @@ class Bomberdude():
 			return
 		self.timer += 1 / 60
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
+		self.client_game_state.bombs.update()
 		player_one = self.client_game_state.get_playerone()
 		if player_one:
 			player_one.update(self.client_game_state.collidable_tiles)
