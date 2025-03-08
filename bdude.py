@@ -172,7 +172,7 @@ async def start_game(args, eventq):
                 bomberdude_main.handle_on_key_press(event.key)
             elif event.type == pygame.KEYUP:
                 # logger.info(f'keyup {event} event.key={event.key}')
-                bomberdude_main.handle_on_key_release(event.key)
+                await bomberdude_main.handle_on_key_release(event.key)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 asyncio.create_task(bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button))
         # elapsed_time = time.time() - start_time

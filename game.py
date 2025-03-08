@@ -160,6 +160,9 @@ class Bomberdude():
 			logger.error(f'{e} {type(e)}')
 		for bullet in self.client_game_state.bullets:
 			self.screen.blit(bullet.image, self.camera.apply(bullet))
+		for bomb in self.client_game_state.bombs:
+			self.screen.blit(bomb.image, self.camera.apply(bomb))
+			pygame.draw.circle(self.screen, (123,123,123), bomb.position, 20)
 		for player in self.client_game_state.playerlist.values():
 			if player.client_id != self.client_id:
 				self.draw_player(player)
@@ -251,7 +254,7 @@ class Bomberdude():
 			player_one.change_x = PLAYER_MOVEMENT_SPEED
 			self.client_game_state.keyspressed.keys[key] = True
 
-	def handle_on_key_release(self, key):
+	async def handle_on_key_release(self, key):
 		# key = pygame.key.get_pressed()
 		# logger.info(f'{key=}')
 		player_one = self.client_game_state.get_playerone()
@@ -268,7 +271,8 @@ class Bomberdude():
 			player_one.change_x = 0
 			self.client_game_state.keyspressed.keys[key] = False
 		if key == pygame.K_SPACE:
-			pass  # _ = [k.dropbomb(self.selected_bomb) for k in self.player_list]
+			drop_bomb_event = player_one.drop_bomb()
+			await self.client_game_state.event_queue.put(drop_bomb_event)
 		self.client_game_state.keyspressed.keys[key] = False
 
 	async def update(self):

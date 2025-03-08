@@ -113,6 +113,19 @@ class Bomberplayer(Sprite):
 		bullet = Bullet(position=bullet_pos,direction=direction, screen_rect=self.rect)
 		return bullet  # self.bullets.add(bullet)
 
+	def drop_bomb(self):
+		logger.info(f'{self} drop_bomb')
+		event = {"event_time": 0,
+				"event_type": "drop_bomb",
+				"client_id": self.client_id,
+				"position": (self.rect.x, self.rect.y),
+				"ba": 1,
+				"timer": 1,
+				"handled": False,
+				"handledby": self.client_id,
+				"eventid": gen_randid(),}
+		return event
+
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
 

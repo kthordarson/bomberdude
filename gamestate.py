@@ -12,6 +12,7 @@ from utils import gen_randid
 from objects.player import Bomberplayer, KeysPressed
 from objects.blocks import Upgrade
 from objects.bullets import Bullet
+from objects.bombs import Bomb
 from constants import UPDATE_TICK
 import pytmx
 from pytmx import load_pygame
@@ -136,8 +137,6 @@ class GameState:
 		for player in self.players_sprites:
 			if player.client_id == self.client_id:
 				return player
-			# if isinstance(player, Bomberplayer):
-			# 	return player
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
@@ -455,20 +454,30 @@ class GameState:
 						pass
 					case _:
 						logger.warning(f'unknown upgradetype {upgradetype=} {game_event=}')
-			case 'bombdrop':
+			case 'drop_bomb':
+				bomber = game_event.get("client_id")
+				if self.args.debug:
+					logger.debug(f'{event_type} from {msg_client_id} game_event: {game_event}')
+					logger.debug(f'bomber: {bomber} {self.playerlist[bomber]}')
 				game_event['handledby'] = 'ugsbomb'
-				bomber = game_event.get("bomber")
 				eventid = game_event.get('eventid')
 				name = self.playerlist[bomber]['name']
-				if self.playerlist[bomber].get("bombsleft") > 0:
-					game_event['event_type'] = 'ackbombdrop'
-					self.playerlist[bomber]['bombsleft'] -= 1
-					await self.event_queue.put(game_event)
-					if self.args.debug:
-						logger.debug(f'{event_type} from {name=} {bomber} {eventid=} pos:{game_event.get("pos")} bl={self.playerlist[bomber].get("bombsleft")}')
+				# if self.playerlist[bomber].get("bombsleft",0) > 0:
+				game_event['event_type'] = 'ackbombdrop'
+				# self.playerlist[bomber]['bombsleft'] -= 1
+				# await self.event_queue.put(game_event)
+				await self.broadcast_event(game_event)
+
+			case 'ackbombdrop':
+				player_one = self.get_playerone()
+				if msg_client_id == player_one.client_id:
+					bomb = Bomb(position=game_event.get('position'),screen_rect=player_one.rect)
+					logger.info(f'{event_type} from self {msg_client_id}')
 				else:
-					if self.args.debug:
-						logger.debug(f'nobombsleft ! {event_type} {name=}  from {bomber} pos:{game_event.get("pos")} bl={self.playerlist[bomber].get("bombsleft")}')
+					bomb = Bomb(position=game_event.get('position'),screen_rect=player_one.rect, bomb_size=(5,5))
+					logger.debug(f'{event_type} from other {msg_client_id}')
+				self.bombs.add(bomb)
+
 			case 'bulletfired':
 				game_event['handledby'] = 'update_game_event'
 				game_event['event_type'] = 'ackbullet'
