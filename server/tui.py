@@ -29,7 +29,9 @@ class ServerTUI():
 			await self.server.server_game_state.debug_dump()
 		except Exception as e:
 			logger.error(f"Error getting server info: {e}")
-			await asyncio.sleep(0.5)
+			await asyncio.sleep(3)
+		finally:
+			await asyncio.sleep(1 / 60)
 
 	def dumpgameevents(self):
 		logger.debug(f"gamestate: {self.server.server_game_state} events: {len(self.server.server_game_state.game_events)}")

@@ -33,7 +33,6 @@ class Bomberdude():
 		self.client_game_state = GameState(args=self.args, name='client', client_id=self.client_id)
 		self._connected = False
 		self.eventq = eventq
-		self.draw_graphs = False
 		self.poplist = []
 		self.netplayers = {}
 		# self.player_list = []
@@ -121,15 +120,7 @@ class Bomberdude():
 		# await asyncio.sleep(1 / UPDATE_TICK)
 		return 1
 
-	def on_show_view(self):
-		pass  # self.screen.fill((100, 149, 237))  # GRAY_BLUE equivalent
-
-	def on_hide_view(self):
-		pass
-
 	def setup_labels(self):
-		self.draw_labels = True
-		self.showkilltext = pygame.font.Font(None, 22).render(f"kill: {self.show_kill_timer:.1f}", True, (255, 0, 0))
 		self.netplayer_labels = {}
 
 	def setup_panels(self):
@@ -209,7 +200,7 @@ class Bomberdude():
 					"eventid": gen_randid(),
 				}
 				if self.args.debug:
-					logger.debug(f'{bullet} {self.client_game_state.event_queue.qsize()} {self.eventq.qsize()} ')
+					# logger.debug(f'{bullet} {self.client_game_state.event_queue.qsize()} {self.eventq.qsize()} ')
 					pass  # logger.debug(f'bullet: {bullet} {direction=} {mouse_world=} {player_world=} {self.camera.position=} {self.eventq.qsize()}')
 				await self.client_game_state.event_queue.put(event)
 
@@ -230,11 +221,11 @@ class Bomberdude():
 		elif key == pygame.K_F3:
 			pass
 		elif key == pygame.K_F4:
-			self.draw_graphs = not self.draw_graphs
+			pass
 		elif key == pygame.K_F5:
 			pass
 		elif key == pygame.K_F6:
-			self.draw_labels = not self.draw_labels
+			pass
 		elif key == pygame.K_F7:
 			pygame.display.toggle_fullscreen()
 		elif key == pygame.K_ESCAPE or key == pygame.K_q or key == 27:

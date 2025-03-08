@@ -80,14 +80,20 @@ class GameState:
 
 	async def broadcast_events(self):
 		while True:
-			if not self.event_queue.empty():
-				events = []
-				while not self.event_queue.empty():
-					event = await self.event_queue.get()
-					events.append(event)
-				if events:
-					await self.broadcast_state({"msgtype": "game_events", "events": events})
-			await asyncio.sleep(1 / UPDATE_TICK)
+			try:
+				if not self.event_queue.empty():
+					events = []
+					while not self.event_queue.empty():
+						event = await self.event_queue.get()
+						events.append(event)
+					if events:
+						self.event_queue.task_done()
+						await self.broadcast_state({"msgtype": "game_events", "events": events})
+			except Exception as e:
+				logger.error(f"Error in broadcast_events: {e} {type(e)}")
+				await asyncio.sleep(3)
+			finally:
+				await asyncio.sleep(1 / UPDATE_TICK)
 
 	async def broadcast_state(self, game_state):
 		"""Broadcast game state to all connected clients"""
@@ -111,7 +117,8 @@ class GameState:
 				self.remove_connection(dead_conn)
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
-		await asyncio.sleep(1 / UPDATE_TICK)
+		finally:
+			await asyncio.sleep(1 / UPDATE_TICK)
 
 	def get_playerone(self):
 		for player in self.players_sprites:
@@ -165,7 +172,7 @@ class GameState:
 			dt_diff = dt - self.playerlist[p]['msg_dt']
 			if dt_diff > 10:  # player timeout
 				self.playerlist[p]['timeout'] = True
-				self.event_queue.put_nowait({'event_time': 0, 'event_type': 'playerquit', 'client_id': p, 'reason': 'timeout', 'eventid': gen_randid()})
+				self.event_queue.put({'event_time': 0, 'event_type': 'playerquit', 'client_id': p, 'reason': 'timeout', 'eventid': gen_randid()})
 				if not self.playerlist[p]['timeout']:
 					logger.info(f'player timeout {p} dt_diff={dt_diff} selfplayers={self.playerlist}')
 
@@ -244,7 +251,6 @@ class GameState:
 
 			case 'debug_dump':
 				logger.debug(f'{msg}')
-				await asyncio.sleep(0.5)
 			case 'playerquit':
 				self.playerlist[msg_client_id]['playerquit'] = True
 				await self.event_queue.put(game_event)
@@ -296,13 +302,13 @@ class GameState:
 					if self.args.debug:
 						logger.debug(f'nobombsleft ! {event_type} {name=}  from {bomber} pos:{game_event.get("pos")} bl={self.playerlist[bomber].get("bombsleft")}')
 			case 'bulletfired':
-				game_event['handledby'] = 'ugsbomb'
+				game_event['handledby'] = 'ugsbullet'
 				game_event['event_type'] = 'ackbullet'
 				if self.args.debug:
-					logger.debug(f'type: {event_type} {self.event_queue.qsize()} msg: {msg}')
+					logger.debug(f'type: {event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()} ')
 				await self.event_queue.put(game_event)
 			case 'bombxplode':
-				game_event['handledby'] = 'ugsbomb'
+				game_event['handledby'] = 'ugsbombxplode'
 				game_event['event_type'] = 'ackbombxplode'
 				eventid = game_event.get('eventid')
 				bomber = game_event.get("bomber")
@@ -352,7 +358,7 @@ class GameState:
 				await self.event_queue.put(payload)
 			case 'ackbullet':
 				payload = {'msgtype': 'ackbullet', 'payload': ''}
-				await self.event_queue.put(payload)
+				# await self.event_queue.put(payload)
 			case _:
 				payload = {'msgtype': 'error99', 'payload': ''}
 				logger.warning(f'unknown game_event:{event_type} from msg={msg}')
@@ -364,7 +370,7 @@ class GameState:
 
 	def from_json(self, data):
 		if data.get('msgtype') == 'debug_dump':
-			logger.debug(f'fromjson: {data=}')
+			logger.debug(f'debug_dump fromjson: {data=}')
 		else:
 			try:
 				playerlist = data.get('playerlist', [])
@@ -377,6 +383,6 @@ class GameState:
 					break
 				if self.args.debug and self.name != 'b':
 					logger.info(f'ge={ge.get("event_type")} dgamest={data=}')
-				self.event_queue.put_nowait(ge)
+				self.event_queue.put(ge)
 			if self.args.debug:
 				pass
