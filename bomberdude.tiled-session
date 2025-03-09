@@ -3,11 +3,11 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "data/map3.tmx",
+    "activeFile": "data/map4.tmx",
     "automapping.whileDrawing": false,
     "expandedProjectPaths": [
-        ".",
-        "data"
+        "data",
+        "."
     ],
     "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {
@@ -238,7 +238,7 @@
             "selectedLayer": 0,
             "viewCenter": {
                 "x": 960,
-                "y": 1087
+                "y": 1088
             }
         },
         "data/map4.json": {
@@ -247,6 +247,22 @@
             "viewCenter": {
                 "x": 888.2428789122026,
                 "y": 603.7650920173487
+            }
+        },
+        "data/map4.tmx": {
+            "scale": 0.423046875,
+            "selectedLayer": 2,
+            "viewCenter": {
+                "x": 1002.253000923361,
+                "y": 1025.8910433979686
+            }
+        },
+        "data/map5.tmx": {
+            "scale": 1.058544921875,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 512.0236173255223,
+                "y": 368.4302781493611
             }
         },
         "data/maptest.json": {
@@ -327,32 +343,29 @@
     "loadedWorlds": [
         "/home/kth/development2/games/arcadestuff/Temporum/tiled/tilemaps/demo_world.world"
     ],
-    "map.height": 3,
+    "map.height": 23,
     "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
     "map.lastUsedFormat": "tmx",
-    "map.width": 3,
+    "map.width": 32,
     "openFiles": [
-        "data/map2tiles.tsx",
-        "data/map2.tmj",
-        "data/map.json",
-        "data/btiles.tsx",
-        "data/map3.tmx"
+        "data/map3.tmx",
+        "data/map4.tmx"
     ],
     "project": "bomberdude.tiled-project",
     "property.type": "bool",
     "recentFiles": [
+        "data/map3.tmx",
+        "data/map4.tmx",
         "data/map2tiles.tsx",
         "data/map2.tmj",
         "data/map.json",
         "data/btiles.tsx",
-        "data/map3.tmx",
         "data/maptest5.json",
         "data/maptest4.json",
         "data/maptest2.json",
         "data/maptest5.tmx",
         "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json",
-        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/indoor.json",
-        "data/map4.json"
+        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/indoor.json"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1

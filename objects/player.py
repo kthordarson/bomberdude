@@ -51,8 +51,7 @@ class Bomberplayer(Sprite):
 	scale: float = 0.7
 	client_id: str = None
 	position: Vec2d = field(default_factory=lambda: Vec2d(99, 99))
-	name: str = 'xnonex'
-	# eventq: asyncio.Queue = None
+	# name: str = 'xnonex'
 
 	def __post_init__(self):
 		super().__init__()
@@ -72,7 +71,7 @@ class Bomberplayer(Sprite):
 		# self.bullets = pygame.sprite.Group()
 
 	def __hash__(self):
-		return hash((self.client_id, self.name))
+		return hash((self.client_id))
 
 	def to_dict(self):
 		"""Convert player object to dictionary"""
@@ -82,7 +81,6 @@ class Bomberplayer(Sprite):
 				'position': [float(self.position.x), float(self.position.y)],
 				'score': self.score,
 				'health': self.health,
-				'name': self.name,
 				'timeout': self.timeout,
 				'msg_dt': time.time(),
 				'killed': self.killed,
@@ -114,7 +112,6 @@ class Bomberplayer(Sprite):
 		return bullet  # self.bullets.add(bullet)
 
 	def drop_bomb(self):
-		logger.info(f'{self} drop_bomb')
 		event = {"event_time": 0,
 				"event_type": "drop_bomb",
 				"client_id": self.client_id,

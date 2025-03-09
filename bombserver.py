@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import cProfile
 import copy
 import asyncio
 import sys
@@ -26,8 +27,14 @@ async def start_server(args) -> None:
 	tui_task = asyncio.create_task(tui.start())
 
 	logger.debug(f'{server=} {tui=} {apiserver=}')
-	await asyncio.wait([api_task, server.ticker_task, tui_task], return_when=asyncio.FIRST_COMPLETED)
-
+	try:
+		await asyncio.wait([api_task, server.ticker_task, tui_task], return_when=asyncio.FIRST_COMPLETED)
+	except (asyncio.CancelledError, KeyboardInterrupt) as e:
+		logger.warning(f'{e} {type(e)}')
+		api_task.cancel()
+		tui_task.cancel()
+		server.ticker_task.cancel()
+		await asyncio.gather(api_task, tui_task, server.ticker_task, return_exceptions=True)
 
 if __name__ == "__main__":
 	if sys.platform == "win32":
@@ -37,7 +44,15 @@ if __name__ == "__main__":
 	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1")
 	parser.add_argument("--port", action="store", dest="port", default=9696, type=int)
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
-	parser.add_argument("-dp", "--debugpacket", action="store_true", dest="packetdebugmode", default=False,)
-	parser.add_argument("--map", action="store", dest="mapname", default="data/map3.tmx")
+	parser.add_argument("-dp", "--debugpacket", action="store_true", dest="debugpacket", default=False,)
+	parser.add_argument("--map", action="store", dest="mapname", default="data/map5.tmx")
 	args = parser.parse_args()
-	asyncio.run(start_server(args))
+	try:
+		asyncio.run(start_server(args))
+		# cProfile.run('asyncio.run(start_server(args))')
+	except KeyboardInterrupt as e:
+		logger.warning(f"Error starting server: {e} {type(e)}")
+		sys.exit(0)
+	except Exception as e:
+		logger.error(f"Error starting server: {e} {type(e)}")
+		sys.exit(1)

@@ -21,7 +21,6 @@ import json
 @dataclass
 class PlayerState:
 	client_id: str
-	name: str
 	position: tuple
 	health: int
 	bombsleft: int
@@ -35,39 +34,33 @@ class PlayerState:
 @dataclass
 class GameState:
 
-	def __init__(self, args, mapname=None, name='undefined', client_id=None):
+	def __init__(self, args, mapname=None, client_id=None):
 		self.client_id = client_id
 		self.args = args
-		self.name = name
 		self.players_sprites = Group()
 		self.bullets = Group()
 		self.bombs = Group()
 		self.flames = Group()
 		self.particles = Group()
-		self.event_queue = []
 		self.mapname = mapname
-		self.game_events = []
 		self.event_queue = asyncio.Queue()
 		self.keyspressed = KeysPressed('gamestate')
-		# self.tile_map = load_pygame('data/map3.tmx')
-		self.tile_map = pytmx.TiledMap('data/map3.tmx')
+		self.tile_map = pytmx.TiledMap(mapname)
 		self.collidable_tiles = []
 		self.connections = set()
 		self.client_queue = asyncio.Queue()
 		self.playerlist = {}  # dict = field(default_factory=dict)
 
 	def __repr__(self):
-		return f'Gamestate ( events:{len(self.game_events)} players:{len(self.playerlist)} )'
+		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
 
 	async def debug_dump(self):
 		"""Debug dump of game state"""
 		try:
 			state = self.to_json()
 			await self.broadcast_state({'msgtype': 'debug_dump','payload': state})
-			return
 		except Exception as e:
 			logger.error(f"Error in debug_dump: {e}")
-			return f"Error: {e}"
 
 	def add_connection(self, connection):
 		"""Add a new client connection"""
@@ -80,38 +73,18 @@ class GameState:
 			self.connections.remove(connection)
 			logger.info(f"Connection removed. Total connections: {len(self.connections)}")
 
-	async def broadcast_events(self):
-		while True:
-			try:
-				if not self.event_queue.empty():
-					events = []
-					while not self.event_queue.empty():
-						event = await self.event_queue.get()
-						events.append(event)
-					if events:
-						self.event_queue.task_done()
-						await self.broadcast_state({"msgtype": "game_events", "events": events})
-			except Exception as e:
-				logger.error(f"Error in broadcast_events: {e} {type(e)}")
-				await asyncio.sleep(3)
-			finally:
-				await asyncio.sleep(1 / UPDATE_TICK)
-
 	async def broadcast_event(self, event):
 		if self.args.debug:
-			logger.info(f'broadcast_event {event.get('event_type')}')
+			logger.info(f'broadcast_event {event.get('event_type')} event_queue: {self.event_queue.qsize()}')
 		try:
 			await self.broadcast_state({"msgtype": "game_event", "event": event})
 		except Exception as e:
 			logger.error(f"Error in broadcast_event: {e} {type(e)} {event}")
-			await asyncio.sleep(3)
-		finally:
-			await asyncio.sleep(1 / UPDATE_TICK)
 
 	async def broadcast_state(self, game_state):
 		"""Broadcast game state to all connected clients"""
 		if not self.connections:
-			# logger.warning(f'{self} got no connections....')
+			logger.warning(f'{self} got no connections....')
 			return
 		try:
 			data = json.dumps(game_state).encode('utf-8') + b'\n'
@@ -130,17 +103,15 @@ class GameState:
 				self.remove_connection(dead_conn)
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
-		finally:
-			await asyncio.sleep(1 / UPDATE_TICK)
 
 	def get_playerone(self):
 		for player in self.players_sprites:
 			if player.client_id == self.client_id:
 				return player
+		raise AttributeError(f'player one NOT found in self.players_sprites: {self.players_sprites}')
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
-		# self.tile_map = pytmx.TiledMap('data/map3.tmx')
 		self.tile_map = load_pygame(self.mapname)
 		self.scene = pygame.sprite.Group()  # add_sprite_list
 		for layer in self.tile_map.visible_layers:
@@ -168,25 +139,6 @@ class GameState:
 						# screen.blit(tile, camera.apply(pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)))
 						screen.blit(tile, camera.apply(pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)))
 
-	def get_players(self, skip=None):
-		for p in self.playerlist:
-			if p == skip:
-				pass
-			else:
-				playerdata = self.playerlist[p]
-				yield {'client_id': p, 'playerdata': playerdata}
-
-	def check_players(self):
-		dt = time.time()
-		playerscopy = copy.copy(self.playerlist)
-		for p in playerscopy:
-			dt_diff = dt - self.playerlist[p]['msg_dt']
-			if dt_diff > 10:  # player timeout
-				self.playerlist[p]['timeout'] = True
-				self.event_queue.put({'event_time': 0, 'event_type': 'playerquit', 'client_id': p, 'reason': 'timeout', 'eventid': gen_randid()})
-				if not self.playerlist[p]['timeout']:
-					logger.info(f'player timeout {p} dt_diff={dt_diff} selfplayers={self.playerlist}')
-
 	def create_upgrade_block(self, upgradetype, blkpos):
 		match upgradetype:
 			case 1:
@@ -210,7 +162,6 @@ class GameState:
 
 		playerdict = {
 			'client_id': clid,
-			'name': msg.get('name', 'ugsmissing'),
 			'position': msg.get('position'),
 			# 'position': tuple(msg.get('position', (42, 42))),  # Ensure position is a tuple
 			'angle': msg.get('angle'),
@@ -224,177 +175,19 @@ class GameState:
 		}
 		self.playerlist[clid] = playerdict
 
-	async def update_game_events(self, msg):
-		if self.args.debug:
-			logger.info(f'update_game_events {msg.get('event_type')}')
-		game_event = msg.get('game_events')
-		event_type = game_event.get('event_type')
-		eventid = game_event.get('eventid')
-		msg_client_id = game_event.get("client_id", "8888888888")
-		match event_type:
-			case 'player_update':
-				if msg_client_id == self.client_id:
-					return
-				if msg_client_id not in self.playerlist:
-					# Initialize player state if it does not exist
-					self.playerlist[msg_client_id] = {
-						'client_id': msg_client_id,
-						'name': msg.get('name', 'ugsmissing'),
-						'position': tuple(game_event.get('position', (0, 0))),
-						'angle': game_event.get('angle'),
-						'score': game_event.get('score'),
-						'health': game_event.get('health'),
-						'msg_dt': game_event.get('msg_dt'),
-						'timeout': game_event.get('timeout'),
-						'killed': game_event.get('killed'),
-						'msgtype': 'update_game_events',
-						'bombsleft': game_event.get('bombsleft'),
-					}
-				else:
-					# Update existing player state
-					self.playerlist[msg_client_id]['position'] = tuple(game_event.get('position', (0, 0)))
-					self.playerlist[msg_client_id]['angle'] = game_event.get('angle')
-					self.playerlist[msg_client_id]['score'] = game_event.get('score')
-					self.playerlist[msg_client_id]['health'] = game_event.get('health')
-					self.playerlist[msg_client_id]['msg_dt'] = game_event.get('msg_dt')
-					self.playerlist[msg_client_id]['timeout'] = game_event.get('timeout')
-					self.playerlist[msg_client_id]['killed'] = game_event.get('killed')
-					self.playerlist[msg_client_id]['bombsleft'] = game_event.get('bombsleft')
-
-			case 'debug_dump':
-				logger.debug(f'{msg}')
-			case 'playerquit':
-				self.playerlist[msg_client_id]['playerquit'] = True
-				await self.event_queue.put(game_event)
-			case 'newconnection':
-				name = game_event['name']
-				if self.args.debug:
-					logger.info(f'{event_type} from {msg_client_id} {name}')
-				game_event['handled'] = True
-				game_event['handledby'] = 'ugsnc'
-				game_event['event_type'] = 'acknewconn'
-				await self.event_queue.put(game_event)
-			case 'blkxplode':
-				uptype = random.choice([1, 2, 3])
-				newevent = {'event_time': 0, 'event_type': 'upgradeblock', 'client_id': msg_client_id, 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
-				await self.event_queue.put(newevent)
-				if self.args.debug:
-					logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
-			case 'takeupgrade':
-				game_event['handledby'] = 'ugstakeupgrade'
-				upgradetype = game_event.get("upgradetype")
-				msg_client_id = game_event['client_id']
-				match upgradetype:
-					case 1:
-						self.playerlist[msg_client_id]['health'] += EXTRA_HEALTH
-						logger.debug(f'{msg_client_id} got extrahealth -> {self.playerlist[msg_client_id].get("health")}')
-						event = {'event_time': 0, 'event_type': 'extrahealth', 'amount': EXTRA_HEALTH, 'client_id': msg_client_id, 'eventid': gen_randid()}
-						await self.event_queue.put(event)
-					case 2:
-						self.playerlist[msg_client_id]['bombsleft'] += 1
-						logger.debug(f'{msg_client_id} got extrabomb -> {self.playerlist[msg_client_id].get("bombsleft")}')
-						event = {'event_time': 0, 'event_type': 'extrabomb', 'client_id': msg_client_id, 'eventid': gen_randid()}
-						await self.event_queue.put(event)
-					case 3:
-						pass
-					case _:
-						logger.warning(f'unknown upgradetype {upgradetype=} {msg=}')
-			case 'bombdrop':
-				game_event['handledby'] = 'ugsbomb'
-				bomber = game_event.get("bomber")
-				eventid = game_event.get('eventid')
-				name = self.playerlist[bomber]['name']
-				if self.playerlist[bomber].get("bombsleft") > 0:
-					game_event['event_type'] = 'ackbombdrop'
-					self.playerlist[bomber]['bombsleft'] -= 1
-					await self.event_queue.put(game_event)
-					if self.args.debug:
-						logger.debug(f'{event_type} from {name=} {bomber} {eventid=} pos:{game_event.get("pos")} bl={self.playerlist[bomber].get("bombsleft")}')
-				else:
-					if self.args.debug:
-						logger.debug(f'nobombsleft ! {event_type} {name=}  from {bomber} pos:{game_event.get("pos")} bl={self.playerlist[bomber].get("bombsleft")}')
-			case 'bulletfired':
-				game_event['handledby'] = 'ugsbullet'
-				game_event['event_type'] = 'ackbullet'
-				if self.args.debug:
-					logger.debug(f'type: {event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()} ')
-				# await self.event_queue.put(game_event)
-				await self.broadcast_event(game_event)
-
-			case 'ackbullet':
-				logger.info(f'{event_type} from {msg_client_id} ')
-				# await self.event_queue.put(payload)
-
-			case 'bombxplode':
-				game_event['handledby'] = 'ugsbombxplode'
-				game_event['event_type'] = 'ackbombxplode'
-				eventid = game_event.get('eventid')
-				bomber = game_event.get("bomber")
-				self.playerlist[bomber]['bombsleft'] += 1
-				await self.event_queue.put(game_event)
-				if self.args.debug:
-					logger.debug(f'{event_type} from {bomber}  bl={self.playerlist[bomber].get("bombsleft")} {eventid=}')
-			case 'playerkilled':
-				dmgfrom = game_event.get("dmgfrom")
-				dmgto = game_event.get("dmgto")
-				self.playerlist[dmgfrom]['score'] += 1
-				game_event['handled'] = True
-				game_event['handledby'] = 'ugskill'
-				await self.event_queue.put(game_event)
-				if self.args.debug:
-					logger.debug(f'{event_type} {dmgfrom=} {dmgto=} {self.playerlist[dmgfrom]}')
-			case 'takedamage':
-				dmgfrom = game_event.get("dmgfrom")
-				dmgto = game_event.get("dmgto")
-				damage = game_event.get("damage")
-				self.playerlist[dmgto]['health'] -= damage
-				game_event['handled'] = True
-				game_event['handledby'] = 'ugskill'
-				self.playerlist[dmgfrom]['score'] += 1
-				if self.playerlist[dmgto]['health'] > 0:
-					game_event['event_type'] = 'acktakedamage'
-					self.playerlist[dmgfrom]['score'] += 1
-					logger.info(f'{event_type} {dmgfrom=} {dmgto=} killerscore={self.playerlist[dmgfrom]["score"]}')
-				else:
-					self.playerlist[dmgfrom]['score'] += 10
-					game_event['event_type'] = 'dmgkill'
-					game_event['killtimer'] = 5
-					game_event['killstart'] = game_event.get("msg_dt")
-					logger.debug(f'{event_type} {dmgfrom=} {dmgto=} ')
-				await self.event_queue.put(game_event)
-			case 'respawn':
-				self.playerlist[msg_client_id]['health'] = 100
-				self.playerlist[msg_client_id]['killed'] = False
-				game_event['handled'] = True
-				game_event['handledby'] = 'ugsrspwn'
-				game_event['event_type'] = 'ackrespawn'
-				await self.event_queue.put(game_event)
-				logger.debug(f'{event_type} {msg_client_id=} {self.playerlist[msg_client_id]}')
-			case 'getmap':
-				payload = {'msgtype': 'scenedata', 'payload': self.scene}
-				logger.info(f'{event_type} from {msg_client_id} {len(payload)} {game_event=}')
-				await self.event_queue.put(payload)
-			case _:
-				payload = {'msgtype': 'error99', 'payload': ''}
-				logger.warning(f'unknown game_event:{event_type} from msg={msg}')
-				await self.event_queue.put(payload)
-
 	async def update_game_event(self, game_event):
 		if self.args.debug:
 			if game_event.get('event_type') != 'player_update':
-				logger.info(f'update_game_event {game_event.get('event_type')}')
+				pass  # logger.info(f'update_game_event {game_event.get('event_type')} event_queue: {self.event_queue.qsize()} client_queue: {self.client_queue.qsize()}')
 		event_type = game_event.get('event_type')
-		eventid = game_event.get('eventid')
-		msg_client_id = game_event.get("client_id", "8888888888")
+		msg_client_id = game_event.get("client_id")
 		match event_type:
 			case 'player_update':
-				if msg_client_id == self.client_id:
-					return
 				if msg_client_id not in self.playerlist:
 					# Initialize player state if it does not exist
+					logger.debug(f'new player_update {msg_client_id=} {game_event=}')
 					self.playerlist[msg_client_id] = {
 						'client_id': msg_client_id,
-						'name': game_event.get('name', 'ugsmissing'),
 						'position': tuple(game_event.get('position', (0, 0))),
 						'angle': game_event.get('angle'),
 						'score': game_event.get('score'),
@@ -402,7 +195,7 @@ class GameState:
 						'msg_dt': game_event.get('msg_dt'),
 						'timeout': game_event.get('timeout'),
 						'killed': game_event.get('killed'),
-						'msgtype': 'update_game_events',
+						'msgtype': 'update_game_event',
 						'bombsleft': game_event.get('bombsleft'),
 					}
 				else:
@@ -417,65 +210,48 @@ class GameState:
 					self.playerlist[msg_client_id]['bombsleft'] = game_event.get('bombsleft')
 
 			case 'debug_dump':
-				logger.debug(f'{game_event}')
+				logger.debug(f'debug_dump game_event={game_event}')
 			case 'playerquit':
 				self.playerlist[msg_client_id]['playerquit'] = True
 				await self.event_queue.put(game_event)
 			case 'newconnection':
-				name = game_event['name']
 				if self.args.debug:
-					logger.info(f'{event_type} from {msg_client_id} {name}')
+					logger.info(f'{event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()}')
 				game_event['handled'] = True
 				game_event['handledby'] = 'ugsnc'
 				game_event['event_type'] = 'acknewconn'
-				await self.event_queue.put(game_event)
-			case 'blkxplode':
-				uptype = random.choice([1, 2, 3])
-				newevent = {'event_time': 0, 'event_type': 'upgradeblock', 'client_id': msg_client_id, 'upgradetype': uptype, 'hit': game_event.get("hit"), 'fpos': game_event.get('flame'), 'handled': False, 'handledby': 'uge', 'eventid': gen_randid()}
-				await self.event_queue.put(newevent)
-				if self.args.debug:
-					logger.info(f'{event_type} from {game_event.get("fbomber")}, uptype:{uptype}')
-			case 'takeupgrade':
-				game_event['handledby'] = 'ugstakeupgrade'
-				upgradetype = game_event.get("upgradetype")
-				msg_client_id = game_event['client_id']
-				match upgradetype:
-					case 1:
-						self.playerlist[msg_client_id]['health'] += EXTRA_HEALTH
-						logger.debug(f'{msg_client_id} got extrahealth -> {self.playerlist[msg_client_id].get("health")}')
-						event = {'event_time': 0, 'event_type': 'extrahealth', 'amount': EXTRA_HEALTH, 'client_id': msg_client_id, 'eventid': gen_randid()}
-						await self.event_queue.put(event)
-					case 2:
-						self.playerlist[msg_client_id]['bombsleft'] += 1
-						logger.debug(f'{msg_client_id} got extrabomb -> {self.playerlist[msg_client_id].get("bombsleft")}')
-						event = {'event_time': 0, 'event_type': 'extrabomb', 'client_id': msg_client_id, 'eventid': gen_randid()}
-						await self.event_queue.put(event)
-					case 3:
-						pass
-					case _:
-						logger.warning(f'unknown upgradetype {upgradetype=} {game_event=}')
+
+				# await self.event_queue.put(game_event)
 			case 'drop_bomb':
-				bomber = game_event.get("client_id")
 				if self.args.debug:
-					logger.debug(f'{event_type} from {msg_client_id} game_event: {game_event}')
-					logger.debug(f'bomber: {bomber} {self.playerlist[bomber]}')
+					logger.debug(f'{event_type} from {msg_client_id} position: {game_event.get('position')}')
 				game_event['handledby'] = 'ugsbomb'
-				eventid = game_event.get('eventid')
-				name = self.playerlist[bomber]['name']
 				# if self.playerlist[bomber].get("bombsleft",0) > 0:
-				game_event['event_type'] = 'ackbombdrop'
 				# self.playerlist[bomber]['bombsleft'] -= 1
 				# await self.event_queue.put(game_event)
+				try:
+					# player_one = self.get_playerone()
+					if msg_client_id == self.client_id:
+						bomb = Bomb(position=game_event.get('position'))
+						logger.info(f'{event_type} from self {msg_client_id}')
+					else:
+						bomb = Bomb(position=game_event.get('position'), bomb_size=(5,5))
+						logger.info(f'{event_type} from other {msg_client_id}')
+					self.bombs.add(bomb)
+				except AttributeError as e:
+					logger.error(f'{e} unable to add bomb {game_event=} players_sprites: {self.players_sprites}')
+				game_event['event_type'] = 'ackbombdrop'
+				# await self.event_queue.put(game_event)
+				# await self.client_queue.put(game_event)
 				await self.broadcast_event(game_event)
 
 			case 'ackbombdrop':
-				player_one = self.get_playerone()
-				if msg_client_id == player_one.client_id:
-					bomb = Bomb(position=game_event.get('position'),screen_rect=player_one.rect)
-					logger.info(f'{event_type} from self {msg_client_id}')
-				else:
-					bomb = Bomb(position=game_event.get('position'),screen_rect=player_one.rect, bomb_size=(5,5))
+				if msg_client_id != self.client_id:
+					bomb = Bomb(position=game_event.get('position'), bomb_size=(5,5))
 					logger.debug(f'{event_type} from other {msg_client_id}')
+				elif msg_client_id == self.client_id:
+					bomb = Bomb(position=game_event.get('position'), bomb_size=(10,10))
+					logger.debug(f'{event_type} from self {msg_client_id}')
 				self.bombs.add(bomb)
 
 			case 'bulletfired':
@@ -484,78 +260,26 @@ class GameState:
 				game_event['handled'] = True
 				if self.args.debug:
 					logger.debug(f'type: {event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()} ')
-				# await self.event_queue.put(game_event)
+				# await self.client_queue.put(game_event)
 				await self.broadcast_event(game_event)
 
 			case 'ackbullet':
 				# bullet = Bullet()
-				player_one = self.get_playerone()
-				if msg_client_id == player_one.client_id:
-					bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=player_one.rect)
+				if msg_client_id == self.get_playerone().client_id:
+					bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect)
 					logger.info(f'{event_type} from self {msg_client_id}')
 				else:
-					bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=player_one.rect, bullet_size=(5,5))
+					bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect, bullet_size=(5,5))
 					logger.debug(f'{event_type} from other {msg_client_id}')
 				self.bullets.add(bullet)
-				# await self.event_queue.put(payload)
-
-			case 'bombxplode':
-				game_event['handledby'] = 'ugsbombxplode'
-				game_event['event_type'] = 'ackbombxplode'
-				eventid = game_event.get('eventid')
-				bomber = game_event.get("bomber")
-				self.playerlist[bomber]['bombsleft'] += 1
-				await self.event_queue.put(game_event)
-				if self.args.debug:
-					logger.debug(f'{event_type} from {bomber}  bl={self.playerlist[bomber].get("bombsleft")} {eventid=}')
-			case 'playerkilled':
-				dmgfrom = game_event.get("dmgfrom")
-				dmgto = game_event.get("dmgto")
-				self.playerlist[dmgfrom]['score'] += 1
-				game_event['handled'] = True
-				game_event['handledby'] = 'ugskill'
-				await self.event_queue.put(game_event)
-				if self.args.debug:
-					logger.debug(f'{event_type} {dmgfrom=} {dmgto=} {self.playerlist[dmgfrom]}')
-			case 'takedamage':
-				dmgfrom = game_event.get("dmgfrom")
-				dmgto = game_event.get("dmgto")
-				damage = game_event.get("damage")
-				self.playerlist[dmgto]['health'] -= damage
-				game_event['handled'] = True
-				game_event['handledby'] = 'ugskill'
-				self.playerlist[dmgfrom]['score'] += 1
-				if self.playerlist[dmgto]['health'] > 0:
-					game_event['event_type'] = 'acktakedamage'
-					self.playerlist[dmgfrom]['score'] += 1
-					logger.info(f'{event_type} {dmgfrom=} {dmgto=} killerscore={self.playerlist[dmgfrom]["score"]}')
-				else:
-					self.playerlist[dmgfrom]['score'] += 10
-					game_event['event_type'] = 'dmgkill'
-					game_event['killtimer'] = 5
-					game_event['killstart'] = game_event.get("msg_dt")
-					logger.debug(f'{event_type} {dmgfrom=} {dmgto=} ')
-				await self.event_queue.put(game_event)
-			case 'respawn':
-				self.playerlist[msg_client_id]['health'] = 100
-				self.playerlist[msg_client_id]['killed'] = False
-				game_event['handled'] = True
-				game_event['handledby'] = 'ugsrspwn'
-				game_event['event_type'] = 'ackrespawn'
-				await self.event_queue.put(game_event)
-				logger.debug(f'{event_type} {msg_client_id=} {self.playerlist[msg_client_id]}')
-			case 'getmap':
-				payload = {'msgtype': 'scenedata', 'payload': self.scene}
-				logger.info(f'{event_type} from {msg_client_id} {len(payload)} {game_event=}')
-				await self.event_queue.put(payload)
 			case _:
-				payload = {'msgtype': 'error99', 'payload': ''}
+				# payload = {'msgtype': 'error99', 'payload': ''}
 				logger.warning(f'unknown game_event:{event_type} from game_event={game_event}')
-				await self.event_queue.put(payload)
+				# await self.event_queue.put(payload)
 
 	def to_json(self):
 		"""Convert game state to JSON-serializable format"""
-		return {'msgtype': 'playerlist', 'playerlist': [player for player in self.playerlist.values()], 'events': len(self.game_events), 'connections': len(self.connections), 'name': self.name}
+		return {'msgtype': 'playerlist', 'playerlist': [player for player in self.playerlist.values()], 'connections': len(self.connections), }
 
 	def from_json(self, data):
 		if data.get('msgtype') == 'debug_dump':
@@ -567,10 +291,10 @@ class GameState:
 				# self.playerlist = {player['client_id']: PlayerState(**player) for player in data['players']}
 			except KeyError as e:
 				logger.warning(f'fromjson: {e} {data=}')
-			for ge in data.get('game_events', []):
+			for ge in data.get('game_event', []):
 				if ge == []:
 					break
-				if self.args.debug and self.name != 'b':
+				if self.args.debug:
 					logger.info(f'ge={ge.get("event_type")} dgamest={data=}')
 				self.event_queue.put(ge)
 			if self.args.debug:
