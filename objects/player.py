@@ -92,6 +92,25 @@ class Bomberplayer(Sprite):
 			return {}
 
 	def update(self, collidable_tiles):
+		# Store previous position before movement for rollback
+		prev_x, prev_y = self.position.x, self.position.y
+
+		# Move the player
+		self.position.x += self.change_x
+		self.position.y += self.change_y
+
+		# Update the rectangle position
+		self.rect.topleft = self.position
+
+		# Check for collisions
+		for tile in collidable_tiles:
+			if self.rect.colliderect(tile.rect):
+				# Rollback to previous position if collision occurs
+				self.position.x, self.position.y = prev_x, prev_y
+				self.rect.topleft = self.position
+				return
+
+	def old__update(self, collidable_tiles):
 		# Calculate new position
 		new_x = self.position.x + self.change_x
 		new_y = self.position.y + self.change_y

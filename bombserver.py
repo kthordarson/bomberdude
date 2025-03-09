@@ -12,8 +12,6 @@ from constants import BLOCK, GRIDSIZE, UPDATE_TICK
 from gamestate import GameState
 from asyncio import create_task, CancelledError
 from server.api import ApiServer
-# import zmq
-# from zmq.asyncio import Context
 from aiohttp import web
 from server.server import BombServer
 from server.tui import ServerTUI

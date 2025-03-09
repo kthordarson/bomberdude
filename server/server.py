@@ -209,7 +209,8 @@ class BombServer:
 
 		# Choose random valid position
 		pos = random.choice(valid_positions)
-		position = (pos[0] * BLOCK, pos[1] * BLOCK)
+		# position = (pos[0] * BLOCK, pos[1] * BLOCK)
+		position = random.choice(valid_positions)
 
 		if self.args.debug:
 			logger.debug(f'Generated valid position: {position}')

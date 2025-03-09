@@ -60,12 +60,19 @@ class Bomberdude():
 			resp = requests.get(f"http://{self.args.server}:9699/get_tile_map").text
 			resp = json.loads(resp)
 			mapname = resp.get("mapname")
-			pos = Vec2d(x=resp.get('position').get('position')[0], y=resp.get('position').get('position')[1])
-			logger.debug(f"map {mapname} {pos=} {resp=}")
+			tile_x = resp.get('position').get('position')[0]
+			tile_y = resp.get('position').get('position')[1]
+			# pos = Vec2d(x=resp.get('position').get('position')[0], y=resp.get('position').get('position')[1])
+			# logger.debug(f"map {mapname} {pos=} {resp=}")
 		except Exception as e:
 			logger.error(f"{type(e)} {e=} {resp}")
 			raise e
 		self.client_game_state.load_tile_map(mapname)
+		pixel_x = tile_x * self.client_game_state.tile_map.tilewidth
+		pixel_y = tile_y * self.client_game_state.tile_map.tileheight
+
+		pos = Vec2d(x=pixel_x, y=pixel_y)
+
 		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
 		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
 		self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
