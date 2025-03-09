@@ -95,7 +95,7 @@ class Bomberdude():
 			"eventid": gen_randid(),
 		}
 		await self.client_game_state.event_queue.put(connection_event)
-		await asyncio.sleep(1)
+		await asyncio.sleep(0.1)
 		self._connected = True
 		player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
 		player_one.position = pos
@@ -122,6 +122,60 @@ class Bomberdude():
 		self.camera.position = (screen_center_x, screen_center_y)
 
 	def draw_player(self, player):
+		try:
+			if player.position is None:
+				logger.error(f'Player position is None: {player}')
+				return
+
+			# Get position coordinates safely
+			if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
+				# Vec2d object
+				pos_x, pos_y = player.position.x, player.position.y
+			elif isinstance(player.position, (tuple, list)) and len(player.position) >= 2:
+				# Tuple or list
+				pos_x, pos_y = player.position[0], player.position[1]
+			else:
+				logger.error(f'Unknown position format: {type(player.position)}')
+				return
+
+			color = (0, 255, 0) if player.client_id == self.client_game_state.get_playerone().client_id else (255, 0, 0)
+			rect = pygame.Rect(pos_x, pos_y, 32, 32)
+			position = self.camera.apply(rect).topleft
+			pygame.draw.circle(self.screen, color, position, 10)
+
+			# Draw player image if available
+			if hasattr(player, 'image'):
+				rect = player.rect if hasattr(player, 'rect') else rect
+				self.screen.blit(player.image, self.camera.apply(rect))
+		except Exception as e:
+			logger.error(f'{e} {type(e)} player: {player}')
+
+	def old2draw_player(self, player):
+		try:
+			if player.position is None:
+				logger.error(f'Player position is None: {player}')
+				return
+
+			# Check if position is already a tuple/list or if it's a Vec2d
+			if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
+				# It's a Vec2d
+				pos_x, pos_y = player.position.x, player.position.y
+			else:
+				# It's a tuple/list
+				pos_x, pos_y = player.position[0], player.position[1]
+
+			color = (0, 255, 0) if player.client_id == self.client_game_state.get_playerone().client_id else (255, 0, 0)
+			position = self.camera.apply(pygame.Rect(pos_x, pos_y, 0, 0)).topleft
+			pygame.draw.circle(self.screen, color, position, 10)
+
+			# Draw player image if available
+			if hasattr(player, 'image'):
+				rect = player.rect if hasattr(player, 'rect') else pygame.Rect(pos_x, pos_y, 32, 32)
+				self.screen.blit(player.image, self.camera.apply(rect))
+		except Exception as e:
+			logger.error(f'{e} {type(e)} player: {player}')
+
+	def olddraw_player(self, player):
 		try:
 			if player.position is None:
 				logger.error(f'Player position is None: {player}')
@@ -276,7 +330,7 @@ class Bomberdude():
 			player_one = self.client_game_state.get_playerone()
 		except AttributeError as e:
 			logger.error(f"{e} {type(e)}")
-			await asyncio.sleep(1)
+			await asyncio.sleep(0.1)
 			return
 		self.timer += 1 / 60
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)

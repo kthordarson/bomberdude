@@ -31,6 +31,19 @@ class PlayerState:
 	killed: bool
 	msgtype: str
 
+	def to_dict(self):
+		return {
+			'client_id': self.client_id,
+			'position': self.position,
+			'health': self.health,
+			'bombsleft': self.bombsleft,
+			'angle': self.angle,
+			'score': self.score,
+			'msg_dt': self.msg_dt,
+			'timeout': self.timeout,
+			'killed': self.killed,
+			'msgtype': self.msgtype}
+
 @dataclass
 class GameState:
 
@@ -283,7 +296,27 @@ class GameState:
 
 	def from_json(self, data):
 		if data.get('msgtype') == 'debug_dump':
-			logger.debug(f'debug_dump fromjson: {data=}')
+			logger.debug(f'debug_dump fromjson: {data.get("msgtype")}')
+		else:
+			try:
+				playerlist = data.get('playerlist', [])
+				if self.args.debug:
+					logger.debug(f'fromjson: {data.get("msgtype")} playerlist: {len(playerlist)}')
+				for player_data in playerlist:
+					client_id = player_data['client_id']
+					# Only update players that aren't our own player
+					if client_id != self.client_id:
+						self.playerlist[client_id] = PlayerState(**player_data)
+						# Debug the player data we're receiving
+						if self.args.debug:
+							logger.debug(f"Updated player {client_id}: {self.playerlist[client_id]}")
+			except KeyError as e:
+				logger.warning(f'fromjson: {e} {data=}')
+
+	def oldfrom_json(self, data):
+		if data.get('msgtype') == 'debug_dump':
+			logger.debug(f'debug_dump fromjson: {data.get('msgtype')}')
+			# data = data.get('payload')
 		else:
 			try:
 				playerlist = data.get('playerlist', [])

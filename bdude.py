@@ -29,8 +29,13 @@ async def pusher(game):
             player_one = game.client_game_state.get_playerone()
         except AttributeError as e:
             logger.error(f'{e} {type(e)}')
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)
             continue
+        # playerlist = [player for player in game.client_game_state.playerlist.values()]
+        playerlist = [
+            player.to_dict() if hasattr(player, 'to_dict') else player
+            for player in game.client_game_state.playerlist.values()
+        ]
         msg = {
             'game_event': game_event,
             'client_id': player_one.client_id,
@@ -39,6 +44,8 @@ async def pusher(game):
             'msgtype': "pushermsgdict",
             'handledby': "pusher",
             'msg_dt': time.time(),
+            'playerlist': playerlist,
+            # 'playerlist': [player for player in self.playerlist.values()]
         }
         try:
             data_out = json.dumps(msg).encode('utf-8') + b'\n'
@@ -66,7 +73,7 @@ async def receive_game_state(game):
                     logger.warning(f'game.sock._closed {game.sock._closed}')
                     break
                 else:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.1)
                     continue
             buffer += data.decode('utf-8')
             try:

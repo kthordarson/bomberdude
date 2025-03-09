@@ -165,44 +165,6 @@ class BombServer:
 		for conn in failed_conns:
 			await self.cleanup_client(None, conn)
 
-	async def process_messages(self):
-		"""Process messages from client queue"""
-		logger.debug(f"{self} message processing starting")
-		while not self.stopped():
-			try:
-				msg = await self.server_game_state.client_queue.get()
-			except asyncio.QueueEmpty:
-				continue
-			self.server_game_state.client_queue.task_done()
-			# if self.args.debug:
-			# 	logger.debug(f"Processing message: {msg}")
-			try:
-				clid = msg.get('game_event').get('client_id')
-			except Exception as e:
-				logger.error(f"Error processing message: {e} {type(e)}	{msg}")
-				break
-			try:
-				self.server_game_state.update_game_state(clid, msg)
-				if evts := msg.get("game_event"):
-					# await self.process_game_events(msg)
-					game_event = msg.get('game_event')
-					if self.args.debug:
-						if evts.get('event_type') != 'player_update':
-							logger.debug(f"{game_event.get('event_type')} event_queue: {self.server_game_state.event_queue.qsize()} client_queue: {self.server_game_state.client_queue.qsize()}")
-					await self.server_game_state.update_game_event(game_event)
-				game_state = self.server_game_state.to_json()
-				await self.server_broadcast_state(game_state)
-			except UnboundLocalError as e:
-				logger.warning(f"UnboundLocalError: {e} {type(e)} {msg}")
-			except asyncio.CancelledError as e:
-				logger.warning(f"CancelledError {e}")
-				self.stop()
-				break
-			except Exception as e:
-				logger.error(f"Message processing error: {e} {type(e)} {msg}")
-				self.stop()
-				break
-
 	def get_game_state(self):
 		return self.server_game_state.to_json()
 
@@ -271,6 +233,44 @@ class BombServer:
 
 	def stopped(self):
 		return self._stop.is_set()
+
+	async def process_messages(self):
+		"""Process messages from client queue"""
+		logger.debug(f"{self} message processing starting")
+		while not self.stopped():
+			try:
+				msg = await self.server_game_state.client_queue.get()
+			except asyncio.QueueEmpty:
+				continue
+			self.server_game_state.client_queue.task_done()
+			# if self.args.debug:
+			# 	logger.debug(f"Processing message: {msg}")
+			try:
+				clid = msg.get('game_event').get('client_id')
+			except Exception as e:
+				logger.error(f"Error processing message: {e} {type(e)}	{msg}")
+				break
+			try:
+				self.server_game_state.update_game_state(clid, msg)
+				if evts := msg.get("game_event"):
+					# await self.process_game_events(msg)
+					game_event = msg.get('game_event')
+					if self.args.debug:
+						if evts.get('event_type') != 'player_update':
+							logger.debug(f"{game_event.get('event_type')} event_queue: {self.server_game_state.event_queue.qsize()} client_queue: {self.server_game_state.client_queue.qsize()}")
+					await self.server_game_state.update_game_event(game_event)
+				# game_state = self.server_game_state.to_json()
+				# await self.server_broadcast_state(game_state)
+			except UnboundLocalError as e:
+				logger.warning(f"UnboundLocalError: {e} {type(e)} {msg}")
+			except asyncio.CancelledError as e:
+				logger.warning(f"CancelledError {e}")
+				self.stop()
+				break
+			except Exception as e:
+				logger.error(f"Message processing error: {e} {type(e)} {msg}")
+				self.stop()
+				break
 
 	async def ticker(self) -> None:
 		logger.debug(f"tickertask: {self.sock=}")
