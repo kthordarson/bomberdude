@@ -341,18 +341,18 @@
     "project": "bomberdude.tiled-project",
     "property.type": "bool",
     "recentFiles": [
+        "data/map3.tmx",
+        "data/map4.tmx",
+        "data/map5.tmx",
         "data/map2tiles.tsx",
         "data/map2.tmj",
         "data/map.json",
         "data/btiles.tsx",
-        "data/map3.tmx",
         "data/maptest5.json",
         "data/maptest4.json",
         "data/maptest2.json",
         "data/maptest5.tmx",
-        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json",
-        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/indoor.json",
-        "data/map4.json"
+        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1
