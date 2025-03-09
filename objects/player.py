@@ -51,8 +51,7 @@ class Bomberplayer(Sprite):
 	scale: float = 0.7
 	client_id: str = None
 	position: Vec2d = field(default_factory=lambda: Vec2d(99, 99))
-	name: str = 'xnonex'
-	# eventq: asyncio.Queue = None
+	# name: str = 'xnonex'
 
 	def __post_init__(self):
 		super().__init__()
@@ -72,7 +71,7 @@ class Bomberplayer(Sprite):
 		# self.bullets = pygame.sprite.Group()
 
 	def __hash__(self):
-		return hash((self.client_id, self.name))
+		return hash((self.client_id))
 
 	def to_dict(self):
 		"""Convert player object to dictionary"""
@@ -82,7 +81,6 @@ class Bomberplayer(Sprite):
 				'position': [float(self.position.x), float(self.position.y)],
 				'score': self.score,
 				'health': self.health,
-				'name': self.name,
 				'timeout': self.timeout,
 				'msg_dt': time.time(),
 				'killed': self.killed,
@@ -94,6 +92,25 @@ class Bomberplayer(Sprite):
 			return {}
 
 	def update(self, collidable_tiles):
+		# Store previous position before movement for rollback
+		prev_x, prev_y = self.position.x, self.position.y
+
+		# Move the player
+		self.position.x += self.change_x
+		self.position.y += self.change_y
+
+		# Update the rectangle position
+		self.rect.topleft = self.position
+
+		# Check for collisions
+		for tile in collidable_tiles:
+			if self.rect.colliderect(tile.rect):
+				# Rollback to previous position if collision occurs
+				self.position.x, self.position.y = prev_x, prev_y
+				self.rect.topleft = self.position
+				return
+
+	def old__update(self, collidable_tiles):
 		# Calculate new position
 		new_x = self.position.x + self.change_x
 		new_y = self.position.y + self.change_y
@@ -112,6 +129,18 @@ class Bomberplayer(Sprite):
 		bullet_pos = Vec2d(self.rect.center)
 		bullet = Bullet(position=bullet_pos,direction=direction, screen_rect=self.rect)
 		return bullet  # self.bullets.add(bullet)
+
+	def drop_bomb(self):
+		event = {"event_time": 0,
+				"event_type": "drop_bomb",
+				"client_id": self.client_id,
+				"position": (self.rect.x, self.rect.y),
+				"ba": 1,
+				"timer": 1,
+				"handled": False,
+				"handledby": self.client_id,
+				"eventid": gen_randid(),}
+		return event
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)

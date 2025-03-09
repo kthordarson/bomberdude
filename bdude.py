@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import cProfile
 import json
 import sys
 import asyncio
@@ -13,218 +14,110 @@ from panels import Mainmenu
 from game import Bomberdude
 
 async def pusher(game):
-    logger.info(f'{game} pushstarting eventq: {game.client_game_state.event_queue.qsize()}')
-    try:
-        while True:
-            try:
-                game_events = await game.client_game_state.event_queue.get()
-            except asyncio.QueueEmpty:
-                game_events = []  # [{'event_type': 'pushermsgdict'},]
-
-            client_keys = json.loads(game.client_game_state.keyspressed.to_json())
+    logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
+    game_event = []
+    while True:
+        try:
+            game_event = await game.client_game_state.event_queue.get()
+        except asyncio.QueueEmpty:
+            pass
+        except Exception as e:
+            logger.error(f"Error getting game_event: {e} {type(e)}")
+            continue
+        client_keys = json.loads(game.client_game_state.keyspressed.to_json())
+        try:
             player_one = game.client_game_state.get_playerone()
-            if not player_one:
-                logger.error(f'No player one {game_events}')
-                await asyncio.sleep(1)
-                continue
-
-            msg = {
-                'game_events': game_events,
-                'client_id': player_one.client_id,
-                'name': f'{player_one.client_id}',
-                'position': (player_one.position[0], player_one.position[1]),
-                'keyspressed': client_keys,
-                'msgtype': "pushermsgdict",
-                'msg_dt': time.time(),
-            }
-
-            if game.connected():
-                try:
-                    data_out = json.dumps(msg).encode('utf-8') + b'\n'
-                    await asyncio.get_event_loop().sock_sendall(game.sock, data_out)
-                except Exception as e:
-                    logger.error(f'{e} {type(e)}')
-                    await asyncio.sleep(1)
-            else:
-                logger.warning(f'{game} not connected')
-                await asyncio.sleep(1)
-
-            # Clear game_events after sending
-            # game.eventq.task_done()
+        except AttributeError as e:
+            logger.error(f'{e} {type(e)}')
+            await asyncio.sleep(0.1)
+            continue
+        # playerlist = [player for player in game.client_game_state.playerlist.values()]
+        playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in game.client_game_state.playerlist.values()]
+        msg = {
+            'game_event': game_event,
+            'client_id': player_one.client_id,
+            'position': (player_one.position[0], player_one.position[1]),
+            'keyspressed': client_keys,
+            'msgtype': "pushermsgdict",
+            'handledby': "pusher",
+            'msg_dt': time.time(),
+            'playerlist': playerlist,
+            # 'playerlist': [player for player in self.playerlist.values()]
+        }
+        try:
+            data_out = json.dumps(msg).encode('utf-8') + b'\n'
+            await asyncio.get_event_loop().sock_sendall(game.sock, data_out)
             game.client_game_state.event_queue.task_done()
-            await asyncio.sleep(1 / UPDATE_TICK)
-    except Exception as e:
-        logger.error(f'{e} {type(e)}')
+            if game.args.debug:
+                if msg.get('game_event').get('event_type') != 'player_update':
+                    logger.debug(f"pusher sent: {msg.get('game_event').get('event_type')} from {msg.get('game_event').get('client_id')} event_queue: {game.client_game_state.event_queue.qsize()}")
+        except Exception as e:
+            logger.error(f'{e} {type(e)} msg: {msg}')
+            game._connected = False
+            break
 
 async def receive_game_state(game):
-    if game.debug:
+    if game.args.debug:
         logger.info(f'{game} receive_game_state starting')
     buffer = ""
     while True:
         try:
             data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
             if not data:
-                logger.warning(f"No data received, continuing...game.sock: {game.sock._closed}")
-                if game.sock._closed:
+                logger.warning(f"No data received, continuing...gamesockclosed: {game.sock._closed} gameconn: {game.connected()}")
+                if game.sock._closed or not game.connected():
                     game._connected = False
                     logger.warning(f'game.sock._closed {game.sock._closed}')
                     break
-                await asyncio.sleep(1)  # Short sleep to prevent CPU spinning
-                break
-
+                else:
+                    await asyncio.sleep(0.1)
+                    continue
             buffer += data.decode('utf-8')
-            while '\n' in buffer:
-                message, buffer = buffer.split('\n', 1)
-                if message.strip():  # Ignore empty messages
-                    try:
-                        game_state_json = json.loads(message)
-                        game.client_game_state.from_json(game_state_json)
-                        if game.args.debug:
-                            pass  # logger.info(f"game_state_json: {game_state_json}")
-                    except json.JSONDecodeError as e:
-                        logger.warning(f"Error decoding json: {e} message: {message}")
-                        continue
-
-        except (BlockingIOError, InterruptedError):
-            await asyncio.sleep(0.101)
-            continue
-        except ConnectionResetError as e:
-            logger.warning(f"Error in receive_game_state: {e} {type(e)}")
-            game._connected = False
-            break
-        except TypeError as e:
-            logger.error(f"Error in receive_game_state: {e} data: {data}")
-            await asyncio.sleep(0.101)
-            continue
-        except Exception as e:
-            logger.error(f"Error in receive_game_state: {e} {type(e)} data: {data}")
-            game._connected = False
-            await asyncio.sleep(1)  # Prevent tight loop on error
-            break
-
-async def oldreceive_game_state(game):
-    if game.debug:
-        logger.info(f'{game} receive_game_state starting')
-    while True:
-        try:
-            data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
-            if not data:
-                logger.warning(f"No data received, continuing...game.sock: {game.sock._closed}")
-                if game.sock._closed:
-                    game._connected = False
-                    logger.warning(f'game.sock._closed {game.sock._closed}')
-                    break
-                await asyncio.sleep(1)  # Short sleep to prevent CPU spinning
-                break
-            # Split the received data using the newline delimiter
             try:
-                messages = data.decode('utf-8').split('\n')
-                for message in messages:
-                    if message.strip():  # Ignore empty messages
-                        game_state_json = json.loads(message)
+                message, buffer = buffer.split('\n', 1)
+            except ValueError as e:
+                logger.warning(f"Error splitting buffer: {e} buffer: {buffer}")
+                break  # No complete message in buffer
+            if message.strip():  # Ignore empty messages
+                game_state_json = json.loads(message)
+                try:
+                    if game_state_json.get("msgtype") == "game_event":
+                        await game.client_game_state.update_game_event(game_state_json["event"])
+                    elif game_state_json.get("event_type") == "playerlistupdate":
+                        pass
+                    else:
                         game.client_game_state.from_json(game_state_json)
-                        if game.args.debug:
-                            pass  # logger.info(f"game_state_json: {game_state_json}")
-            except json.JSONDecodeError as e:
-                logger.warning(f"Error decoding json: {e} data: {data}")
-                await asyncio.sleep(0.5)  # Short sleep to prevent CPU spinning
-                continue
-        except (BlockingIOError, InterruptedError):
-            await asyncio.sleep(0.101)
+                    if game.args.debug:
+                        pass
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Error decoding json: {e} message: {message}")
+                    continue
+            else:
+                logger.warning(f"Empty message received: {buffer}")
+
+        except (BlockingIOError, InterruptedError) as e:
+            logger.warning(f"{e} in receive_game_state: {type(e)}")
             continue
         except ConnectionResetError as e:
-            logger.warning(f"Error in receive_game_state: {e} {type(e)}")
+            logger.warning(f"ConnectionResetError in receive_game_state: {e} {type(e)}")
             game._connected = False
             break
+        except KeyError as e:
+            logger.warning(f"KeyError in receive_game_state: {e} data: {data}")
+            continue
+        except AttributeError as e:
+            logger.warning(f"AttributeError in receive_game_state: {e} data: {data}")
+            continue
         except TypeError as e:
-            logger.error(f"Error in receive_game_state: {e} data: {data}")
-            await asyncio.sleep(0.101)
+            logger.warning(f"TypeError in receive_game_state: {e} data: {data}")
+            continue
+        except UnboundLocalError as e:
+            logger.warning(f"UnboundLocalError in receive_game_state: {e} data: {data}")
             continue
         except Exception as e:
-            logger.error(f"Error in receive_game_state: {e} {type(e)} data: {data}")
-            game._connected = False
-            await asyncio.sleep(1)  # Prevent tight loop on error
-            break
-
-
-async def olderreceive_game_state(game):
-    if game.debug:
-        logger.info(f'{game} receive_game_state starting')
-    while True:
-        try:
-            data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
-            if not data:
-                logger.debug(f"No data received, continuing...game.sock: {game.sock._closed}")
-                if game.sock._closed:
-                    game._connected = False
-                    logger.warning(f'game.sock._closed {game.sock._closed}')
-                    break
-                await asyncio.sleep(1 / UPDATE_TICK)  # Short sleep to prevent CPU spinning
-                continue
-            # Split the received data using the newline delimiter
-            messages = data.decode('utf-8').split('\n')
-            for message in messages:
-                if message.strip():  # Ignore empty messages
-                    try:
-                        msg_json = json.loads(message)
-                    except json.JSONDecodeError as e:
-                        logger.warning(f"Error decoding json: {e} data: {data}")
-                        await asyncio.sleep(0.5)  # Short sleep to prevent CPU spinning
-                        continue
-                    msgtype = msg_json.get('msgtype', 'msgtypeunknown')
-                    if game.debug:
-                        pass  # logger.debug(f"{message}")
-                    match msgtype:
-                        case 'playerlist':
-                            if game.debug:
-                                pass  # logger.debug(f"{message}")
-                            game.client_game_state.from_json(msg_json)
-                        case 'update_game_state':
-                            if game.debug:
-                                logger.debug(f"{message}")
-                            game.client_game_state.from_json(msg_json)
-                        case 'playerstate':
-                            pass
-                        case 'player_update':
-                            if game.debug:
-                                logger.debug(f"{message}")
-                            game.client_game_state.from_json(msg_json)
-                        case 'debug_dump':
-                            pass
-                        case 'msgtypeunknown':
-                            logger.warning(f'unknown msgtype {msgtype=} {message=}')
-                        case _:
-                            logger.warning(f'unknown msgtype {msgtype=} {message=}')
-
-                    # game_state_json = await game.sock.recv_json()
-        except (BlockingIOError, InterruptedError):
-            # Socket would block, just continue
-            await asyncio.sleep(0.101)
-            continue
-        except ConnectionResetError as e:
-            logger.warning(f"Error in receive_game_state: {e} {type(e)}")
+            logger.error(f"Exception in receive_game_state: {e} {type(e)} data: {data}")
             game._connected = False
             break
-        except TypeError as e:
-            logger.error(f"Error in receive_game_state: {e} data: {data}")
-            await asyncio.sleep(0.101)
-            continue
-            # game._connected = False
-            # break
-        except Exception as e:
-            logger.error(f"Error in receive_game_state: {e} {type(e)} data: {data}")
-            game._connected = False
-            await asyncio.sleep(1)  # Prevent tight loop on error
-            break
-        await asyncio.sleep(1 / UPDATE_TICK)
-
-# def thread_worker(game):
-#     logger.info(f"Starting thread_worker for {game}")
-#     loop = asyncio.new_event_loop()
-#     asyncio.set_event_loop(loop)
-#     looptask = loop.create_task(thread_main(game, loop))
-#     logger.info(f"threadworker loop: {loop} lt={looptask} ")
-#     loop.run_forever()
 
 def get_args():
     parser = ArgumentParser(description="bdude")
@@ -234,13 +127,16 @@ def get_args():
     parser.add_argument("--server", action="store", dest="server", default="127.0.0.1")
     parser.add_argument("--port", action="store", dest="port", default=9696)
     parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
-    parser.add_argument("-dp", "--debugpacket", action="store_true", dest="packetdebugmode", default=False,)
+    parser.add_argument("-dp", "--debugpacket", action="store_true", dest="debugpacket", default=False,)
     return parser.parse_args()
 
-async def start_game(args, eventq):
-    bomberdude_main = Bomberdude(args=args, eventq=eventq)
+async def start_game(args):
+    bomberdude_main = Bomberdude(args=args)
+
+    # worker_task = asyncio.create_task(thread_worker(bomberdude_main))
     connection_timeout = 5  # seconds
     try:
+        logger.info(f"Connecting.... {bomberdude_main}")
         connected = await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout)
         if not connected:
             logger.error("Failed to establish connection")
@@ -254,17 +150,20 @@ async def start_game(args, eventq):
 
     push_task = asyncio.create_task(pusher(bomberdude_main))
     receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
-    # worker_task = asyncio.create_task(thread_worker(bomberdude_main))
-    logger.info(f"Starting thread_worker for {bomberdude_main}")
 
     # Main loop
     running = True
+    clock = pygame.time.Clock()
+    xtime = 0
+    delta_time = 0.01
     while running:
-        start_time = time.time()
-
+        # start_time = time.time()
         await bomberdude_main.update()
         bomberdude_main.on_draw()
         pygame.display.flip()
+        xtime += 60 * delta_time
+        delta_time_tick = clock.tick(60) / 1000
+        delta_time = max(0.001, min(0.1, delta_time_tick))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 bomberdude_main.running = False
@@ -275,12 +174,10 @@ async def start_game(args, eventq):
                 bomberdude_main.handle_on_key_press(event.key)
             elif event.type == pygame.KEYUP:
                 # logger.info(f'keyup {event} event.key={event.key}')
-                bomberdude_main.handle_on_key_release(event.key)
+                await bomberdude_main.handle_on_key_release(event.key)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 asyncio.create_task(bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button))
-        elapsed_time = time.time() - start_time
-        await asyncio.sleep(max(0, 1 / UPDATE_TICK - elapsed_time))
-        # await asyncio.sleep(1 / UPDATE_TICK)
+                # logger.debug(f'xtime: {xtime} delta_time: {delta_time} {delta_time_tick}')
 
     # Clean up tasks
     push_task.cancel()
@@ -292,16 +189,13 @@ async def start_game(args, eventq):
 async def main():
     pygame.init()
     args = get_args()
-    eventq = asyncio.Queue()
     # screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(SCREEN_TITLE)
-    # bomberdude_main = MainView(screen=screen, name="Bomberdude main", title="Bomberdude Main Menu", args=args, eventq=eventq)
-
-    mainmenu = Mainmenu(screen=screen, args=args, eventq=eventq)
+    mainmenu = Mainmenu(screen=screen, args=args)
     action = mainmenu.run()
     if action == "start":
-        await start_game(args, eventq)
+        await start_game(args)
     elif action == 'setup':
         logger.info("Setup not implemented")
     elif action == 'quit':
@@ -313,3 +207,4 @@ if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     asyncio.run(main())
+    # cProfile.run('asyncio.run(main())')

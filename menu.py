@@ -2,14 +2,12 @@ import pygame
 from loguru import logger
 from game import Bomberdude
 class MainView:
-    def __init__(self, screen, name, title, args, eventq):
+    def __init__(self, screen, name, title, args):
         self.screen = screen
         self.name = name
         self.title = title
         self.args = args
-        self.eventq = eventq
-        self.debug = args.debug
-        self.game = Bomberdude(args, eventq)
+        self.game = Bomberdude(args)
 
     def update(self):
         self.game.update()

@@ -13,15 +13,16 @@ from utils import gen_randid
 from constants import PLAYER_MOVEMENT_SPEED, PARTICLE_COUNT, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED, PARTICLE_FADE_RATE, PARTICLE_GRAVITY, FLAME_SPEED, FLAME_TIME, FLAME_RATE, BOMBTICKER, BULLET_TIMER, FLAMEX, FLAMEY
 
 class Bullet(pygame.sprite.Sprite):
-	def __init__(self, position, direction, screen_rect, speed=10, bounce_count=3):
+	def __init__(self, position, direction, screen_rect, speed=10, bounce_count=3, bullet_size=(10,10)):
 		super().__init__()
-		self.image = pygame.Surface((10, 10))
+		self.image = pygame.Surface(bullet_size)
 		self.image.fill((255, 0, 0))
 		self.position = Vec2d(position)
+		self.direction = Vec2d(direction)
 		self.rect = self.image.get_rect(center=self.position)
 		# Normalize direction and multiply by speed to get velocity
 		# self.velocity = direction.normalize() * speed
-		self.velocity = direction * speed  # direction is already normalized
+		self.velocity = self.direction * speed  # direction is already normalized
 		self.screen_rect = screen_rect
 		self.bounce_count = bounce_count
 

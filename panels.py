@@ -5,10 +5,9 @@ from loguru import logger
 from game import Bomberdude
 
 class Mainmenu:
-    def __init__(self, screen, args, eventq):
+    def __init__(self, screen, args):
         self.screen = screen
         self.args = args
-        self.eventq = eventq
         self.options = ["Start", "Setup", "Quit"]
         self.selected_option = 0
         self.font = pygame.font.Font(None, 36)

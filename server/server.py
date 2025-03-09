@@ -1,4 +1,6 @@
 #!/usr/bin/python
+import time
+import cProfile
 import copy
 import asyncio
 import sys
@@ -20,8 +22,7 @@ from .tui import ServerTUI
 class BombServer:
 	def __init__(self, args):
 		self.args = args
-		self.debug = self.args.debug
-		self.server_game_state = GameState(args=self.args, mapname=args.mapname, name='server')
+		self.server_game_state = GameState(args=self.args, mapname=args.mapname)
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
 		self.process_task = None
@@ -34,7 +35,6 @@ class BombServer:
 		self.loop = asyncio.get_event_loop()
 		# self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock,),)
 		self.ticker_task = asyncio.create_task(self.ticker(),)
-		self.packetdebugmode = self.args.packetdebugmode
 		self.playerindex = 0
 		self._stop = Event()
 		# debugstuff
@@ -44,7 +44,7 @@ class BombServer:
 	def __repr__(self):
 		return 'BomberServer()'
 
-	async def add_connection(self, conn, addr):
+	async def new_connection(self, conn, addr):
 		"""Add a new client connection and set up handling"""
 		try:
 			# Add to server connections
@@ -65,8 +65,7 @@ class BombServer:
 
 			# Broadcast the updated game state to all clients
 			game_state = self.server_game_state.to_json()
-			await self.broadcast_state(game_state)
-
+			await self.server_broadcast_state(game_state)
 			return task
 
 		except Exception as e:
@@ -86,14 +85,10 @@ class BombServer:
 					conn, addr = await self.loop.sock_accept(self.sock)
 					conn.setblocking(False)
 					logger.debug(f"Accepted connection {len(self.connections)} from {addr}")
-					await self.add_connection(conn, addr)
-					# self.loop.create_task(self.handle_client(conn))
-					# task = self.loop.create_task(self.handle_client(conn))
-					# self.client_tasks.add(task)
-					# task.add_done_callback(lambda t: self.connections.remove(conn))
-					# logger.debug(f"Task {len(self.client_tasks)} {task} created for {addr} ")
-				except (BlockingIOError, InterruptedError):
-					await asyncio.sleep(0.101)
+					await self.new_connection(conn, addr)
+				except (BlockingIOError, InterruptedError) as e:
+					logger.error(f'{e} {type(e)} in handle_connections')
+
 					continue
 		except Exception as e:
 			logger.error(f'Error in handle_connections: {e} {type(e)}')
@@ -125,10 +120,12 @@ class BombServer:
 					if message.strip():  # Ignore empty messages
 						try:
 							msg = json.loads(message)
+							if self.args.debugpacket:
+								if msg.get('game_event').get('event_type') != 'player_update':
+									logger.debug(f"Received message: {msg.get('game_event').get('event_type')}")
 							await self.server_game_state.client_queue.put(msg)  # Put message in queue instead of processing directly
 						except json.JSONDecodeError as e:
 							logger.warning(f"Error decoding json: {e} data: {data}")
-							await asyncio.sleep(1 / UPDATE_TICK)  # Short sleep to prevent CPU spinning
 							continue
 		except Exception as e:
 			logger.error(f"handle_client: {e} {type(e)}")
@@ -149,57 +146,25 @@ class BombServer:
 			if not conn._closed:
 				conn.close()
 
-	async def broadcast_state(self, state):
+	async def server_broadcast_state(self, state):
 		"""Broadcast game state to all connected clients"""
-		data = json.dumps(state).encode('utf-8')
+		data = json.dumps(state).encode('utf-8') + b'\n'
 		failed_conns = []
 		for conn in self.connections:
 			try:
 				await self.loop.sock_sendall(conn, data)
-				logger.debug(f'{data=} Sent data to {conn}')
+				if self.args.debugpacket:
+					if state.get('msgtype') != 'playerlist':
+						logger.debug(f'Sending {state.get('msgtype')} to {conn}')
 			except (ConnectionError, BrokenPipeError) as e:
 				logger.warning(f"Failed to send to client {conn}: {e}")
 				failed_conns.append(conn)
 			except Exception as e:
 				logger.error(f"Unexpected error sending to client: {e}")
 				failed_conns.append(conn)
-
 		# Remove failed connections
 		for conn in failed_conns:
 			await self.cleanup_client(None, conn)
-
-	async def process_messages(self):
-		"""Process messages from client queue"""
-		logger.debug(f"{self} message processing starting")
-		while not self.stopped():
-			try:
-				msg = await self.server_game_state.client_queue.get()
-				# if self.args.debug:
-				# 	logger.debug(f"Processing message: {msg}")
-				try:
-					clid = msg.get("client_id","000000")
-				except Exception as e:
-					logger.error(f"Error processing message: {e}")
-					await asyncio.sleep(0.5)
-					continue
-				try:
-					self.server_game_state.update_game_state(clid, msg)
-					if evts := msg.get("game_events", {'foo': 'bar'}):
-						# await self.process_game_events(msg)
-						await self.server_game_state.update_game_events(msg)
-					game_state = self.server_game_state.to_json()
-					await self.server_game_state.broadcast_state(game_state)
-				except Exception as e:
-					logger.error(f"Error processing message: {e} {type(e)} {msg}")
-					await asyncio.sleep(0.5)
-				finally:
-					self.server_game_state.client_queue.task_done()
-			except asyncio.CancelledError:
-				await asyncio.sleep(0.5)
-				break
-			except Exception as e:
-				logger.error(f"Message processing error: {e}")
-				await asyncio.sleep(0.5)
 
 	def get_game_state(self):
 		return self.server_game_state.to_json()
@@ -210,20 +175,6 @@ class BombServer:
 			logger.debug(f'get_tile_map request: {request}  {self.args.mapname} {position}')
 		return web.json_response({"mapname": str(self.args.mapname), "position": position})
 
-	async def remove_timedout_players(self):
-		pcopy = copy.copy(self.server_game_state.playerlist)
-		len0 = len(self.server_game_state.playerlist)
-		for p in pcopy:
-			try:
-				if self.server_game_state.playerlist[p].get("timeout", False):
-					self.server_game_state.players_sprites.pop(p)
-					logger.warning(f"remove_timedout_players {p} {len0}->{len(self.server_game_state.playerlist)} {self.server_game_state.playerlist[p]}")
-				elif self.server_game_state.playerlist[p].get("playerquit", False):
-					self.server_game_state.players_sprites.pop(p)
-					logger.debug(f"playerquit {p} {len0}->{len(self.server_game_state.playerlist)}")
-			except KeyError as e:
-				logger.warning(f"keyerror in remove_timedout_players {e} {self.server_game_state.playerlist[p]} {self.server_game_state.playerlist}")
-
 	def get_position(self, retas="int"):
 		# Get map dimensions in tiles
 		map_width = self.server_game_state.tile_map.width
@@ -231,10 +182,15 @@ class BombServer:
 
 		# Get all collidable tiles
 		collidable_positions = set()
-		layer = self.server_game_state.tile_map.get_layer_by_name('Walls')
-		for x, y, gid in layer:
-			if gid != 0:
-				collidable_positions.add((x, y))
+		layers = []
+		wall_layer = self.server_game_state.tile_map.get_layer_by_name('Walls')
+		block_layer = self.server_game_state.tile_map.get_layer_by_name('Blocks')
+		layers.append(wall_layer)
+		layers.append(block_layer)
+		for layer in layers:
+			for x, y, gid in layer:
+				if gid != 0:
+					collidable_positions.add((x, y))
 		# for layer in self.server_game_state.tile_map.visible_layers:
 		# 	if isinstance(layer, pytmx.TiledTileLayer) and layer.properties.get('collidable'):
 		# 		for x, y, _ in layer:
@@ -253,68 +209,13 @@ class BombServer:
 
 		# Choose random valid position
 		pos = random.choice(valid_positions)
-		position = (pos[0] * BLOCK, pos[1] * BLOCK)
+		# position = (pos[0] * BLOCK, pos[1] * BLOCK)
+		position = random.choice(valid_positions)
 
 		if self.args.debug:
 			logger.debug(f'Generated valid position: {position}')
 
 		return {'position': position}
-
-	async def update_from_client(self, sockrecv) -> None:
-		logger.debug(f"{self} starting update_from_client {sockrecv=}")
-		try:
-			while True:
-				msg = await sockrecv.recv_json()
-				if self.packetdebugmode and len(msg.get('game_events')) > 0:
-					logger.info(f"msg: {msg}")
-				clid = str(msg["client_id"])
-				try:
-					self.server_game_state.update_game_state(clid, msg)
-				except KeyError as e:
-					logger.warning(f"{type(e)} {e} {msg=}")
-					await asyncio.sleep(0.5)
-				except Exception as e:
-					logger.error(f"{type(e)} {e} {msg=}")
-					await asyncio.sleep(0.5)
-				try:
-					self.server_game_state.update_game_events(msg)
-				except AttributeError as e:
-					logger.warning(f"{type(e)} {e} {msg=}")
-					await asyncio.sleep(0.5)
-				except KeyError as e:
-					logger.warning(f"{type(e)} {e} {msg=}")
-					await asyncio.sleep(0.5)
-				except TypeError as e:
-					logger.warning(f"{type(e)} {e} {msg=}")
-					await asyncio.sleep(0.5)
-				except Exception as e:
-					logger.error(f"{type(e)} {e} {msg=}")
-					await asyncio.sleep(0.5)
-					# if self.tui.stopped():
-					# 	logger.warning(f"{self} update_from_clienttuistop {self.tui}")
-					# 	break
-		except asyncio.CancelledError as e:
-			logger.warning(f"update_from_client CancelledError {e} ")
-			await asyncio.sleep(0.5)
-		await asyncio.sleep(1 / UPDATE_TICK)
-
-	async def send_data(self, data):
-		try:
-			# Accept a single connection
-			conn, addr = await self.loop.sock_accept(self.sock)
-			try:
-				# Use asyncio's sock_sendall
-				await self.loop.sock_sendall(conn, json.dumps(await data).encode('utf-8'))
-			except Exception as e:
-				logger.warning(f"{type(e)} {e} in send_data {conn} {addr}")
-				await asyncio.sleep(0.5)
-			finally:
-				conn.close()
-				await asyncio.sleep(1 / UPDATE_TICK)
-		except Exception as e:
-			logger.error(f"{type(e)} {e} in send_data {data}")
-			await asyncio.sleep(0.5)
-		await asyncio.sleep(1 / UPDATE_TICK)
 
 	async def stop(self):
 		self._stop.set()
@@ -335,20 +236,64 @@ class BombServer:
 	def stopped(self):
 		return self._stop.is_set()
 
+	async def process_messages(self):
+		"""Process messages from client queue"""
+		logger.debug(f"{self} message processing starting")
+		while not self.stopped():
+			try:
+				msg = await self.server_game_state.client_queue.get()
+			except asyncio.QueueEmpty:
+				continue
+			self.server_game_state.client_queue.task_done()
+			# if self.args.debug:
+			# 	logger.debug(f"Processing message: {msg}")
+			try:
+				clid = msg.get('game_event').get('client_id')
+			except Exception as e:
+				logger.error(f"Error processing message: {e} {type(e)}	{msg}")
+				break
+			self.server_game_state.update_game_state(clid, msg)
+			try:
+				if evts := msg.get("game_event"):
+					# await self.process_game_events(msg)
+					game_event = msg.get('game_event')
+					if self.args.debug:
+						if evts.get('event_type') != 'player_update':
+							logger.debug(f"{game_event.get('event_type')} event_queue: {self.server_game_state.event_queue.qsize()} client_queue: {self.server_game_state.client_queue.qsize()}")
+					await self.server_game_state.update_game_event(game_event)
+				# game_state = self.server_game_state.to_json()
+				# await self.server_broadcast_state(game_state)
+			except UnboundLocalError as e:
+				logger.warning(f"UnboundLocalError: {e} {type(e)} {msg}")
+			except asyncio.CancelledError as e:
+				logger.warning(f"CancelledError {e}")
+				self.stop()
+				break
+			except Exception as e:
+				logger.error(f"Message processing error: {e} {type(e)} {msg}")
+				self.stop()
+				break
+
 	async def ticker(self) -> None:
 		logger.debug(f"tickertask: {self.sock=}")
 		self.process_task = self.loop.create_task(self.process_messages())
 		# Send out the game state to all players 60 times per second.
+		last_broadcast = time.time()
 		try:
 			while not self.stopped():
 				await self.handle_connections()
 				try:
-					game_state = self.server_game_state.to_json()
-					await self.broadcast_state(game_state)  # Use new broadcast method
-					# logger.info(f'{self} broadcast_state {game_state}')
+					# Broadcast player states to all clients (but at a sensible rate - not every frame)
+					if time.time() - last_broadcast > 0.05:  # 20 updates per second instead of 60
+						game_state = self.server_game_state.to_json()
+						await self.server_broadcast_state(game_state)
+						last_broadcast = time.time()
+
+					# game_state = self.server_game_state.to_json()
+					# await self.server_broadcast_state(game_state)  # Use new broadcast method
+					# logger.info(f'{self} server_broadcast_state {game_state}')
 				except Exception as e:
 					logger.error(f"{type(e)} {e} ")
-				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError as e:
 			logger.warning(f"tickertask CancelledError {e}")
 		except Exception as e:
