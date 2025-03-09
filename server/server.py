@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import time
 import cProfile
 import copy
 import asyncio
@@ -250,8 +251,8 @@ class BombServer:
 			except Exception as e:
 				logger.error(f"Error processing message: {e} {type(e)}	{msg}")
 				break
+			self.server_game_state.update_game_state(clid, msg)
 			try:
-				self.server_game_state.update_game_state(clid, msg)
 				if evts := msg.get("game_event"):
 					# await self.process_game_events(msg)
 					game_event = msg.get('game_event')
@@ -276,12 +277,19 @@ class BombServer:
 		logger.debug(f"tickertask: {self.sock=}")
 		self.process_task = self.loop.create_task(self.process_messages())
 		# Send out the game state to all players 60 times per second.
+		last_broadcast = time.time()
 		try:
 			while not self.stopped():
 				await self.handle_connections()
 				try:
-					game_state = self.server_game_state.to_json()
-					await self.server_broadcast_state(game_state)  # Use new broadcast method
+					# Broadcast player states to all clients (but at a sensible rate - not every frame)
+					if time.time() - last_broadcast > 0.05:  # 20 updates per second instead of 60
+						game_state = self.server_game_state.to_json()
+						await self.server_broadcast_state(game_state)
+						last_broadcast = time.time()
+
+					# game_state = self.server_game_state.to_json()
+					# await self.server_broadcast_state(game_state)  # Use new broadcast method
 					# logger.info(f'{self} server_broadcast_state {game_state}')
 				except Exception as e:
 					logger.error(f"{type(e)} {e} ")

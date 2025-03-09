@@ -1,3 +1,4 @@
+import time
 import asyncio
 import requests
 import pygame
@@ -41,25 +42,13 @@ class Bomberdude():
 		self.background_color = (100, 149, 237)
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.sock.setblocking(False)  # Make non-blocking
+		self.last_position_update = 0
 
 	def __repr__(self):
 		return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} c:{self._connected} {self.connected()})"
 
 	def connected(self):
 		return self._connected
-
-	async def oldconnect(self):
-		"""Connect to server and set up sockets"""
-		try:
-			self.sock.setblocking(False)  # Make non-blocking
-			await self.do_connect()
-			if self.args.debug:
-				logger.info(f'{self} connected successfully')
-			return True
-		except Exception as e:
-			logger.error(f"Connection failed: {e}")
-			self._connected = False
-			return False
 
 	async def connect(self):
 		self.sock.setblocking(False)
@@ -122,6 +111,8 @@ class Bomberdude():
 		self.camera.position = (screen_center_x, screen_center_y)
 
 	def draw_player(self, player):
+		if isinstance(player, dict):
+			player = Bomberplayer(texture="data/playerone.png", client_id=player.get('client_id'))
 		try:
 			if player.position is None:
 				logger.error(f'Player position is None: {player}')
@@ -147,73 +138,42 @@ class Bomberdude():
 			if hasattr(player, 'image'):
 				rect = player.rect if hasattr(player, 'rect') else rect
 				self.screen.blit(player.image, self.camera.apply(rect))
-		except Exception as e:
-			logger.error(f'{e} {type(e)} player: {player}')
-
-	def old2draw_player(self, player):
-		try:
-			if player.position is None:
-				logger.error(f'Player position is None: {player}')
-				return
-
-			# Check if position is already a tuple/list or if it's a Vec2d
-			if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-				# It's a Vec2d
-				pos_x, pos_y = player.position.x, player.position.y
 			else:
-				# It's a tuple/list
-				pos_x, pos_y = player.position[0], player.position[1]
-
-			color = (0, 255, 0) if player.client_id == self.client_game_state.get_playerone().client_id else (255, 0, 0)
-			position = self.camera.apply(pygame.Rect(pos_x, pos_y, 0, 0)).topleft
-			pygame.draw.circle(self.screen, color, position, 10)
-
-			# Draw player image if available
-			if hasattr(player, 'image'):
-				rect = player.rect if hasattr(player, 'rect') else pygame.Rect(pos_x, pos_y, 32, 32)
-				self.screen.blit(player.image, self.camera.apply(rect))
-		except Exception as e:
-			logger.error(f'{e} {type(e)} player: {player}')
-
-	def olddraw_player(self, player):
-		try:
-			if player.position is None:
-				logger.error(f'Player position is None: {player}')
-				return
-			color = (0, 255, 0) if player.client_id == self.client_game_state.get_playerone().client_id else (255, 0, 0)
-			# position = (int(player.position[0]), int(player.position[1]))  # Ensure position is a tuple of integers
-			position = self.camera.apply(pygame.Rect(player.position[0], player.position[1], 0, 0)).topleft
-			pygame.draw.circle(self.screen, color, position, 10)
-			# logger.info(f'drawing player: {player}')
+				# For PlayerState objects without images
+				pygame.draw.rect(self.screen, color, self.camera.apply(rect))
 		except Exception as e:
 			logger.error(f'{e} {type(e)} player: {player}')
 
 	def on_draw(self):
-		# self.screen.fill(self.background_color)
-		# Draw game elements here
-		self.screen.fill((200, 249, 237))
-		try:
-			self.client_game_state.render_map(self.screen, self.camera)
-		except Exception as e:
-			logger.error(f'{e} {type(e)}')
-		for bullet in self.client_game_state.bullets:
-			self.screen.blit(bullet.image, self.camera.apply(bullet))
-		for bomb in self.client_game_state.bombs:
-			self.screen.blit(bomb.image, self.camera.apply(bomb))
-		for player in self.client_game_state.playerlist.values():
-			if player.client_id != self.client_id:
+		# Clear screen
+		self.screen.fill((0, 0, 0))
+
+		# Draw the map
+		self.client_game_state.render_map(self.screen, self.camera)
+
+		# Draw local player from players_sprites
+		for player in self.client_game_state.players_sprites:
+			if player.client_id == self.client_id:
+				player.draw(self.screen)
+
+		# Draw remote players from playerlist
+		for client_id, player in self.client_game_state.playerlist.items():
+			if client_id != self.client_id:
 				self.draw_player(player)
-				# logger.info(f'drawing player: {player}')
-			# self.draw_player(player)
-		try:
-			player_one = self.client_game_state.get_playerone()
-		except AttributeError as e:
-			logger.error(f'{e} {type(e)}')
-			return
-		self.screen.blit(player_one.image, self.camera.apply(player_one))
+
+		# Draw bullets, bombs, etc.
+		for bullet in self.client_game_state.bullets:
+			# Draw bullet
+			pos = self.camera.apply(bullet.rect)
+			self.screen.blit(bullet.image, pos)
+
+		for bomb in self.client_game_state.bombs:
+			# Draw bomb
+			pos = self.camera.apply(bomb.rect)
+			self.screen.blit(bomb.image, pos)
+
 		if self.draw_debug:
 			draw_debug_info(self.screen, self.client_game_state)
-		pygame.display.flip()
 
 	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
 		self.mouse_pos = Vec2d(x=x, y=y)
@@ -342,6 +302,7 @@ class Bomberdude():
 		player_one.position.y = max(0, min(player_one.position.y, map_height - player_one.rect.height))
 		player_one.rect.topleft = player_one.position
 		self.camera.update2(player_one)
+		playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
 		update_event = {
 			"event_time": self.timer,
 			"msgtype": "player_update",
@@ -354,6 +315,10 @@ class Bomberdude():
 			"bombsleft": player_one.bombsleft,
 			"handled": False,
 			"handledby": "game_update",
+			"playerlist": playerlist,
 			"eventid": gen_randid(),}
-		await self.client_game_state.event_queue.put(update_event)
-		await asyncio.sleep(1 / UPDATE_TICK)
+		current_time = time.time()
+		if current_time - self.last_position_update > 0.1:  # 10 updates/second
+			await self.client_game_state.event_queue.put(update_event)
+			await asyncio.sleep(1 / UPDATE_TICK)
+			self.last_position_update = current_time

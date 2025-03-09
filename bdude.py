@@ -32,10 +32,7 @@ async def pusher(game):
             await asyncio.sleep(0.1)
             continue
         # playerlist = [player for player in game.client_game_state.playerlist.values()]
-        playerlist = [
-            player.to_dict() if hasattr(player, 'to_dict') else player
-            for player in game.client_game_state.playerlist.values()
-        ]
+        playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in game.client_game_state.playerlist.values()]
         msg = {
             'game_event': game_event,
             'client_id': player_one.client_id,
@@ -82,11 +79,14 @@ async def receive_game_state(game):
                 logger.warning(f"Error splitting buffer: {e} buffer: {buffer}")
                 break  # No complete message in buffer
             if message.strip():  # Ignore empty messages
+                game_state_json = json.loads(message)
                 try:
-                    game_state_json = json.loads(message)
                     if game_state_json.get("msgtype") == "game_event":
                         await game.client_game_state.update_game_event(game_state_json["event"])
-                    game.client_game_state.from_json(game_state_json)
+                    elif game_state_json.get("event_type") == "playerlistupdate":
+                        pass
+                    else:
+                        game.client_game_state.from_json(game_state_json)
                     if game.args.debug:
                         pass
                 except json.JSONDecodeError as e:
@@ -97,7 +97,6 @@ async def receive_game_state(game):
 
         except (BlockingIOError, InterruptedError) as e:
             logger.warning(f"{e} in receive_game_state: {type(e)}")
-
             continue
         except ConnectionResetError as e:
             logger.warning(f"ConnectionResetError in receive_game_state: {e} {type(e)}")
