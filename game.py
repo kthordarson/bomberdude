@@ -16,27 +16,20 @@ from camera import Camera
 from objects.player import Bomberplayer
 from objects.bullets import Bullet
 from debug import draw_debug_info
+from gamestate import PlayerState
 
 class Bomberdude():
 	def __init__(self, args):
 		self.title = "Bomberdude"
 		self.args = args
 		self.draw_debug = True
-		self.left_pressed = False
-		self.right_pressed = False
-		self.up_pressed = False
-		self.down_pressed = False
 		self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 		# self.screen = pygame.display.get_surface()
-		self.manager = None  # Replace with pygame UI manager if needed
 		self.running = True
 		self.selected_bomb = 1
 		self.client_id = str(gen_randid())
 		self.client_game_state = GameState(args=self.args, client_id=self.client_id)
 		self._connected = False
-		self._show_kill_screen = False
-		self.show_kill_timer = 1
-		self.show_kill_timer_start = 1
 		self.timer = 0
 		self.mouse_pos = Vec2d(x=0, y=0)
 		self.background_color = (100, 149, 237)
@@ -79,8 +72,6 @@ class Bomberdude():
 		if self.args.debug:
 			logger.debug(f'conn: {self.connected()} - {self._connected} {pos=} event_queue: {self.client_game_state.event_queue.qsize()}')
 
-		self.setup_panels()
-		self.setup_labels()
 		connection_event = {
 			"event_time": 0,
 			"event_type": "newconnection",
@@ -98,58 +89,36 @@ class Bomberdude():
 		self.client_game_state.players_sprites.add(player_one)
 		if self.args.debug:
 			logger.debug(f'conn: {self.connected()} - {self._connected} setup done event_queue: {self.client_game_state.event_queue.qsize()}')
-
 		return True
-
-	def setup_labels(self):
-		self.netplayer_labels = {}
-
-	def setup_panels(self):
-		pass  # Implement if needed
 
 	def center_camera_on_player(self, speed=0.2):
 		player = self.client_game_state.get_playerone()
-		screen_center_x = player.center_x - (SCREEN_WIDTH / 2)
-		screen_center_y = player.center_y - (SCREEN_HEIGHT / 2)
+		# screen_center_x = player.center_x - (SCREEN_WIDTH / 2)
+		# screen_center_y = player.center_y - (SCREEN_HEIGHT / 2)
+
+		screen_center_x = player.rect.centerx - (SCREEN_WIDTH / 2)
+		screen_center_y = player.rect.centery - (SCREEN_HEIGHT / 2)
 		if screen_center_x < 0:
 			screen_center_x = 0
 		if screen_center_y < 0:
 			screen_center_y = 0
 		self.camera.position = (screen_center_x, screen_center_y)
 
-	def draw_player(self, player):
-		if isinstance(player, dict):
-			player = Bomberplayer(texture="data/playerone.png", client_id=player.get('client_id'))
+	def draw_player(self, player_data):
+		# logger.debug(f'player_data: {player_data} {type(player_data)}')
 		try:
-			if player.position is None:
-				logger.error(f'Player position is None: {player}')
-				return
-
-			# Get position coordinates safely
-			if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-				# Vec2d object
-				pos_x, pos_y = player.position.x, player.position.y
-			elif isinstance(player.position, (tuple, list)) and len(player.position) >= 2:
-				# Tuple or list
-				pos_x, pos_y = player.position[0], player.position[1]
+			if isinstance(player_data, dict):
+				player = Bomberplayer(texture="data/playerone.png", client_id=player_data.get('client_id'))
+				self.screen.blit(player.image, self.camera.apply(player.rect))
+			elif isinstance(player_data, PlayerState):
+				player = Bomberplayer(texture="data/player2.png", client_id=player_data.client_id)
+				player.position = Vec2d(player_data.position)
+				player.rect.topleft = (player.position[0], player.position[1])
+				self.screen.blit(player.image, self.camera.apply(player.rect))
 			else:
-				logger.error(f'Unknown position format: {type(player.position)}')
-				return
-
-			color = (0, 255, 0) if player.client_id == self.client_game_state.get_playerone().client_id else (255, 0, 0)
-			rect = pygame.Rect(pos_x, pos_y, 32, 32)
-			position = self.camera.apply(rect).topleft
-			pygame.draw.circle(self.screen, color, position, 10)
-
-			# Draw player image if available
-			if hasattr(player, 'image'):
-				rect = player.rect if hasattr(player, 'rect') else rect
-				self.screen.blit(player.image, self.camera.apply(rect))
-			else:
-				# For PlayerState objects without images
-				pygame.draw.rect(self.screen, color, self.camera.apply(rect))
+				logger.warning(f'player_data: {player_data} {type(player_data)}')
 		except Exception as e:
-			logger.error(f'{e} {type(e)} player: {player}')
+			logger.error(f'{e} {type(e)} player_data: {player_data}')
 
 	def on_draw(self):
 		# Clear screen
@@ -159,9 +128,10 @@ class Bomberdude():
 		self.client_game_state.render_map(self.screen, self.camera)
 
 		# Draw local player from players_sprites
-		for player in self.client_game_state.players_sprites:
-			if player.client_id == self.client_id:
-				player.draw(self.screen)
+		self.client_game_state.get_playerone().draw(self.screen)
+		# for player in self.client_game_state.players_sprites:
+		# 	if player.client_id == self.client_id:
+		# 		player.draw(self.screen)
 
 		# Draw remote players from playerlist
 		for client_id, player in self.client_game_state.playerlist.items():
@@ -181,6 +151,11 @@ class Bomberdude():
 
 		if self.draw_debug:
 			draw_debug_info(self.screen, self.client_game_state)
+			# Add camera position debug
+			font = pygame.font.Font(None, 26)
+			player_one = self.client_game_state.get_playerone()
+			debug_text = font.render(f"Camera pos: {self.camera.position} Player pos: {player_one.position}", True, (255, 255, 255))
+			self.screen.blit(debug_text, (10, 120))
 
 	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
 		self.mouse_pos = Vec2d(x=x, y=y)
@@ -189,24 +164,28 @@ class Bomberdude():
 		if button == 1:
 			player_one = self.client_game_state.get_playerone()
 			if player_one:
-				# Convert to world coordinates by subtracting camera offset
-				# Camera position is already negative of the world offset
-				mouse_world = Vec2d(
-					x - self.camera.position.x,
-					y - self.camera.position.y
-				)
-				player_world = Vec2d(player_one.rect.center)
+				# Convert screen mouse position to world coordinates
+				mouse_world_pos = self.camera.reverse_apply(x, y)
+
+				# Get player position in world coordinates
+				player_world_pos = player_one.rect.center
 
 				# Calculate direction in world space
-				direction = (mouse_world - player_world).normalize()
-				bullet = player_one.shoot(direction)
-				# self.client_game_state.bullets.add(bullet)
+				direction_vector = Vec2d(mouse_world_pos[0] - player_world_pos[0], mouse_world_pos[1] - player_world_pos[1])
+
+				if direction_vector.length() > 0:
+					direction_vector = direction_vector.normalize()
+				else:
+					direction_vector = Vec2d(1, 0)
+
+				# Rest of your code remains the same
+				bullet_pos = Vec2d(player_one.rect.center)
 				event = {
 					"event_time": 0,
 					"event_type": "bulletfired",
 					"client_id": self.client_id,
-					"position": (bullet.rect.x, bullet.rect.y),
-					"direction": (direction.x, direction.y),
+					"position": (bullet_pos.x, bullet_pos.y),
+					"direction": (direction_vector.x, direction_vector.y),
 					"ba": 1,
 					"timer": 1,
 					"handled": False,
@@ -215,7 +194,7 @@ class Bomberdude():
 				}
 				if self.args.debug:
 					# logger.debug(f'{bullet} {self.client_game_state.event_queue.qsize()}')
-					pass  # logger.debug(f'bullet: {bullet} {direction=} {mouse_world=} {player_world=} {self.camera.position=} ')
+					logger.debug(f'bullet_pos: {bullet_pos} direction_vector: {direction_vector} mouse_world_pos: {mouse_world_pos} player_world_pos: {player_world_pos} self.camera.position:{self.camera.position} ')
 				await self.client_game_state.event_queue.put(event)
 
 	def handle_on_key_press(self, key):

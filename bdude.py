@@ -50,7 +50,7 @@ async def pusher(game):
             game.client_game_state.event_queue.task_done()
             if game.args.debug:
                 if msg.get('game_event').get('event_type') != 'player_update':
-                    logger.debug(f"pusher sent: {msg.get('game_event').get('event_type')} from {msg.get('game_event').get('client_id')} event_queue: {game.client_game_state.event_queue.qsize()}")
+                    logger.debug(f"pusher sent: {msg.get('game_event').get('event_type')} from {msg.get('game_event').get('client_id')} event_queue: {game.client_game_state.event_queue.qsize()} client_queue:{game.client_game_state.client_queue.qsize()}")
         except Exception as e:
             logger.error(f'{e} {type(e)} msg: {msg}')
             game._connected = False

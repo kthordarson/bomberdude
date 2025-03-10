@@ -237,8 +237,8 @@
             "scale": 0.5,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 960,
-                "y": 1088
+                "x": 874,
+                "y": 834
             }
         },
         "data/map4.json": {
@@ -259,7 +259,7 @@
         },
         "data/map5.tmx": {
             "scale": 1.058544921875,
-            "selectedLayer": 1,
+            "selectedLayer": 2,
             "viewCenter": {
                 "x": 512.0236173255223,
                 "y": 368.4302781493611
@@ -356,6 +356,7 @@
     "recentFiles": [
         "data/map3.tmx",
         "data/map4.tmx",
+        "data/map5.tmx",
         "data/map2tiles.tsx",
         "data/map2.tmj",
         "data/map.json",
@@ -364,8 +365,7 @@
         "data/maptest4.json",
         "data/maptest2.json",
         "data/maptest5.tmx",
-        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json",
-        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/indoor.json"
+        "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.type": 1

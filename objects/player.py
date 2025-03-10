@@ -92,6 +92,57 @@ class Bomberplayer(Sprite):
 			return {}
 
 	def update(self, collidable_tiles):
+		# Store previous position for collision rollback
+		prev_x, prev_y = self.position.x, self.position.y
+
+		# Move player position
+		self.position.x += self.change_x
+		self.position.y += self.change_y
+
+		# Update rect with new position
+		self.rect.topleft = (self.position.x, self.position.y)
+
+		# Check for wall collisions - IMPORTANT: Debug each collision
+		for tile in collidable_tiles:
+			if self.rect.colliderect(tile.rect):
+				# Rollback to previous position
+				self.position.x, self.position.y = prev_x, prev_y
+				self.rect.topleft = (prev_x, prev_y)
+				return
+
+	def old2update(self, collidable_tiles):
+		# Store old position
+		old_position = Vec2d(self.position)
+
+		# Apply movement with consistent speed regardless of camera
+		self.position.x += self.change_x
+		self.position.y += self.change_y
+
+		# Update rect
+		# self.rect.topleft = self.position
+		self.rect.topleft = (self.position.x, self.position.y)
+
+		# Check for collisions with all tiles
+		collision_detected = False
+		for tile in collidable_tiles:
+			if self.rect.colliderect(tile.rect):
+				collision_detected = True
+				break
+
+		# Revert if collision detected
+		if collision_detected:
+			self.position = old_position
+			self.rect.topleft = (self.position.x, self.position.y)
+
+		# Check collisions
+		# for tile in collidable_tiles:
+		# 	if self.rect.colliderect(tile.rect):
+		# 		# Revert to old position if collision
+		# 		self.position = old_position
+		# 		self.rect.topleft = self.position
+		# 		break
+
+	def oldupdate(self, collidable_tiles):
 		# Store previous position before movement for rollback
 		prev_x, prev_y = self.position.x, self.position.y
 
@@ -109,20 +160,6 @@ class Bomberplayer(Sprite):
 				self.position.x, self.position.y = prev_x, prev_y
 				self.rect.topleft = self.position
 				return
-
-	def old__update(self, collidable_tiles):
-		# Calculate new position
-		new_x = self.position.x + self.change_x
-		new_y = self.position.y + self.change_y
-
-		# Check for collisions
-		new_rect = self.rect.copy()
-		new_rect.topleft = (new_x, new_y)
-		collision = any(new_rect.colliderect(tile) for tile in collidable_tiles)
-		if not collision:
-			self.position.update(new_x, new_y)
-			self.rect.topleft = self.position
-		# self.bullets.update()
 
 	def shoot(self, direction):
 		# Calculate direction from player's position to target

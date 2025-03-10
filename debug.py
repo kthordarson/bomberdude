@@ -1,6 +1,7 @@
 # debug.py
 
 import pygame
+from loguru import logger
 
 def draw_debug_info(screen, game_state):
     font = pygame.font.Font(None, 26)
@@ -8,7 +9,7 @@ def draw_debug_info(screen, game_state):
     screen.blit(debug_text, (10, 10))
     debug_text = font.render(f"bullets: {len(game_state.bullets)} bombs: {len(game_state.bombs)}", True, (255, 255, 255))
     screen.blit(debug_text, (10, 30))
-    debug_text = font.render(f"player_one: {game_state.get_playerone().client_id} {game_state.get_playerone().position}", True, (55, 255, 55))
+    debug_text = font.render(f"player_one: {game_state.get_playerone().client_id} {game_state.get_playerone().position} ", True, (55, 255, 55))
     screen.blit(debug_text, (10, 60))
     y_pos = 80
     for player in game_state.playerlist.values():

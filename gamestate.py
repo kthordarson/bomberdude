@@ -105,14 +105,6 @@ class GameState:
 		except Exception as e:
 			logger.error(f"Error in broadcast_event: {e} {type(e)}")
 
-	async def old_broadcast_event(self, event):
-		if self.args.debug:
-			logger.info(f'broadcast_event {event.get('event_type')} event_queue: {self.event_queue.qsize()}')
-		try:
-			await self.broadcast_state({"msgtype": "game_event", "event": event, "playerlist": [player for player in self.playerlist.values()]})
-		except Exception as e:
-			logger.error(f"Error in broadcast_event: {e} {type(e)} {event}")
-
 	async def broadcast_state(self, game_state):
 		"""Broadcast game state to all connected clients"""
 		if not self.connections:
@@ -185,23 +177,15 @@ class GameState:
 		return upgrade
 
 	def update_game_state(self, clid, msg):
-		msghealth = msg.get('health')
-		msgtimeout = msg.get('timeout')
-		msgkilled = msg.get('killed')
-
-		# if self.args.debug:
-		# 	logger.debug(f'update_game_state {clid=} {msg=}')
-
 		playerdict = {
 			'client_id': clid,
 			'position': msg.get('position'),
-			# 'position': tuple(msg.get('position', (42, 42))),  # Ensure position is a tuple
 			'angle': msg.get('angle'),
 			'score': msg.get('score'),
-			'health': msghealth,
+			'health': msg.get('health'),
 			'msg_dt': msg.get('msg_dt'),
-			'timeout': msgtimeout,
-			'killed': msgkilled,
+			'timeout': msg.get('timeout'),
+			'killed': msg.get('killed'),
 			'msgtype': 'update_game_state',
 			'bombsleft': msg.get('bombsleft'),
 		}
@@ -328,10 +312,6 @@ class GameState:
 			'connections': len(self.connections),
 		}
 
-	def old_to_json(self):
-		"""Convert game state to JSON-serializable format"""
-		return {'msgtype': 'playerlist', 'playerlist': [player for player in self.playerlist.values()], 'connections': len(self.connections), }
-
 	def from_json(self, data):
 		if data.get('msgtype') == 'pushermsgdict':
 			try:
@@ -355,30 +335,5 @@ class GameState:
 							self.playerlist[client_id] = PlayerState(**player_data)
 			except Exception as e:
 				logger.error(f"Error updating player from json: {e}")
-
-	def old___from_json(self, data):
-		if data.get('msgtype') == 'debug_dump':
-			logger.debug(f'debug_dump fromjson: {data.get("msgtype")}')
 		else:
-			try:
-				# playerlist = data.get('playerlist', [])
-				if data.get('msgtype') == 'game_event':
-					playerlist = data.get('event').get('playerlist',[])
-				elif data.get('msgtype') == 'playerlist':
-					playerlist = data.get('playerlist',[])
-				else:
-					playerlist = []
-				if self.args.debug:
-					logger.debug(f'fromjson: {data.get("msgtype")} playerlist: {len(playerlist)} ')
-					if len(playerlist) == 0 and data.get('event').get('event_type') not in ('ackbullet','player_update'):
-						logger.warning(f'noplayerlistfromjson: {data.get("msgtype")} {data}')
-				for player_data in playerlist:
-					client_id = player_data['client_id']
-					# Only update players that aren't our own player
-					if client_id != self.client_id:
-						self.playerlist[client_id] = PlayerState(**player_data)
-						# Debug the player data we're receiving
-						if self.args.debug:
-							pass  # logger.debug(f"Updated player {client_id}: {self.playerlist[client_id]}")
-			except KeyError as e:
-				logger.warning(f'fromjson: {e} {data=}')
+			logger.warning(f"Unknown msgtype: {data.get('msgtype')} data: {data}")

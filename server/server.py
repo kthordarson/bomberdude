@@ -191,10 +191,6 @@ class BombServer:
 			for x, y, gid in layer:
 				if gid != 0:
 					collidable_positions.add((x, y))
-		# for layer in self.server_game_state.tile_map.visible_layers:
-		# 	if isinstance(layer, pytmx.TiledTileLayer) and layer.properties.get('collidable'):
-		# 		for x, y, _ in layer:
-		# 			collidable_positions.add((x, y))
 
 		# Generate list of all possible positions excluding collidable tiles
 		valid_positions = []
@@ -208,7 +204,7 @@ class BombServer:
 			return {'position': (BLOCK, BLOCK)}  # fallback position
 
 		# Choose random valid position
-		pos = random.choice(valid_positions)
+		# pos = random.choice(valid_positions)
 		# position = (pos[0] * BLOCK, pos[1] * BLOCK)
 		position = random.choice(valid_positions)
 
