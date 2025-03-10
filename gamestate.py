@@ -27,6 +27,10 @@ class PlayerState:
 	bombsleft: int
 	angle: float
 	score: int
+	prev_position: tuple | None = None
+	target_position: tuple | None = None
+	interp_time: float | None = None
+	position_updated: bool = False
 	msg_dt: float | None = None
 	timeout: bool | None = None
 	killed: bool | None = None
@@ -201,32 +205,39 @@ class GameState:
 		match event_type:
 			case 'player_update':
 				# Update other player's position in playerlist
-				if msg_client_id != self.client_id:
+				if msg_client_id in self.playerlist:
+					player = self.playerlist[msg_client_id]
 					position = game_event.get('position')
-					if msg_client_id in self.playerlist:
-						player = self.playerlist[msg_client_id]
-						if hasattr(player, 'position'):
-							# If PlayerState object
-							if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-								player.position.x, player.position.y = position[0], position[1]
-							else:
-								player.position = position
-						else:
-							# If dictionary
+
+					# Check if player is a dictionary and initialize interpolation fields
+					if isinstance(player, dict):
+						if 'position' not in player:
 							player['position'] = position
+						if 'prev_position' not in player:
+							player['prev_position'] = position.copy() if isinstance(position, list) else position
+						if 'target_position' not in player:
+							player['target_position'] = position.copy() if isinstance(position, list) else position
+						if 'interp_time' not in player:
+							player['interp_time'] = 0
+						if 'position_updated' not in player:
+							player['position_updated'] = False
 
-					if msg_client_id not in self.playerlist:
-						# Initialize player state if it does not exist
-						self.playerlist[msg_client_id] = PlayerState(
-							client_id=msg_client_id,
-							position=position,
-							angle=game_event.get('angle', 0),
-							health=game_event.get('health', 100),
-							score=game_event.get('score', 0),
-							bombsleft=game_event.get('bombsleft', 3)
-						)
+						# Update target position for interpolation
+						player['target_position'] = position
+						player['position_updated'] = True
+					else:
+						# Handle object-style players with proper attributes
+						if not hasattr(player, 'target_position'):
+							player.target_position = position
+						if not hasattr(player, 'prev_position'):
+							player.prev_position = position
+						if not hasattr(player, 'interp_time'):
+							player.interp_time = 0
+						if not hasattr(player, 'position_updated'):
+							player.position_updated = False
 
-						logger.debug(f'new player_update {msg_client_id=} event_type: {game_event.get('event_type')}')
+						player.target_position = position
+						player.position_updated = True
 				await self.broadcast_event(game_event)
 
 			case 'debug_dump':
@@ -319,11 +330,32 @@ class GameState:
 		}
 
 	def from_json(self, data):
-		if data.get('msgtype') == 'pushermsgdict':
+		if data.get('msgtype') == 'debug_dump':
+			pass
+		elif data.get('msgtype') == 'pushermsgdict':
+			for player_data in data.get('playerlist', []):
+				client_id = player_data.get('client_id')
+				if client_id != self.client_id:  # Don't update our own player
+					if client_id in self.playerlist:
+						# Update existing player
+						player = self.playerlist[client_id]
+						position = player_data.get('position')
+						if position:
+							if hasattr(player, 'position'):
+								if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
+									player.position.x, player.position.y = position[0], position[1]
+								else:
+									player.position = position
+							else:
+								player['position'] = position
+					else:
+						# Create new player
+						self.playerlist[client_id] = PlayerState(**player_data)
+		elif data.get('msgtype') == 'playerlist':  # Add this section to handle 'playerlist' message type
 			try:
 				for player_data in data.get('playerlist', []):
-					client_id = player_data.get('client_id')
-					if client_id != self.client_id:  # Don't update our own player
+					client_id = player_data.get('client_id') or player_data.get('id')
+					if client_id and client_id != self.client_id:  # Don't update our own player
 						if client_id in self.playerlist:
 							# Update existing player
 							player = self.playerlist[client_id]
@@ -336,10 +368,114 @@ class GameState:
 										player.position = position
 								else:
 									player['position'] = position
+
+								# Set up interpolation data
+								if hasattr(player, 'target_position'):
+									player.target_position = position
+									player.position_updated = True
 						else:
 							# Create new player
-							self.playerlist[client_id] = PlayerState(**player_data)
+							try:
+								self.playerlist[client_id] = PlayerState(
+									client_id=client_id,
+									position=player_data.get('position', (0, 0)),
+									health=player_data.get('health', 100),
+									bombsleft=player_data.get('bombsleft', 3),
+									angle=player_data.get('angle', 0),
+									score=player_data.get('score', 0)
+								)
+							except Exception as e:
+								logger.error(f"Could not create PlayerState: {e}")
 			except Exception as e:
 				logger.error(f"Error updating player from json: {e}")
 		else:
 			logger.warning(f"Unknown msgtype: {data.get('msgtype')} data: {data}")
+
+	def update_remote_players(self, delta_time):
+		"""Update remote player interpolation"""
+		for client_id, player in self.playerlist.items():
+			if client_id != self.client_id:  # Only update remote players
+				try:
+					# Check if player is dictionary or PlayerState object
+					if isinstance(player, dict):
+						# For dictionary players, ensure needed fields exist
+						if 'position' not in player:
+							continue
+
+						# Initialize interpolation properties if needed
+						if 'prev_position' not in player:
+							player['prev_position'] = player['position']
+							player['target_position'] = player['position']
+							player['interp_time'] = 0
+							player['position_updated'] = False
+
+						# Handle interpolation
+						if player.get('position_updated', False):
+							player['prev_position'] = player['position'].copy()
+							player['interp_time'] = 0
+							player['position_updated'] = False
+
+						# Update position with interpolation
+						if player['interp_time'] < 0.1:
+							player['interp_time'] += delta_time
+							t = min(1.0, player['interp_time'] / 0.1)
+
+							# Interpolate x and y
+							if isinstance(player['position'], list) and len(player['position']) >= 2:
+								player['position'][0] = player['prev_position'][0] + (player['target_position'][0] - player['prev_position'][0]) * t
+								player['position'][1] = player['prev_position'][1] + (player['target_position'][1] - player['prev_position'][1]) * t
+
+					else:  # Handle PlayerState objects
+						# Initialize interpolation attributes if they don't exist
+						if not hasattr(player, 'prev_position') or player.prev_position is None:
+							player.prev_position = player.position
+							player.target_position = player.position
+							player.interp_time = 0
+							player.position_updated = False
+
+						# Update interpolation
+						if player.position_updated:
+							player.prev_position = player.position
+							player.interp_time = 0
+							player.position_updated = False
+
+						# Apply interpolation
+						if player.interp_time < 0.1:
+							player.interp_time += delta_time
+							t = min(1.0, player.interp_time / 0.1)
+
+							if hasattr(player.position, 'x'):
+								# Vector2d object
+								player.position.x = player.prev_position.x + (player.target_position.x - player.prev_position.x) * t
+								player.position.y = player.prev_position.y + (player.target_position.y - player.prev_position.y) * t
+							elif isinstance(player.position, tuple) and len(player.position) >= 2:
+								# Tuple position
+								x = player.prev_position[0] + (player.target_position[0] - player.prev_position[0]) * t
+								y = player.prev_position[1] + (player.target_position[1] - player.prev_position[1]) * t
+								player.position = (x, y)
+
+				except Exception as e:
+					logger.warning(f"Error interpolating player {client_id}: {e}")
+					continue
+
+	def old_update_remote_players(self, delta_time):
+		for client_id, player in self.playerlist.items():
+			if client_id != self.client_id:  # Only for remote players
+				# When new position data arrives, set target and reset timer
+				if player.position_updated:
+					player.prev_position = Vec2d(player.position)
+					player.position_updated = False
+					player.interp_time = 0
+
+				# Interpolate between previous and target positions
+				if player.interp_time < 0.1:  # 100ms interpolation period
+					player.interp_time += delta_time
+					t = min(1.0, player.interp_time / 0.1)
+
+					# Smooth interpolation
+					player.position.x = player.prev_position.x + (player.target_position.x - player.prev_position.x) * t
+					player.position.y = player.prev_position.y + (player.target_position.y - player.prev_position.y) * t
+
+					# Update rect position
+					player.rect.x = int(player.position.x)
+					player.rect.y = int(player.position.y)

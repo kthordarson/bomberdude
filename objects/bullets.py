@@ -16,7 +16,7 @@ class Bullet(pygame.sprite.Sprite):
 	def __init__(self, position, direction, screen_rect, speed=10, bounce_count=3, bullet_size=(10,10)):
 		super().__init__()
 		self.image = pygame.Surface(bullet_size)
-		self.image = pygame.transform.scale(self.image, bullet_size)
+		# self.image = pygame.transform.scale(self.image, bullet_size)
 		# self.image.fill((255, 0, 0))
 		self.world_position = Vec2d(position)
 
@@ -24,7 +24,8 @@ class Bullet(pygame.sprite.Sprite):
 		self.direction = Vec2d(direction)
 		if self.direction.length() > 0:
 			self.direction = self.direction.normalize()
-		self.rect = self.image.get_rect(center=self.position)
+		# self.rect = self.image.get_rect(center=self.position)
+		self.rect = self.image.get_rect(center=(int(self.world_position.x), int(self.world_position.y)))
 		# self.rect.center = (self.position.x, self.position.y)
 		self.rect.center = (self.world_position.x, self.world_position.y)
 
@@ -36,15 +37,6 @@ class Bullet(pygame.sprite.Sprite):
 		return f'Bullet (pos: {self.position} direction: {self.direction} )'
 
 	def update(self, collidable_tiles):
-		# Move bullet based on direction and speed
-		# self.rect.x += self.direction.x * self.speed
-		# self.rect.y += self.direction.y * self.speed
-		# Update position using direction vector
-		# self.position.x += self.direction.x * self.speed
-		# self.position.y += self.direction.y * self.speed
-
-		# self.rect.center = (self.position.x, self.position.y)
-		# Update world position first (precise floating point)
 		self.world_position.x += self.direction.x * self.speed
 		self.world_position.y += self.direction.y * self.speed
 
@@ -56,22 +48,3 @@ class Bullet(pygame.sprite.Sprite):
 			if self.rect.colliderect(tile.rect):
 				self.kill()
 				return
-
-	def oldupdate(self, collidable_tiles):
-		# Update position using velocity
-		self.position += self.velocity
-		self.rect.center = self.position
-		# Check for collisions with collidable tiles
-		for tile in collidable_tiles:
-			if self.rect.colliderect(tile):
-				# Calculate the new direction based on the collision
-				if abs(self.rect.right - tile.rect.left) < self.velocity.length() or abs(self.rect.left - tile.rect.right) < self.velocity.length():
-					self.velocity.x *= -1  # Reverse the x-direction
-				if abs(self.rect.bottom - tile.rect.top) < self.velocity.length() or abs(self.rect.top - tile.rect.bottom) < self.velocity.length():
-					self.velocity.y *= -1  # Reverse the y-direction
-
-				# Decrease the bounce count
-				self.bounce_count -= 1
-				if self.bounce_count <= 0:
-					self.kill()  # Remove the bullet if bounce count is zero
-				break  # Only handle one collision per update

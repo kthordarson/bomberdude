@@ -52,7 +52,7 @@ class ServerTUI():
 				await self.handle_command(cmd)
 			except (EOFError, KeyboardInterrupt) as e:
 				logger.warning(f"{type(e)} {e}")
-				self.stop()
+				await self.stop()
 				await self.server.stop()
 				break
 
@@ -73,7 +73,7 @@ class ServerTUI():
 		elif cmd[:1] == "q":
 			logger.warning(f"{self} {self.server} tuiquit")
 			await self.server.stop()
-			self.stop()
+			await self.stop()
 
 	async def start(self):
 		"""Start the TUI"""
@@ -81,5 +81,5 @@ class ServerTUI():
 			await self.input_handler()
 		except Exception as e:
 			logger.error(f"TUI error: {e}")
-			self.stop()
+			await self.stop()
 			await self.server.stop()

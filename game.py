@@ -36,6 +36,8 @@ class Bomberdude():
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.sock.setblocking(False)  # Make non-blocking
 		self.last_position_update = 0
+		self.last_frame_time = time.time()
+		self.delta_time = 0
 
 	def __repr__(self):
 		return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} c:{self._connected} {self.connected()})"
@@ -359,7 +361,12 @@ class Bomberdude():
 			logger.error(f"{e} {type(e)}")
 			await asyncio.sleep(0.1)
 			return
-		self.timer += 1 / 60
+		# self.timer += 1 / 60
+		current_time = time.time()
+		self.delta_time = current_time - self.last_frame_time
+		self.last_frame_time = current_time
+		self.timer += self.delta_time
+
 		player_one.update(self.client_game_state.collidable_tiles)
 
 		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
@@ -371,6 +378,7 @@ class Bomberdude():
 		player_one.rect.y = int(player_one.position.y)
 
 		self.camera.update2(player_one)
+		self.client_game_state.update_remote_players(self.delta_time)  # Use self.delta_time
 
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
 		self.client_game_state.bombs.update()

@@ -147,6 +147,30 @@ class BombServer:
 				conn.close()
 
 	async def server_broadcast_state(self, state):
+		# Don't send full game state every time
+		if state.get('msgtype') == 'playerlist':
+			# Strip unnecessary data to reduce packet size
+			for player in state.get('playerlist', []):
+				keys_to_keep = ['id', 'position', 'angle', 'health']
+				for key in list(player.keys()):
+					if key not in keys_to_keep:
+						del player[key]
+
+		data = json.dumps(state).encode('utf-8') + b'\n'
+
+		# Use gather for concurrent sending
+		send_tasks = []
+
+		for conn in self.connections:
+			send_tasks.append(self.loop.sock_sendall(conn, data))
+
+		# Wait for all sends to complete
+		try:
+			await asyncio.gather(*send_tasks)
+		except Exception as e:
+			logger.error(f"Error during broadcast: {e}")
+
+	async def old_server_broadcast_state(self, state):
 		"""Broadcast game state to all connected clients"""
 		data = json.dumps(state).encode('utf-8') + b'\n'
 		failed_conns = []
@@ -241,8 +265,6 @@ class BombServer:
 			except asyncio.QueueEmpty:
 				continue
 			self.server_game_state.client_queue.task_done()
-			# if self.args.debug:
-			# 	logger.debug(f"Processing message: {msg}")
 			try:
 				clid = msg.get('game_event').get('client_id')
 			except Exception as e:
@@ -257,17 +279,15 @@ class BombServer:
 						if evts.get('event_type') != 'player_update':
 							logger.debug(f"{game_event.get('event_type')} event_queue: {self.server_game_state.event_queue.qsize()} client_queue: {self.server_game_state.client_queue.qsize()}")
 					await self.server_game_state.update_game_event(game_event)
-				# game_state = self.server_game_state.to_json()
-				# await self.server_broadcast_state(game_state)
 			except UnboundLocalError as e:
 				logger.warning(f"UnboundLocalError: {e} {type(e)} {msg}")
 			except asyncio.CancelledError as e:
 				logger.warning(f"CancelledError {e}")
-				self.stop()
+				await self.stop()
 				break
 			except Exception as e:
 				logger.error(f"Message processing error: {e} {type(e)} {msg}")
-				self.stop()
+				await self.stop()
 				break
 
 	async def ticker(self) -> None:

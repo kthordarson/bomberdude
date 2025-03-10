@@ -57,6 +57,52 @@ async def pusher(game):
             break
 
 async def receive_game_state(game):
+    buffer = ""
+    while True:
+        try:
+            data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
+            if not data:
+                if game.sock._closed or not game.connected():
+                    game._connected = False
+                    break
+                else:
+                    await asyncio.sleep(0.05)  # Reduced sleep time
+                    continue
+
+            buffer += data.decode('utf-8')
+
+            # Process multiple messages at once if available
+            while '\n' in buffer:
+                message, buffer = buffer.split('\n', 1)
+                if not message.strip():
+                    continue
+
+                game_state_json = json.loads(message)
+
+                # Priority handling for critical events
+                if game_state_json.get("msgtype") == "game_event":
+                    event_type = game_state_json.get("event", {}).get("event_type")
+                    if event_type in ("bulletfired", "drop_bomb"):
+                        # Process high priority events immediately
+                        await game.client_game_state.update_game_event(game_state_json["event"])
+                    else:
+                        # Queue less critical events
+                        asyncio.create_task(game.client_game_state.update_game_event(game_state_json["event"]))
+                else:
+                    # Process regular state updates
+                    game.client_game_state.from_json(game_state_json)
+
+        except (BlockingIOError, InterruptedError):
+            await asyncio.sleep(0.001)  # Very short sleep to avoid CPU spinning
+            continue
+        except Exception as e:
+            logger.warning(f"Error in receive_game_state: {e}")
+            if isinstance(e, ConnectionResetError):
+                game._connected = False
+                break
+            continue
+
+async def old_receive_game_state(game):
     if game.args.debug:
         logger.info(f'{game} receive_game_state starting')
     buffer = ""
@@ -153,17 +199,11 @@ async def start_game(args):
 
     # Main loop
     running = True
-    clock = pygame.time.Clock()
-    xtime = 0
-    delta_time = 0.01
     while running:
         # start_time = time.time()
         await bomberdude_main.update()
         bomberdude_main.on_draw()
         pygame.display.flip()
-        xtime += 60 * delta_time
-        delta_time_tick = clock.tick(60) / 1000
-        delta_time = max(0.001, min(0.1, delta_time_tick))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 bomberdude_main.running = False
@@ -177,7 +217,6 @@ async def start_game(args):
                 await bomberdude_main.handle_on_key_release(event.key)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 asyncio.create_task(bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button))
-                # logger.debug(f'xtime: {xtime} delta_time: {delta_time} {delta_time_tick}')
 
     # Clean up tasks
     push_task.cancel()
