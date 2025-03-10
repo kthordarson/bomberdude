@@ -82,7 +82,7 @@ async def receive_game_state(game):
                 # Priority handling for critical events
                 if game_state_json.get("msgtype") == "game_event":
                     event_type = game_state_json.get("event", {}).get("event_type")
-                    if event_type in ("bulletfired", "drop_bomb"):
+                    if event_type in ("bulletfired", "drop_bomb", "player_update"):
                         # Process high priority events immediately
                         await game.client_game_state.update_game_event(game_state_json["event"])
                     else:

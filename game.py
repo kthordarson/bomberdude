@@ -128,7 +128,7 @@ class Bomberdude():
 		# logger.debug(f'player_data: {player_data} {type(player_data)}')
 		try:
 			if isinstance(player_data, dict):
-				player = Bomberplayer(texture="data/playerone.png", client_id=player_data.get('client_id'))
+				player = Bomberplayer(texture="data/player2.png", client_id=player_data.get('client_id'))
 				player.position = Vec2d(player_data.get('position', [0, 0]))
 				player.rect.topleft = (player.position.x, player.position.y)
 				self.screen.blit(player.image, self.camera.apply(player.rect))
@@ -399,7 +399,7 @@ class Bomberdude():
 			"playerlist": playerlist,
 			"eventid": gen_randid(),}
 		current_time = time.time()
-		if current_time - self.last_position_update > 0.1:  # 10 updates/second
+		if current_time - self.last_position_update > 0.05:
 			await self.client_game_state.event_queue.put(update_event)
 			await asyncio.sleep(1 / UPDATE_TICK)
 			self.last_position_update = current_time

@@ -151,7 +151,7 @@ class BombServer:
 		if state.get('msgtype') == 'playerlist':
 			# Strip unnecessary data to reduce packet size
 			for player in state.get('playerlist', []):
-				keys_to_keep = ['id', 'position', 'angle', 'health']
+				keys_to_keep = ['client_id', 'position', 'angle', 'health']
 				for key in list(player.keys()):
 					if key not in keys_to_keep:
 						del player[key]
@@ -239,19 +239,19 @@ class BombServer:
 
 	async def stop(self):
 		self._stop.set()
-		logger.warning(f"{self} stopping {self.stopped()} ")
+		# logger.warning(f"{self} stopping {self.stopped()} ")
 		self.sock.close()
-		logger.warning(f"{self} {self.sock} closed")
+		# logger.warning(f"{self} {self.sock} closed")
 
 		# Cancel ticker task
 		if not self.ticker_task.done():
 			self.ticker_task.cancel()
-			logger.warning(f"{self} {self.ticker_task} cancelled")
+			# logger.warning(f"{self} {self.ticker_task} cancelled")
 			try:
 				await self.ticker_task
 			except asyncio.CancelledError:
 				pass
-		logger.warning(f"{self} stop {self.stopped()}")
+		logger.info(f"{self} stop {self.stopped()}")
 
 	def stopped(self):
 		return self._stop.is_set()
@@ -282,7 +282,7 @@ class BombServer:
 			except UnboundLocalError as e:
 				logger.warning(f"UnboundLocalError: {e} {type(e)} {msg}")
 			except asyncio.CancelledError as e:
-				logger.warning(f"CancelledError {e}")
+				logger.info(f"CancelledError {e}")
 				await self.stop()
 				break
 			except Exception as e:
@@ -311,7 +311,7 @@ class BombServer:
 				except Exception as e:
 					logger.error(f"{type(e)} {e} ")
 		except asyncio.CancelledError as e:
-			logger.warning(f"tickertask CancelledError {e}")
+			logger.info(f"tickertask CancelledError {e}")
 		except Exception as e:
 			logger.error(f"tickertask {e} {type(e)}")
 		finally:

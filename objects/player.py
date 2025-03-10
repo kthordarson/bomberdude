@@ -77,7 +77,7 @@ class Bomberplayer(Sprite):
 		"""Convert player object to dictionary"""
 		try:
 			return {
-				'id': self.client_id,
+				'client_id': self.client_id,
 				'position': [float(self.position.x), float(self.position.y)],
 				'score': self.score,
 				'health': self.health,
