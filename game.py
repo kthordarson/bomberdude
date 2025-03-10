@@ -91,7 +91,25 @@ class Bomberdude():
 			logger.debug(f'conn: {self.connected()} - {self._connected} setup done event_queue: {self.client_game_state.event_queue.qsize()}')
 		return True
 
-	def center_camera_on_player(self, speed=0.2):
+	def old3_center_camera_on_player(self, speed=0.2):
+		player = self.client_game_state.get_playerone()
+		screen_center_x = player.rect.centerx - (SCREEN_WIDTH / 2)
+		screen_center_y = player.rect.centery - (SCREEN_HEIGHT / 2)
+		if screen_center_x < 0:
+			screen_center_x = 0
+		if screen_center_y < 0:
+			screen_center_y = 0
+		self.camera.position = (screen_center_x, screen_center_y)
+
+	def old2_center_camera_on_player(self, speed=0.2):
+		player = self.client_game_state.get_playerone()
+		screen_center_x = player.rect.centerx - (SCREEN_WIDTH / 2)
+		screen_center_y = player.rect.centery - (SCREEN_HEIGHT / 2)
+		screen_center_x = max(0, min(screen_center_x, self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth - SCREEN_WIDTH))
+		screen_center_y = max(0, min(screen_center_y, self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight - SCREEN_HEIGHT))
+		self.camera.position = (screen_center_x, screen_center_y)
+
+	def old_center_camera_on_player(self, speed=0.2):
 		player = self.client_game_state.get_playerone()
 		# screen_center_x = player.center_x - (SCREEN_WIDTH / 2)
 		# screen_center_y = player.center_y - (SCREEN_HEIGHT / 2)
@@ -109,11 +127,14 @@ class Bomberdude():
 		try:
 			if isinstance(player_data, dict):
 				player = Bomberplayer(texture="data/playerone.png", client_id=player_data.get('client_id'))
+				player.position = Vec2d(player_data.get('position', [0, 0]))
+				player.rect.topleft = (player.position.x, player.position.y)
 				self.screen.blit(player.image, self.camera.apply(player.rect))
 			elif isinstance(player_data, PlayerState):
 				player = Bomberplayer(texture="data/player2.png", client_id=player_data.client_id)
 				player.position = Vec2d(player_data.position)
-				player.rect.topleft = (player.position[0], player.position[1])
+				# player.rect.topleft = (player.position[0], player.position[1])
+				player.rect.topleft = (player.position.x, player.position.y)
 				self.screen.blit(player.image, self.camera.apply(player.rect))
 			else:
 				logger.warning(f'player_data: {player_data} {type(player_data)}')
@@ -127,8 +148,12 @@ class Bomberdude():
 		# Draw the map
 		self.client_game_state.render_map(self.screen, self.camera)
 
+		# Draw local player
+		player_one = self.client_game_state.get_playerone()
+		self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
+
 		# Draw local player from players_sprites
-		self.client_game_state.get_playerone().draw(self.screen)
+		# self.client_game_state.get_playerone().draw(self.screen)
 		# for player in self.client_game_state.players_sprites:
 		# 	if player.client_id == self.client_id:
 		# 		player.draw(self.screen)
@@ -175,6 +200,47 @@ class Bomberdude():
 		if button == 1:
 			player_one = self.client_game_state.get_playerone()
 			if player_one:
+				# Convert screen coordinates to world coordinates
+				mouse_world_pos = self.camera.reverse_apply(x, y)
+				# player_world_pos = player_one.rect.center
+				player_world_pos = (player_one.position.x + player_one.rect.width/2, player_one.position.y + player_one.rect.height/2)
+
+				# Calculate direction in world space
+				direction_vector = Vec2d(
+					mouse_world_pos[0] - player_world_pos[0],
+					mouse_world_pos[1] - player_world_pos[1]
+				)
+
+				# Normalize direction vector
+				if direction_vector.length() > 0:
+					direction_vector = direction_vector.normalize()
+				else:
+					direction_vector = Vec2d(1, 0)  # Default direction if no movement
+
+				# Use player's center as bullet start position
+				bullet_pos = Vec2d(player_world_pos)
+				# Create the event
+				event = {
+					"event_time": self.timer,
+					"event_type": "bulletfired",
+					"client_id": self.client_id,
+					"position": (bullet_pos.x, bullet_pos.y),
+					"direction": (direction_vector.x, direction_vector.y),
+					"timer": self.timer,
+					"handled": False,
+					"handledby": self.client_id,
+					"eventid": gen_randid()
+				}
+
+				if self.args.debug:
+					logger.debug(f'bullet_pos: {bullet_pos} direction_vector: {direction_vector}  mouse_world_pos: {mouse_world_pos} player_world_pos: {player_world_pos}  self.camera.position:{self.camera.position}')
+
+				await self.client_game_state.event_queue.put(event)
+
+	async def old_handle_on_mouse_press(self, x, y, button):
+		if button == 1:
+			player_one = self.client_game_state.get_playerone()
+			if player_one:
 				# Get mouse position in world coordinates
 				mouse_world_pos = self.camera.reverse_apply(x, y)
 
@@ -208,9 +274,7 @@ class Bomberdude():
 				}
 
 				if self.args.debug:
-					logger.debug(f'bullet_pos: {bullet_pos} direction_vector: {direction_vector} ' +
-							f'mouse_world_pos: {mouse_world_pos} player_world_pos: {player_world_pos} ' +
-							f'self.camera.position:{self.camera.position}')
+					logger.debug(f'bullet_pos: {bullet_pos} direction_vector: {direction_vector}  mouse_world_pos: {mouse_world_pos} player_world_pos: {player_world_pos}  self.camera.position:{self.camera.position}')
 
 				await self.client_game_state.event_queue.put(event)
 
@@ -296,15 +360,21 @@ class Bomberdude():
 			await asyncio.sleep(0.1)
 			return
 		self.timer += 1 / 60
-		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
-		self.client_game_state.bombs.update()
+		player_one.update(self.client_game_state.collidable_tiles)
+
 		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
 		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
-		player_one.update(self.client_game_state.collidable_tiles)
 		player_one.position.x = max(0, min(player_one.position.x, map_width - player_one.rect.width))
 		player_one.position.y = max(0, min(player_one.position.y, map_height - player_one.rect.height))
-		player_one.rect.topleft = player_one.position
+
+		player_one.rect.x = int(player_one.position.x)
+		player_one.rect.y = int(player_one.position.y)
+
 		self.camera.update2(player_one)
+
+		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
+		self.client_game_state.bombs.update()
+
 		playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
 		update_event = {
 			"event_time": self.timer,

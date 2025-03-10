@@ -28,7 +28,7 @@ async def start_server(args) -> None:
 	try:
 		await asyncio.wait([api_task, server.ticker_task, tui_task], return_when=asyncio.FIRST_COMPLETED)
 	except (asyncio.CancelledError, KeyboardInterrupt) as e:
-		logger.warning(f'{e} {type(e)}')
+		logger.info(f'{e} {type(e)}')
 		api_task.cancel()
 		tui_task.cancel()
 		server.ticker_task.cancel()
@@ -49,7 +49,7 @@ if __name__ == "__main__":
 		asyncio.run(start_server(args))
 		# cProfile.run('asyncio.run(start_server(args))')
 	except KeyboardInterrupt as e:
-		logger.warning(f"Error starting server: {e} {type(e)}")
+		logger.info(f"KeyboardInterrupt: {e} {type(e)}")
 		sys.exit(0)
 	except Exception as e:
 		logger.error(f"Error starting server: {e} {type(e)}")

@@ -92,6 +92,57 @@ class Bomberplayer(Sprite):
 			return {}
 
 	def update(self, collidable_tiles):
+		# Store previous position
+		prev_x, prev_y = self.position.x, self.position.y
+
+		# Apply movement
+		self.position.x += self.change_x
+		self.position.y += self.change_y
+
+		# Update rect with integer positions for pixel-perfect collision
+		self.rect.x = int(self.position.x)
+		self.rect.y = int(self.position.y)
+
+		# Check collisions
+		for tile in collidable_tiles:
+			if self.rect.colliderect(tile.rect):
+				self.position.x, self.position.y = prev_x, prev_y
+				self.rect.x = int(prev_x)
+				self.rect.y = int(prev_y)
+				return
+
+	def old5_update(self, collidable_tiles):
+		# Store previous position
+		prev_x, prev_y = self.position.x, self.position.y
+
+		# Normalize diagonal movement
+		if self.change_x != 0 and self.change_y != 0:
+			# Moving diagonally, normalize speed
+			diagonal_speed = math.sqrt(self.change_x**2 + self.change_y**2)
+			factor = PLAYER_MOVEMENT_SPEED / diagonal_speed
+			dx = self.change_x * factor
+			dy = self.change_y * factor
+		else:
+			dx = self.change_x
+			dy = self.change_y
+
+		# Apply movement
+		self.position.x += dx
+		self.position.y += dy
+
+		# Update rect with integer positions
+		self.rect.x = int(self.position.x)
+		self.rect.y = int(self.position.y)
+
+		# Check collisions
+		for tile in collidable_tiles:
+			if self.rect.colliderect(tile.rect):
+				self.position.x, self.position.y = prev_x, prev_y
+				self.rect.x = int(prev_x)
+				self.rect.y = int(prev_y)
+				return
+
+	def older_update(self, collidable_tiles):
 		# Store previous position for collision rollback
 		prev_x, prev_y = self.position.x, self.position.y
 
@@ -100,15 +151,28 @@ class Bomberplayer(Sprite):
 		self.position.y += self.change_y
 
 		# Update rect with new position
-		self.rect.topleft = (self.position.x, self.position.y)
+		# self.rect.topleft = (self.position.x, self.position.y)
 
-		# Check for wall collisions - IMPORTANT: Debug each collision
+		# Update collision rect
+		self.rect.x = int(self.position.x)
+		self.rect.y = int(self.position.y)
+
+		# Check collisions and revert if needed
 		for tile in collidable_tiles:
 			if self.rect.colliderect(tile.rect):
-				# Rollback to previous position
-				self.position.x, self.position.y = prev_x, prev_y
-				self.rect.topleft = (prev_x, prev_y)
-				return
+				self.position.x = prev_x
+				self.position.y = prev_y
+				self.rect.x = int(prev_x)
+				self.rect.y = int(prev_y)
+				break
+
+		# Check for wall collisions - IMPORTANT: Debug each collision
+		# for tile in collidable_tiles:
+		# 	if self.rect.colliderect(tile.rect):
+		# 		# Rollback to previous position
+		# 		self.position.x, self.position.y = prev_x, prev_y
+		# 		self.rect.topleft = (prev_x, prev_y)
+		# 		return
 
 	def old2update(self, collidable_tiles):
 		# Store old position
