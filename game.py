@@ -157,6 +157,17 @@ class Bomberdude():
 			debug_text = font.render(f"Camera pos: {self.camera.position} Player pos: {player_one.position}", True, (255, 255, 255))
 			self.screen.blit(debug_text, (10, 120))
 
+		if self.draw_debug and len(self.client_game_state.bullets) > 0:
+			# Draw debug lines for all bullets
+			for bullet in self.client_game_state.bullets:
+				bullet_screen = self.camera.apply(bullet.rect).center
+				line_end = (bullet_screen[0] + bullet.direction.x * 25, bullet_screen[1] + bullet.direction.y * 25)
+				pygame.draw.line(self.screen, (255, 0, 0), bullet_screen, line_end, 2)
+				# Draw a line showing bullet direction
+				start_pos = self.camera.apply(bullet.rect).center
+				end_pos = (start_pos[0] + bullet.direction.x * 25, start_pos[1] + bullet.direction.y * 25)
+				pygame.draw.line(self.screen, (255, 255, 0), start_pos, end_pos, 2)
+
 	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
 		self.mouse_pos = Vec2d(x=x, y=y)
 
@@ -164,37 +175,43 @@ class Bomberdude():
 		if button == 1:
 			player_one = self.client_game_state.get_playerone()
 			if player_one:
-				# Convert screen mouse position to world coordinates
+				# Get mouse position in world coordinates
 				mouse_world_pos = self.camera.reverse_apply(x, y)
 
-				# Get player position in world coordinates
+				# Get player's world position (using center of player)
 				player_world_pos = player_one.rect.center
 
-				# Calculate direction in world space
-				direction_vector = Vec2d(mouse_world_pos[0] - player_world_pos[0], mouse_world_pos[1] - player_world_pos[1])
+				# Calculate direction vector in world coordinates
+				direction_vector = Vec2d(mouse_world_pos[0] - player_world_pos[0],
+									mouse_world_pos[1] - player_world_pos[1])
 
+				# Normalize the direction vector
 				if direction_vector.length() > 0:
 					direction_vector = direction_vector.normalize()
 				else:
 					direction_vector = Vec2d(1, 0)
 
-				# Rest of your code remains the same
-				bullet_pos = Vec2d(player_one.rect.center)
+				# Use player's center as bullet position
+				bullet_pos = Vec2d(player_world_pos)
+
+				# Create the event
 				event = {
-					"event_time": 0,
+					"event_time": self.timer,
 					"event_type": "bulletfired",
 					"client_id": self.client_id,
 					"position": (bullet_pos.x, bullet_pos.y),
 					"direction": (direction_vector.x, direction_vector.y),
-					"ba": 1,
-					"timer": 1,
+					"timer": self.timer,
 					"handled": False,
 					"handledby": self.client_id,
-					"eventid": gen_randid(),
+					"eventid": gen_randid()
 				}
+
 				if self.args.debug:
-					# logger.debug(f'{bullet} {self.client_game_state.event_queue.qsize()}')
-					logger.debug(f'bullet_pos: {bullet_pos} direction_vector: {direction_vector} mouse_world_pos: {mouse_world_pos} player_world_pos: {player_world_pos} self.camera.position:{self.camera.position} ')
+					logger.debug(f'bullet_pos: {bullet_pos} direction_vector: {direction_vector} ' +
+							f'mouse_world_pos: {mouse_world_pos} player_world_pos: {player_world_pos} ' +
+							f'self.camera.position:{self.camera.position}')
+
 				await self.client_game_state.event_queue.put(event)
 
 	def handle_on_key_press(self, key):

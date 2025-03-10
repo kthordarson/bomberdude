@@ -1,6 +1,7 @@
 import asyncio
 import copy
 import pygame
+from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Group
 import random
 from loguru import logger
@@ -284,12 +285,17 @@ class GameState:
 
 			case 'ackbullet':
 				# bullet = Bullet()
+				bullet_position = Vec2d(game_event.get('position')[0], game_event.get('position')[1])
+				bullet_direction = Vec2d(game_event.get('direction')[0], game_event.get('direction')[1])
 				if msg_client_id == self.get_playerone().client_id:
-					bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect)
+					bullet_size = (10,10)
+					# bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect)
 					# logger.info(f'{event_type} from self {msg_client_id}')
 				else:
-					bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect, bullet_size=(5,5))
+					bullet_size = (5,5)
+					# bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect, bullet_size=(5,5))
 					# logger.debug(f'{event_type} from other {msg_client_id}')
+				bullet = Bullet(position=bullet_position, direction=bullet_direction, screen_rect=self.get_playerone().rect, bullet_size=bullet_size)
 				self.bullets.add(bullet)
 			case _:
 				# payload = {'msgtype': 'error99', 'payload': ''}
