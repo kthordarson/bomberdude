@@ -1,17 +1,12 @@
 from dataclasses import dataclass, field
-import asyncio
 from loguru import logger
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
-# from pymunk import Vec2d
 import json
-import math
 import pygame
-import random
 import time
 from utils import gen_randid
-from constants import PLAYER_MOVEMENT_SPEED, PARTICLE_COUNT, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED, PARTICLE_FADE_RATE, PARTICLE_GRAVITY, FLAME_SPEED, FLAME_TIME, FLAME_RATE, BOMBTICKER, BULLET_TIMER, FLAMEX, FLAMEY
-from .particles import Particle
+from constants import PLAYER_MOVEMENT_SPEED
 from .bullets import Bullet
 
 MOVE_MAP = {
@@ -109,120 +104,6 @@ class Bomberplayer(Sprite):
 				self.position.x, self.position.y = prev_x, prev_y
 				self.rect.x = int(prev_x)
 				self.rect.y = int(prev_y)
-				return
-
-	def old5_update(self, collidable_tiles):
-		# Store previous position
-		prev_x, prev_y = self.position.x, self.position.y
-
-		# Normalize diagonal movement
-		if self.change_x != 0 and self.change_y != 0:
-			# Moving diagonally, normalize speed
-			diagonal_speed = math.sqrt(self.change_x**2 + self.change_y**2)
-			factor = PLAYER_MOVEMENT_SPEED / diagonal_speed
-			dx = self.change_x * factor
-			dy = self.change_y * factor
-		else:
-			dx = self.change_x
-			dy = self.change_y
-
-		# Apply movement
-		self.position.x += dx
-		self.position.y += dy
-
-		# Update rect with integer positions
-		self.rect.x = int(self.position.x)
-		self.rect.y = int(self.position.y)
-
-		# Check collisions
-		for tile in collidable_tiles:
-			if self.rect.colliderect(tile.rect):
-				self.position.x, self.position.y = prev_x, prev_y
-				self.rect.x = int(prev_x)
-				self.rect.y = int(prev_y)
-				return
-
-	def older_update(self, collidable_tiles):
-		# Store previous position for collision rollback
-		prev_x, prev_y = self.position.x, self.position.y
-
-		# Move player position
-		self.position.x += self.change_x
-		self.position.y += self.change_y
-
-		# Update rect with new position
-		# self.rect.topleft = (self.position.x, self.position.y)
-
-		# Update collision rect
-		self.rect.x = int(self.position.x)
-		self.rect.y = int(self.position.y)
-
-		# Check collisions and revert if needed
-		for tile in collidable_tiles:
-			if self.rect.colliderect(tile.rect):
-				self.position.x = prev_x
-				self.position.y = prev_y
-				self.rect.x = int(prev_x)
-				self.rect.y = int(prev_y)
-				break
-
-		# Check for wall collisions - IMPORTANT: Debug each collision
-		# for tile in collidable_tiles:
-		# 	if self.rect.colliderect(tile.rect):
-		# 		# Rollback to previous position
-		# 		self.position.x, self.position.y = prev_x, prev_y
-		# 		self.rect.topleft = (prev_x, prev_y)
-		# 		return
-
-	def old2update(self, collidable_tiles):
-		# Store old position
-		old_position = Vec2d(self.position)
-
-		# Apply movement with consistent speed regardless of camera
-		self.position.x += self.change_x
-		self.position.y += self.change_y
-
-		# Update rect
-		# self.rect.topleft = self.position
-		self.rect.topleft = (self.position.x, self.position.y)
-
-		# Check for collisions with all tiles
-		collision_detected = False
-		for tile in collidable_tiles:
-			if self.rect.colliderect(tile.rect):
-				collision_detected = True
-				break
-
-		# Revert if collision detected
-		if collision_detected:
-			self.position = old_position
-			self.rect.topleft = (self.position.x, self.position.y)
-
-		# Check collisions
-		# for tile in collidable_tiles:
-		# 	if self.rect.colliderect(tile.rect):
-		# 		# Revert to old position if collision
-		# 		self.position = old_position
-		# 		self.rect.topleft = self.position
-		# 		break
-
-	def oldupdate(self, collidable_tiles):
-		# Store previous position before movement for rollback
-		prev_x, prev_y = self.position.x, self.position.y
-
-		# Move the player
-		self.position.x += self.change_x
-		self.position.y += self.change_y
-
-		# Update the rectangle position
-		self.rect.topleft = self.position
-
-		# Check for collisions
-		for tile in collidable_tiles:
-			if self.rect.colliderect(tile.rect):
-				# Rollback to previous position if collision occurs
-				self.position.x, self.position.y = prev_x, prev_y
-				self.rect.topleft = self.position
 				return
 
 	def shoot(self, direction):

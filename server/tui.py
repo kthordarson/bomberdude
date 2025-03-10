@@ -1,6 +1,6 @@
 import asyncio
 from loguru import logger
-from threading import Thread, Timer, active_count, Event
+from threading import Thread, Event
 
 class ServerTUI():
 	def __init__(self, server, debug=False, gq=None):

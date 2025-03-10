@@ -1,6 +1,5 @@
 import pygame
 from pygame.math import Vector2 as Vec2d
-from loguru import logger
 
 class Camera:
     def __init__(self, width, height, map_width, map_height):
@@ -10,7 +9,7 @@ class Camera:
         self.map_height = map_height
         self.position = Vec2d(0, 0)
 
-    def update2(self, target):
+    def update(self, target):
         # Calculate camera position to center on player
         target_x = target.position.x + target.rect.width / 2
         target_y = target.position.y + target.rect.height / 2

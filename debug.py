@@ -1,7 +1,5 @@
 # debug.py
-
 import pygame
-from loguru import logger
 import time
 
 # Store the last few frame times for smoothing

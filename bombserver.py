@@ -1,18 +1,9 @@
 #!/usr/bin/python
-import cProfile
-import copy
 import asyncio
 import sys
-import json
 from argparse import ArgumentParser
-from threading import Thread, Timer, active_count, Event
 from loguru import logger
-import random
-from constants import BLOCK, GRIDSIZE, UPDATE_TICK
-from gamestate import GameState
-from asyncio import create_task, CancelledError
 from server.api import ApiServer
-from aiohttp import web
 from server.server import BombServer
 from server.tui import ServerTUI
 

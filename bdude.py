@@ -1,12 +1,9 @@
 #!/usr/bin/python
-import cProfile
 import json
 import sys
 import asyncio
-from threading import Thread
 import time
 from argparse import ArgumentParser
-from queue import Empty
 import pygame
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
@@ -101,69 +98,6 @@ async def receive_game_state(game):
                 game._connected = False
                 break
             continue
-
-async def old_receive_game_state(game):
-    if game.args.debug:
-        logger.info(f'{game} receive_game_state starting')
-    buffer = ""
-    while True:
-        try:
-            data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
-            if not data:
-                logger.warning(f"No data received, continuing...gamesockclosed: {game.sock._closed} gameconn: {game.connected()}")
-                if game.sock._closed or not game.connected():
-                    game._connected = False
-                    logger.warning(f'game.sock._closed {game.sock._closed}')
-                    break
-                else:
-                    await asyncio.sleep(0.1)
-                    continue
-            buffer += data.decode('utf-8')
-            try:
-                message, buffer = buffer.split('\n', 1)
-            except ValueError as e:
-                logger.warning(f"Error splitting buffer: {e} buffer: {buffer}")
-                break  # No complete message in buffer
-            if message.strip():  # Ignore empty messages
-                game_state_json = json.loads(message)
-                try:
-                    if game_state_json.get("msgtype") == "game_event":
-                        await game.client_game_state.update_game_event(game_state_json["event"])
-                    elif game_state_json.get("event_type") == "playerlistupdate":
-                        pass
-                    else:
-                        game.client_game_state.from_json(game_state_json)
-                    if game.args.debug:
-                        pass
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Error decoding json: {e} message: {message}")
-                    continue
-            else:
-                logger.warning(f"Empty message received: {buffer}")
-
-        except (BlockingIOError, InterruptedError) as e:
-            logger.warning(f"{e} in receive_game_state: {type(e)}")
-            continue
-        except ConnectionResetError as e:
-            logger.warning(f"ConnectionResetError in receive_game_state: {e} {type(e)}")
-            game._connected = False
-            break
-        except KeyError as e:
-            logger.warning(f"KeyError in receive_game_state: {e} data: {data}")
-            continue
-        except AttributeError as e:
-            logger.warning(f"AttributeError in receive_game_state: {e} data: {data}")
-            continue
-        except TypeError as e:
-            logger.warning(f"TypeError in receive_game_state: {e} data: {data}")
-            continue
-        except UnboundLocalError as e:
-            logger.warning(f"UnboundLocalError in receive_game_state: {e} data: {data}")
-            continue
-        except Exception as e:
-            logger.error(f"Exception in receive_game_state: {e} {type(e)} data: {data}")
-            game._connected = False
-            break
 
 def get_args():
     parser = ArgumentParser(description="bdude")

@@ -4,17 +4,13 @@ import requests
 import pygame
 import socket
 from pygame.math import Vector2 as Vec2d
-import math
 import json
-from queue import Empty
-
 from loguru import logger
-from utils import get_map_coordinates_rev, gen_randid
+from utils import gen_randid
 from gamestate import GameState
-from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, BULLET_SPEED, BULLETDEBUG,GRAPH_HEIGHT, GRAPH_WIDTH, GRAPH_MARGIN, SCREEN_WIDTH, SCREEN_HEIGHT
+from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT
 from camera import Camera
 from objects.player import Bomberplayer
-from objects.bullets import Bullet
 from debug import draw_debug_info
 from gamestate import PlayerState
 
@@ -92,37 +88,6 @@ class Bomberdude():
 		if self.args.debug:
 			logger.debug(f'conn: {self.connected()} - {self._connected} setup done event_queue: {self.client_game_state.event_queue.qsize()}')
 		return True
-
-	def old3_center_camera_on_player(self, speed=0.2):
-		player = self.client_game_state.get_playerone()
-		screen_center_x = player.rect.centerx - (SCREEN_WIDTH / 2)
-		screen_center_y = player.rect.centery - (SCREEN_HEIGHT / 2)
-		if screen_center_x < 0:
-			screen_center_x = 0
-		if screen_center_y < 0:
-			screen_center_y = 0
-		self.camera.position = (screen_center_x, screen_center_y)
-
-	def old2_center_camera_on_player(self, speed=0.2):
-		player = self.client_game_state.get_playerone()
-		screen_center_x = player.rect.centerx - (SCREEN_WIDTH / 2)
-		screen_center_y = player.rect.centery - (SCREEN_HEIGHT / 2)
-		screen_center_x = max(0, min(screen_center_x, self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth - SCREEN_WIDTH))
-		screen_center_y = max(0, min(screen_center_y, self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight - SCREEN_HEIGHT))
-		self.camera.position = (screen_center_x, screen_center_y)
-
-	def old_center_camera_on_player(self, speed=0.2):
-		player = self.client_game_state.get_playerone()
-		# screen_center_x = player.center_x - (SCREEN_WIDTH / 2)
-		# screen_center_y = player.center_y - (SCREEN_HEIGHT / 2)
-
-		screen_center_x = player.rect.centerx - (SCREEN_WIDTH / 2)
-		screen_center_y = player.rect.centery - (SCREEN_HEIGHT / 2)
-		if screen_center_x < 0:
-			screen_center_x = 0
-		if screen_center_y < 0:
-			screen_center_y = 0
-		self.camera.position = (screen_center_x, screen_center_y)
 
 	def draw_player(self, player_data):
 		# logger.debug(f'player_data: {player_data} {type(player_data)}')
@@ -239,47 +204,6 @@ class Bomberdude():
 
 				await self.client_game_state.event_queue.put(event)
 
-	async def old_handle_on_mouse_press(self, x, y, button):
-		if button == 1:
-			player_one = self.client_game_state.get_playerone()
-			if player_one:
-				# Get mouse position in world coordinates
-				mouse_world_pos = self.camera.reverse_apply(x, y)
-
-				# Get player's world position (using center of player)
-				player_world_pos = player_one.rect.center
-
-				# Calculate direction vector in world coordinates
-				direction_vector = Vec2d(mouse_world_pos[0] - player_world_pos[0],
-									mouse_world_pos[1] - player_world_pos[1])
-
-				# Normalize the direction vector
-				if direction_vector.length() > 0:
-					direction_vector = direction_vector.normalize()
-				else:
-					direction_vector = Vec2d(1, 0)
-
-				# Use player's center as bullet position
-				bullet_pos = Vec2d(player_world_pos)
-
-				# Create the event
-				event = {
-					"event_time": self.timer,
-					"event_type": "bulletfired",
-					"client_id": self.client_id,
-					"position": (bullet_pos.x, bullet_pos.y),
-					"direction": (direction_vector.x, direction_vector.y),
-					"timer": self.timer,
-					"handled": False,
-					"handledby": self.client_id,
-					"eventid": gen_randid()
-				}
-
-				if self.args.debug:
-					logger.debug(f'bullet_pos: {bullet_pos} direction_vector: {direction_vector}  mouse_world_pos: {mouse_world_pos} player_world_pos: {player_world_pos}  self.camera.position:{self.camera.position}')
-
-				await self.client_game_state.event_queue.put(event)
-
 	def handle_on_key_press(self, key):
 		try:
 			player_one = self.client_game_state.get_playerone()
@@ -377,7 +301,7 @@ class Bomberdude():
 		player_one.rect.x = int(player_one.position.x)
 		player_one.rect.y = int(player_one.position.y)
 
-		self.camera.update2(player_one)
+		self.camera.update(player_one)
 		# self.client_game_state.update_remote_players(self.delta_time)  # Use self.delta_time
 
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)

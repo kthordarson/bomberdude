@@ -1,22 +1,16 @@
 #!/usr/bin/python
 import time
-import cProfile
-import copy
 import asyncio
-import sys
 import json
-from argparse import ArgumentParser
-from threading import Thread, Timer, active_count, Event
+from threading import Event
 from loguru import logger
 import random
-from constants import BLOCK, GRIDSIZE, UPDATE_TICK
+from constants import BLOCK
 from gamestate import GameState
-from asyncio import run, create_task, CancelledError
 # import zmq
 # from zmq.asyncio import Context
 from aiohttp import web
 import socket
-from .tui import ServerTUI
 
 
 class BombServer:
@@ -169,26 +163,6 @@ class BombServer:
 			await asyncio.gather(*send_tasks)
 		except Exception as e:
 			logger.error(f"Error during broadcast: {e}")
-
-	async def old_server_broadcast_state(self, state):
-		"""Broadcast game state to all connected clients"""
-		data = json.dumps(state).encode('utf-8') + b'\n'
-		failed_conns = []
-		for conn in self.connections:
-			try:
-				await self.loop.sock_sendall(conn, data)
-				if self.args.debugpacket:
-					if state.get('msgtype') != 'playerlist':
-						logger.debug(f'Sending {state.get('msgtype')} to {conn}')
-			except (ConnectionError, BrokenPipeError) as e:
-				logger.warning(f"Failed to send to client {conn}: {e}")
-				failed_conns.append(conn)
-			except Exception as e:
-				logger.error(f"Unexpected error sending to client: {e}")
-				failed_conns.append(conn)
-		# Remove failed connections
-		for conn in failed_conns:
-			await self.cleanup_client(None, conn)
 
 	def get_game_state(self):
 		return self.server_game_state.to_json()

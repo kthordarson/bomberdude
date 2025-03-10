@@ -4,7 +4,6 @@ import struct
 import random
 import hashlib as md5lib
 import pygame
-import os
 
 md5_unpacker = struct.Struct("4I")
 
