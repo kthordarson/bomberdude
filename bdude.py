@@ -197,10 +197,15 @@ async def start_game(args):
     push_task = asyncio.create_task(pusher(bomberdude_main))
     receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
 
+    # Calculate frame time in seconds
+    target_fps = UPDATE_TICK  # Using your constant from constants.py
+    frame_time = 1.0 / target_fps
+
     # Main loop
     running = True
     while running:
         # start_time = time.time()
+        frame_start = time.time()
         await bomberdude_main.update()
         bomberdude_main.on_draw()
         pygame.display.flip()
@@ -217,6 +222,12 @@ async def start_game(args):
                 await bomberdude_main.handle_on_key_release(event.key)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 asyncio.create_task(bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button))
+
+        # Calculate sleep time to maintain constant frame rate
+        elapsed = time.time() - frame_start
+        sleep_time = max(0, frame_time - elapsed)
+        if sleep_time > 0:
+            await asyncio.sleep(sleep_time)
 
     # Clean up tasks
     push_task.cancel()
