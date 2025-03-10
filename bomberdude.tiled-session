@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "data/map4.tmx",
+    "activeFile": "data/maptest5.tmx",
     "automapping.whileDrawing": false,
     "expandedProjectPaths": [
         "data",
@@ -310,7 +310,7 @@
             "selectedLayer": 0,
             "viewCenter": {
                 "x": 963.1406761177755,
-                "y": 642.4611146186078
+                "y": 643.5631062388796
             }
         },
         "data/wall-rules.tmx": {
@@ -348,23 +348,26 @@
     "map.lastUsedFormat": "tmx",
     "map.width": 32,
     "openFiles": [
+        "data/map5.tmx",
+        "data/map4.tmx",
         "data/map3.tmx",
-        "data/map4.tmx"
+        "data/map2tiles.tsx",
+        "data/maptest5.tmx"
     ],
     "project": "bomberdude.tiled-project",
     "property.type": "bool",
     "recentFiles": [
-        "data/map3.tmx",
-        "data/map4.tmx",
         "data/map5.tmx",
+        "data/map4.tmx",
+        "data/map3.tmx",
         "data/map2tiles.tsx",
+        "data/maptest5.tmx",
         "data/map2.tmj",
         "data/map.json",
         "data/btiles.tsx",
         "data/maptest5.json",
         "data/maptest4.json",
         "data/maptest2.json",
-        "data/maptest5.tmx",
         "/home/kth/development2/games/arcadestuff/xn--m28h/assets/indoor/map1a.json"
     ],
     "tileset.lastUsedFormat": "tsx",
