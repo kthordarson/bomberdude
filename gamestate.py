@@ -101,7 +101,7 @@ class GameState:
 	async def broadcast_event(self, event):
 		# Only broadcast player_update events at a reduced rate
 		if event.get('event_type') == 'player_update':
-			if time.time() - self.last_pos_broadcast < 0.1:  # Only broadcast 10 times/sec
+			if time.time() - self.last_pos_broadcast < 0.03:  # Only broadcast 10 times/sec
 				return
 			self.last_pos_broadcast = time.time()
 
@@ -204,6 +204,27 @@ class GameState:
 		msg_client_id = game_event.get("client_id")
 		match event_type:
 			case 'player_update':
+				# Update other player's position in playerlist
+				if msg_client_id != self.client_id:
+					position = game_event.get('position')
+					if msg_client_id in self.playerlist:
+						player = self.playerlist[msg_client_id]
+						if isinstance(player, dict):
+							# Direct update without complex interpolation
+							player['position'] = position
+							player['client_id'] = msg_client_id
+						else:
+							# Handle PlayerState objects
+							player.position = position
+					else:
+						# Add new player with minimal required fields
+						self.playerlist[msg_client_id] = {
+							'client_id': msg_client_id,
+							'position': position,
+							'angle': game_event.get('angle', 0)
+						}
+				await self.broadcast_event(game_event)
+			case 'player_updatexxx':
 				# Update other player's position in playerlist
 				if msg_client_id != self.client_id:
 					position = game_event.get('position')

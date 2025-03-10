@@ -43,11 +43,23 @@ def draw_debug_info(screen, game_state):
     y_pos = 80
     for player in game_state.playerlist.values():
         if isinstance(player, dict):
-            pass  # debug_text = font.render(f"player: {player.get('client_id')} {player.get('position')}", True, (255, 255, 155))
+            debug_text = font.render(f"player(dict): {player.get('client_id')} {player.get('position')}", True, (255, 255, 155))
+            screen.blit(debug_text, (10, y_pos))
+            y_pos += 20
         else:
-            if player.client_id == game_state.get_playerone().client_id:
-                debug_text = font.render(f"p1: {player.client_id} {player.position} ", True, (55, 255, 55))
-            else:
+            # Skip rendering player_one again since we already did it above
+            if player.client_id != game_state.get_playerone().client_id:
                 debug_text = font.render(f"netplayer: {player.client_id} {player.position}", True, (55, 25, 25))
-        screen.blit(debug_text, (10, y_pos))
-        y_pos += 20
+                screen.blit(debug_text, (10, y_pos))
+                y_pos += 20
+
+    # for player in game_state.playerlist.values():
+    #     if isinstance(player, dict):
+    #         pass  # debug_text = font.render(f"player: {player.get('client_id')} {player.get('position')}", True, (255, 255, 155))
+    #     else:
+    #         if player.client_id == game_state.get_playerone().client_id:
+    #             debug_text = font.render(f"p1: {player.client_id} {player.position} ", True, (55, 255, 55))
+    #         else:
+    #             debug_text = font.render(f"netplayer: {player.client_id} {player.position}", True, (55, 25, 25))
+    #     screen.blit(debug_text, (10, y_pos))
+    #     y_pos += 20

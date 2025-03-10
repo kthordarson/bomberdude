@@ -378,7 +378,7 @@ class Bomberdude():
 		player_one.rect.y = int(player_one.position.y)
 
 		self.camera.update2(player_one)
-		self.client_game_state.update_remote_players(self.delta_time)  # Use self.delta_time
+		# self.client_game_state.update_remote_players(self.delta_time)  # Use self.delta_time
 
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
 		self.client_game_state.bombs.update()
@@ -399,7 +399,7 @@ class Bomberdude():
 			"playerlist": playerlist,
 			"eventid": gen_randid(),}
 		current_time = time.time()
-		if current_time - self.last_position_update > 0.05:
+		if current_time - self.last_position_update > 0.035:
 			await self.client_game_state.event_queue.put(update_event)
 			await asyncio.sleep(1 / UPDATE_TICK)
 			self.last_position_update = current_time
