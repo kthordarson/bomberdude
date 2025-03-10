@@ -160,9 +160,6 @@ class Bomberdude():
 				end_pos = (start_pos[0] + bullet.direction.x * 25, start_pos[1] + bullet.direction.y * 25)
 				pygame.draw.line(self.screen, (255, 255, 0), start_pos, end_pos, 2)
 
-	def on_mouse_motion(self, x: int, y: int, dx: int, dy: int):
-		self.mouse_pos = Vec2d(x=x, y=y)
-
 	async def handle_on_mouse_press(self, x, y, button):
 		if button == 1:
 			player_one = self.client_game_state.get_playerone()
