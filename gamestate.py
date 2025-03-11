@@ -9,7 +9,7 @@ from utils import gen_randid
 from objects.player import KeysPressed
 from objects.blocks import Upgrade
 from objects.bullets import Bullet
-from objects.bombs import Bomb
+from objects.bombs import Bomb, ExplosionManager
 import pytmx
 from pytmx import load_pygame
 import json
@@ -70,6 +70,7 @@ class GameState:
 		self.client_queue = asyncio.Queue()
 		self.playerlist = {}  # dict = field(default_factory=dict)
 		self.last_pos_broadcast = 0
+		self.explosion_manager = ExplosionManager()
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
@@ -154,6 +155,7 @@ class GameState:
 
 	def render_map(self, screen, camera):
 		# self.scene.draw(screen)
+		self.explosion_manager.draw(screen, camera)
 		for layer in self.tile_map.visible_layers:
 			if isinstance(layer, pytmx.TiledTileLayer):
 				for x, y, gid in layer:

@@ -141,6 +141,14 @@ class Bomberdude():
 			pos = self.camera.apply(bomb.rect)
 			self.screen.blit(bomb.image, pos)
 
+		self.client_game_state.bombs.update(
+			self.client_game_state.collidable_tiles,
+			self.client_game_state.explosion_manager
+		)
+
+		# Draw explosion particles
+		self.client_game_state.explosion_manager.draw(self.screen, self.camera)
+
 		if self.draw_debug:
 			draw_debug_info(self.screen, self.client_game_state)
 			# Add camera position debug
@@ -232,10 +240,8 @@ class Bomberdude():
 		elif key == pygame.K_ESCAPE or key == pygame.K_q or key == 27:
 			self._connected = False
 			self.running = False
-			logger.warning("quit")
+			logger.info("quit")
 			pygame.event.post(pygame.event.Event(pygame.QUIT))
-			# pygame.display.quit()
-			# pygame.quit()
 			return
 		elif key == pygame.K_UP or key == pygame.K_w or key == 119:
 			player_one.change_y = -PLAYER_MOVEMENT_SPEED
@@ -251,8 +257,6 @@ class Bomberdude():
 			self.client_game_state.keyspressed.keys[key] = True
 
 	async def handle_on_key_release(self, key):
-		# key = pygame.key.get_pressed()
-		# logger.info(f'{key=}')
 		try:
 			player_one = self.client_game_state.get_playerone()
 		except AttributeError as e:
@@ -303,6 +307,7 @@ class Bomberdude():
 
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
 		self.client_game_state.bombs.update()
+		self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles)
 
 		playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
 		update_event = {
