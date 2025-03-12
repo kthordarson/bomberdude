@@ -112,10 +112,6 @@ class Bomberdude():
 		# Clear screen
 		self.screen.fill((0, 0, 0))
 
-		# Draw the map
-		# self.client_game_state.render_map(self.screen, self.camera)
-		self.client_game_state.draw(self.screen, self.camera)
-
 		# Draw local player
 		player_one = self.client_game_state.get_playerone()
 		self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
