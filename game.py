@@ -4,7 +4,7 @@ import requests
 import pygame
 import socket
 from pygame.math import Vector2 as Vec2d
-import json
+import orjson as json
 from loguru import logger
 from utils import gen_randid
 from gamestate import GameState
@@ -113,7 +113,8 @@ class Bomberdude():
 		self.screen.fill((0, 0, 0))
 
 		# Draw the map
-		self.client_game_state.render_map(self.screen, self.camera)
+		# self.client_game_state.render_map(self.screen, self.camera)
+		self.client_game_state.draw(self.screen, self.camera)
 
 		# Draw local player
 		player_one = self.client_game_state.get_playerone()
@@ -303,7 +304,6 @@ class Bomberdude():
 		player_one.rect.y = int(player_one.position.y)
 
 		self.camera.update(player_one)
-		# self.client_game_state.update_remote_players(self.delta_time)  # Use self.delta_time
 
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
 		self.client_game_state.bombs.update()

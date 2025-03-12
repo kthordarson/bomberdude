@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import json
+import orjson as json
 import sys
 import asyncio
 import time
@@ -17,7 +17,7 @@ async def pusher(game):
         try:
             game_event = await game.client_game_state.event_queue.get()
         except asyncio.QueueEmpty:
-            pass
+            continue
         except Exception as e:
             logger.error(f"Error getting game_event: {e} {type(e)}")
             continue
@@ -42,7 +42,7 @@ async def pusher(game):
             # 'playerlist': [player for player in self.playerlist.values()]
         }
         try:
-            data_out = json.dumps(msg).encode('utf-8') + b'\n'
+            data_out = json.dumps(msg)  # .encode('utf-8') + b'\n'
             await asyncio.get_event_loop().sock_sendall(game.sock, data_out)
             game.client_game_state.event_queue.task_done()
             if game.args.debug:
@@ -190,5 +190,21 @@ async def main():
 if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+    import cProfile
+    import pstats
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+
     asyncio.run(main())
+
+    profiler.disable()
+    stats = pstats.Stats(profiler).sort_stats('cumtime')
+    stats.print_stats(30)  # Print top 30 time-consuming functions
+
+    # Optionally save results to a file
+    stats.dump_stats('bdude_profile.prof')
+
+    # asyncio.run(main())
     # cProfile.run('asyncio.run(main())')
