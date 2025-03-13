@@ -1,6 +1,6 @@
 import asyncio
 from loguru import logger
-from threading import Thread, Timer, active_count, Event
+from threading import Thread, Event
 
 class ServerTUI():
 	def __init__(self, server, debug=False, gq=None):
@@ -14,10 +14,15 @@ class ServerTUI():
 	def __repr__(self):
 		return f"ServerTUI (s:{self.stopped()})"
 
-	def stop(self):
+	async def stop(self):
 		self._stop.set()
 		# self.server.stop()
 		logger.warning(f"{self} stop {self.stopped()} server: {self.server.stopped()}")
+
+		# Make sure we don't try to await None
+		if hasattr(self, 'server') and self.server is not None:
+			await self.server.stop()
+		return True  # Return a value so it's awaitable
 
 	def stopped(self):
 		return self._stop.is_set()
@@ -52,7 +57,7 @@ class ServerTUI():
 				await self.handle_command(cmd)
 			except (EOFError, KeyboardInterrupt) as e:
 				logger.warning(f"{type(e)} {e}")
-				self.stop()
+				await self.stop()
 				await self.server.stop()
 				break
 
@@ -71,15 +76,19 @@ class ServerTUI():
 		elif cmd[:2] == "ec":
 			pass  # self.cleargameevents()
 		elif cmd[:1] == "q":
-			logger.warning(f"{self} {self.server} tuiquit")
+			# logger.warning(f"{self} {self.server} tuiquit")
 			await self.server.stop()
-			self.stop()
+			await self.stop()
 
 	async def start(self):
 		"""Start the TUI"""
 		try:
 			await self.input_handler()
+		except TypeError as e:
+			# Handle the case where stop() is not awaitable
+			logger.error(f"{e} Could not properly stop TUI")
+			self._stop.set()
 		except Exception as e:
 			logger.error(f"TUI error: {e}")
-			self.stop()
+			await self.stop()
 			await self.server.stop()

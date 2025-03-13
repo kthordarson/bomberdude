@@ -13,6 +13,9 @@ class ApiServer:
 		self.add_url_rule("/get_tile_map", view_func=server.get_tile_map, methods=["GET"])
 		self.add_url_rule("/get_position", view_func=server.get_position, methods=["GET"])
 
+	def __repr__(self):
+		return f'ApiServer({self._name})'
+
 	def add_url_rule(self, path, view_func, methods=None):
 		if methods is None:
 			methods = ["GET"]

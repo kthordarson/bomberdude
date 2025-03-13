@@ -1,19 +1,15 @@
 import asyncio
-import copy
 import pygame
+from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Group
-import random
 from loguru import logger
-from constants import EXTRA_HEALTH, TILE_SCALING
 import time
-from queue import Empty  # Queue,
 from dataclasses import dataclass, field
 from utils import gen_randid
-from objects.player import Bomberplayer, KeysPressed
+from objects.player import KeysPressed
 from objects.blocks import Upgrade
 from objects.bullets import Bullet
-from objects.bombs import Bomb
-from constants import UPDATE_TICK
+from objects.bombs import Bomb, ExplosionManager
 import pytmx
 from pytmx import load_pygame
 import json
@@ -26,6 +22,10 @@ class PlayerState:
 	bombsleft: int
 	angle: float
 	score: int
+	prev_position: tuple | None = None
+	target_position: tuple | None = None
+	interp_time: float | None = None
+	position_updated: bool = False
 	msg_dt: float | None = None
 	timeout: bool | None = None
 	killed: bool | None = None
@@ -70,9 +70,14 @@ class GameState:
 		self.client_queue = asyncio.Queue()
 		self.playerlist = {}  # dict = field(default_factory=dict)
 		self.last_pos_broadcast = 0
+		self.explosion_manager = ExplosionManager()
+		self._ready = False
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
+
+	def ready(self):
+		return self._ready
 
 	async def debug_dump(self):
 		"""Debug dump of game state"""
@@ -96,7 +101,7 @@ class GameState:
 	async def broadcast_event(self, event):
 		# Only broadcast player_update events at a reduced rate
 		if event.get('event_type') == 'player_update':
-			if time.time() - self.last_pos_broadcast < 0.1:  # Only broadcast 10 times/sec
+			if time.time() - self.last_pos_broadcast < 0.03:  # Only broadcast 10 times/sec
 				return
 			self.last_pos_broadcast = time.time()
 
@@ -105,24 +110,26 @@ class GameState:
 		except Exception as e:
 			logger.error(f"Error in broadcast_event: {e} {type(e)}")
 
-	async def old_broadcast_event(self, event):
-		if self.args.debug:
-			logger.info(f'broadcast_event {event.get('event_type')} event_queue: {self.event_queue.qsize()}')
-		try:
-			await self.broadcast_state({"msgtype": "game_event", "event": event, "playerlist": [player for player in self.playerlist.values()]})
-		except Exception as e:
-			logger.error(f"Error in broadcast_event: {e} {type(e)} {event}")
-
 	async def broadcast_state(self, game_state):
 		"""Broadcast game state to all connected clients"""
-		if not self.connections:
-			pass  # logger.warning(f'{self} got no connections....')
-			# return
+		dead_connections = set()
+		loop = asyncio.get_event_loop()
 		try:
-			data = json.dumps(game_state).encode('utf-8') + b'\n'
-			loop = asyncio.get_event_loop()
-			# logger.debug(f'broadcast_state to {len(self.connections)} clients')
-			dead_connections = set()
+			# Fix the data encoding
+			if isinstance(game_state, bytes):
+				data = game_state + b'\n'  # Add newline for message boundary
+			else:
+				data = json.dumps(game_state).encode('utf-8') + b'\n'
+		except TypeError as e:
+			logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
+			return
+
+		# try:
+		# 	data = json.dumps(game_state.decode('utf8'))  # .encode('utf-8') + b'\n'
+		# except TypeError as e:
+		# 	logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
+		# 	return
+		try:
 			for conn in self.connections:
 				try:
 					await loop.sock_sendall(conn, data)
@@ -162,6 +169,7 @@ class GameState:
 
 	def render_map(self, screen, camera):
 		# self.scene.draw(screen)
+		self.explosion_manager.draw(screen, camera)
 		for layer in self.tile_map.visible_layers:
 			if isinstance(layer, pytmx.TiledTileLayer):
 				for x, y, gid in layer:
@@ -185,23 +193,15 @@ class GameState:
 		return upgrade
 
 	def update_game_state(self, clid, msg):
-		msghealth = msg.get('health')
-		msgtimeout = msg.get('timeout')
-		msgkilled = msg.get('killed')
-
-		# if self.args.debug:
-		# 	logger.debug(f'update_game_state {clid=} {msg=}')
-
 		playerdict = {
 			'client_id': clid,
 			'position': msg.get('position'),
-			# 'position': tuple(msg.get('position', (42, 42))),  # Ensure position is a tuple
 			'angle': msg.get('angle'),
 			'score': msg.get('score'),
-			'health': msghealth,
+			'health': msg.get('health'),
 			'msg_dt': msg.get('msg_dt'),
-			'timeout': msgtimeout,
-			'killed': msgkilled,
+			'timeout': msg.get('timeout'),
+			'killed': msg.get('killed'),
 			'msgtype': 'update_game_state',
 			'bombsleft': msg.get('bombsleft'),
 		}
@@ -220,42 +220,39 @@ class GameState:
 					position = game_event.get('position')
 					if msg_client_id in self.playerlist:
 						player = self.playerlist[msg_client_id]
-						if hasattr(player, 'position'):
-							# If PlayerState object
-							if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-								player.position.x, player.position.y = position[0], position[1]
-							else:
-								player.position = position
-						else:
-							# If dictionary
+						if isinstance(player, dict):
+							# Direct update without complex interpolation
 							player['position'] = position
-
-					if msg_client_id not in self.playerlist:
-						# Initialize player state if it does not exist
-						self.playerlist[msg_client_id] = PlayerState(
-							client_id=msg_client_id,
-							position=position,
-							angle=game_event.get('angle', 0),
-							health=game_event.get('health', 100),
-							score=game_event.get('score', 0),
-							bombsleft=game_event.get('bombsleft', 3)
-						)
-
-						logger.debug(f'new player_update {msg_client_id=} event_type: {game_event.get('event_type')}')
+							player['client_id'] = msg_client_id
+						else:
+							# Handle PlayerState objects
+							player.position = position
+					else:
+						# Add new player with minimal required fields
+						self.playerlist[msg_client_id] = {
+							'client_id': msg_client_id,
+							'position': position,
+							'angle': game_event.get('angle', 0)
+						}
 				await self.broadcast_event(game_event)
-
 			case 'debug_dump':
 				logger.debug(f'debug_dump game_event={game_event}')
 			case 'playerquit':
 				self.playerlist[msg_client_id]['playerquit'] = True
 				await self.event_queue.put(game_event)
-			case 'newconnection':
+			case 'acknewplayer':
+				logger.info(f'{event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()} ready: {self.ready()}')
+				self._ready = True
+				game_event['handled'] = True
+
+			case 'connection_event':
 				if self.args.debug:
 					logger.info(f'{event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()}')
 				game_event['handled'] = True
 				game_event['handledby'] = 'ugsnc'
-				game_event['event_type'] = 'acknewconn'
-
+				game_event['event_type'] = 'acknewplayer'
+				# await self.broadcast_event(game_event)
+				await self.broadcast_state({"msgtype": "game_event", "event": game_event})
 				# await self.event_queue.put(game_event)
 			case 'drop_bomb':
 				if self.args.debug:
@@ -300,12 +297,17 @@ class GameState:
 
 			case 'ackbullet':
 				# bullet = Bullet()
+				bullet_position = Vec2d(game_event.get('position')[0], game_event.get('position')[1])
+				bullet_direction = Vec2d(game_event.get('direction')[0], game_event.get('direction')[1])
 				if msg_client_id == self.get_playerone().client_id:
-					bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect)
+					bullet_size = (10,10)
+					# bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect)
 					# logger.info(f'{event_type} from self {msg_client_id}')
 				else:
-					bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect, bullet_size=(5,5))
+					bullet_size = (5,5)
+					# bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect, bullet_size=(5,5))
 					# logger.debug(f'{event_type} from other {msg_client_id}')
+				bullet = Bullet(position=bullet_position, direction=bullet_direction, screen_rect=self.get_playerone().rect, bullet_size=bullet_size)
 				self.bullets.add(bullet)
 			case _:
 				# payload = {'msgtype': 'error99', 'payload': ''}
@@ -319,7 +321,7 @@ class GameState:
 			if hasattr(player, 'to_dict'):
 				playerlist.append(player.to_dict())
 			else:
-				playerlist.append(player)  # Assuming this is already a dict
+				playerlist.append(player)
 
 		return {
 			'event_type': 'playerlistupdate',
@@ -328,12 +330,29 @@ class GameState:
 			'connections': len(self.connections),
 		}
 
-	def old_to_json(self):
-		"""Convert game state to JSON-serializable format"""
-		return {'msgtype': 'playerlist', 'playerlist': [player for player in self.playerlist.values()], 'connections': len(self.connections), }
-
 	def from_json(self, data):
-		if data.get('msgtype') == 'pushermsgdict':
+		if data.get('msgtype') == 'debug_dump':
+			pass
+		elif data.get('msgtype') == 'pushermsgdict':
+			for player_data in data.get('playerlist', []):
+				client_id = player_data.get('client_id')
+				if client_id != self.client_id:  # Don't update our own player
+					if client_id in self.playerlist:
+						# Update existing player
+						player = self.playerlist[client_id]
+						position = player_data.get('position')
+						if position:
+							if hasattr(player, 'position'):
+								if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
+									player.position.x, player.position.y = position[0], position[1]
+								else:
+									player.position = position
+							else:
+								player['position'] = position
+					else:
+						# Create new player
+						self.playerlist[client_id] = PlayerState(**player_data)
+		elif data.get('msgtype') == 'playerlist':
 			try:
 				for player_data in data.get('playerlist', []):
 					client_id = player_data.get('client_id')
@@ -350,35 +369,72 @@ class GameState:
 										player.position = position
 								else:
 									player['position'] = position
+
+								# Set up interpolation data
+								if hasattr(player, 'target_position'):
+									player.target_position = position
+									player.position_updated = True
 						else:
 							# Create new player
-							self.playerlist[client_id] = PlayerState(**player_data)
+							try:
+								self.playerlist[client_id] = PlayerState(
+									client_id=client_id,
+									position=player_data.get('position', (0, 0)),
+									health=player_data.get('health', 100),
+									bombsleft=player_data.get('bombsleft', 3),
+									angle=player_data.get('angle', 0),
+									score=player_data.get('score', 0)
+								)
+							except Exception as e:
+								logger.error(f"Could not create PlayerState: {e}")
 			except Exception as e:
 				logger.error(f"Error updating player from json: {e}")
-
-	def old___from_json(self, data):
-		if data.get('msgtype') == 'debug_dump':
-			logger.debug(f'debug_dump fromjson: {data.get("msgtype")}')
 		else:
-			try:
-				# playerlist = data.get('playerlist', [])
-				if data.get('msgtype') == 'game_event':
-					playerlist = data.get('event').get('playerlist',[])
-				elif data.get('msgtype') == 'playerlist':
-					playerlist = data.get('playerlist',[])
-				else:
-					playerlist = []
-				if self.args.debug:
-					logger.debug(f'fromjson: {data.get("msgtype")} playerlist: {len(playerlist)} ')
-					if len(playerlist) == 0 and data.get('event').get('event_type') not in ('ackbullet','player_update'):
-						logger.warning(f'noplayerlistfromjson: {data.get("msgtype")} {data}')
-				for player_data in playerlist:
-					client_id = player_data['client_id']
-					# Only update players that aren't our own player
-					if client_id != self.client_id:
-						self.playerlist[client_id] = PlayerState(**player_data)
-						# Debug the player data we're receiving
-						if self.args.debug:
-							pass  # logger.debug(f"Updated player {client_id}: {self.playerlist[client_id]}")
-			except KeyError as e:
-				logger.warning(f'fromjson: {e} {data=}')
+			logger.warning(f"Unknown msgtype: {data.get('msgtype')} data: {data}")
+
+	def update_remote_players(self, delta_time):
+		"""Update remote player interpolation"""
+		for client_id, player in self.playerlist.items():
+			if client_id != self.client_id:  # Only update remote players
+				try:
+					# Check if player is dictionary or PlayerState object
+					if isinstance(player, dict):
+						# Dictionary players (server-originated)
+						if 'position' not in player:
+							continue
+
+						# Initialize interpolation properties if needed
+						if 'prev_position' not in player:
+							player['prev_position'] = player['position']
+							player['target_position'] = player['position']
+							player['interp_time'] = 0
+							player['position_updated'] = False
+
+						# Handle interpolation
+						if player.get('position_updated', False):
+							if isinstance(player['position'], list):
+								player['prev_position'] = player['position'].copy()
+							else:
+								player['prev_position'] = player['position']
+							player['interp_time'] = 0
+							player['position_updated'] = False
+
+					else:
+						# PlayerState objects (client-originated)
+						if not hasattr(player, 'position'):
+							continue
+
+						# Initialize interpolation attributes if needed
+						if not hasattr(player, 'prev_position') or player.prev_position is None:
+							player.prev_position = player.position
+							player.target_position = player.position
+							player.interp_time = 0
+							player.position_updated = False
+
+						# Update interpolation
+						if getattr(player, 'position_updated', False):
+							player.prev_position = player.position
+							player.interp_time = 0
+							player.position_updated = False
+				except Exception as e:
+					logger.warning(f"Error in update_remote_players for {client_id}: {e}")

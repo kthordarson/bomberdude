@@ -1,8 +1,5 @@
 # panels.py
-
 import pygame
-from loguru import logger
-from game import Bomberdude
 
 class Mainmenu:
     def __init__(self, screen, args):

@@ -9,21 +9,26 @@ class Camera:
         self.map_height = map_height
         self.position = Vec2d(0, 0)
 
-    def update2(self, target):
-        # Target should be centered on screen
-        x = target.rect.centerx - (self.width // 2)
-        y = target.rect.centery - (self.height // 2)
+    def update(self, target):
+        # Calculate camera position to center on player
+        target_x = target.position.x + target.rect.width / 2
+        target_y = target.position.y + target.rect.height / 2
 
-        # Clamp camera position to map bounds
+        # Position the camera so target is centered
+        x = target_x - (self.width / 2)
+        y = target_y - (self.height / 2)
+
+        # Clamp to map boundaries
         x = max(0, min(x, self.map_width - self.width))
         y = max(0, min(y, self.map_height - self.height))
 
-        # Store negative position for correct rendering offset
-        self.position = Vec2d(-x, -y)
+        # Store as integers for pixel-perfect rendering
+        self.position = Vec2d(int(x), int(y))
 
-    def apply(self, target):
-        # Use position directly instead of camera.topleft
-        if isinstance(target, pygame.Rect):
-            return target.move(self.position.x, self.position.y)
-        else:
-            return target.rect.move(self.position.x, self.position.y)
+    def apply(self, rect):
+        """Convert rect from world coordinates to screen coordinates"""
+        return pygame.Rect(int(rect.x - self.position.x), int(rect.y - self.position.y),rect.width, rect.height)
+
+    def reverse_apply(self, x, y):
+        """Convert screen coordinates to world coordinates"""
+        return (x + self.position.x, y + self.position.y)
