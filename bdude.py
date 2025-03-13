@@ -10,7 +10,7 @@ from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
 from panels import Mainmenu
 from game import Bomberdude
 
-async def pusher(game):
+async def send_game_state(game):
     logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
     game_event = []
     while True:
@@ -34,8 +34,8 @@ async def pusher(game):
             'client_id': player_one.client_id,
             'position': (player_one.position.x, player_one.position.y),
             'keyspressed': client_keys,
-            'msgtype': "pushermsgdict",
-            'handledby': "pusher",
+            'msgtype': "send_game_state",
+            'handledby': "send_game_state",
             'msg_dt': time.time(),
             'playerlist': playerlist,
         }
@@ -48,7 +48,7 @@ async def pusher(game):
             game.client_game_state.event_queue.task_done()
             if game.args.debug:
                 if msg.get('game_event').get('event_type') != 'player_update':
-                    logger.debug(f"pusher sent: {msg.get('game_event').get('event_type')} from {msg.get('game_event').get('client_id')} event_queue: {game.client_game_state.event_queue.qsize()} client_queue:{game.client_game_state.client_queue.qsize()}")
+                    logger.debug(f"sent: {msg.get('game_event').get('event_type')} from {msg.get('game_event').get('client_id')} event_queue: {game.client_game_state.event_queue.qsize()} client_queue:{game.client_game_state.client_queue.qsize()}")
         except Exception as e:
             logger.error(f'{e} {type(e)} msg: {msg}')
             break
@@ -109,10 +109,9 @@ def get_args():
 async def start_game(args):
     bomberdude_main = Bomberdude(args=args)
 
-    push_task = asyncio.create_task(pusher(bomberdude_main))
+    sender_task = asyncio.create_task(send_game_state(bomberdude_main))
     receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
 
-    # worker_task = asyncio.create_task(thread_worker(bomberdude_main))
     connection_timeout = 5  # seconds
     try:
         logger.info(f"Connecting.... {bomberdude_main}")
@@ -158,9 +157,9 @@ async def start_game(args):
             await asyncio.sleep(sleep_time)
 
     # Clean up tasks
-    push_task.cancel()
+    sender_task.cancel()
     receive_task.cancel()
-    await asyncio.gather(push_task, receive_task, return_exceptions=True)
+    await asyncio.gather(sender_task, receive_task, return_exceptions=True)
     pygame.display.quit()
     pygame.quit()
 

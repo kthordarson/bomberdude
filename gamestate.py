@@ -138,20 +138,6 @@ class GameState:
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
 
-		# try:
-		# 	for conn in self.connections:
-		# 		try:
-		# 			await loop.sock_sendall(conn, data)
-		# 		except Exception as e:
-		# 			logger.error(f"Error broadcasting to client: {e}")
-		# 			dead_connections.add(conn)
-		# 	# Clean up dead connections
-		# 	for dead_conn in dead_connections:
-		# 		logger.warning(f"Removing {dead_conn} from connections")
-		# 		self.remove_connection(dead_conn)
-		# except Exception as e:
-		# 	logger.error(f"Error in broadcast_state: {e} {type(e)}")
-
 	def get_playerone(self):
 		for player in self.players_sprites:
 			if player.client_id == self.client_id:
@@ -308,7 +294,7 @@ class GameState:
 		}
 
 	def from_json(self, data):
-		if data.get('msgtype') == 'pushermsgdict':
+		if data.get('msgtype') == 'send_game_state':
 			for player_data in data.get('playerlist', []):
 				client_id = player_data.get('client_id')
 				if client_id != self.client_id:  # Don't update our own player

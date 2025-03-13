@@ -34,11 +34,11 @@ class BombServer:
 			try:
 				clid = msg.get('game_event').get('client_id')
 			except Exception as e:
-				logger.error(f"Error processing message: {e} {type(e)}	{msg}")
+				logger.error(f"Error processing message: {e} {type(e)}    {msg}")
 				break
 			self.server_game_state.update_game_state(clid, msg)
 			try:
-				if evts := msg.get("game_event"):
+				if msg.get("game_event"):
 					game_event = msg.get('game_event')
 					await self.server_game_state.update_game_event(game_event)
 			except UnboundLocalError as e:
@@ -96,17 +96,11 @@ class BombServer:
 						continue
 					try:
 						msg = json.loads(message)
-
 						# Store client ID for this connection when we get it
 						if 'client_id' in msg:
 							self.connection_to_client_id[writer] = msg['client_id']
 						elif msg.get('game_event', {}).get('client_id'):
 							self.connection_to_client_id[writer] = msg['game_event']['client_id']
-
-						if self.args.debugpacket:
-							if msg.get('game_event', {}).get('event_type') != 'player_update':
-								logger.debug(f"Received message: {msg.get('game_event', {}).get('event_type')}")
-
 						await self.server_game_state.client_queue.put(msg)
 					except json.JSONDecodeError as e:
 						logger.warning(f"Error decoding json: {e} data: {message}")
@@ -115,7 +109,7 @@ class BombServer:
 					# This is normal, just continue
 					continue
 				except ConnectionError as e:
-					logger.error(f"Connection error: {e}")
+					logger.warning(f"Connection error: {e}")
 					break
 				except Exception as e:
 					logger.error(f"Unexpected error in client handler: {e}")
@@ -147,16 +141,10 @@ class BombServer:
 				# Broadcast player disconnect to remaining clients
 				await self.server_game_state.broadcast_event(quit_event)
 
-			# Clean up connection
-			if sock in self.connections:
-				self.connections.remove(writer)
-			if sock in self.server_game_state.connections:
-				self.server_game_state.connections.remove(writer)
 		try:
 			writer.close()
 			# await writer.wait_closed()
 			await asyncio.wait_for(writer.wait_closed(), timeout=2.0)
-			logger.info(f"Connection from {addr} closed")
 		except (ConnectionResetError, asyncio.TimeoutError, Exception) as e:
 			# Already closed or timed out, just log and continue
 			logger.debug(f"Error during connection cleanup: {e}")
