@@ -79,14 +79,6 @@ class GameState:
 	def ready(self):
 		return self._ready
 
-	async def debug_dump(self):
-		"""Debug dump of game state"""
-		try:
-			state = self.to_json()
-			await self.broadcast_state({'msgtype': 'debug_dump','payload': state})
-		except Exception as e:
-			logger.error(f"Error in debug_dump: {e}")
-
 	def add_connection(self, connection):
 		"""Add a new client connection"""
 		self.connections.add(connection)
@@ -224,8 +216,6 @@ class GameState:
 							'angle': game_event.get('angle', 0)
 						}
 				await self.broadcast_event(game_event)
-			case 'debug_dump':
-				logger.debug(f'debug_dump game_event={game_event}')
 			case 'playerquit':
 				self.playerlist[msg_client_id]['playerquit'] = True
 				await self.event_queue.put(game_event)
@@ -310,9 +300,7 @@ class GameState:
 		}
 
 	def from_json(self, data):
-		if data.get('msgtype') == 'debug_dump':
-			pass
-		elif data.get('msgtype') == 'pushermsgdict':
+		if data.get('msgtype') == 'pushermsgdict':
 			for player_data in data.get('playerlist', []):
 				client_id = player_data.get('client_id')
 				if client_id != self.client_id:  # Don't update our own player
