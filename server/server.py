@@ -70,7 +70,7 @@ class BombServer:
 	async def client_connected_cb(self, reader, writer):
 		"""Handle new client connections using StreamReader/StreamWriter"""
 		addr = writer.get_extra_info('peername')
-		sock = writer.get_extra_info('socket')
+		# sock = writer.get_extra_info('socket')
 
 		logger.info(f"New connection from {addr}")
 
@@ -103,7 +103,30 @@ class BombServer:
 							self.connection_to_client_id[writer] = msg['game_event']['client_id']
 						await self.server_game_state.client_queue.put(msg)
 					except json.JSONDecodeError as e:
-						logger.warning(f"Error decoding json: {e} data: {message}")
+						try:
+							writer.close()
+							# await writer.wait_closed()
+							await asyncio.wait_for(writer.wait_closed(), timeout=0.1)
+						except (ConnectionResetError, asyncio.TimeoutError, Exception) as e:
+							# Already closed or timed out, just log and continue
+							logger.error(f"Error during connection cleanup: {e}")
+						client_id = self.connection_to_client_id.get(writer)
+						logger.warning(f"Error decoding json: {e} from: {client_id} data: {message} writer: {writer}")
+						try:
+							del self.connection_to_client_id[writer]
+							del self.server_game_state.playerlist[client_id]
+						except KeyError as e:
+							logger.warning(f"Error removing client_id: {e}")
+						except Exception as e:
+							logger.error(f"Error removing client_id: {e}")
+						try:
+							self.server_game_state.remove_connection(writer)
+						except Exception as e:
+							logger.error(f"Error removing client_id: {e}")
+						try:
+							self.connections.remove(writer)
+						except Exception as e:
+							logger.error(f"Error removing client_id: {e}")
 
 				except asyncio.TimeoutError:
 					# This is normal, just continue
@@ -112,9 +135,8 @@ class BombServer:
 					logger.warning(f"Connection error: {e}")
 					break
 				except Exception as e:
-					logger.error(f"Unexpected error in client handler: {e}")
+					logger.error(f"Unexpected {e} {type(e)} in client handler ")
 					break
-
 		finally:
 			client_id = self.connection_to_client_id.get(writer)
 			# Clean up connection

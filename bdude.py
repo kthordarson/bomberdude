@@ -46,9 +46,6 @@ async def send_game_state(game):
                 data_out = json.dumps(msg) + b'\n'
             await asyncio.get_event_loop().sock_sendall(game.sock, data_out)  # Direct to socket
             game.client_game_state.event_queue.task_done()
-            if game.args.debug:
-                if msg.get('game_event').get('event_type') != 'player_update':
-                    logger.debug(f"sent: {msg.get('game_event').get('event_type')} from {msg.get('game_event').get('client_id')} event_queue: {game.client_game_state.event_queue.qsize()} client_queue:{game.client_game_state.client_queue.qsize()}")
         except Exception as e:
             logger.error(f'{e} {type(e)} msg: {msg}')
             break

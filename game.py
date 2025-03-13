@@ -143,11 +143,6 @@ class Bomberdude():
 
 		if self.draw_debug:
 			draw_debug_info(self.screen, self.client_game_state)
-			# Add camera position debug
-			font = pygame.font.Font(None, 26)
-			player_one = self.client_game_state.get_playerone()
-			debug_text = font.render(f"Camera pos: {self.camera.position} Player pos: {player_one.position}", True, (255, 255, 255))
-			self.screen.blit(debug_text, (10, 120))
 
 		if self.draw_debug and len(self.client_game_state.bullets) > 0:
 			# Draw debug lines for all bullets

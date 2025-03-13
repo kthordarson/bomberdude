@@ -96,7 +96,6 @@ class GameState:
 			if time.time() - self.last_pos_broadcast < 0.03:  # Only broadcast 10 times/sec
 				return
 			self.last_pos_broadcast = time.time()
-
 		try:
 			await self.broadcast_state({"msgtype": "game_event", "event": event})
 		except Exception as e:
@@ -221,13 +220,10 @@ class GameState:
 				# self.playerlist[msg_client_id]['playerquit'] = True
 				await self.event_queue.put(game_event)
 			case 'acknewplayer':
-				logger.info(f'{event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()} ready: {self.ready()}')
 				self._ready = True
 				game_event['handled'] = True
 
 			case 'connection_event':
-				if self.args.debug:
-					logger.info(f'{event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()}')
 				game_event['handled'] = True
 				game_event['handledby'] = 'ugsnc'
 				game_event['event_type'] = 'acknewplayer'
@@ -235,8 +231,6 @@ class GameState:
 				await self.broadcast_state({"msgtype": "game_event", "event": game_event})
 				# await self.event_queue.put(game_event)
 			case 'drop_bomb':
-				if self.args.debug:
-					logger.debug(f'{event_type} from {msg_client_id} position: {game_event.get('position')}')
 				game_event['handledby'] = 'ugsbomb'
 				try:
 					if msg_client_id == self.client_id:
