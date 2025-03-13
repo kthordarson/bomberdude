@@ -21,11 +21,11 @@ class BombServer:
 		self.client_tasks = set()  # Track active client tasks
 		self.process_task = None
 
-		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		# self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		# Set socket options to allow port reuse
-		self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		self.sock.bind((self.args.host, 9696))
-		self.sock.listen(5)
+		# self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		# self.sock.bind((self.args.host, 9696))
+		# self.sock.listen(5)
 		self.loop = asyncio.get_event_loop()
 		# self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock,),)
 		self.ticker_task = asyncio.create_task(self.ticker(),)
@@ -72,17 +72,21 @@ class BombServer:
 
 	async def handle_connections(self):
 		logger.debug(f"{self} starting handle_connections {self.loop}")
+		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		s.bind((self.args.host, 9696))
+		s.listen(5)
+		s.setblocking(False)
 		try:
-			self.sock.setblocking(False)
+			# self.sock.setblocking(False)
 			while not self.stopped():
 				try:
-					conn, addr = await self.loop.sock_accept(self.sock)
+					conn, addr = await self.loop.sock_accept(s)
 					conn.setblocking(False)
 					logger.debug(f"Accepted connection {len(self.connections)} from {addr}")
 					await self.new_connection(conn, addr)
 				except (BlockingIOError, InterruptedError) as e:
 					logger.error(f'{e} {type(e)} in handle_connections')
-
 					continue
 		except Exception as e:
 			logger.error(f'Error in handle_connections: {e} {type(e)}')
@@ -214,7 +218,7 @@ class BombServer:
 	async def stop(self):
 		self._stop.set()
 		# logger.warning(f"{self} stopping {self.stopped()} ")
-		self.sock.close()
+		# self.sock.close()
 		# logger.warning(f"{self} {self.sock} closed")
 
 		# Cancel ticker task
@@ -265,7 +269,7 @@ class BombServer:
 				break
 
 	async def ticker(self) -> None:
-		logger.debug(f"tickertask: {self.sock=}")
+		logger.debug(f"tickertask start")  # noqa: F541
 		self.process_task = self.loop.create_task(self.process_messages())
 		# Send out the game state to all players 60 times per second.
 		last_broadcast = time.time()

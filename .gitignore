@@ -2,6 +2,7 @@
 .git/*
 .idea/*
 __pycache__/*
+.pylintrc
 tempCodeRunnerFile.py
 testnet.py
 testnetclient.py
@@ -25,3 +26,5 @@ net/oldbombserver.py
 workspace.code-workspace
 *.tmp
 *test*
+*.prof
+.pylintrc

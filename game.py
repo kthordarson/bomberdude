@@ -36,7 +36,7 @@ class Bomberdude():
 		self.delta_time = 0
 
 	def __repr__(self):
-		return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} c:{self._connected} {self.connected()})"
+		return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} {self.connected()})"
 
 	def connected(self):
 		return self._connected
@@ -46,7 +46,7 @@ class Bomberdude():
 		logger.info(f'connecting to server... event_queue: {self.client_game_state.event_queue.qsize()} ')
 		await asyncio.get_event_loop().sock_connect(self.sock, (self.args.server, 9696))
 		if self.args.debug:
-			logger.debug(f'conn: {self.connected()}/{self._connected}')
+			logger.debug(f'conn: {self.connected()}')
 		try:
 			resp = requests.get(f"http://{self.args.server}:9699/get_tile_map").text
 			resp = json.loads(resp)
@@ -68,26 +68,29 @@ class Bomberdude():
 		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
 		self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
 		if self.args.debug:
-			logger.debug(f'conn: {self.connected()} - {self._connected} {pos=} event_queue: {self.client_game_state.event_queue.qsize()}')
+			logger.debug(f'conn: {self.connected()} {pos=} event_queue: {self.client_game_state.event_queue.qsize()}')
 
 		connection_event = {
 			"event_time": 0,
-			"event_type": "newconnection",
+			"event_type": "connection_event",
 			"client_id": str(self.client_id),
 			"position": (pos.x, pos.y),
 			"handled": False,
-			"handledby": "do_connect",
+			"handledby": "connection_event",
 			"eventid": gen_randid(),
 		}
-		await self.client_game_state.event_queue.put(connection_event)
-		await asyncio.sleep(0.1)
-		self._connected = True
 		player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
 		player_one.position = pos
 		self.client_game_state.players_sprites.add(player_one)
-		if self.args.debug:
-			logger.debug(f'conn: {self.connected()} - {self._connected} setup done event_queue: {self.client_game_state.event_queue.qsize()}')
-		return True
+		while not self.client_game_state.ready():
+			await self.client_game_state.event_queue.put(connection_event)
+			# await self.client_game_state.broadcast_event({"msgtype": "game_event", "event": connection_event})
+			self._connected = True
+			await asyncio.sleep(0.1)
+			logger.debug(f'conn: {self.connected()} event_queue: {self.client_game_state.event_queue.qsize()} waiting for client_game_state.ready {self.client_game_state.ready()}')
+			await asyncio.sleep(0.2)
+			if self.client_game_state.ready():
+				return True
 
 	def draw_player(self, player_data):
 		# logger.debug(f'player_data: {player_data} {type(player_data)}')
@@ -112,6 +115,7 @@ class Bomberdude():
 		# Clear screen
 		self.screen.fill((0, 0, 0))
 
+		self.client_game_state.render_map(self.screen, self.camera)
 		# Draw local player
 		player_one = self.client_game_state.get_playerone()
 		self.screen.blit(player_one.image, self.camera.apply(player_one.rect))

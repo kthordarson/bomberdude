@@ -71,9 +71,13 @@ class GameState:
 		self.playerlist = {}  # dict = field(default_factory=dict)
 		self.last_pos_broadcast = 0
 		self.explosion_manager = ExplosionManager()
+		self._ready = False
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
+
+	def ready(self):
+		return self._ready
 
 	async def debug_dump(self):
 		"""Debug dump of game state"""
@@ -108,14 +112,24 @@ class GameState:
 
 	async def broadcast_state(self, game_state):
 		"""Broadcast game state to all connected clients"""
-		if not self.connections:
-			pass  # logger.warning(f'{self} got no connections....')
-			# return
+		dead_connections = set()
+		loop = asyncio.get_event_loop()
 		try:
-			data = json.dumps(game_state).encode('utf-8') + b'\n'
-			loop = asyncio.get_event_loop()
-			# logger.debug(f'broadcast_state to {len(self.connections)} clients')
-			dead_connections = set()
+			# Fix the data encoding
+			if isinstance(game_state, bytes):
+				data = game_state + b'\n'  # Add newline for message boundary
+			else:
+				data = json.dumps(game_state).encode('utf-8') + b'\n'
+		except TypeError as e:
+			logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
+			return
+
+		# try:
+		# 	data = json.dumps(game_state.decode('utf8'))  # .encode('utf-8') + b'\n'
+		# except TypeError as e:
+		# 	logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
+		# 	return
+		try:
 			for conn in self.connections:
 				try:
 					await loop.sock_sendall(conn, data)
@@ -226,13 +240,19 @@ class GameState:
 			case 'playerquit':
 				self.playerlist[msg_client_id]['playerquit'] = True
 				await self.event_queue.put(game_event)
-			case 'newconnection':
+			case 'acknewplayer':
+				logger.info(f'{event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()} ready: {self.ready()}')
+				self._ready = True
+				game_event['handled'] = True
+
+			case 'connection_event':
 				if self.args.debug:
 					logger.info(f'{event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()}')
 				game_event['handled'] = True
 				game_event['handledby'] = 'ugsnc'
-				game_event['event_type'] = 'acknewconn'
-
+				game_event['event_type'] = 'acknewplayer'
+				# await self.broadcast_event(game_event)
+				await self.broadcast_state({"msgtype": "game_event", "event": game_event})
 				# await self.event_queue.put(game_event)
 			case 'drop_bomb':
 				if self.args.debug:
@@ -301,7 +321,7 @@ class GameState:
 			if hasattr(player, 'to_dict'):
 				playerlist.append(player.to_dict())
 			else:
-				playerlist.append(player)  # Assuming this is already a dict
+				playerlist.append(player)
 
 		return {
 			'event_type': 'playerlistupdate',
