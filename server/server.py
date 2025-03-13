@@ -20,20 +20,10 @@ class BombServer:
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
 		self.process_task = None
-
-		# self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		# Set socket options to allow port reuse
-		# self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-		# self.sock.bind((self.args.host, 9696))
-		# self.sock.listen(5)
 		self.loop = asyncio.get_event_loop()
-		# self.ticker_task = asyncio.create_task(self.ticker(self.pushsock, self.recvsock,),)
 		self.ticker_task = asyncio.create_task(self.ticker(),)
 		self.playerindex = 0
 		self._stop = Event()
-		# debugstuff
-		# self.app = Flask(import_name='bombserver')
-		# self.app.run(host=args.listen, port=args.port)
 
 	def __repr__(self):
 		return 'BomberServer()'
@@ -217,10 +207,6 @@ class BombServer:
 
 	async def stop(self):
 		self._stop.set()
-		# logger.warning(f"{self} stopping {self.stopped()} ")
-		# self.sock.close()
-		# logger.warning(f"{self} {self.sock} closed")
-
 		# Cancel ticker task
 		if not self.ticker_task.done():
 			self.ticker_task.cancel()
@@ -281,11 +267,6 @@ class BombServer:
 					if time.time() - last_broadcast > 0.05:  # 20 updates per second instead of 60
 						game_state = self.server_game_state.to_json()
 						await self.server_broadcast_state(game_state)
-						last_broadcast = time.time()
-
-					# game_state = self.server_game_state.to_json()
-					# await self.server_broadcast_state(game_state)  # Use new broadcast method
-					# logger.info(f'{self} server_broadcast_state {game_state}')
 				except Exception as e:
 					logger.error(f"{type(e)} {e} ")
 		except asyncio.CancelledError as e:

@@ -53,8 +53,6 @@ class Bomberdude():
 			mapname = resp.get("mapname")
 			tile_x = resp.get('position').get('position')[0]
 			tile_y = resp.get('position').get('position')[1]
-			# pos = Vec2d(x=resp.get('position').get('position')[0], y=resp.get('position').get('position')[1])
-			# logger.debug(f"map {mapname} {pos=} {resp=}")
 		except Exception as e:
 			logger.error(f"{type(e)} {e=} {resp}")
 			raise e
@@ -119,12 +117,6 @@ class Bomberdude():
 		# Draw local player
 		player_one = self.client_game_state.get_playerone()
 		self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
-
-		# Draw local player from players_sprites
-		# self.client_game_state.get_playerone().draw(self.screen)
-		# for player in self.client_game_state.players_sprites:
-		# 	if player.client_id == self.client_id:
-		# 		player.draw(self.screen)
 
 		# Draw remote players from playerlist
 		for client_id, player in self.client_game_state.playerlist.items():

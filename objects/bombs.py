@@ -105,11 +105,7 @@ class Bomb(Sprite):
 		# self.image = pygame.Surface(bomb_size)
 		self.image = pygame.image.load('data/bomb.png')
 		self.rect = self.image.get_rect()
-
-		# self.image, self.rect = load_image('data/bomb.png')
-		# self.image.fill((255, 0, 0))
 		self.position = Vec2d(position)
-		# self.rect = self.image.get_rect(center=self.position)
 		self.timer = timer
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.rect.topleft = self.position
@@ -119,14 +115,10 @@ class Bomb(Sprite):
 		return f'Bomb (pos: {self.position} )'
 
 	def update(self, collidable_tiles=None, explosion_manager=None):
-		# print(f'[pu] {dt  - self.start_time} {self.timer}')
 		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:
 			logger.info(f'{self} BOOM!')
 			# Create explosion particles if manager is provided
 			if explosion_manager and not self.exploded:
 				explosion_manager.create_explosion(self.rect.center)
 				self.exploded = True
-
-				# Optional: Flash the screen or play a sound here
-
 			self.kill()

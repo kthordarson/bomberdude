@@ -123,12 +123,6 @@ class GameState:
 		except TypeError as e:
 			logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
 			return
-
-		# try:
-		# 	data = json.dumps(game_state.decode('utf8'))  # .encode('utf-8') + b'\n'
-		# except TypeError as e:
-		# 	logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
-		# 	return
 		try:
 			for conn in self.connections:
 				try:
@@ -152,7 +146,6 @@ class GameState:
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
 		self.tile_map = load_pygame(self.mapname)
-		self.scene = pygame.sprite.Group()  # add_sprite_list
 		for layer in self.tile_map.visible_layers:
 			if isinstance(layer, pytmx.TiledTileLayer):
 				for x, y, gid in layer:
@@ -162,13 +155,11 @@ class GameState:
 						sprite.image = tile
 						# sprite.rect = pygame.Rect(x * TILE_SCALING, y * TILE_SCALING, TILE_SCALING, TILE_SCALING)
 						sprite.rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
-						self.scene.add(sprite)
 						if layer.properties.get('collidable'):
 							self.collidable_tiles.append(sprite)
-		logger.debug(f'loading {self.mapname} done. Sprites = {len(self.scene)} collidable_tiles: {len(self.collidable_tiles)}')
+		logger.debug(f'loading {self.mapname} done.  collidable_tiles: {len(self.collidable_tiles)}')
 
 	def render_map(self, screen, camera):
-		# self.scene.draw(screen)
 		self.explosion_manager.draw(screen, camera)
 		for layer in self.tile_map.visible_layers:
 			if isinstance(layer, pytmx.TiledTileLayer):
@@ -301,12 +292,8 @@ class GameState:
 				bullet_direction = Vec2d(game_event.get('direction')[0], game_event.get('direction')[1])
 				if msg_client_id == self.get_playerone().client_id:
 					bullet_size = (10,10)
-					# bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect)
-					# logger.info(f'{event_type} from self {msg_client_id}')
 				else:
 					bullet_size = (5,5)
-					# bullet = Bullet(position=game_event.get('position'),direction=game_event.get('direction'), screen_rect=self.get_playerone().rect, bullet_size=(5,5))
-					# logger.debug(f'{event_type} from other {msg_client_id}')
 				bullet = Bullet(position=bullet_position, direction=bullet_direction, screen_rect=self.get_playerone().rect, bullet_size=bullet_size)
 				self.bullets.add(bullet)
 			case _:
