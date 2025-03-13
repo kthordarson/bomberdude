@@ -16,6 +16,7 @@ class BombServer:
 		self.server_game_state = GameState(args=self.args, mapname=args.mapname)
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
+		self.connection_to_client_id = {}  # Map connections to client IDs
 		self.process_task = None
 		self.loop = asyncio.get_event_loop()
 		# self.ticker_broadcast = asyncio.create_task(self.ticker_broadcast(),)
@@ -39,9 +40,6 @@ class BombServer:
 			try:
 				if evts := msg.get("game_event"):
 					game_event = msg.get('game_event')
-					if self.args.debug:
-						if evts.get('event_type') != 'player_update':
-							logger.debug(f"{game_event.get('event_type')} event_queue: {self.server_game_state.event_queue.qsize()} client_queue: {self.server_game_state.client_queue.qsize()}")
 					await self.server_game_state.update_game_event(game_event)
 			except UnboundLocalError as e:
 				logger.warning(f"UnboundLocalError: {e} {type(e)} {msg}")
@@ -98,9 +96,17 @@ class BombServer:
 						continue
 					try:
 						msg = json.loads(message)
+
+						# Store client ID for this connection when we get it
+						if 'client_id' in msg:
+							self.connection_to_client_id[writer] = msg['client_id']
+						elif msg.get('game_event', {}).get('client_id'):
+							self.connection_to_client_id[writer] = msg['game_event']['client_id']
+
 						if self.args.debugpacket:
 							if msg.get('game_event', {}).get('event_type') != 'player_update':
 								logger.debug(f"Received message: {msg.get('game_event', {}).get('event_type')}")
+
 						await self.server_game_state.client_queue.put(msg)
 					except json.JSONDecodeError as e:
 						logger.warning(f"Error decoding json: {e} data: {message}")
@@ -116,6 +122,31 @@ class BombServer:
 					break
 
 		finally:
+			client_id = self.connection_to_client_id.get(writer)
+			# Clean up connection
+			if writer in self.connections:
+				self.connections.remove(writer)
+			if writer in self.server_game_state.connections:
+				self.server_game_state.connections.remove(writer)
+			if writer in self.connection_to_client_id:
+				del self.connection_to_client_id[writer]
+
+			# Remove player from playerlist if we have their client ID
+			if client_id and client_id in self.server_game_state.playerlist:
+				logger.info(f"Removing player {client_id} from game")
+				del self.server_game_state.playerlist[client_id]
+
+				# Create player quit event
+				quit_event = {
+					"event_time": time.time(),
+					"event_type": "playerquit",
+					"client_id": client_id,
+					"handled": False,
+					"handledby": "server_disconnect",
+				}
+				# Broadcast player disconnect to remaining clients
+				await self.server_game_state.broadcast_event(quit_event)
+
 			# Clean up connection
 			if sock in self.connections:
 				self.connections.remove(writer)

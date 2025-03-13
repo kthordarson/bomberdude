@@ -227,7 +227,12 @@ class GameState:
 						}
 				await self.broadcast_event(game_event)
 			case 'playerquit':
-				self.playerlist[msg_client_id]['playerquit'] = True
+				client_id = game_event.get('client_id')
+				if client_id in self.playerlist:
+					logger.info(f"Player {client_id} has disconnected")
+					del self.playerlist[client_id]
+
+				# self.playerlist[msg_client_id]['playerquit'] = True
 				await self.event_queue.put(game_event)
 			case 'acknewplayer':
 				logger.info(f'{event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()} ready: {self.ready()}')
@@ -250,10 +255,8 @@ class GameState:
 				try:
 					if msg_client_id == self.client_id:
 						bomb = Bomb(position=game_event.get('position'))
-						logger.info(f'{event_type} from self {msg_client_id}')
 					else:
 						bomb = Bomb(position=game_event.get('position'), bomb_size=(5,5))
-						logger.info(f'{event_type} from other {msg_client_id}')
 					self.bombs.add(bomb)
 				except AttributeError as e:
 					logger.error(f'{e} unable to add bomb {game_event=} players_sprites: {self.players_sprites}')
@@ -271,9 +274,6 @@ class GameState:
 				game_event['handledby'] = 'update_game_event'
 				game_event['event_type'] = 'ackbullet'
 				game_event['handled'] = True
-				if self.args.debug:
-					logger.debug(f'type: {event_type} from {msg_client_id} event_queue: {self.event_queue.qsize()} ')
-				# await self.client_queue.put(game_event)
 				await self.broadcast_event(game_event)
 
 			case 'ackbullet':

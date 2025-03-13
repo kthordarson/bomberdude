@@ -116,7 +116,6 @@ class Bomb(Sprite):
 
 	def update(self, collidable_tiles=None, explosion_manager=None):
 		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:
-			logger.info(f'{self} BOOM!')
 			# Create explosion particles if manager is provided
 			if explosion_manager and not self.exploded:
 				explosion_manager.create_explosion(self.rect.center)

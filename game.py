@@ -196,9 +196,6 @@ class Bomberdude():
 					"eventid": gen_randid()
 				}
 
-				if self.args.debug:
-					logger.debug(f'bullet_pos: {bullet_pos} direction_vector: {direction_vector}  mouse_world_pos: {mouse_world_pos} player_world_pos: {player_world_pos}  self.camera.position:{self.camera.position}')
-
 				await self.client_game_state.event_queue.put(event)
 
 	def handle_on_key_press(self, key):
