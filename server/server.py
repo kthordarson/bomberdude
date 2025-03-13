@@ -22,7 +22,6 @@ class BombServer:
 		self.process_task = None
 		self.loop = asyncio.get_event_loop()
 		self.ticker_task = asyncio.create_task(self.ticker(),)
-		self.playerindex = 0
 		self._stop = Event()
 
 	def __repr__(self):
@@ -157,9 +156,6 @@ class BombServer:
 			await asyncio.gather(*send_tasks)
 		except Exception as e:
 			logger.error(f"Error during broadcast: {e}")
-
-	def get_game_state(self):
-		return self.server_game_state.to_json()
 
 	async def get_tile_map(self, request):
 		position = self.get_position()
