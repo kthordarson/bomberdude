@@ -160,19 +160,6 @@ class GameState:
 					if tile:
 						screen.blit(tile, camera.apply(pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)))
 
-	def create_upgrade_block(self, upgradetype, blkpos):
-		match upgradetype:
-			case 1:
-				upgrade = Upgrade(upgradetype, 'data/heart.png', blkpos, scale=0.8, timer=2000)
-			case 2:
-				upgrade = Upgrade(upgradetype, 'data/bombpwr.png', blkpos, scale=0.8, timer=1500)
-			case 3:
-				upgrade = Upgrade(upgradetype, 'data/bomb2.png', blkpos, scale=0.8, timer=3000)
-			case _:
-				upgrade = Upgrade(upgradetype, 'data/skull.png', blkpos, scale=0.8, timer=5000)
-				logger.warning(f'unknown upgradetype {upgradetype=} {blkpos=}')
-		return upgrade
-
 	def update_game_state(self, clid, msg):
 		playerdict = {
 			'client_id': clid,
