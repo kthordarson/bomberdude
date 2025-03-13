@@ -157,7 +157,7 @@ class GameState:
 						sprite.rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
 						if layer.properties.get('collidable'):
 							self.collidable_tiles.append(sprite)
-		logger.debug(f'loading {self.mapname} done.  collidable_tiles: {len(self.collidable_tiles)}')
+		logger.debug(f'loading {self.mapname} done. ')
 
 	def render_map(self, screen, camera):
 		self.explosion_manager.draw(screen, camera)
@@ -166,8 +166,6 @@ class GameState:
 				for x, y, gid in layer:
 					tile = self.tile_map.get_tile_image_by_gid(gid)
 					if tile:
-						# screen.blit(tile, (x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
-						# screen.blit(tile, camera.apply(pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)))
 						screen.blit(tile, camera.apply(pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)))
 
 	def create_upgrade_block(self, upgradetype, blkpos):
@@ -249,11 +247,7 @@ class GameState:
 				if self.args.debug:
 					logger.debug(f'{event_type} from {msg_client_id} position: {game_event.get('position')}')
 				game_event['handledby'] = 'ugsbomb'
-				# if self.playerlist[bomber].get("bombsleft",0) > 0:
-				# self.playerlist[bomber]['bombsleft'] -= 1
-				# await self.event_queue.put(game_event)
 				try:
-					# player_one = self.get_playerone()
 					if msg_client_id == self.client_id:
 						bomb = Bomb(position=game_event.get('position'))
 						logger.info(f'{event_type} from self {msg_client_id}')
@@ -264,8 +258,6 @@ class GameState:
 				except AttributeError as e:
 					logger.error(f'{e} unable to add bomb {game_event=} players_sprites: {self.players_sprites}')
 				game_event['event_type'] = 'ackbombdrop'
-				# await self.event_queue.put(game_event)
-				# await self.client_queue.put(game_event)
 				await self.broadcast_event(game_event)
 
 			case 'ackbombdrop':
@@ -328,14 +320,7 @@ class GameState:
 						# Update existing player
 						player = self.playerlist[client_id]
 						position = player_data.get('position')
-						if position:
-							if hasattr(player, 'position'):
-								if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-									player.position.x, player.position.y = position[0], position[1]
-								else:
-									player.position = position
-							else:
-								player['position'] = position
+						player.position = position
 					else:
 						# Create new player
 						self.playerlist[client_id] = PlayerState(**player_data)
