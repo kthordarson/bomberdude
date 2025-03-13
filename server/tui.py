@@ -72,7 +72,6 @@ class ServerTUI():
 		elif cmd[:2] == "ec":
 			pass  # self.cleargameevents()
 		elif cmd[:1] == "q":
-			# logger.warning(f"{self} {self.server} tuiquit")
 			await self.server.stop()
 			await self.stop()
 

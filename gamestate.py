@@ -115,10 +115,19 @@ class GameState:
 		except TypeError as e:
 			logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
 			return
+
 		try:
 			for conn in self.connections:
 				try:
-					await loop.sock_sendall(conn, data)
+					# Check if it's a StreamWriter (from NewBombServer) or a socket
+					if hasattr(conn, 'write'):  # StreamWriter
+						if conn.is_closing():
+							dead_connections.add(conn)
+							continue
+						conn.write(data)
+						await conn.drain()
+					else:  # Socket
+						await loop.sock_sendall(conn, data)
 				except Exception as e:
 					logger.error(f"Error broadcasting to client: {e}")
 					dead_connections.add(conn)
@@ -128,6 +137,20 @@ class GameState:
 				self.remove_connection(dead_conn)
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
+
+		# try:
+		# 	for conn in self.connections:
+		# 		try:
+		# 			await loop.sock_sendall(conn, data)
+		# 		except Exception as e:
+		# 			logger.error(f"Error broadcasting to client: {e}")
+		# 			dead_connections.add(conn)
+		# 	# Clean up dead connections
+		# 	for dead_conn in dead_connections:
+		# 		logger.warning(f"Removing {dead_conn} from connections")
+		# 		self.remove_connection(dead_conn)
+		# except Exception as e:
+		# 	logger.error(f"Error in broadcast_state: {e} {type(e)}")
 
 	def get_playerone(self):
 		for player in self.players_sprites:
@@ -240,10 +263,8 @@ class GameState:
 			case 'ackbombdrop':
 				if msg_client_id != self.client_id:
 					bomb = Bomb(position=game_event.get('position'), bomb_size=(5,5))
-					# logger.debug(f'{event_type} from other {msg_client_id}')
 				elif msg_client_id == self.client_id:
 					bomb = Bomb(position=game_event.get('position'), bomb_size=(10,10))
-					# logger.debug(f'{event_type} from self {msg_client_id}')
 				self.bombs.add(bomb)
 
 			case 'bulletfired':

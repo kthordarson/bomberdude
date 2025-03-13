@@ -91,7 +91,6 @@ class Bomberdude():
 				return True
 
 	def draw_player(self, player_data):
-		# logger.debug(f'player_data: {player_data} {type(player_data)}')
 		try:
 			if isinstance(player_data, dict):
 				player = Bomberplayer(texture="data/player2.png", client_id=player_data.get('client_id'))
