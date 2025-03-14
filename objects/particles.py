@@ -36,7 +36,7 @@ class Particle(Sprite):
 			self.rect.y += self.change_y
 			self.change_y -= PARTICLE_GRAVITY
 
-class Flame(Sprite):
+class oldFlame(Sprite):
 	def __init__(self, flamespeed=10, timer=3000, direction='', bomber=None):
 		super().__init__()
 		self.image = pygame.Surface((FLAMEX, FLAMEY))
@@ -66,3 +66,4 @@ class Flame(Sprite):
 			self.timer -= FLAME_RATE
 			self.rect.x += self.change_x
 			self.rect.y += self.change_y
+

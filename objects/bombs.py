@@ -64,6 +64,7 @@ class Particle(Sprite):
 class ExplosionManager:
 	def __init__(self):
 		self.particles = pygame.sprite.Group()
+		self.flames = pygame.sprite.Group()
 
 	def create_explosion(self, position, count=PARTICLE_COUNT, colors=None):
 		if colors is None:
@@ -91,16 +92,52 @@ class ExplosionManager:
 			)
 			self.particles.add(particle)
 
-	def update(self, collidable_tiles):
+	def add_flame(self, flame):
+		self.flames.add(flame)
+
+	def update(self, collidable_tiles, game_state):
 		self.particles.update(collidable_tiles)
+		for flame in self.flames:
+			flame.update(collidable_tiles, game_state)
 
 	def draw(self, screen, camera):
 		for particle in self.particles:
 			screen_pos = camera.apply(particle.rect)
 			screen.blit(particle.image, screen_pos)
+		for flame in self.flames:
+			screen_pos = camera.apply(flame.rect)
+			screen.blit(flame.image, screen_pos)
+
+class Flame(Sprite):
+	def __init__(self, position, direction):
+		super().__init__()
+		self.image = pygame.image.load('data/flame0.png')
+		self.rect = self.image.get_rect()
+		self.position = Vec2d(position)
+		self.rect.topleft = self.position
+		self.direction = direction
+
+	def update(self, collidable_tiles, game_state):
+		self.position.x += self.direction[0] * FLAME_SPEED
+		self.position.y += self.direction[1] * FLAME_SPEED
+		self.rect.topleft = self.position
+
+		for tile in collidable_tiles:
+			if hasattr(tile, 'layer'):
+				if self.rect.colliderect(tile.rect):
+					try:
+						if tile.layer == 'Blocks':
+							logger.info(f"tile: {tile} {type(tile)}")
+							game_state.destroy_block(tile)
+					except AttributeError as e:
+						logger.warning(f"Error destroying block: {e} tile: {tile} {type(tile)} {dir(tile)}")
+			# else:
+			# 	logger.warning(f"tile: {tile} {type(tile)}\n{dir(tile)}")
+			self.kill()
+
 
 class Bomb(Sprite):
-	def __init__(self, position, speed=10, timer=3, bomb_size=(10,10)):
+	def __init__(self, position, power=3, speed=10, timer=3, bomb_size=(10,10)):
 		super().__init__()
 		# self.image = pygame.Surface(bomb_size)
 		self.image = pygame.image.load('data/bomb.png')
@@ -110,6 +147,7 @@ class Bomb(Sprite):
 		self.start_time = pygame.time.get_ticks() / 1000
 		self.rect.topleft = self.position
 		self.exploded = False
+		self.power = power
 
 	def __repr__(self):
 		return f'Bomb (pos: {self.position} )'
@@ -119,5 +157,17 @@ class Bomb(Sprite):
 			# Create explosion particles if manager is provided
 			if explosion_manager and not self.exploded:
 				explosion_manager.create_explosion(self.rect.center)
+				self.create_flames(explosion_manager)
 				self.exploded = True
 			self.kill()
+
+	def create_flames(self, explosion_manager):
+		directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]  # Right, Left, Down, Up
+		for direction in directions:
+			for i in range(1, self.power + 1):
+				flame_position = Vec2d(
+					self.position.x + direction[0] * i * self.rect.width,
+					self.position.y + direction[1] * i * self.rect.height
+				)
+				flame = Flame(flame_position, direction)
+				explosion_manager.add_flame(flame)

@@ -76,6 +76,15 @@ class GameState:
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
 
+	def destroy_block(self, block):
+		# Change the block to a background tile
+		layer = self.tile_map.get_layer_by_name('Background')
+		x, y = block.rect.topleft
+		tile_x = x // self.tile_map.tilewidth
+		tile_y = y // self.tile_map.tileheight
+		layer.set_tile(tile_x, tile_y, None)
+		self.collidable_tiles.remove(block)
+
 	def ready(self):
 		return self._ready
 

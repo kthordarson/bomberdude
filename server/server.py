@@ -109,33 +109,32 @@ class BombServer:
 							await asyncio.wait_for(writer.wait_closed(), timeout=0.1)
 						except (ConnectionResetError, asyncio.TimeoutError, Exception) as e:
 							# Already closed or timed out, just log and continue
-							logger.error(f"Error during connection cleanup: {e}")
+							logger.error(f"Error during connection cleanup: {e} {addr}")
 						client_id = self.connection_to_client_id.get(writer)
-						logger.warning(f"Error decoding json: {e} from: {client_id} data: {message} writer: {writer}")
+						logger.warning(f"Error decoding json: {e} from: {client_id} data: {message} {addr}")
 						try:
 							del self.connection_to_client_id[writer]
 							del self.server_game_state.playerlist[client_id]
 						except KeyError as e:
-							logger.warning(f"Error removing client_id: {e}")
+							pass  # logger.warning(f"Error removing client_id: {e} {addr}")
 						except Exception as e:
-							logger.error(f"Error removing client_id: {e}")
+							logger.error(f"Error removing client_id: {e} {addr}")
 						try:
 							self.server_game_state.remove_connection(writer)
 						except Exception as e:
-							logger.error(f"Error removing client_id: {e}")
+							logger.error(f"Error removing client_id: {e} {addr}")
 						try:
 							self.connections.remove(writer)
 						except Exception as e:
-							logger.error(f"Error removing client_id: {e}")
-
+							logger.error(f"Error removing client_id: {e} {addr}")
 				except asyncio.TimeoutError:
 					# This is normal, just continue
 					continue
 				except ConnectionError as e:
-					logger.warning(f"Connection error: {e}")
+					logger.warning(f"Connection error: {e} {addr}")
 					break
 				except Exception as e:
-					logger.error(f"Unexpected {e} {type(e)} in client handler ")
+					logger.error(f"Unexpected {e} {type(e)} in client handler {addr}")
 					break
 		finally:
 			client_id = self.connection_to_client_id.get(writer)
@@ -149,7 +148,7 @@ class BombServer:
 
 			# Remove player from playerlist if we have their client ID
 			if client_id and client_id in self.server_game_state.playerlist:
-				logger.info(f"Removing player {client_id} from game")
+				logger.info(f"Removing {addr} player {client_id} from game")
 				del self.server_game_state.playerlist[client_id]
 
 				# Create player quit event
@@ -169,7 +168,7 @@ class BombServer:
 			await asyncio.wait_for(writer.wait_closed(), timeout=2.0)
 		except (ConnectionResetError, asyncio.TimeoutError, Exception) as e:
 			# Already closed or timed out, just log and continue
-			logger.debug(f"Error during connection cleanup: {e}")
+			logger.debug(f"connection cleanup: {e} {addr}")
 		logger.info(f"Connection from {addr} closed")
 
 	async def get_tile_map(self, request):

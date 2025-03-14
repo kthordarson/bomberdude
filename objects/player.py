@@ -141,9 +141,6 @@ class Bomberplayer(Sprite):
 		self.image = pygame.image.load('data/playerone.png')
 		logger.info(f'{self} respawned')
 
-	def set_texture(self, texture):
-		self.image = pygame.image.load(texture)
-
 	def addscore(self, score):
 		self.score += score
 		logger.info(f'{self} score:{self.score}')
@@ -162,7 +159,3 @@ class Bomberplayer(Sprite):
 		self.killed = True
 		self.image = pygame.image.load('data/netplayerdead.png')
 		return 11
-
-	def set_pos(self, newpos):
-		self.rect.topleft = newpos
-		self.update()
