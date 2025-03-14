@@ -7,7 +7,6 @@ import time
 from dataclasses import dataclass, field
 from utils import gen_randid
 from objects.player import KeysPressed
-from objects.blocks import Upgrade
 from objects.bullets import Bullet
 from objects.bombs import Bomb, ExplosionManager
 import pytmx
@@ -84,50 +83,14 @@ class GameState:
 		tile_x = x // self.tile_map.tilewidth
 		tile_y = y // self.tile_map.tileheight
 		layer = self.tile_map.get_layer_by_name('Blocks')
+		background_layer = self.tile_map.get_layer_by_name('Background')
 
 		if block in self.collidable_tiles:
 			self.collidable_tiles.remove(block)
-			logger.info(f"Block removed at {block.rect.topleft}")
-			layer.data[tile_y][tile_x] = 3  # Set to empty tile
-			# block.kill()
-
-	def old1destroy_block(self, block):
-		"""
-		Remove a block from the game
-		"""
-		# First, determine tile coordinates
-		x, y = block.rect.topleft
-		tile_x = x // self.tile_map.tilewidth
-		tile_y = y // self.tile_map.tileheight
-
-		# Just remove the block from collidable_tiles
-		# if block in self.collidable_tiles:
-		# 	self.collidable_tiles.remove(block)
-		# 	logger.info(f"Block removed at coords ({tile_x}, {tile_y})")
-
-		# You might want to replace it with a background tile if possible
-		# This depends on your tilemap implementation
-		try:
-			# If using pytmx, try:
-			layer = self.tile_map.get_layer_by_name('Blocks')
+			logger.info(f"Block {block} removed at {block.rect.topleft}")
 			layer.data[tile_y][tile_x] = 0  # Set to empty tile
-			self.collidable_tiles.remove(block)
-			logger.info(f"setempty Block removed at coords ({tile_x}, {tile_y})")
-		except Exception as e:
-			logger.warning(f"Could not update tilemap: {e}")
-
-	def olddestroy_block(self, block):
-		# Change the block to a background tile
-		layer = self.tile_map.get_layer_by_name('Blocks')
-		if layer:
-			x, y = block.rect.topleft
-			tile_x = x // self.tile_map.tilewidth
-			tile_y = y // self.tile_map.tileheight
-			logger.info(f"layer: {layer.name} {layer=} {block=} {block.rect.topleft=} {tile_x=} {tile_y=}")
-			layer.set_tile(tile_x, tile_y, None)
-			self.collidable_tiles.remove(block)
-		else:
-			logger.warning(f"Unknown layer: {layer.name} {layer}")
+			# background_layer.data[tile_y][tile_x] = 1  # Set to empty tile
+			# block.kill()
 
 	def ready(self):
 		return self._ready

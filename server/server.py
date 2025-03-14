@@ -8,7 +8,6 @@ import random
 from constants import BLOCK
 from gamestate import GameState
 from aiohttp import web
-import socket
 
 class BombServer:
 	def __init__(self, args):
@@ -116,7 +115,7 @@ class BombServer:
 							del self.connection_to_client_id[writer]
 							del self.server_game_state.playerlist[client_id]
 						except KeyError as e:
-							pass  # logger.warning(f"Error removing client_id: {e} {addr}")
+							logger.warning(f"{e} removing client_id: {client_id} addr: {addr} writer: {writer}")
 						except Exception as e:
 							logger.error(f"Error removing client_id: {e} {addr}")
 						try:
