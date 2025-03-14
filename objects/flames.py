@@ -8,7 +8,7 @@ from constants import FLAME_SPEED
 class Flame(Sprite):
 	def __init__(self, position, direction):
 		super().__init__()
-		self.image = pygame.image.load('data/flame.png')
+		self.image = pygame.image.load('data/flameball.png')
 		self.rect = self.image.get_rect()
 		self.position = Vec2d(position)
 		self.rect.topleft = self.position
