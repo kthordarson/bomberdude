@@ -77,13 +77,57 @@ class GameState:
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
 
 	def destroy_block(self, block):
-		# Change the block to a background tile
-		layer = self.tile_map.get_layer_by_name('Background')
+		"""
+		Simplest possible version - just remove the block from collision group
+		"""
 		x, y = block.rect.topleft
 		tile_x = x // self.tile_map.tilewidth
 		tile_y = y // self.tile_map.tileheight
-		layer.set_tile(tile_x, tile_y, None)
-		self.collidable_tiles.remove(block)
+		layer = self.tile_map.get_layer_by_name('Blocks')
+
+		if block in self.collidable_tiles:
+			self.collidable_tiles.remove(block)
+			logger.info(f"Block removed at {block.rect.topleft}")
+			layer.data[tile_y][tile_x] = 3  # Set to empty tile
+			# block.kill()
+
+	def old1destroy_block(self, block):
+		"""
+		Remove a block from the game
+		"""
+		# First, determine tile coordinates
+		x, y = block.rect.topleft
+		tile_x = x // self.tile_map.tilewidth
+		tile_y = y // self.tile_map.tileheight
+
+		# Just remove the block from collidable_tiles
+		# if block in self.collidable_tiles:
+		# 	self.collidable_tiles.remove(block)
+		# 	logger.info(f"Block removed at coords ({tile_x}, {tile_y})")
+
+		# You might want to replace it with a background tile if possible
+		# This depends on your tilemap implementation
+		try:
+			# If using pytmx, try:
+			layer = self.tile_map.get_layer_by_name('Blocks')
+			layer.data[tile_y][tile_x] = 0  # Set to empty tile
+			self.collidable_tiles.remove(block)
+			logger.info(f"setempty Block removed at coords ({tile_x}, {tile_y})")
+		except Exception as e:
+			logger.warning(f"Could not update tilemap: {e}")
+
+	def olddestroy_block(self, block):
+		# Change the block to a background tile
+		layer = self.tile_map.get_layer_by_name('Blocks')
+		if layer:
+			x, y = block.rect.topleft
+			tile_x = x // self.tile_map.tilewidth
+			tile_y = y // self.tile_map.tileheight
+			logger.info(f"layer: {layer.name} {layer=} {block=} {block.rect.topleft=} {tile_x=} {tile_y=}")
+			layer.set_tile(tile_x, tile_y, None)
+			self.collidable_tiles.remove(block)
+		else:
+			logger.warning(f"Unknown layer: {layer.name} {layer}")
 
 	def ready(self):
 		return self._ready
@@ -164,8 +208,11 @@ class GameState:
 						sprite.image = tile
 						# sprite.rect = pygame.Rect(x * TILE_SCALING, y * TILE_SCALING, TILE_SCALING, TILE_SCALING)
 						sprite.rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
+						sprite.layer = layer.name  # Set the layer attribute
 						if layer.properties.get('collidable'):
 							self.collidable_tiles.append(sprite)
+			else:
+				logger.warning(f'unknown layer {layer}')
 		logger.debug(f'loading {self.mapname} done. ')
 
 	def render_map(self, screen, camera):

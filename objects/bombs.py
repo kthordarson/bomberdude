@@ -111,7 +111,7 @@ class ExplosionManager:
 class Flame(Sprite):
 	def __init__(self, position, direction):
 		super().__init__()
-		self.image = pygame.image.load('data/flame0.png')
+		self.image = pygame.image.load('data/flame.png')
 		self.rect = self.image.get_rect()
 		self.position = Vec2d(position)
 		self.rect.topleft = self.position
@@ -123,24 +123,26 @@ class Flame(Sprite):
 		self.rect.topleft = self.position
 
 		for tile in collidable_tiles:
-			if hasattr(tile, 'layer'):
+			try:
 				if self.rect.colliderect(tile.rect):
-					try:
-						if tile.layer == 'Blocks':
-							logger.info(f"tile: {tile} {type(tile)}")
-							game_state.destroy_block(tile)
-					except AttributeError as e:
-						logger.warning(f"Error destroying block: {e} tile: {tile} {type(tile)} {dir(tile)}")
-			# else:
-			# 	logger.warning(f"tile: {tile} {type(tile)}\n{dir(tile)}")
-			self.kill()
+					# logger.info(f"Flame collision with: {tile} {type(tile)}")
+					if hasattr(tile, 'layer') and tile.layer == 'Blocks':
+						try:
+							if tile.layer == 'Blocks':
+								game_state.destroy_block(tile)
+						except AttributeError as e:
+							logger.warning(f"Error destroying block: {e} tile: {tile} {type(tile)} {dir(tile)}")
+			except Exception as e:
+				logger.warning(f"{e} {type(e)} tile: {tile} {type(tile)}\n{dir(tile)}")
+			finally:
+				self.kill()
 
 
 class Bomb(Sprite):
 	def __init__(self, position, power=3, speed=10, timer=3, bomb_size=(10,10)):
 		super().__init__()
 		# self.image = pygame.Surface(bomb_size)
-		self.image = pygame.image.load('data/bomb.png')
+		self.image = pygame.image.load('data/bomb4.png')
 		self.rect = self.image.get_rect()
 		self.position = Vec2d(position)
 		self.timer = timer
@@ -164,10 +166,8 @@ class Bomb(Sprite):
 	def create_flames(self, explosion_manager):
 		directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]  # Right, Left, Down, Up
 		for direction in directions:
-			for i in range(1, self.power + 1):
-				flame_position = Vec2d(
-					self.position.x + direction[0] * i * self.rect.width,
-					self.position.y + direction[1] * i * self.rect.height
-				)
-				flame = Flame(flame_position, direction)
-				explosion_manager.add_flame(flame)
+			# for i in range(1, self.power + 1):
+			# flame_position = Vec2d(self.position.x + direction[0] * i * self.rect.width, self.position.y + direction[1] * i * self.rect.height)
+			flame_position = Vec2d(self.position.x + direction[0] * self.rect.width, self.position.y + direction[1] * self.rect.height)
+			flame = Flame(flame_position, direction)
+			explosion_manager.add_flame(flame)
