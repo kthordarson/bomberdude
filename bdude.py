@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 import pygame
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
-from panels import Mainmenu
+from panels import MainMenu, SetupMenu
 from game import Bomberdude
 
 async def send_game_state(game):
@@ -166,12 +166,12 @@ async def main():
     # screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(SCREEN_TITLE)
-    mainmenu = Mainmenu(screen=screen, args=args)
+    mainmenu = MainMenu(screen=screen, args=args)
     action = mainmenu.run()
     if action == "start":
         await start_game(args)
-    elif action == 'setup':
-        logger.info("Setup not implemented")
+    elif action in ['option1', 'option2', 'option3']:
+        logger.info(f"Setup {action} not implemented")
     elif action == 'quit':
         logger.info("Quitting...")
     else:

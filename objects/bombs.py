@@ -23,10 +23,10 @@ class Bomb(Sprite):
 	def __repr__(self):
 		return f'Bomb (pos: {self.position} )'
 
-	def update(self, collidable_tiles=None, explosion_manager=None):
+	def update(self, explosion_manager):
 		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:
 			# Create explosion particles if manager is provided
-			if explosion_manager and not self.exploded:
+			if not self.exploded:
 				explosion_manager.create_explosion(self.rect.center)
 				self.create_flames(explosion_manager)
 				self.exploded = True

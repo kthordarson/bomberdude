@@ -133,10 +133,7 @@ class Bomberdude():
 			pos = self.camera.apply(bomb.rect)
 			self.screen.blit(bomb.image, pos)
 
-		self.client_game_state.bombs.update(
-			self.client_game_state.collidable_tiles,
-			self.client_game_state.explosion_manager
-		)
+		self.client_game_state.bombs.update(self.client_game_state.explosion_manager)
 
 		# Draw explosion particles
 		self.client_game_state.explosion_manager.draw(self.screen, self.camera)
@@ -289,8 +286,6 @@ class Bomberdude():
 		self.camera.update(player_one)
 
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
-		self.client_game_state.bombs.update()
-		# self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles)
 		self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
 
 		playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
