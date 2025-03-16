@@ -31,4 +31,3 @@ class Bomb(Sprite):
 				explosion_manager.create_flames(self.rect)
 				self.exploded = True
 			self.kill()
-

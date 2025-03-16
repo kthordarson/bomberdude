@@ -164,7 +164,7 @@ class Bomberdude():
 		pygame.draw.rect(self.screen, (0, 0, 0), (minimap_x - minimap_border, minimap_y - minimap_border, minimap_width + 2*minimap_border, minimap_height + 2*minimap_border))
 		pygame.draw.rect(self.screen, (50, 50, 50), (minimap_x, minimap_y, minimap_width, minimap_height))
 
-		# Draw map blocks (optional - simplified version)
+		# Draw map blocks
 		for tile in self.client_game_state.collidable_tiles:
 			if hasattr(tile, 'layer') and tile.layer == 'Blocks':
 				mini_x = minimap_x + int(tile.rect.x * scale)
@@ -180,14 +180,24 @@ class Bomberdude():
 			player_y = minimap_y + int(player_one.position.y * scale)
 			pygame.draw.circle(self.screen, (0, 255, 0), (player_x, player_y), 3)
 
-			# Draw view area (player's visible screen area)
-			view_x = minimap_x + int((player_one.position.x - self.camera.offset_x) * scale)
-			view_y = minimap_y + int((player_one.position.y - self.camera.offset_y) * scale)
+			# Get camera viewport position
+			# Instead of using offset_x and offset_y directly, calculate it from player position and screen center
+			# This assumes camera is centered on player (modify if your camera logic is different)
+			center_x = player_one.position.x - SCREEN_WIDTH/2
+			center_y = player_one.position.y - SCREEN_HEIGHT/2
+
+			# Clamp to map boundaries
+			center_x = max(0, min(center_x, map_width - SCREEN_WIDTH))
+			center_y = max(0, min(center_y, map_height - SCREEN_HEIGHT))
+
+			# Draw view rectangle on minimap
+			view_x = minimap_x + int(center_x * scale)
+			view_y = minimap_y + int(center_y * scale)
 			view_w = int(SCREEN_WIDTH * scale)
 			view_h = int(SCREEN_HEIGHT * scale)
 			pygame.draw.rect(self.screen, (200, 200, 200), (view_x, view_y, view_w, view_h), 1)
-		except:
-			pass
+		except Exception as e:
+			logger.error(f"Minimap player error: {e} {type(e)}")
 
 		# Draw other players (as red dots)
 		for client_id, player in self.client_game_state.playerlist.items():
@@ -203,14 +213,17 @@ class Bomberdude():
 					other_x = minimap_x + int(pos[0] * scale)
 					other_y = minimap_y + int(pos[1] * scale)
 					pygame.draw.circle(self.screen, (255, 0, 0), (other_x, other_y), 3)
-				except:
-					pass
+				except Exception as e:
+					logger.error(f"Minimap other player error: {e} {type(e)}")
 
 		# Draw bombs as yellow dots
 		for bomb in self.client_game_state.bombs:
-			bomb_x = minimap_x + int(bomb.position.x * scale)
-			bomb_y = minimap_y + int(bomb.position.y * scale)
-			pygame.draw.circle(self.screen, (255, 255, 0), (bomb_x, bomb_y), 2)
+			try:
+				bomb_x = minimap_x + int(bomb.position.x * scale)
+				bomb_y = minimap_y + int(bomb.position.y * scale)
+				pygame.draw.circle(self.screen, (255, 255, 0), (bomb_x, bomb_y), 2)
+			except Exception as e:
+				logger.error(f"Minimap bomb error: {e} {type(e)}")
 
 	async def handle_on_mouse_press(self, x, y, button):
 		if button == 1:
