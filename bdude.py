@@ -76,7 +76,7 @@ async def receive_game_state(game):
                 # Priority handling for critical events
                 if game_state_json.get("msgtype") == "game_event":
                     event_type = game_state_json.get("event", {}).get("event_type")
-                    if event_type in ("bulletfired", "drop_bomb", "player_update", "acknewplayer"):
+                    if event_type in ("connection_event", "bulletfired", "drop_bomb", "player_update", "acknewplayer"):
                         # Process high priority events immediately
                         await game.client_game_state.update_game_event(game_state_json["event"])
                     else:
@@ -104,6 +104,8 @@ def get_args():
     parser.add_argument("--port", action="store", dest="port", default=9696)
     parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
     parser.add_argument("-dp", "--debugpacket", action="store_true", dest="debugpacket", default=False,)
+    parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
+    parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude_profile.prof')
     return parser.parse_args()
 
 async def start_game(args):
@@ -163,9 +165,8 @@ async def start_game(args):
     # pygame.display.quit()
     # pygame.quit()
 
-async def main():
+async def main(args):
     pygame.init()
-    args = get_args()
     # screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(SCREEN_TITLE)
@@ -194,21 +195,21 @@ async def main():
 if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    args = get_args()
+    if args.cprofile:
+        import cProfile
+        import pstats
 
-    # import cProfile
-    # import pstats
+        profiler = cProfile.Profile()
+        profiler.enable()
 
-    # profiler = cProfile.Profile()
-    # profiler.enable()
+        asyncio.run(main(args))
 
-    asyncio.run(main())
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats('cumtime')
+        stats.print_stats(30)  # Print top 30 time-consuming functions
 
-    # profiler.disable()
-    # stats = pstats.Stats(profiler).sort_stats('cumtime')
-    # stats.print_stats(30)  # Print top 30 time-consuming functions
-
-    # Optionally save results to a file
-    # stats.dump_stats('bdude_profile.prof')
-
-    # asyncio.run(main())
-    # cProfile.run('asyncio.run(main())')
+        # Optionally save results to a file
+        stats.dump_stats(args.cprofile_file)
+    else:
+        asyncio.run(main(args))
