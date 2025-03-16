@@ -40,11 +40,21 @@ if __name__ == "__main__":
 	parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
 	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='server.prof')
 	args = parser.parse_args()
-	try:
+
+	if args.cprofile:
+		import cProfile
+		import pstats
+
+		profiler = cProfile.Profile()
+		profiler.enable()
+
 		asyncio.run(async_start_server(args))
-	except KeyboardInterrupt as e:
-		logger.info(f"KeyboardInterrupt: {e} {type(e)}")
-		sys.exit(0)
-	except Exception as e:
-		logger.error(f"Error starting server: {e} {type(e)}")
-		sys.exit(1)
+
+		profiler.disable()
+		stats = pstats.Stats(profiler).sort_stats('cumtime')
+		stats.print_stats(30)  # Print top 30 time-consuming functions
+
+		# Optionally save results to a file
+		stats.dump_stats(args.cprofile_file)
+	else:
+		asyncio.run(async_start_server(args))
