@@ -3,7 +3,7 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "",
+    "activeFile": "data/maptest5.tmx",
     "automapping.whileDrawing": true,
     "expandedProjectPaths": [
         ".",
@@ -297,10 +297,10 @@
         },
         "data/maptest5.tmx": {
             "scale": 0.75,
-            "selectedLayer": 0,
+            "selectedLayer": 1,
             "viewCenter": {
-                "x": 1058.6666666666665,
-                "y": 780.6666666666666
+                "x": 1005.3333333333333,
+                "y": 553.3333333333334
             }
         },
         "data/maptest6.tmx": {
@@ -338,13 +338,14 @@
     "map.lastUsedFormat": "tmx",
     "map.width": 32,
     "openFiles": [
+        "data/maptest5.tmx"
     ],
     "project": "bomberdude.tiled-project",
     "property.type": "bool",
     "recentFiles": [
+        "data/maptest5.tmx",
         "data/btiles.tsx",
         "data/map.json",
-        "data/maptest5.tmx",
         "data/map5.tmx",
         "data/map4.tmx",
         "data/map4.json",

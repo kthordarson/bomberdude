@@ -8,7 +8,8 @@ from dataclasses import dataclass, field
 from utils import gen_randid
 from objects.player import KeysPressed
 from objects.bullets import Bullet
-from objects.bombs import Bomb, ExplosionManager
+from objects.bombs import Bomb
+from objects.explosionmanager import ExplosionManager
 import pytmx
 from pytmx import load_pygame
 import json
@@ -83,7 +84,7 @@ class GameState:
 		tile_x = x // self.tile_map.tilewidth
 		tile_y = y // self.tile_map.tileheight
 		layer = self.tile_map.get_layer_by_name('Blocks')
-		background_layer = self.tile_map.get_layer_by_name('Background')
+		# background_layer = self.tile_map.get_layer_by_name('Background')
 
 		if block in self.collidable_tiles:
 			self.collidable_tiles.remove(block)
