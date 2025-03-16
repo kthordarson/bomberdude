@@ -55,11 +55,10 @@ class Bomberplayer(Sprite):
 		self.change_x = 0
 		self.change_y = 0
 		self.bombsleft = 3
-		self.health = 100
+		self.health = 101
 		self.killed = False
 		self.timeout = False
 		self.score = 0
-		self.angle = 0
 		self.candrop = True
 		self.lastdrop = 0
 		self.keyspressed = KeysPressed('gamestate')
@@ -80,7 +79,6 @@ class Bomberplayer(Sprite):
 				'msg_dt': time.time(),
 				'killed': self.killed,
 				'bombsleft': self.bombsleft,
-				'angle': self.angle
 			}
 		except Exception as e:
 			logger.error(f"Error converting player to dict: {e}")
@@ -109,7 +107,7 @@ class Bomberplayer(Sprite):
 	def shoot(self, direction):
 		# Calculate direction from player's position to target
 		bullet_pos = Vec2d(self.rect.center)
-		bullet = Bullet(position=bullet_pos,direction=direction, screen_rect=self.rect)
+		bullet = Bullet(position=bullet_pos,direction=direction, screen_rect=self.rect, owner_id=self.client_id)
 		return bullet  # self.bullets.add(bullet)
 
 	def drop_bomb(self):
@@ -127,10 +125,6 @@ class Bomberplayer(Sprite):
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
 
-	def rotate_around_point(self, point, degrees):
-		self.angle += degrees
-		self.position = pygame.math.Vector2(self.rect.center).rotate_around(point, degrees)
-
 	def respawn(self):
 		self.killed = False
 		self.health = 100
@@ -140,9 +134,6 @@ class Bomberplayer(Sprite):
 		self.timeout = False
 		self.image = pygame.image.load('data/playerone.png')
 		logger.info(f'{self} respawned')
-
-	def set_texture(self, texture):
-		self.image = pygame.image.load(texture)
 
 	def addscore(self, score):
 		self.score += score
@@ -162,7 +153,3 @@ class Bomberplayer(Sprite):
 		self.killed = True
 		self.image = pygame.image.load('data/netplayerdead.png')
 		return 11
-
-	def set_pos(self, newpos):
-		self.rect.topleft = newpos
-		self.update()

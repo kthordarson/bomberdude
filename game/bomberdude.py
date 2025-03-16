@@ -7,12 +7,12 @@ from pygame.math import Vector2 as Vec2d
 import orjson as json
 from loguru import logger
 from utils import gen_randid
-from gamestate import GameState
+from game.gamestate import GameState
+from game.playerstate import PlayerState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT
 from camera import Camera
 from objects.player import Bomberplayer
 from debug import draw_debug_info
-from gamestate import PlayerState
 
 class Bomberdude():
 	def __init__(self, args):
@@ -34,6 +34,7 @@ class Bomberdude():
 		self.last_position_update = 0
 		self.last_frame_time = time.time()
 		self.delta_time = 0
+		self.show_minimap = False
 
 	def __repr__(self):
 		return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} {self.connected()})"
@@ -53,8 +54,6 @@ class Bomberdude():
 			mapname = resp.get("mapname")
 			tile_x = resp.get('position').get('position')[0]
 			tile_y = resp.get('position').get('position')[1]
-			# pos = Vec2d(x=resp.get('position').get('position')[0], y=resp.get('position').get('position')[1])
-			# logger.debug(f"map {mapname} {pos=} {resp=}")
 		except Exception as e:
 			logger.error(f"{type(e)} {e=} {resp}")
 			raise e
@@ -93,7 +92,6 @@ class Bomberdude():
 				return True
 
 	def draw_player(self, player_data):
-		# logger.debug(f'player_data: {player_data} {type(player_data)}')
 		try:
 			if isinstance(player_data, dict):
 				player = Bomberplayer(texture="data/player2.png", client_id=player_data.get('client_id'))
@@ -120,12 +118,6 @@ class Bomberdude():
 		player_one = self.client_game_state.get_playerone()
 		self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
 
-		# Draw local player from players_sprites
-		# self.client_game_state.get_playerone().draw(self.screen)
-		# for player in self.client_game_state.players_sprites:
-		# 	if player.client_id == self.client_id:
-		# 		player.draw(self.screen)
-
 		# Draw remote players from playerlist
 		for client_id, player in self.client_game_state.playerlist.items():
 			if client_id != self.client_id:
@@ -142,32 +134,96 @@ class Bomberdude():
 			pos = self.camera.apply(bomb.rect)
 			self.screen.blit(bomb.image, pos)
 
-		self.client_game_state.bombs.update(
-			self.client_game_state.collidable_tiles,
-			self.client_game_state.explosion_manager
-		)
+		self.client_game_state.bombs.update(self.client_game_state.explosion_manager)
 
 		# Draw explosion particles
 		self.client_game_state.explosion_manager.draw(self.screen, self.camera)
 
 		if self.draw_debug:
-			draw_debug_info(self.screen, self.client_game_state)
-			# Add camera position debug
-			font = pygame.font.Font(None, 26)
-			player_one = self.client_game_state.get_playerone()
-			debug_text = font.render(f"Camera pos: {self.camera.position} Player pos: {player_one.position}", True, (255, 255, 255))
-			self.screen.blit(debug_text, (10, 120))
+			draw_debug_info(self.screen, self.client_game_state, self.camera)
+		if self.show_minimap:
+			self.draw_minimap()
 
-		if self.draw_debug and len(self.client_game_state.bullets) > 0:
-			# Draw debug lines for all bullets
-			for bullet in self.client_game_state.bullets:
-				bullet_screen = self.camera.apply(bullet.rect).center
-				line_end = (bullet_screen[0] + bullet.direction.x * 25, bullet_screen[1] + bullet.direction.y * 25)
-				pygame.draw.line(self.screen, (255, 0, 0), bullet_screen, line_end, 2)
-				# Draw a line showing bullet direction
-				start_pos = self.camera.apply(bullet.rect).center
-				end_pos = (start_pos[0] + bullet.direction.x * 25, start_pos[1] + bullet.direction.y * 25)
-				pygame.draw.line(self.screen, (255, 255, 0), start_pos, end_pos, 2)
+	def draw_minimap(self):
+		"""Draw a minimap in the bottom-right corner showing all players"""
+		# Minimap dimensions and position
+		minimap_width = 150
+		minimap_height = 150
+		minimap_x = SCREEN_WIDTH - minimap_width - 10  # 10px padding
+		minimap_y = SCREEN_HEIGHT - minimap_height - 10
+		minimap_border = 2
+
+		# Calculate scale ratio (map size to minimap size)
+		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
+		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
+		scale_x = minimap_width / map_width
+		scale_y = minimap_height / map_height
+		scale = min(scale_x, scale_y)  # Use the smaller scale to fit entire map
+
+		# Draw background and border
+		pygame.draw.rect(self.screen, (0, 0, 0), (minimap_x - minimap_border, minimap_y - minimap_border, minimap_width + 2*minimap_border, minimap_height + 2*minimap_border))
+		pygame.draw.rect(self.screen, (50, 50, 50), (minimap_x, minimap_y, minimap_width, minimap_height))
+
+		# Draw map blocks
+		for tile in self.client_game_state.collidable_tiles:
+			if hasattr(tile, 'layer') and tile.layer == 'Blocks':
+				mini_x = minimap_x + int(tile.rect.x * scale)
+				mini_y = minimap_y + int(tile.rect.y * scale)
+				mini_w = max(2, int(tile.rect.width * scale))
+				mini_h = max(2, int(tile.rect.height * scale))
+				pygame.draw.rect(self.screen, (150, 75, 0), (mini_x, mini_y, mini_w, mini_h))
+
+		# Draw player one (as green dot)
+		try:
+			player_one = self.client_game_state.get_playerone()
+			player_x = minimap_x + int(player_one.position.x * scale)
+			player_y = minimap_y + int(player_one.position.y * scale)
+			pygame.draw.circle(self.screen, (0, 255, 0), (player_x, player_y), 3)
+
+			# Get camera viewport position
+			# Instead of using offset_x and offset_y directly, calculate it from player position and screen center
+			# This assumes camera is centered on player (modify if your camera logic is different)
+			center_x = player_one.position.x - SCREEN_WIDTH/2
+			center_y = player_one.position.y - SCREEN_HEIGHT/2
+
+			# Clamp to map boundaries
+			center_x = max(0, min(center_x, map_width - SCREEN_WIDTH))
+			center_y = max(0, min(center_y, map_height - SCREEN_HEIGHT))
+
+			# Draw view rectangle on minimap
+			view_x = minimap_x + int(center_x * scale)
+			view_y = minimap_y + int(center_y * scale)
+			view_w = int(SCREEN_WIDTH * scale)
+			view_h = int(SCREEN_HEIGHT * scale)
+			pygame.draw.rect(self.screen, (200, 200, 200), (view_x, view_y, view_w, view_h), 1)
+		except Exception as e:
+			logger.error(f"Minimap player error: {e} {type(e)}")
+
+		# Draw other players (as red dots)
+		for client_id, player in self.client_game_state.playerlist.items():
+			if client_id != self.client_id:
+				try:
+					if isinstance(player, dict) and 'position' in player:
+						pos = player['position']
+					elif hasattr(player, 'position'):
+						pos = player.position
+					else:
+						continue
+
+					other_x = minimap_x + int(pos[0] * scale)
+					other_y = minimap_y + int(pos[1] * scale)
+					pygame.draw.circle(self.screen, (255, 0, 0), (other_x, other_y), 3)
+				except Exception as e:
+					logger.error(f"Minimap other player error: {e} {type(e)}")
+
+		# Draw bombs as yellow dots
+		for bomb in self.client_game_state.bombs:
+			try:
+				bomb_x = minimap_x + int(bomb.position.x * scale)
+				bomb_y = minimap_y + int(bomb.position.y * scale)
+				pygame.draw.circle(self.screen, (255, 255, 0), (bomb_x, bomb_y), 2)
+			except Exception as e:
+				logger.error(f"Minimap bomb error: {e} {type(e)}")
 
 	async def handle_on_mouse_press(self, x, y, button):
 		if button == 1:
@@ -205,9 +261,6 @@ class Bomberdude():
 					"eventid": gen_randid()
 				}
 
-				if self.args.debug:
-					logger.debug(f'bullet_pos: {bullet_pos} direction_vector: {direction_vector}  mouse_world_pos: {mouse_world_pos} player_world_pos: {player_world_pos}  self.camera.position:{self.camera.position}')
-
 				await self.client_game_state.event_queue.put(event)
 
 	def handle_on_key_press(self, key):
@@ -233,7 +286,8 @@ class Bomberdude():
 		elif key == pygame.K_F4:
 			pass
 		elif key == pygame.K_F5:
-			pass
+			self.show_minimap = not self.show_minimap
+			logger.debug(f"Minimap toggled: {self.show_minimap}")
 		elif key == pygame.K_F6:
 			pass
 		elif key == pygame.K_F7:
@@ -306,8 +360,8 @@ class Bomberdude():
 		self.camera.update(player_one)
 
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
-		self.client_game_state.bombs.update()
-		self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles)
+		self.client_game_state.check_bullet_collisions()
+		self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
 
 		playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
 		update_event = {
@@ -316,7 +370,6 @@ class Bomberdude():
 			"event_type": "player_update",
 			"client_id": str(player_one.client_id),
 			"position": (player_one.position.x, player_one.position.y),
-			"angle": player_one.angle,
 			"health": player_one.health,
 			"score": player_one.score,
 			"bombsleft": player_one.bombsleft,

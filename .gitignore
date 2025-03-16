@@ -28,3 +28,6 @@ workspace.code-workspace
 *test*
 *.prof
 .pylintrc
+bomberdude.tiled-project
+bomberdude.tiled-session
+bomberdude.tiled-session

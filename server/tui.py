@@ -33,10 +33,6 @@ class ServerTUI():
 		logger.debug(f"players: {len(state.get('playerlist'))} event_queue: {self.server.server_game_state.event_queue.qsize()} client_queue: {self.server.server_game_state.client_queue.qsize()}")
 		for player in state.get('playerlist'):
 			logger.debug(f'player: {player.get('client_id')} {player.get('position')}')
-		try:
-			await self.server.server_game_state.debug_dump()
-		except Exception as e:
-			logger.error(f"Error getting server info: {e}")
 
 	def dumpgameevents(self):
 		logger.debug(f"gamestate: {self.server.server_game_state} ")
@@ -76,7 +72,6 @@ class ServerTUI():
 		elif cmd[:2] == "ec":
 			pass  # self.cleargameevents()
 		elif cmd[:1] == "q":
-			# logger.warning(f"{self} {self.server} tuiquit")
 			await self.server.stop()
 			await self.stop()
 

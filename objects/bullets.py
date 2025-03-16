@@ -2,7 +2,7 @@ from pygame.math import Vector2 as Vec2d
 import pygame
 
 class Bullet(pygame.sprite.Sprite):
-	def __init__(self, position, direction, screen_rect, speed=10, bounce_count=3, bullet_size=(10,10)):
+	def __init__(self, position, direction, screen_rect, owner_id=None, speed=10, bounce_count=3, bullet_size=(10,10)):
 		super().__init__()
 		self.image = pygame.Surface(bullet_size)
 		# self.image = pygame.transform.scale(self.image, bullet_size)
@@ -19,6 +19,7 @@ class Bullet(pygame.sprite.Sprite):
 		self.screen_rect = screen_rect
 		self.bounce_count = bounce_count
 		self.speed = speed
+		self.owner_id = owner_id
 
 	def __repr__(self):
 		return f'Bullet (pos: {self.position} direction: {self.direction} )'

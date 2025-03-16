@@ -7,9 +7,10 @@ from argparse import ArgumentParser
 import pygame
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
-from panels import Mainmenu
-from game import Bomberdude
-async def pusher(game):
+from panels import MainMenu, SetupMenu
+from game.bomberdude import Bomberdude
+
+async def send_game_state(game):
     logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
     game_event = []
     while True:
@@ -32,9 +33,11 @@ async def pusher(game):
             'game_event': game_event,
             'client_id': player_one.client_id,
             'position': (player_one.position.x, player_one.position.y),
+            'health': player_one.health,
+            'score': player_one.score,
             'keyspressed': client_keys,
-            'msgtype': "pushermsgdict",
-            'handledby': "pusher",
+            'msgtype': "send_game_state",
+            'handledby': "send_game_state",
             'msg_dt': time.time(),
             'playerlist': playerlist,
         }
@@ -45,52 +48,6 @@ async def pusher(game):
                 data_out = json.dumps(msg) + b'\n'
             await asyncio.get_event_loop().sock_sendall(game.sock, data_out)  # Direct to socket
             game.client_game_state.event_queue.task_done()
-            if game.args.debug:
-                if msg.get('game_event').get('event_type') != 'player_update':
-                    logger.debug(f"pusher sent: {msg.get('game_event').get('event_type')} from {msg.get('game_event').get('client_id')} event_queue: {game.client_game_state.event_queue.qsize()} client_queue:{game.client_game_state.client_queue.qsize()}")
-        except Exception as e:
-            logger.error(f'{e} {type(e)} msg: {msg}')
-            break
-
-async def old_pusher(game):
-    logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
-    game_event = []
-    while True:
-        try:
-            game_event = await game.client_game_state.event_queue.get()
-        except asyncio.QueueEmpty:
-            pass
-        except Exception as e:
-            logger.error(f"Error getting game_event: {e} {type(e)}")
-            continue
-        client_keys = json.loads(game.client_game_state.keyspressed.to_json())
-        try:
-            player_one = game.client_game_state.get_playerone()
-        except AttributeError as e:
-            logger.error(f'{e} {type(e)}')
-            await asyncio.sleep(0.1)
-            continue
-        # playerlist = [player for player in game.client_game_state.playerlist.values()]
-        playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in game.client_game_state.playerlist.values()]
-        msg = {
-            'game_event': game_event,
-            'client_id': player_one.client_id,
-            'position': (player_one.position[0], player_one.position[1]),
-            'keyspressed': client_keys,
-            'msgtype': "pushermsgdict",
-            'handledby': "pusher",
-            'msg_dt': time.time(),
-            'playerlist': playerlist,
-            # 'playerlist': [player for player in self.playerlist.values()]
-        }
-        try:
-            data_out = json.dumps(msg)
-            # await asyncio.get_event_loop().sock_sendall(game.sock, data_out)
-            await game.client_game_state.broadcast_state(data_out)
-            game.client_game_state.event_queue.task_done()
-            if game.args.debug:
-                if msg.get('game_event').get('event_type') != 'player_update':
-                    logger.debug(f"pusher sent: {msg.get('game_event').get('event_type')} from {msg.get('game_event').get('client_id')} event_queue: {game.client_game_state.event_queue.qsize()} client_queue:{game.client_game_state.client_queue.qsize()}")
         except Exception as e:
             logger.error(f'{e} {type(e)} msg: {msg}')
             break
@@ -113,12 +70,13 @@ async def receive_game_state(game):
             while '\n' in buffer:
                 message, buffer = buffer.split('\n', 1)
                 if not message.strip():
+                    logger.warning(f'no message in buffer: {buffer}')
                     continue
                 game_state_json = json.loads(message)
                 # Priority handling for critical events
                 if game_state_json.get("msgtype") == "game_event":
                     event_type = game_state_json.get("event", {}).get("event_type")
-                    if event_type in ("bulletfired", "drop_bomb", "player_update", "acknewplayer"):
+                    if event_type in ("connection_event", "bulletfired", "drop_bomb", "player_update", "acknewplayer"):
                         # Process high priority events immediately
                         await game.client_game_state.update_game_event(game_state_json["event"])
                     else:
@@ -127,75 +85,6 @@ async def receive_game_state(game):
                 else:
                     # Process regular state updates
                     game.client_game_state.from_json(game_state_json)
-        except (BlockingIOError, InterruptedError):
-            await asyncio.sleep(0.001)  # Very short sleep to avoid CPU spinning
-            continue
-        except Exception as e:
-            logger.warning(f"Error in receive_game_state: {e}")
-            if isinstance(e, ConnectionResetError):
-                game._connected = False
-                break
-            continue
-
-async def oldv2receive_game_state(game):
-    while True:
-        try:
-            data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
-            game_state_json = json.loads(data)
-            # Priority handling for critical events
-            if game_state_json.get("msgtype") == "game_event":
-                event_type = game_state_json.get("event", {}).get("event_type")
-                if event_type in ("bulletfired", "drop_bomb", "player_update", "acknewplayer"):
-                    # Process high priority events immediately
-                    await game.client_game_state.update_game_event(game_state_json["event"])
-                else:
-                    # Queue less critical events
-                    asyncio.create_task(game.client_game_state.update_game_event(game_state_json["event"]))
-            else:
-                # Process regular state updates
-                game.client_game_state.from_json(game_state_json)
-        except (BlockingIOError, InterruptedError):
-            await asyncio.sleep(1.001)  # Very short sleep to avoid CPU spinning
-            continue
-        except Exception as e:
-            logger.warning(f"Error in receive_game_state: {e}")
-            raise
-        finally:
-            await asyncio.sleep(0.001)
-
-async def fokkreceive_game_state(game):
-    buffer = ""
-    while True:
-        try:
-            data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
-            if not data:
-                if game.sock._closed:
-                    logger.warning(f'Connection closed {game.sock._closed}')
-                    break
-                else:
-                    await asyncio.sleep(0.05)  # Reduced sleep time
-                    continue
-            buffer += data.decode('utf-8')
-
-            # Process multiple messages at once if available
-            while '\n' in buffer:
-                message, buffer = buffer.split('\n', 1)
-                if not message.strip():
-                    continue
-                game_state_json = json.loads(message)
-                # Priority handling for critical events
-                if game_state_json.get("msgtype") == "game_event":
-                    event_type = game_state_json.get("event", {}).get("event_type")
-                    if event_type in ("bulletfired", "drop_bomb", "player_update"):
-                        # Process high priority events immediately
-                        await game.client_game_state.update_game_event(game_state_json["event"])
-                    else:
-                        # Queue less critical events
-                        asyncio.create_task(game.client_game_state.update_game_event(game_state_json["event"]))
-                else:
-                    # Process regular state updates
-                    game.client_game_state.from_json(game_state_json)
-
         except (BlockingIOError, InterruptedError):
             await asyncio.sleep(0.001)  # Very short sleep to avoid CPU spinning
             continue
@@ -215,15 +104,16 @@ def get_args():
     parser.add_argument("--port", action="store", dest="port", default=9696)
     parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
     parser.add_argument("-dp", "--debugpacket", action="store_true", dest="debugpacket", default=False,)
+    parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
+    parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude_profile.prof')
     return parser.parse_args()
 
 async def start_game(args):
     bomberdude_main = Bomberdude(args=args)
 
-    push_task = asyncio.create_task(pusher(bomberdude_main))
+    sender_task = asyncio.create_task(send_game_state(bomberdude_main))
     receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
 
-    # worker_task = asyncio.create_task(thread_worker(bomberdude_main))
     connection_timeout = 5  # seconds
     try:
         logger.info(f"Connecting.... {bomberdude_main}")
@@ -256,10 +146,8 @@ async def start_game(args):
                 bomberdude_main._connected = False
                 running = False
             elif event.type == pygame.KEYDOWN:
-                # logger.debug(f'keydown {event} event.key={event.key}')
                 bomberdude_main.handle_on_key_press(event.key)
             elif event.type == pygame.KEYUP:
-                # logger.info(f'keyup {event} event.key={event.key}')
                 await bomberdude_main.handle_on_key_release(event.key)
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 asyncio.create_task(bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button))
@@ -271,47 +159,57 @@ async def start_game(args):
             await asyncio.sleep(sleep_time)
 
     # Clean up tasks
-    push_task.cancel()
+    sender_task.cancel()
     receive_task.cancel()
-    await asyncio.gather(push_task, receive_task, return_exceptions=True)
-    pygame.display.quit()
-    pygame.quit()
+    await asyncio.gather(sender_task, receive_task, return_exceptions=True)
+    # pygame.display.quit()
+    # pygame.quit()
 
-async def main():
+async def main(args):
     pygame.init()
-    args = get_args()
     # screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(SCREEN_TITLE)
-    mainmenu = Mainmenu(screen=screen, args=args)
-    action = mainmenu.run()
-    if action == "start":
-        await start_game(args)
-    elif action == 'setup':
-        logger.info("Setup not implemented")
-    elif action == 'quit':
-        logger.info("Quitting...")
-    else:
-        logger.warning(f"Unknown action: {action}")
+    running = True
+    try:
+        mainmenu = MainMenu(screen=screen, args=args)
+        while running:
+            action = mainmenu.run()
+            if action == "Start":
+                await start_game(args)
+            elif action == 'Back':
+                pass
+            elif action in ['option1', 'option2', 'option3']:
+                logger.info(f"Setup {action} not implemented")
+            elif action == 'Quit':
+                logger.info("Quitting...")
+                running = False
+            else:
+                logger.warning(f"Unknown action: {action}")
+                await asyncio.sleep(1)
+    except Exception as e:
+        logger.error(f"Error in main: {e} {type(e)}")
+    finally:
+        pygame.quit()
 
 if __name__ == "__main__":
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    args = get_args()
+    if args.cprofile:
+        import cProfile
+        import pstats
 
-    # import cProfile
-    # import pstats
+        profiler = cProfile.Profile()
+        profiler.enable()
 
-    # profiler = cProfile.Profile()
-    # profiler.enable()
+        asyncio.run(main(args))
 
-    asyncio.run(main())
+        profiler.disable()
+        stats = pstats.Stats(profiler).sort_stats('cumtime')
+        stats.print_stats(30)  # Print top 30 time-consuming functions
 
-    # profiler.disable()
-    # stats = pstats.Stats(profiler).sort_stats('cumtime')
-    # stats.print_stats(30)  # Print top 30 time-consuming functions
-
-    # Optionally save results to a file
-    # stats.dump_stats('bdude_profile.prof')
-
-    # asyncio.run(main())
-    # cProfile.run('asyncio.run(main())')
+        # Optionally save results to a file
+        stats.dump_stats(args.cprofile_file)
+    else:
+        asyncio.run(main(args))
