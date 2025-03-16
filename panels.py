@@ -28,11 +28,11 @@ class MainMenu:
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
+                if event.key == pygame.K_UP or event.key == pygame.K_w or event.key == 119:
                     self.selected_option = (self.selected_option - 1) % len(self.options)
-                elif event.key == pygame.K_DOWN:
+                elif event.key == pygame.K_DOWN or event.key == pygame.K_s or event.key == 115:
                     self.selected_option = (self.selected_option + 1) % len(self.options)
-                elif event.key == pygame.K_RETURN:
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                     return self.select_option()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button
@@ -48,12 +48,13 @@ class MainMenu:
 
     def select_option(self):
         if self.options[self.selected_option] == "Start":
-            return "start"
+            return "Start"
         elif self.options[self.selected_option] == "Setup":
             action = self.setup_panel.run()
             return action
         elif self.options[self.selected_option] == "Quit":
             self.running = False
+            return 'Quit'
         return None
 
     def run(self):
@@ -68,9 +69,9 @@ class SetupMenu:
     def __init__(self, screen, args):
         self.screen = screen
         self.args = args
-        self.options = ["option1", "option2", "option3"]
+        self.options = ["option1", "option2", "option3", "Back"]
         self.selected_option = 0
-        self.font = pygame.font.Font(None, 36)
+        self.font = pygame.font.Font(None, 26)
         self.running = True
         self.option_rects = []
 
@@ -90,11 +91,11 @@ class SetupMenu:
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP:
+                if event.key == pygame.K_UP or event.key == pygame.K_w or event.key == 119:
                     self.selected_option = (self.selected_option - 1) % len(self.options)
-                elif event.key == pygame.K_DOWN:
+                elif event.key == pygame.K_DOWN or event.key == pygame.K_s or event.key == 115:
                     self.selected_option = (self.selected_option + 1) % len(self.options)
-                elif event.key == pygame.K_RETURN:
+                elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                     return self.select_option()
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button

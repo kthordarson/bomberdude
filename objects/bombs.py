@@ -28,15 +28,7 @@ class Bomb(Sprite):
 			# Create explosion particles if manager is provided
 			if not self.exploded:
 				explosion_manager.create_explosion(self.rect.center)
-				self.create_flames(explosion_manager)
+				explosion_manager.create_flames(self.rect)
 				self.exploded = True
 			self.kill()
 
-	def create_flames(self, explosion_manager):
-		directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]  # Right, Left, Down, Up
-		for direction in directions:
-			# for i in range(1, self.power + 1):
-			# flame_position = Vec2d(self.position.x + direction[0] * i * self.rect.width, self.position.y + direction[1] * i * self.rect.height)
-			flame_position = Vec2d(self.position.x + direction[0] * self.rect.width//2, self.position.y + direction[1] * self.rect.height//2)
-			flame = Flame(flame_position, direction)
-			explosion_manager.add_flame(flame)

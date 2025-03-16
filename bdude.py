@@ -157,8 +157,8 @@ async def start_game(args):
     sender_task.cancel()
     receive_task.cancel()
     await asyncio.gather(sender_task, receive_task, return_exceptions=True)
-    pygame.display.quit()
-    pygame.quit()
+    # pygame.display.quit()
+    # pygame.quit()
 
 async def main():
     pygame.init()
@@ -166,16 +166,27 @@ async def main():
     # screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(SCREEN_TITLE)
-    mainmenu = MainMenu(screen=screen, args=args)
-    action = mainmenu.run()
-    if action == "start":
-        await start_game(args)
-    elif action in ['option1', 'option2', 'option3']:
-        logger.info(f"Setup {action} not implemented")
-    elif action == 'quit':
-        logger.info("Quitting...")
-    else:
-        logger.warning(f"Unknown action: {action}")
+    running = True
+    try:
+        mainmenu = MainMenu(screen=screen, args=args)
+        while running:
+            action = mainmenu.run()
+            if action == "Start":
+                await start_game(args)
+            elif action == 'Back':
+                pass
+            elif action in ['option1', 'option2', 'option3']:
+                logger.info(f"Setup {action} not implemented")
+            elif action == 'Quit':
+                logger.info("Quitting...")
+                running = False
+            else:
+                logger.warning(f"Unknown action: {action}")
+                await asyncio.sleep(1)
+    except Exception as e:
+        logger.error(f"Error in main: {e} {type(e)}")
+    finally:
+        pygame.quit()
 
 if __name__ == "__main__":
     if sys.platform == "win32":
