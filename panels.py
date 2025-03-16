@@ -34,6 +34,8 @@ class MainMenu:
                     self.selected_option = (self.selected_option + 1) % len(self.options)
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                     return self.select_option()
+                elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                    return 'Quit'
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button
                     return self.handle_mouse_click(event.pos)
@@ -97,6 +99,8 @@ class SetupMenu:
                     self.selected_option = (self.selected_option + 1) % len(self.options)
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                     return self.select_option()
+                elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                    return 'Back'
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button
                     return self.handle_mouse_click(event.pos)

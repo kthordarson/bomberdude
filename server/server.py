@@ -40,8 +40,8 @@ class BombServer:
 				if msg.get("game_event"):
 					game_event = msg.get('game_event')
 					await self.server_game_state.update_game_event(game_event)
-			except UnboundLocalError as e:
-				logger.warning(f"UnboundLocalError: {e} {type(e)} {msg}")
+			except (TypeError, UnboundLocalError) as e:
+				logger.warning(f"{e} {type(e)} {msg}")
 			except asyncio.CancelledError as e:
 				logger.info(f"CancelledError {e}")
 				await self.stop()

@@ -191,7 +191,7 @@ class GameState:
 			'position': msg.get('position'),
 			'angle': msg.get('angle'),
 			'score': msg.get('score'),
-			'health': msg.get('health'),
+			'health': 99 if msg.get('health') is None else msg.get('health'),  # Add default 100
 			'msg_dt': msg.get('msg_dt'),
 			'timeout': msg.get('timeout'),
 			'killed': msg.get('killed'),
@@ -220,11 +220,14 @@ class GameState:
 						else:
 							# Handle PlayerState objects
 							player.position = position
+							if player.health is None:
+								player.health = 44
 					else:
 						# Add new player with minimal required fields
 						self.playerlist[msg_client_id] = {
 							'client_id': msg_client_id,
 							'position': position,
+							'health': 42,
 							'angle': game_event.get('angle', 0)
 						}
 				await self.broadcast_event(game_event)
@@ -281,8 +284,76 @@ class GameState:
 					bullet_size = (10,10)
 				else:
 					bullet_size = (5,5)
-				bullet = Bullet(position=bullet_position, direction=bullet_direction, screen_rect=self.get_playerone().rect, bullet_size=bullet_size)
+				bullet = Bullet(position=bullet_position, direction=bullet_direction, screen_rect=self.get_playerone().rect, bullet_size=bullet_size, owner_id=msg_client_id)
 				self.bullets.add(bullet)
+
+			case 'player_hit':
+				target_id = game_event.get('target_id')
+				damage = game_event.get('damage', 10)
+				# Apply damage to target player
+				if target_id in self.playerlist:
+					player = self.playerlist[target_id]
+					if isinstance(player, dict):
+						logger.info(f'dictplayer_hit {target_id=} {damage=} game_event: {game_event}')
+						player['health'] = player.get('health', 100) - damage
+						# Check if player is killed
+						if player['health'] <= 0:
+							# Create kill event
+							kill_event = {
+								"event_time": time.time(),
+								"event_type": "player_killed",
+								"client_id": msg_client_id,  # Killer
+								"target_id": target_id,      # Victim
+								"position": game_event.get('position'),
+								"handled": False,
+								"handledby": "update_game_event",
+								"eventid": gen_randid()
+							}
+							await self.broadcast_event(kill_event)
+					else:
+						logger.debug(f'PlayerStateplayer_hit {target_id=} {damage=} game_event: {game_event}')
+						# Handle PlayerState objects
+						player.health -= damage
+						if player.health <= 0:
+							# Create kill event
+							kill_event = {
+								"event_time": time.time(),
+								"event_type": "player_killed",
+								"client_id": msg_client_id,
+								"target_id": target_id,
+								"position": game_event.get('position'),
+								"handled": False,
+								"handledby": "update_game_event",
+								"eventid": gen_randid()
+							}
+							await self.broadcast_event(kill_event)
+
+				# Broadcast the hit event to all clients
+				await self.broadcast_event(game_event)
+
+			case 'player_killed':
+				logger.info(f'player_killed {game_event=}')
+				killer_id = msg_client_id
+				target_id = game_event.get('target_id')
+
+				# Award points to killer
+				if killer_id in self.playerlist:
+					if isinstance(self.playerlist[killer_id], dict):
+						self.playerlist[killer_id]['score'] = self.playerlist[killer_id].get('score', 0) + 1
+					else:
+						self.playerlist[killer_id].score += 1
+
+				# Reset target player (respawn)
+				if target_id in self.playerlist:
+					if isinstance(self.playerlist[target_id], dict):
+						self.playerlist[target_id]['health'] = 123
+						self.playerlist[target_id]['killed'] = True
+					else:
+						self.playerlist[target_id].health = 321
+						self.playerlist[target_id].killed = True
+
+				# Broadcast the kill event
+				await self.broadcast_event(game_event)
 			case _:
 				# payload = {'msgtype': 'error99', 'payload': ''}
 				logger.warning(f'unknown game_event:{event_type} from game_event={game_event}')
@@ -345,7 +416,7 @@ class GameState:
 								self.playerlist[client_id] = PlayerState(
 									client_id=client_id,
 									position=player_data.get('position', (0, 0)),
-									health=player_data.get('health', 100),
+									health=player_data.get('health') if player_data.get('health') is not None else 33,  # Ensure health has a value
 									bombsleft=player_data.get('bombsleft', 3),
 									angle=player_data.get('angle', 0),
 									score=player_data.get('score', 0)
@@ -405,3 +476,36 @@ class GameState:
 							player.position_updated = False
 				except Exception as e:
 					logger.warning(f"Error in update_remote_players for {client_id}: {e}")
+
+	def check_bullet_collisions(self):
+		"""Check for collisions between bullets and players"""
+		for bullet in self.bullets:
+			# Skip checking collision with the player who shot the bullet
+			bullet_owner = getattr(bullet, 'owner_id', None)
+
+			# Check collision with player sprites
+			for player in self.players_sprites:
+				# Skip self-collision
+				if player.client_id == bullet_owner:
+					continue
+
+				if bullet.rect.colliderect(player.rect):
+					# Create hit event to send to server
+					hit_event = {
+						"event_time": time.time(),
+						"event_type": "player_hit",
+						"client_id": bullet_owner,  # Who shot the bullet
+						"target_id": player.client_id,  # Who got hit
+						"damage": 10,
+						"position": (bullet.position.x, bullet.position.y),
+						"handled": False,
+						"handledby": "check_bullet_collisions",
+						"eventid": gen_randid()
+					}
+
+					# Add to event queue to be sent to server
+					asyncio.create_task(self.event_queue.put(hit_event))
+
+					# Remove the bullet
+					bullet.kill()
+					return  # One hit per bullet

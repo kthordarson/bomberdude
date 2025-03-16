@@ -55,7 +55,7 @@ class Bomberplayer(Sprite):
 		self.change_x = 0
 		self.change_y = 0
 		self.bombsleft = 3
-		self.health = 100
+		self.health = 101
 		self.killed = False
 		self.timeout = False
 		self.score = 0
@@ -109,7 +109,7 @@ class Bomberplayer(Sprite):
 	def shoot(self, direction):
 		# Calculate direction from player's position to target
 		bullet_pos = Vec2d(self.rect.center)
-		bullet = Bullet(position=bullet_pos,direction=direction, screen_rect=self.rect)
+		bullet = Bullet(position=bullet_pos,direction=direction, screen_rect=self.rect, owner_id=self.client_id)
 		return bullet  # self.bullets.add(bullet)
 
 	def drop_bomb(self):
