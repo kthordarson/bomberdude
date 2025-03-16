@@ -59,7 +59,6 @@ class Bomberplayer(Sprite):
 		self.killed = False
 		self.timeout = False
 		self.score = 0
-		self.angle = 0
 		self.candrop = True
 		self.lastdrop = 0
 		self.keyspressed = KeysPressed('gamestate')
@@ -80,7 +79,6 @@ class Bomberplayer(Sprite):
 				'msg_dt': time.time(),
 				'killed': self.killed,
 				'bombsleft': self.bombsleft,
-				'angle': self.angle
 			}
 		except Exception as e:
 			logger.error(f"Error converting player to dict: {e}")
@@ -126,10 +124,6 @@ class Bomberplayer(Sprite):
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
-
-	def rotate_around_point(self, point, degrees):
-		self.angle += degrees
-		self.position = pygame.math.Vector2(self.rect.center).rotate_around(point, degrees)
 
 	def respawn(self):
 		self.killed = False

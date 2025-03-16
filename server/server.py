@@ -6,8 +6,9 @@ from threading import Event
 from loguru import logger
 import random
 from constants import BLOCK
-from gamestate import GameState
 from aiohttp import web
+from game.gamestate import GameState
+from utils import gen_randid
 
 class BombServer:
 	def __init__(self, args):
@@ -78,6 +79,32 @@ class BombServer:
 			# sock.setblocking(False)
 			self.connections.add(writer)
 			self.server_game_state.add_connection(writer)
+
+			# Process first message to get client ID
+			data = await asyncio.wait_for(reader.readline(), timeout=1.0)
+			if not data:
+				return
+			message = data.decode('utf-8').strip()
+			msg = json.loads(message)
+			client_id = msg.get('client_id') or msg.get('game_event', {}).get('client_id')
+
+			if client_id:
+				# Store client ID
+				self.connection_to_client_id[writer] = client_id
+
+				# Create player_joined event
+				player_joined = {
+					"event_time": time.time(),
+					"event_type": "player_joined",
+					"client_id": client_id,
+					"position": msg.get('position') or msg.get('game_event', {}).get('position', [100, 100]),
+					"handled": False,
+					"handledby": "client_connected_cb",
+					"eventid": gen_randid()
+				}
+
+				# Broadcast to all clients
+				await self.server_game_state.broadcast_event(player_joined)
 
 			# Broadcast updated game state to all clients
 			game_state = self.server_game_state.to_json()
@@ -269,15 +296,6 @@ class BombServer:
 		return self._stop.is_set()
 
 	async def server_broadcast_state(self, state):
-		# Don't send full game state every time
-		# if state.get('msgtype') == 'playerlist':
-		# 	# Strip unnecessary data to reduce packet size
-		# 	for player in state.get('playerlist', []):
-		# 		keys_to_keep = ['client_id', 'position', 'angle', 'health']
-		# 		for key in list(player.keys()):
-		# 			if key not in keys_to_keep:
-		# 				del player[key]
-
 		data = json.dumps(state).encode('utf-8') + b'\n'
 
 		# Use gather for concurrent sending

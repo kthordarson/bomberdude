@@ -8,7 +8,7 @@ import pygame
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
 from panels import MainMenu, SetupMenu
-from game import Bomberdude
+from game.bomberdude import Bomberdude
 
 async def send_game_state(game):
     logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
@@ -33,6 +33,8 @@ async def send_game_state(game):
             'game_event': game_event,
             'client_id': player_one.client_id,
             'position': (player_one.position.x, player_one.position.y),
+            'health': player_one.health,
+            'score': player_one.score,
             'keyspressed': client_keys,
             'msgtype': "send_game_state",
             'handledby': "send_game_state",

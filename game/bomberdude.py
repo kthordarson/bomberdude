@@ -7,12 +7,12 @@ from pygame.math import Vector2 as Vec2d
 import orjson as json
 from loguru import logger
 from utils import gen_randid
-from gamestate import GameState
+from game.gamestate import GameState
+from game.playerstate import PlayerState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT
 from camera import Camera
 from objects.player import Bomberplayer
 from debug import draw_debug_info
-from gamestate import PlayerState
 
 class Bomberdude():
 	def __init__(self, args):
@@ -370,7 +370,6 @@ class Bomberdude():
 			"event_type": "player_update",
 			"client_id": str(player_one.client_id),
 			"position": (player_one.position.x, player_one.position.y),
-			"angle": player_one.angle,
 			"health": player_one.health,
 			"score": player_one.score,
 			"bombsleft": player_one.bombsleft,

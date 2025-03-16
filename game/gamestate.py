@@ -5,6 +5,7 @@ from pygame.sprite import Group
 from loguru import logger
 import time
 from dataclasses import dataclass, field
+from game.playerstate import PlayerState
 from utils import gen_randid
 from objects.player import KeysPressed
 from objects.bullets import Bullet
@@ -15,45 +16,9 @@ import pytmx
 from pytmx import load_pygame
 import json
 
-@dataclass
-class PlayerState:
-	client_id: str
-	position: tuple
-	health: int
-	bombsleft: int
-	angle: float
-	score: int
-	prev_position: tuple | None = None
-	target_position: tuple | None = None
-	interp_time: float | None = None
-	position_updated: bool = False
-	msg_dt: float | None = None
-	timeout: bool | None = None
-	killed: bool | None = None
-	msgtype: str | None = None
-	event_time: int | None = None
-	event_type: str | None = None
-	handled: bool = False
-	handledby: str = 'PlayerState'
-	playerlist: list = field(default_factory=list)
-	eventid: str = field(default_factory=gen_randid)
-
-	def to_dict(self):
-		return {
-			'client_id': self.client_id,
-			'position': self.position,
-			'health': self.health,
-			'bombsleft': self.bombsleft,
-			'angle': self.angle,
-			'score': self.score,
-			'msg_dt': self.msg_dt,
-			'timeout': self.timeout,
-			'killed': self.killed,
-			'msgtype': self.msgtype}
 
 @dataclass
 class GameState:
-
 	def __init__(self, args, mapname=None, client_id=None):
 		self.client_id = client_id
 		self.args = args
@@ -152,11 +117,17 @@ class GameState:
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
 
-	def get_playerone(self):
+	def get_playerone(self, client_id=None):
 		for player in self.players_sprites:
 			if player.client_id == self.client_id:
 				return player
-		raise AttributeError(f'player one NOT found in self.players_sprites: {self.players_sprites}')
+		if client_id:
+			for player in self.players:
+				if player.client_id == client_id:
+					return player
+		logger.warning(f'player one NOT found in self.players_sprites:\n{self.players_sprites}')
+		logger.warning(f'{self} playerlist: {self.playerlist}')
+		raise AttributeError('player one NOT found in self.players_sprites or self.players')
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
@@ -187,17 +158,17 @@ class GameState:
 						screen.blit(tile, camera.apply(pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)))
 
 	def update_game_state(self, clid, msg):
+		msg_event = msg.get('game_event')
 		playerdict = {
 			'client_id': clid,
-			'position': msg.get('position'),
-			'angle': msg.get('angle'),
-			'score': msg.get('score'),
-			'health': msg.get('health'),
-			'msg_dt': msg.get('msg_dt'),
-			'timeout': msg.get('timeout'),
-			'killed': msg.get('killed'),
+			'position': msg_event.get('position'),
+			'score': msg_event.get('score'),
+			'health': msg_event.get('health'),
+			'msg_dt': msg_event.get('msg_dt'),
+			'timeout': msg_event.get('timeout'),
+			'killed': msg_event.get('killed'),
 			'msgtype': 'update_game_state',
-			'bombsleft': msg.get('bombsleft'),
+			'bombsleft': msg_event.get('bombsleft'),
 		}
 		self.playerlist[clid] = playerdict
 
@@ -205,6 +176,26 @@ class GameState:
 		event_type = game_event.get('event_type')
 		msg_client_id = game_event.get("client_id")
 		match event_type:
+			case 'player_joined':
+				# Add a visual notification for clients
+				logger.info(f"Player {msg_client_id} has joined the game!")
+
+				# Add player to local playerlist if not present
+				if msg_client_id not in self.playerlist:
+					position = game_event.get('position', [100, 100])
+					self.playerlist[msg_client_id] = PlayerState(
+						client_id=msg_client_id,
+						position=position,
+						health=DEFAULT_HEALTH,
+						bombsleft=3,
+						score=0
+					)
+					logger.debug(f"Added new player {msg_client_id} at position {position}")
+
+				# If client is the server, re-broadcast to ensure all clients get it
+				if not hasattr(self, 'client_id'):
+					await self.broadcast_event(game_event)
+
 			case 'player_update':
 				# Update other player's position in playerlist
 				if msg_client_id != self.client_id:
@@ -221,13 +212,12 @@ class GameState:
 							if player.health is None:
 								player.health = 44
 					else:
+						logger.warning(f'unknownplayer {msg_client_id=} {self.playerlist=}')
 						# Add new player with minimal required fields
 						self.playerlist[msg_client_id] = {
 							'client_id': msg_client_id,
 							'position': position,
-							'health': 42,
-							'angle': game_event.get('angle', 0)
-						}
+							'health': 42}
 				await self.broadcast_event(game_event)
 			case 'playerquit':
 				client_id = game_event.get('client_id')
@@ -245,7 +235,9 @@ class GameState:
 				game_event['handled'] = True
 				game_event['handledby'] = 'ugsnc'
 				game_event['event_type'] = 'acknewplayer'
-				# await self.broadcast_event(game_event)
+				client_id = game_event.get('client_id')
+				if client_id not in self.playerlist:
+					self.playerlist[client_id] = PlayerState(client_id=client_id, position=game_event.get('position'), health=100)
 				await self.broadcast_state({"msgtype": "game_event", "event": game_event})
 				# await self.event_queue.put(game_event)
 			case 'drop_bomb':
@@ -288,59 +280,76 @@ class GameState:
 			case 'player_hit':
 				target_id = game_event.get('target_id')
 				damage = game_event.get('damage', 10)
+				if hasattr(self, 'client_id') and self.client_id:
+					try:
+						player_one = self.get_playerone()
+						if player_one.client_id == target_id:
+							player_one.take_damage(damage, game_event.get('client_id'))
+					except Exception as e:
+						logger.error(f'{e} {type(e)}')
 				# Apply damage to target player
-				if target_id in self.playerlist:
-					player = self.playerlist[target_id]
-					if isinstance(player, dict):
+				if target_id not in self.playerlist:
+					logger.warning(f'target_id not in playerlist: {target_id=}')
+					logger.warning(f'playerlist: {self.playerlist}')
+					self.playerlist[target_id] = PlayerState(client_id=target_id, position=game_event.get('position', [0, 0]), health=100 - damage)
+				# else:  # target_id in self.playerlist:
+				player = self.playerlist[target_id]
+				if isinstance(player, dict):
+					try:
 						player['health'] = player.get('health') - damage
-						logger.info(f'dictplayer_hit {target_id=} {damage=} {player} game_event: {game_event}')
-						# Check if player is killed
-						if player['health'] <= 0:
-							# Create kill event
-							kill_event = {
-								"event_time": time.time(),
-								"event_type": "player_killed",
-								"client_id": msg_client_id,  # Killer
-								"target_id": target_id,      # Victim
-								"position": game_event.get('position'),
-								"handled": False,
-								"handledby": "update_game_event",
-								"eventid": gen_randid()
-							}
-							await self.broadcast_event(kill_event)
-					else:
-						# Handle PlayerState objects
-						player.health -= damage
-						logger.debug(f'PlayerStateplayer_hit {target_id=} {damage=} {player} game_event: {game_event}')
-						if player.health <= 0:
-							# Create kill event
-							kill_event = {
-								"event_time": time.time(),
-								"event_type": "player_killed",
-								"client_id": msg_client_id,
-								"target_id": target_id,
-								"position": game_event.get('position'),
-								"handled": False,
-								"handledby": "update_game_event",
-								"eventid": gen_randid()
-							}
-							await self.broadcast_event(kill_event)
-				game_event['health'] = player['health']  # Include updated health in event
+					except Exception as e:
+						logger.error(f'Error updating health: {e} {type(e)} {player=}')
+					logger.info(f'dictplayer_hit {target_id=} {damage=} player: {player["client_id"]} {player["health"]}')
+					# Check if player is killed
+					if player['health'] <= 0:
+						# Create kill event
+						kill_event = {
+							"event_time": time.time(),
+							"event_type": "player_killed",
+							"client_id": msg_client_id,  # Killer
+							"target_id": target_id,      # Victim
+							"position": game_event.get('position'),
+							"handled": False,
+							"handledby": "update_game_event",
+							"eventid": gen_randid()
+						}
+						await self.broadcast_event(kill_event)
+				else:
+					# Handle PlayerState objects
+					player.health -= damage
+					logger.debug(f'PlayerStateplayer_hit {target_id=} {damage=} {player.client_id=} {player.health=} ')
+					if player.health <= 0:
+						# Create kill event
+						kill_event = {
+							"event_time": time.time(),
+							"event_type": "player_killed",
+							"client_id": msg_client_id,
+							"target_id": target_id,
+							"position": game_event.get('position'),
+							"handled": False,
+							"handledby": "update_game_event",
+							"eventid": gen_randid()
+						}
+						await self.broadcast_event(kill_event)
+				# game_event['health'] = player['health']  # Include updated health in event
 				# Broadcast the hit event to all clients
 				await self.broadcast_event(game_event)
 
 			case 'player_killed':
-				logger.info(f'player_killed {game_event=}')
 				killer_id = msg_client_id
 				target_id = game_event.get('target_id')
+
+				logger.info(f'player_killed {target_id} by {killer_id} ')
 
 				# Award points to killer
 				if killer_id in self.playerlist:
 					if isinstance(self.playerlist[killer_id], dict):
 						self.playerlist[killer_id]['score'] = self.playerlist[killer_id].get('score', 0) + 1
 					else:
-						self.playerlist[killer_id].score += 1
-
+						try:
+							self.playerlist[killer_id].score += 1
+						except TypeError as e:
+							logger.error(f'{e} {type(e)} {killer_id=} playerlist: {self.playerlist}')
 				# Reset target player (respawn)
 				if target_id in self.playerlist:
 					if isinstance(self.playerlist[target_id], dict):
@@ -368,7 +377,7 @@ class GameState:
 
 		return {
 			'event_type': 'playerlistupdate',
-			'msgtype': 'playerlist',
+			'msgtype': 'playerlistupdate',
 			'playerlist': playerlist,
 			'connections': len(self.connections),
 		}
@@ -381,8 +390,9 @@ class GameState:
 					if client_id in self.playerlist:
 						# Update existing player
 						player = self.playerlist[client_id]
-						position = player_data.get('position')
-						player.position = position
+						player.position = player_data.get('position')
+						player.health = player_data.get('health')
+						player.score = player_data.get('score')
 					else:
 						# Create new player
 						self.playerlist[client_id] = PlayerState(**player_data)
@@ -410,13 +420,50 @@ class GameState:
 									player.position_updated = True
 						else:
 							# Create new player
+							logger.debug(f'newplayer {client_id=} {player_data=}')
 							try:
 								self.playerlist[client_id] = PlayerState(
 									client_id=client_id,
 									position=player_data.get('position', (0, 0)),
 									health=DEFAULT_HEALTH,
 									bombsleft=player_data.get('bombsleft', 3),
-									angle=player_data.get('angle', 0),
+									score=player_data.get('score', 0)
+								)
+							except Exception as e:
+								logger.error(f"Could not create PlayerState: {e}")
+			except Exception as e:
+				logger.error(f"Error updating player from json: {e}")
+		elif data.get('msgtype') == 'playerlistupdate':
+			try:
+				for player_data in data.get('playerlist', []):
+					client_id = player_data.get('client_id')
+					if client_id != self.client_id:  # Don't update our own player
+						if client_id in self.playerlist:
+							# Update existing player
+							player = self.playerlist[client_id]
+							position = player_data.get('position')
+							if position:
+								if hasattr(player, 'position'):
+									if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
+										player.position.x, player.position.y = position[0], position[1]
+									else:
+										player.position = position
+								else:
+									player['position'] = position
+
+								# Set up interpolation data
+								if hasattr(player, 'target_position'):
+									player.target_position = position
+									player.position_updated = True
+						else:
+							# Create new player
+							logger.info(f'newplayer {client_id=} {player_data=}')
+							try:
+								self.playerlist[client_id] = PlayerState(
+									client_id=client_id,
+									position=player_data.get('position', (0, 0)),
+									health=DEFAULT_HEALTH,
+									bombsleft=player_data.get('bombsleft', 3),
 									score=player_data.get('score', 0)
 								)
 							except Exception as e:
