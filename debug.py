@@ -26,7 +26,7 @@ def update_fps():
             return int(1.0 / avg_frame_time)
     return 0
 
-def draw_debug_info(screen, game_state):
+def draw_debug_info(screen, game_state, camera):
     font = pygame.font.Font(None, 26)
     fps = update_fps()
     fps_text = font.render(f"FPS: {fps}", True, (0, 255, 0))
@@ -43,3 +43,15 @@ def draw_debug_info(screen, game_state):
     for player in game_state.playerlist.values():
         debug_text = font.render(f"netplayer: {player.client_id} {player.position}", True, (155, 125, 125))
         screen.blit(debug_text, player.position)
+    draw_bullet_debug(screen, game_state, camera)
+
+def draw_bullet_debug(screen, game_state, camera):
+    # Draw debug lines for all bullets
+    for bullet in game_state.bullets:
+        bullet_screen = camera.apply(bullet.rect).center
+        line_end = (bullet_screen[0] + bullet.direction.x * 25, bullet_screen[1] + bullet.direction.y * 25)
+        pygame.draw.line(screen, (255, 0, 0), bullet_screen, line_end, 2)
+        # Draw a line showing bullet direction
+        start_pos = camera.apply(bullet.rect).center
+        end_pos = (start_pos[0] + bullet.direction.x * 25, start_pos[1] + bullet.direction.y * 25)
+        pygame.draw.line(screen, (255, 255, 0), start_pos, end_pos, 2)

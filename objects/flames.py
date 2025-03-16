@@ -36,13 +36,11 @@ class Flame(Sprite):
 
 		# Check if max distance reached
 		if self.distance_traveled >= self.max_distance:
-			logger.info(f'Flame reached max distance: {self.distance_traveled} >= {self.max_distance}')
 			self.kill()
 			return
 
 		self.size -= self.shrink_rate
 		if self.size <= self.min_size:
-			logger.info(f'Flame reached min size: {self.size} <= {self.min_size}')
 			self.kill()
 			return
 		else:

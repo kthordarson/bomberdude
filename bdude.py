@@ -68,6 +68,7 @@ async def receive_game_state(game):
             while '\n' in buffer:
                 message, buffer = buffer.split('\n', 1)
                 if not message.strip():
+                    logger.warning(f'no message in buffer: {buffer}')
                     continue
                 game_state_json = json.loads(message)
                 # Priority handling for critical events

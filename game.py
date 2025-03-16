@@ -139,18 +139,7 @@ class Bomberdude():
 		self.client_game_state.explosion_manager.draw(self.screen, self.camera)
 
 		if self.draw_debug:
-			draw_debug_info(self.screen, self.client_game_state)
-
-		if self.draw_debug and len(self.client_game_state.bullets) > 0:
-			# Draw debug lines for all bullets
-			for bullet in self.client_game_state.bullets:
-				bullet_screen = self.camera.apply(bullet.rect).center
-				line_end = (bullet_screen[0] + bullet.direction.x * 25, bullet_screen[1] + bullet.direction.y * 25)
-				pygame.draw.line(self.screen, (255, 0, 0), bullet_screen, line_end, 2)
-				# Draw a line showing bullet direction
-				start_pos = self.camera.apply(bullet.rect).center
-				end_pos = (start_pos[0] + bullet.direction.x * 25, start_pos[1] + bullet.direction.y * 25)
-				pygame.draw.line(self.screen, (255, 255, 0), start_pos, end_pos, 2)
+			draw_debug_info(self.screen, self.client_game_state, self.camera)
 
 	async def handle_on_mouse_press(self, x, y, button):
 		if button == 1:

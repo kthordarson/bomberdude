@@ -84,14 +84,11 @@ class GameState:
 		tile_x = x // self.tile_map.tilewidth
 		tile_y = y // self.tile_map.tileheight
 		layer = self.tile_map.get_layer_by_name('Blocks')
-		# background_layer = self.tile_map.get_layer_by_name('Background')
 
 		if block in self.collidable_tiles:
 			self.collidable_tiles.remove(block)
-			logger.info(f"Block {block} removed at {block.rect.topleft}")
+			# logger.info(f"Block {block} removed at {block.rect.topleft}")
 			layer.data[tile_y][tile_x] = 0  # Set to empty tile
-			# background_layer.data[tile_y][tile_x] = 1  # Set to empty tile
-			# block.kill()
 
 	def ready(self):
 		return self._ready
@@ -369,6 +366,7 @@ class GameState:
 					if isinstance(player, dict):
 						# Dictionary players (server-originated)
 						if 'position' not in player:
+							logger.warning(f'missing position in player: {player}')
 							continue
 
 						# Initialize interpolation properties if needed
@@ -390,6 +388,7 @@ class GameState:
 					else:
 						# PlayerState objects (client-originated)
 						if not hasattr(player, 'position'):
+							logger.warning(f'missing position in player: {player}')
 							continue
 
 						# Initialize interpolation attributes if needed

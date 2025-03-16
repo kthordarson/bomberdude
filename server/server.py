@@ -92,6 +92,7 @@ class BombServer:
 						break
 					message = data.decode('utf-8').strip()
 					if not message:  # Skip empty messages
+						logger.warning(f'empty message from {addr}')
 						continue
 					try:
 						msg = json.loads(message)
