@@ -270,13 +270,13 @@ class BombServer:
 
 	async def server_broadcast_state(self, state):
 		# Don't send full game state every time
-		if state.get('msgtype') == 'playerlist':
-			# Strip unnecessary data to reduce packet size
-			for player in state.get('playerlist', []):
-				keys_to_keep = ['client_id', 'position', 'angle', 'health']
-				for key in list(player.keys()):
-					if key not in keys_to_keep:
-						del player[key]
+		# if state.get('msgtype') == 'playerlist':
+		# 	# Strip unnecessary data to reduce packet size
+		# 	for player in state.get('playerlist', []):
+		# 		keys_to_keep = ['client_id', 'position', 'angle', 'health']
+		# 		for key in list(player.keys()):
+		# 			if key not in keys_to_keep:
+		# 				del player[key]
 
 		data = json.dumps(state).encode('utf-8') + b'\n'
 

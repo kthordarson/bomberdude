@@ -10,6 +10,7 @@ from objects.player import KeysPressed
 from objects.bullets import Bullet
 from objects.bombs import Bomb
 from objects.explosionmanager import ExplosionManager
+from constants import DEFAULT_HEALTH
 import pytmx
 from pytmx import load_pygame
 import json
@@ -191,7 +192,7 @@ class GameState:
 			'position': msg.get('position'),
 			'angle': msg.get('angle'),
 			'score': msg.get('score'),
-			'health': 99 if msg.get('health') is None else msg.get('health'),  # Add default 100
+			'health': msg.get('health'),
 			'msg_dt': msg.get('msg_dt'),
 			'timeout': msg.get('timeout'),
 			'killed': msg.get('killed'),
@@ -201,9 +202,6 @@ class GameState:
 		self.playerlist[clid] = playerdict
 
 	async def update_game_event(self, game_event):
-		if self.args.debug:
-			if game_event.get('event_type') != 'player_update':
-				pass  # logger.info(f'update_game_event {game_event.get('event_type')} event_queue: {self.event_queue.qsize()} client_queue: {self.client_queue.qsize()}')
 		event_type = game_event.get('event_type')
 		msg_client_id = game_event.get("client_id")
 		match event_type:
@@ -294,8 +292,8 @@ class GameState:
 				if target_id in self.playerlist:
 					player = self.playerlist[target_id]
 					if isinstance(player, dict):
-						logger.info(f'dictplayer_hit {target_id=} {damage=} game_event: {game_event}')
-						player['health'] = player.get('health', 100) - damage
+						player['health'] = player.get('health') - damage
+						logger.info(f'dictplayer_hit {target_id=} {damage=} {player} game_event: {game_event}')
 						# Check if player is killed
 						if player['health'] <= 0:
 							# Create kill event
@@ -311,9 +309,9 @@ class GameState:
 							}
 							await self.broadcast_event(kill_event)
 					else:
-						logger.debug(f'PlayerStateplayer_hit {target_id=} {damage=} game_event: {game_event}')
 						# Handle PlayerState objects
 						player.health -= damage
+						logger.debug(f'PlayerStateplayer_hit {target_id=} {damage=} {player} game_event: {game_event}')
 						if player.health <= 0:
 							# Create kill event
 							kill_event = {
@@ -327,7 +325,7 @@ class GameState:
 								"eventid": gen_randid()
 							}
 							await self.broadcast_event(kill_event)
-
+				game_event['health'] = player['health']  # Include updated health in event
 				# Broadcast the hit event to all clients
 				await self.broadcast_event(game_event)
 
@@ -416,7 +414,7 @@ class GameState:
 								self.playerlist[client_id] = PlayerState(
 									client_id=client_id,
 									position=player_data.get('position', (0, 0)),
-									health=player_data.get('health') if player_data.get('health') is not None else 33,  # Ensure health has a value
+									health=DEFAULT_HEALTH,
 									bombsleft=player_data.get('bombsleft', 3),
 									angle=player_data.get('angle', 0),
 									score=player_data.get('score', 0)
