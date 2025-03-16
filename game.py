@@ -34,6 +34,7 @@ class Bomberdude():
 		self.last_position_update = 0
 		self.last_frame_time = time.time()
 		self.delta_time = 0
+		self.show_minimap = False
 
 	def __repr__(self):
 		return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} {self.connected()})"
@@ -140,6 +141,76 @@ class Bomberdude():
 
 		if self.draw_debug:
 			draw_debug_info(self.screen, self.client_game_state, self.camera)
+		if self.show_minimap:
+			self.draw_minimap()
+
+	def draw_minimap(self):
+		"""Draw a minimap in the bottom-right corner showing all players"""
+		# Minimap dimensions and position
+		minimap_width = 150
+		minimap_height = 150
+		minimap_x = SCREEN_WIDTH - minimap_width - 10  # 10px padding
+		minimap_y = SCREEN_HEIGHT - minimap_height - 10
+		minimap_border = 2
+
+		# Calculate scale ratio (map size to minimap size)
+		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
+		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
+		scale_x = minimap_width / map_width
+		scale_y = minimap_height / map_height
+		scale = min(scale_x, scale_y)  # Use the smaller scale to fit entire map
+
+		# Draw background and border
+		pygame.draw.rect(self.screen, (0, 0, 0), (minimap_x - minimap_border, minimap_y - minimap_border, minimap_width + 2*minimap_border, minimap_height + 2*minimap_border))
+		pygame.draw.rect(self.screen, (50, 50, 50), (minimap_x, minimap_y, minimap_width, minimap_height))
+
+		# Draw map blocks (optional - simplified version)
+		for tile in self.client_game_state.collidable_tiles:
+			if hasattr(tile, 'layer') and tile.layer == 'Blocks':
+				mini_x = minimap_x + int(tile.rect.x * scale)
+				mini_y = minimap_y + int(tile.rect.y * scale)
+				mini_w = max(2, int(tile.rect.width * scale))
+				mini_h = max(2, int(tile.rect.height * scale))
+				pygame.draw.rect(self.screen, (150, 75, 0), (mini_x, mini_y, mini_w, mini_h))
+
+		# Draw player one (as green dot)
+		try:
+			player_one = self.client_game_state.get_playerone()
+			player_x = minimap_x + int(player_one.position.x * scale)
+			player_y = minimap_y + int(player_one.position.y * scale)
+			pygame.draw.circle(self.screen, (0, 255, 0), (player_x, player_y), 3)
+
+			# Draw view area (player's visible screen area)
+			view_x = minimap_x + int((player_one.position.x - self.camera.offset_x) * scale)
+			view_y = minimap_y + int((player_one.position.y - self.camera.offset_y) * scale)
+			view_w = int(SCREEN_WIDTH * scale)
+			view_h = int(SCREEN_HEIGHT * scale)
+			pygame.draw.rect(self.screen, (200, 200, 200), (view_x, view_y, view_w, view_h), 1)
+		except:
+			pass
+
+		# Draw other players (as red dots)
+		for client_id, player in self.client_game_state.playerlist.items():
+			if client_id != self.client_id:
+				try:
+					if isinstance(player, dict) and 'position' in player:
+						pos = player['position']
+					elif hasattr(player, 'position'):
+						pos = player.position
+					else:
+						continue
+
+					other_x = minimap_x + int(pos[0] * scale)
+					other_y = minimap_y + int(pos[1] * scale)
+					pygame.draw.circle(self.screen, (255, 0, 0), (other_x, other_y), 3)
+				except:
+					pass
+
+		# Draw bombs as yellow dots
+		for bomb in self.client_game_state.bombs:
+			bomb_x = minimap_x + int(bomb.position.x * scale)
+			bomb_y = minimap_y + int(bomb.position.y * scale)
+			pygame.draw.circle(self.screen, (255, 255, 0), (bomb_x, bomb_y), 2)
 
 	async def handle_on_mouse_press(self, x, y, button):
 		if button == 1:
@@ -202,7 +273,8 @@ class Bomberdude():
 		elif key == pygame.K_F4:
 			pass
 		elif key == pygame.K_F5:
-			pass
+			self.show_minimap = not self.show_minimap
+			logger.debug(f"Minimap toggled: {self.show_minimap}")
 		elif key == pygame.K_F6:
 			pass
 		elif key == pygame.K_F7:
