@@ -6,7 +6,7 @@ import pygame
 from constants import FLAME_SPEED
 
 class Flame(Sprite):
-	def __init__(self, position, direction, size=1):
+	def __init__(self, position, direction, size=1, power=3):
 		super().__init__()
 		self.original_image = pygame.image.load('data/flameball.png')
 		self.size = size
@@ -19,12 +19,30 @@ class Flame(Sprite):
 		self.speed = 2
 		self.min_size = 0.2
 
+		# New properties for distance tracking
+		self.starting_position = Vec2d(position)  # Store initial position
+		self.max_distance = power * 32  # Max distance based on power (assuming 32px tiles)
+		self.distance_traveled = 0
+
 	def update(self, collidable_tiles, game_state):
+		old_position = Vec2d(self.position)
 		self.position.x += self.direction[0] * FLAME_SPEED
 		self.position.y += self.direction[1] * FLAME_SPEED
 		self.rect.topleft = self.position
+
+		# Calculate distance traveled this frame
+		movement = Vec2d(self.position) - old_position
+		self.distance_traveled += movement.length()
+
+		# Check if max distance reached
+		if self.distance_traveled >= self.max_distance:
+			logger.info(f'Flame reached max distance: {self.distance_traveled} >= {self.max_distance}')
+			self.kill()
+			return
+
 		self.size -= self.shrink_rate
 		if self.size <= self.min_size:
+			logger.info(f'Flame reached min size: {self.size} <= {self.min_size}')
 			self.kill()
 			return
 		else:
