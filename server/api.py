@@ -43,14 +43,6 @@ class ApiServer:
 			if self.runner:
 				await self.runner.cleanup()
 
-	async def opddsfarun(self, host, port):
-		runner = web.AppRunner(self.app)
-		logger.debug(f'{self} runner: {runner} {host} {port}')
-		await runner.setup()
-		site = web.TCPSite(runner, host, port)
-		logger.debug(f'{self} site: {site} {host} {port}')
-		await site.start()
-
 if __name__ == '__main__':
 	app = ApiServer()
 	app.add_url_rule('/get_data', view_func=app.get_data, methods=['GET'])

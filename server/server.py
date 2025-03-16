@@ -9,6 +9,7 @@ from constants import BLOCK
 from aiohttp import web
 from game.gamestate import GameState
 from utils import gen_randid
+from constants import UPDATE_TICK
 
 class BombServer:
 	def __init__(self, args):
@@ -59,7 +60,7 @@ class BombServer:
 		# last_broadcast = time.time()
 		try:
 			while not self.stopped():
-				await asyncio.sleep(1.01)
+				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError as e:
 			logger.info(f"tickertask CancelledError {e}")
 		except Exception as e:
@@ -158,7 +159,7 @@ class BombServer:
 					# This is normal, just continue
 					continue
 				except ConnectionError as e:
-					logger.warning(f"Connection error: {e} {addr}")
+					logger.info(f"Connection {e} {addr}")
 					break
 				except Exception as e:
 					logger.error(f"Unexpected {e} {type(e)} in client handler {addr}")
@@ -193,10 +194,9 @@ class BombServer:
 			writer.close()
 			# await writer.wait_closed()
 			await asyncio.wait_for(writer.wait_closed(), timeout=2.0)
-		except (ConnectionResetError, asyncio.TimeoutError, Exception) as e:
+		except Exception as e:
 			# Already closed or timed out, just log and continue
 			logger.debug(f"connection cleanup: {e} {addr}")
-		logger.info(f"Connection from {addr} closed")
 
 	async def get_tile_map(self, request):
 		position = self.get_position()
@@ -248,7 +248,7 @@ class BombServer:
 					game_state = self.server_game_state.to_json()
 					await self.server_broadcast_state(game_state)
 					last_broadcast = time.time()
-				await asyncio.sleep(0.01)  # Small sleep to avoid CPU spinning
+				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError:
 			logger.info("Ticker broadcast task cancelled")
 		except Exception as e:

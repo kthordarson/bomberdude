@@ -85,9 +85,9 @@ class Bomberdude():
 			await self.client_game_state.event_queue.put(connection_event)
 			# await self.client_game_state.broadcast_event({"msgtype": "game_event", "event": connection_event})
 			self._connected = True
-			await asyncio.sleep(0.1)
+			await asyncio.sleep(1 / UPDATE_TICK)
 			logger.debug(f'conn: {self.connected()} event_queue: {self.client_game_state.event_queue.qsize()} waiting for client_game_state.ready {self.client_game_state.ready()}')
-			await asyncio.sleep(0.2)
+			await asyncio.sleep(1 / UPDATE_TICK)
 			if self.client_game_state.ready():
 				return True
 
@@ -339,7 +339,7 @@ class Bomberdude():
 			player_one = self.client_game_state.get_playerone()
 		except AttributeError as e:
 			logger.error(f"{e} {type(e)}")
-			await asyncio.sleep(0.1)
+			await asyncio.sleep(1)
 			return
 		# self.timer += 1 / 60
 		current_time = time.time()

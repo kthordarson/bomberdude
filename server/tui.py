@@ -16,8 +16,6 @@ class ServerTUI():
 
 	async def stop(self):
 		self._stop.set()
-		# self.server.stop()
-		logger.warning(f"{self} stop {self.stopped()} server: {self.server.stopped()}")
 
 		# Make sure we don't try to await None
 		if hasattr(self, 'server') and self.server is not None:
@@ -52,7 +50,6 @@ class ServerTUI():
 				cmd = await self.loop.run_in_executor(None, input, ":> ")
 				await self.handle_command(cmd)
 			except (EOFError, KeyboardInterrupt) as e:
-				logger.warning(f"{type(e)} {e}")
 				await self.stop()
 				await self.server.stop()
 				break
@@ -86,4 +83,5 @@ class ServerTUI():
 		except Exception as e:
 			logger.error(f"TUI error: {e}")
 			await self.stop()
+			await asyncio.sleep(1)
 			await self.server.stop()

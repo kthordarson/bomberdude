@@ -17,6 +17,7 @@ async def send_game_state(game):
         try:
             game_event = await game.client_game_state.event_queue.get()
         except asyncio.QueueEmpty:
+            await asyncio.sleep(1 / UPDATE_TICK)
             pass
         except Exception as e:
             logger.error(f"Error getting game_event: {e} {type(e)}")
@@ -26,7 +27,7 @@ async def send_game_state(game):
             player_one = game.client_game_state.get_playerone()
         except AttributeError as e:
             logger.error(f'{e} {type(e)}')
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(1)
             continue
         playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in game.client_game_state.playerlist.values()]
         msg = {
@@ -62,7 +63,7 @@ async def receive_game_state(game):
                     logger.warning(f'Connection closed {game.sock._closed}')
                     break
                 else:
-                    await asyncio.sleep(0.05)
+                    await asyncio.sleep(1 / UPDATE_TICK)
                     continue
             buffer += data.decode('utf-8')
 
@@ -86,7 +87,7 @@ async def receive_game_state(game):
                     # Process regular state updates
                     game.client_game_state.from_json(game_state_json)
         except (BlockingIOError, InterruptedError):
-            await asyncio.sleep(0.001)  # Very short sleep to avoid CPU spinning
+            await asyncio.sleep(1 / UPDATE_TICK)
             continue
         except Exception as e:
             logger.warning(f"Error in receive_game_state: {e}")
