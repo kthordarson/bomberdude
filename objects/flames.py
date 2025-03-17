@@ -48,12 +48,24 @@ class Flame(Sprite):
 			self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
 			self.rect = self.image.get_rect()
 			self.rect.center = self.position
-			for tile in collidable_tiles:
+			for tile in game_state.killable_tiles:
 				try:
 					if self.rect.colliderect(tile.rect):
 						# logger.info(f"Flame collision with: {tile} {type(tile)}")
-						if tile.layer == 'Blocks':
-							game_state.destroy_block(tile)
+						game_state.destroy_block(tile)
+						logger.info(f"killable_tilesFlame collision with: {tile} {type(tile)}")
 						self.kill()
+						break
 				except Exception as e:
 					logger.warning(f"{e} {type(e)} tile: {tile} {type(tile)}\n{dir(tile)}")
+					break
+			for tile in game_state.collidable_tiles:
+				try:
+					if self.rect.colliderect(tile.rect):
+						# logger.info(f"Flame collision with: {tile} {type(tile)}")
+						self.kill()
+						break
+				except Exception as e:
+					logger.warning(f"{e} {type(e)} tile: {tile} {type(tile)}\n{dir(tile)}")
+					break
+

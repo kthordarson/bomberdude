@@ -263,7 +263,7 @@ class Bomberdude():
 
 				await self.client_game_state.event_queue.put(event)
 
-	def handle_on_key_press(self, key):
+	async def handle_on_key_press(self, key):
 		try:
 			player_one = self.client_game_state.get_playerone()
 		except AttributeError as e:
@@ -310,6 +310,9 @@ class Bomberdude():
 		elif key == pygame.K_RIGHT or key == pygame.K_d or key == 100:
 			player_one.change_x = PLAYER_MOVEMENT_SPEED
 			self.client_game_state.keyspressed.keys[key] = True
+		if key == pygame.K_SPACE:
+			drop_bomb_event = player_one.drop_bomb()
+			await self.client_game_state.event_queue.put(drop_bomb_event)
 
 	async def handle_on_key_release(self, key):
 		try:
@@ -330,8 +333,9 @@ class Bomberdude():
 			player_one.change_x = 0
 			self.client_game_state.keyspressed.keys[key] = False
 		if key == pygame.K_SPACE:
-			drop_bomb_event = player_one.drop_bomb()
-			await self.client_game_state.event_queue.put(drop_bomb_event)
+			pass
+			# drop_bomb_event = player_one.drop_bomb()
+			# await self.client_game_state.event_queue.put(drop_bomb_event)
 		self.client_game_state.keyspressed.keys[key] = False
 
 	async def update(self):

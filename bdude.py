@@ -147,7 +147,7 @@ async def start_game(args):
                 bomberdude_main._connected = False
                 running = False
             elif event.type == pygame.KEYDOWN:
-                bomberdude_main.handle_on_key_press(event.key)
+                await bomberdude_main.handle_on_key_press(event.key)
             elif event.type == pygame.KEYUP:
                 await bomberdude_main.handle_on_key_release(event.key)
             elif event.type == pygame.MOUSEBUTTONDOWN:

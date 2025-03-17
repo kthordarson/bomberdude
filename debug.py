@@ -52,8 +52,8 @@ def draw_other_player_id(screen, game_state, camera):
     font = pygame.font.Font(None, 16)
     player_one = game_state.get_playerone()
     player_one_screen_pos = camera.apply(player_one.rect).topleft
-    player_id_text = font.render(f"YOU: {player_one.client_id} {player_one.health}", True, (50, 255, 50))
-    screen.blit(player_id_text, (player_one_screen_pos[0], player_one_screen_pos[1] - 20))
+    player_text = font.render(f"{player_one.health}", True, (50, 255, 50))
+    screen.blit(player_text, (player_one_screen_pos[0], player_one_screen_pos[1] - 20))
 
     # Draw network players' IDs above their sprites
     for player in game_state.playerlist.values():
@@ -63,14 +63,14 @@ def draw_other_player_id(screen, game_state, camera):
                 # Convert world position to screen position
                 screen_pos = camera.apply(player_rect).topleft
                 # Generate and draw the player ID text above the sprite
-                player_id_text = font.render(f"{player.client_id} {player.health}", True, (255, 150, 150))
-                text_x = screen_pos[0] + (player_rect.width // 2) - (player_id_text.get_width() // 2)
+                player_text = font.render(f"{player.health}", True, (255, 150, 150))
+                text_x = screen_pos[0] + (player_rect.width // 2) - (player_text.get_width() // 2)
                 text_y = screen_pos[1] - 20  # Position above the player sprite
 
                 # Draw text with a small shadow for better visibility
-                shadow_text = font.render(f"{player.client_id}", True, (0, 0, 0))
-                screen.blit(shadow_text, (text_x + 1, text_y + 1))
-                screen.blit(player_id_text, (text_x, text_y))
+                # shadow_text = font.render(f"{player.client_id}", True, (0, 0, 0))
+                # screen.blit(shadow_text, (text_x + 1, text_y + 1))
+                screen.blit(player_text, (text_x, text_y))
             except Exception as e:
                 logger.error(f"Error drawing player ID: {e} {type(e)}")
 

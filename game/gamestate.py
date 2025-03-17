@@ -32,6 +32,7 @@ class GameState:
 		self.keyspressed = KeysPressed('gamestate')
 		self.tile_map = pytmx.TiledMap(mapname)
 		self.collidable_tiles = []
+		self.killable_tiles = []
 		self.connections = set()
 		self.client_queue = asyncio.Queue()
 		self.playerlist = {}  # dict = field(default_factory=dict)
@@ -51,10 +52,25 @@ class GameState:
 		tile_y = y // self.tile_map.tileheight
 		layer = self.tile_map.get_layer_by_name('Blocks')
 
-		if block in self.collidable_tiles:
+		# if block in self.collidable_tiles:
+		# 	self.collidable_tiles.remove(block)
+		# 	layer.data[tile_y][tile_x] = 0  # Set to empty tile
+		# 	# Update visual representation
+		# 	floor_tile = self.tile_cache.get(1)
+		# 	if floor_tile:
+		# 		self.static_map_surface.blit(floor_tile, (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))
+		# 	logger.info(f"collidable_tilesBlock {block} removed at {block.rect.topleft} floor_tile:{floor_tile}")
+		# 	return
+		if block in self.killable_tiles:
 			self.collidable_tiles.remove(block)
-			# logger.info(f"Block {block} removed at {block.rect.topleft}")
+			self.killable_tiles.remove(block)
 			layer.data[tile_y][tile_x] = 0  # Set to empty tile
+			# Update visual representation
+			floor_tile = self.tile_cache.get(1)
+			if floor_tile:
+				self.static_map_surface.blit(floor_tile, (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))
+			logger.info(f"killable_tilesBlock {block} removed at {block.rect.topleft} {floor_tile}")
+			return
 
 	def ready(self):
 		return self._ready
@@ -173,55 +189,16 @@ class GameState:
 							sprite.rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
 							sprite.layer = layer.name
 							self.collidable_tiles.append(sprite)
+							if layer.properties.get('killable'):
+								self.killable_tiles.append(sprite)
 			else:
 				logger.warning(f'unknown layer {layer} {type(layer)}')
 		logger.debug(f'loading {self.mapname} done. Cached {len(self.tile_cache)} unique tiles.')
-
-	def old_load_tile_map(self, mapname):
-		self.mapname = mapname
-		self.tile_map = load_pygame(self.mapname)
-		for layer in self.tile_map.visible_layers:
-			if isinstance(layer, pytmx.TiledTileLayer):
-				for x, y, gid in layer:
-					tile = self.tile_map.get_tile_image_by_gid(gid)
-					if tile:
-						sprite = pygame.sprite.Sprite()
-						sprite.image = tile
-						# sprite.rect = pygame.Rect(x * TILE_SCALING, y * TILE_SCALING, TILE_SCALING, TILE_SCALING)
-						sprite.rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
-						sprite.layer = layer.name  # Set the layer attribute
-						if layer.properties.get('collidable'):
-							self.collidable_tiles.append(sprite)
-			else:
-				logger.warning(f'unknown layer {layer}')
-		logger.debug(f'loading {self.mapname} done. ')
 
 	def render_map(self, screen, camera):
 		"""Render the map using cached tile images"""
 		self.explosion_manager.draw(screen, camera)
 		screen.blit(self.static_map_surface, camera.apply(pygame.Rect(0, 0, self.static_map_surface.get_width(), self.static_map_surface.get_height())))
-
-	def old2rendermap(self, screen, camera):
-		for layer in self.tile_map.visible_layers:
-			if isinstance(layer, pytmx.TiledTileLayer):
-				for x, y, gid in layer:
-					# Skip empty tiles (gid = 0)
-					if gid == 0:
-						continue
-					# Use cached tile image
-					tile = self.tile_cache.get(gid)
-					if tile:
-						rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
-						screen.blit(tile, camera.apply(rect))
-
-	def old_render_map(self, screen, camera):
-		self.explosion_manager.draw(screen, camera)
-		for layer in self.tile_map.visible_layers:
-			if isinstance(layer, pytmx.TiledTileLayer):
-				for x, y, gid in layer:
-					tile = self.tile_map.get_tile_image_by_gid(gid)
-					if tile:
-						screen.blit(tile, camera.apply(pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)))
 
 	def update_game_state(self, clid, msg):
 		msg_event = msg.get('game_event')
