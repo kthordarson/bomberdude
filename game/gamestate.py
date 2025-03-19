@@ -74,7 +74,8 @@ class GameState:
 		# await self.broadcast_event(map_update_event)
 		# Send to server via event_queue instead of broadcast
 		await self.event_queue.put(map_update_event)
-		logger.debug(f"Sent map_update to server: {map_update_event}")
+		if self.args.debug:
+			logger.debug(f"Sent map_update to server: {map_update_event}")
 
 	def ready(self):
 		return self._ready
@@ -82,13 +83,15 @@ class GameState:
 	def add_connection(self, connection):
 		"""Add a new client connection"""
 		self.connections.add(connection)
-		logger.info(f"New connection added. Total connections: {len(self.connections)}")
+		if self.args.debug:
+			logger.info(f"New connection added. Total connections: {len(self.connections)}")
 
 	def remove_connection(self, connection):
 		"""Remove a client connection"""
 		if connection in self.connections:
 			self.connections.remove(connection)
-			logger.info(f"Connection removed. Total connections: {len(self.connections)}")
+			if self.args.debug:
+				logger.info(f"Connection removed. Total connections: {len(self.connections)}")
 
 	async def broadcast_event(self, event):
 		# Only broadcast player_update events at a reduced rate
@@ -224,7 +227,8 @@ class GameState:
 								self.killable_tiles.append(sprite)
 			else:
 				logger.warning(f'unknown layer {layer} {type(layer)}')
-		logger.debug(f'loading {self.mapname} done. Cached {len(self.tile_cache)} unique tiles.')
+		if self.args.debug:
+			logger.debug(f'loading {self.mapname} done. Cached {len(self.tile_cache)} unique tiles.')
 
 	def render_map(self, screen, camera):
 		"""Render the map using cached tile images"""
@@ -260,7 +264,8 @@ class GameState:
 				# Apply any tile modifications (destroyed blocks)
 				modified_tiles = game_event.get('modified_tiles', {})
 				for pos_str, new_gid in modified_tiles.items():
-					logger.debug(f'[map_info] map modification: {pos_str=} -> {new_gid=}')
+					if self.args.debug:
+						logger.debug(f'[map_info] map modification: {pos_str=} -> {new_gid=}')
 					# Convert string key back to tuple
 					x, y = eval(pos_str) if isinstance(pos_str, str) else pos_str
 
@@ -295,7 +300,8 @@ class GameState:
 
 				# Apply modification
 				layer = self.tile_map.get_layer_by_name('Blocks')
-				logger.debug(f'[map_update] map modification: {tile_x=}, {tile_y=} -> {new_gid=}')
+				if self.args.debug:
+					logger.debug(f'[map_update] map modification: {tile_x=}, {tile_y=} -> {new_gid=}')
 				layer.data[tile_y][tile_x] = new_gid
 
 				# Track the modification
@@ -333,7 +339,8 @@ class GameState:
 						bombsleft=3,
 						score=0
 					)
-					logger.debug(f"Added new player {msg_client_id} at position {position}")
+					if self.args.debug:
+						logger.debug(f"Added new player {msg_client_id} at position {position}")
 
 				# If client is the server, re-broadcast to ensure all clients get it
 				if not hasattr(self, 'client_id'):
@@ -459,7 +466,8 @@ class GameState:
 				else:
 					# Handle PlayerState objects
 					player.health -= damage
-					logger.debug(f'PlayerStateplayer_hit {target_id=} {damage=} {player.client_id=} {player.health=} ')
+					if self.args.debug:
+						logger.debug(f'PlayerStateplayer_hit {target_id=} {damage=} {player.client_id=} {player.health=} ')
 					if player.health <= 0:
 						# Create kill event
 						kill_event = {
@@ -549,7 +557,8 @@ class GameState:
 						self.playerlist[client_id] = PlayerState(**player_data)
 		elif data.get('event_type') == 'map_info':
 			# Handle map info messages
-			logger.info(f"Received map info: {data.get('mapname')} {data=}")
+			if self.args.debug:
+				logger.info(f"Received map info: {data.get('mapname')} {data=}")
 			# Get mapname and load it if needed
 			map_name = data.get('mapname')
 			if map_name and map_name != self.mapname:
@@ -577,8 +586,8 @@ class GameState:
 							# Update collision lists if applicable - no sprites to remove here
 							# but we can update our internal tracking
 							self.modified_tiles[(x, y)] = new_gid
-
-				logger.info(f"Applied {len(modified_tiles)} map modifications from map_info")
+				if self.args.debug:
+					logger.info(f"Applied {len(modified_tiles)} map modifications from map_info")
 		elif data.get('event_type') == 'playerlist':
 			try:
 				for player_data in data.get('playerlist', []):

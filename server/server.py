@@ -234,7 +234,7 @@ class BombServer:
 			"position": position,
 			"modified_tiles": modified_tiles}
 		if self.args.debug:
-			logger.debug(f'get_tile_map request: {request} mapname: {self.args.mapname} {position} modified_tiles: {self.server_game_state.modified_tiles} Sending {len(modified_tiles)} modified')
+			logger.debug(f'get_tile_map request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified')
 		return web.json_response(map_data)
 
 	async def new_start_server(self):
