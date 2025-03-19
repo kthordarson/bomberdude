@@ -9,14 +9,14 @@ from server.tui import ServerTUI
 
 async def async_start_server(args) -> None:
 	server = BombServer(args)
-	apiserver = ApiServer("bombapi", server)
+	# apiserver = ApiServer("bombapi", server)
 	tui = ServerTUI(server, args.debug)
 
-	api_task = asyncio.create_task(apiserver.run(args.listen, 9691))
+	api_task = asyncio.create_task(server.apiserver.run(args.listen, 9691))
 	tui_task = asyncio.create_task(tui.start())
 	new_server_start_task = asyncio.create_task(server.new_start_server())
 
-	logger.debug(f'{server=} {tui=} {apiserver=}')
+	logger.debug(f'{server=} {tui=} {server.apiserver=}')
 	try:
 		await asyncio.wait([api_task, tui_task, new_server_start_task], return_when=asyncio.FIRST_COMPLETED)
 	except (asyncio.CancelledError, KeyboardInterrupt) as e:
@@ -36,7 +36,7 @@ if __name__ == "__main__":
 	parser.add_argument("--port", action="store", dest="port", default=9696, type=int)
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
 	parser.add_argument("-dp", "--debugpacket", action="store_true", dest="debugpacket", default=False,)
-	parser.add_argument("--map", action="store", dest="mapname", default="data/map5.tmx")
+	parser.add_argument("--map", action="store", dest="mapname", default="data/maptest5.tmx")
 	parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
 	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='server.prof')
 	args = parser.parse_args()

@@ -32,6 +32,7 @@ class Bomberdude():
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.sock.setblocking(False)  # Make non-blocking
 		self.last_position_update = 0
+		self.position_update_interval = 0.05  # 50ms = 20 updates/second
 		self.last_frame_time = time.time()
 		self.delta_time = 0
 		self.show_minimap = False
@@ -54,10 +55,17 @@ class Bomberdude():
 			mapname = resp.get("mapname")
 			tile_x = resp.get('position').get('position')[0]
 			tile_y = resp.get('position').get('position')[1]
+			modified_tiles = resp.get('modified_tiles', {})  # Get map modifications
 		except Exception as e:
 			logger.error(f"{type(e)} {e=} {resp}")
 			raise e
 		self.client_game_state.load_tile_map(mapname)
+		# Apply map modifications
+		if modified_tiles:
+			logger.info(f"Applying {len(modified_tiles)} map modifications from server")
+			self.apply_map_modifications(modified_tiles)
+		else:
+			logger.debug(f'no apply_map_modifications {modified_tiles=} {resp=}')
 		pixel_x = tile_x * self.client_game_state.tile_map.tilewidth
 		pixel_y = tile_y * self.client_game_state.tile_map.tileheight
 
@@ -83,13 +91,56 @@ class Bomberdude():
 		self.client_game_state.players_sprites.add(player_one)
 		while not self.client_game_state.ready():
 			await self.client_game_state.event_queue.put(connection_event)
-			# await self.client_game_state.broadcast_event({"msgtype": "game_event", "event": connection_event})
 			self._connected = True
-			await asyncio.sleep(0.1)
+			await asyncio.sleep(1 / UPDATE_TICK)
 			logger.debug(f'conn: {self.connected()} event_queue: {self.client_game_state.event_queue.qsize()} waiting for client_game_state.ready {self.client_game_state.ready()}')
-			await asyncio.sleep(0.2)
+			await asyncio.sleep(1 / UPDATE_TICK)
 			if self.client_game_state.ready():
 				return True
+
+	def apply_map_modifications(self, modified_tiles):
+		"""Apply map modifications received from the server"""
+		try:
+			for pos_str, new_gid in modified_tiles.items():
+				# Convert string key back to tuple if needed
+				if isinstance(pos_str, str):
+					pos = eval(pos_str)
+				else:
+					pos = pos_str
+
+				tile_x, tile_y = pos
+
+				# Apply the modification to the tile map
+				layer = self.client_game_state.tile_map.get_layer_by_name('Blocks')
+				if layer and 0 <= tile_y < len(layer.data) and 0 <= tile_x < len(layer.data[0]):
+					layer.data[tile_y][tile_x] = new_gid
+
+					# Update visual representation
+					if new_gid == 0:  # If block was destroyed
+						floor_tile = self.client_game_state.tile_cache.get(1)  # Get floor tile
+						if floor_tile:
+							self.client_game_state.static_map_surface.blit(
+								floor_tile,
+								(tile_x * self.client_game_state.tile_map.tilewidth,
+								tile_y * self.client_game_state.tile_map.tileheight)
+							)
+
+						# Remove from collision lists if applicable
+						for block in self.client_game_state.killable_tiles[:]:
+							block_x = block.rect.x // self.client_game_state.tile_map.tilewidth
+							block_y = block.rect.y // self.client_game_state.tile_map.tileheight
+							if block_x == tile_x and block_y == tile_y:
+								self.client_game_state.killable_tiles.remove(block)
+								if block in self.client_game_state.collidable_tiles:
+									self.client_game_state.collidable_tiles.remove(block)
+								break
+
+				# Store the modification in client's state too
+				self.client_game_state.modified_tiles[(tile_x, tile_y)] = new_gid
+
+			logger.info(f"Applied {len(modified_tiles)} map modifications")
+		except Exception as e:
+			logger.error(f"Error applying map modifications: {e}")
 
 	def draw_player(self, player_data):
 		try:
@@ -263,7 +314,7 @@ class Bomberdude():
 
 				await self.client_game_state.event_queue.put(event)
 
-	def handle_on_key_press(self, key):
+	async def handle_on_key_press(self, key):
 		try:
 			player_one = self.client_game_state.get_playerone()
 		except AttributeError as e:
@@ -310,6 +361,9 @@ class Bomberdude():
 		elif key == pygame.K_RIGHT or key == pygame.K_d or key == 100:
 			player_one.change_x = PLAYER_MOVEMENT_SPEED
 			self.client_game_state.keyspressed.keys[key] = True
+		if key == pygame.K_SPACE:
+			drop_bomb_event = player_one.drop_bomb()
+			await self.client_game_state.event_queue.put(drop_bomb_event)
 
 	async def handle_on_key_release(self, key):
 		try:
@@ -330,8 +384,9 @@ class Bomberdude():
 			player_one.change_x = 0
 			self.client_game_state.keyspressed.keys[key] = False
 		if key == pygame.K_SPACE:
-			drop_bomb_event = player_one.drop_bomb()
-			await self.client_game_state.event_queue.put(drop_bomb_event)
+			pass
+			# drop_bomb_event = player_one.drop_bomb()
+			# await self.client_game_state.event_queue.put(drop_bomb_event)
 		self.client_game_state.keyspressed.keys[key] = False
 
 	async def update(self):
@@ -339,9 +394,8 @@ class Bomberdude():
 			player_one = self.client_game_state.get_playerone()
 		except AttributeError as e:
 			logger.error(f"{e} {type(e)}")
-			await asyncio.sleep(0.1)
+			await asyncio.sleep(1)
 			return
-		# self.timer += 1 / 60
 		current_time = time.time()
 		self.delta_time = current_time - self.last_frame_time
 		self.last_frame_time = current_time
@@ -361,12 +415,12 @@ class Bomberdude():
 
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
 		self.client_game_state.check_bullet_collisions()
-		self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
+		await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
 
 		playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
 		update_event = {
 			"event_time": self.timer,
-			"msgtype": "player_update",
+			"event_type": "player_update",
 			"event_type": "player_update",
 			"client_id": str(player_one.client_id),
 			"position": (player_one.position.x, player_one.position.y),
@@ -378,7 +432,7 @@ class Bomberdude():
 			"playerlist": playerlist,
 			"eventid": gen_randid(),}
 		current_time = time.time()
-		if current_time - self.last_position_update > 0.035:
+		if current_time - self.last_position_update > self.position_update_interval:
 			await self.client_game_state.event_queue.put(update_event)
-			await asyncio.sleep(1 / UPDATE_TICK)
 			self.last_position_update = current_time
+			await asyncio.sleep(1 / UPDATE_TICK)

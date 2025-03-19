@@ -3,7 +3,7 @@ from loguru import logger
 import asyncio
 
 class ApiServer:
-	def __init__(self, name, server):
+	def __init__(self, name, server, game_state):
 		self.app = web.Application()
 		self._name = name
 		self.runner = None
@@ -11,6 +11,7 @@ class ApiServer:
 		self._ready = asyncio.Event()
 		self.add_url_rule("/get_tile_map", view_func=server.get_tile_map, methods=["GET"])
 		self.add_url_rule("/get_position", view_func=server.get_position, methods=["GET"])
+		self.game_state = game_state
 
 	def __repr__(self):
 		return f'ApiServer({self._name})'
@@ -42,14 +43,6 @@ class ApiServer:
 		finally:
 			if self.runner:
 				await self.runner.cleanup()
-
-	async def opddsfarun(self, host, port):
-		runner = web.AppRunner(self.app)
-		logger.debug(f'{self} runner: {runner} {host} {port}')
-		await runner.setup()
-		site = web.TCPSite(runner, host, port)
-		logger.debug(f'{self} site: {site} {host} {port}')
-		await site.start()
 
 if __name__ == '__main__':
 	app = ApiServer()

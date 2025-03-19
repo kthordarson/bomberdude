@@ -16,8 +16,6 @@ class ServerTUI():
 
 	async def stop(self):
 		self._stop.set()
-		# self.server.stop()
-		logger.warning(f"{self} stop {self.stopped()} server: {self.server.stopped()}")
 
 		# Make sure we don't try to await None
 		if hasattr(self, 'server') and self.server is not None:
@@ -31,8 +29,10 @@ class ServerTUI():
 		"""Get current server state information"""
 		state = self.server.server_game_state.to_json()
 		logger.debug(f"players: {len(state.get('playerlist'))} event_queue: {self.server.server_game_state.event_queue.qsize()} client_queue: {self.server.server_game_state.client_queue.qsize()}")
+		logger.debug(f'modified_tiles: {state.get("modified_tiles")}')
 		for player in state.get('playerlist'):
 			logger.debug(f'player: {player.get('client_id')} {player.get('position')}')
+		logger.info(f'status: {state}')
 
 	def dumpgameevents(self):
 		logger.debug(f"gamestate: {self.server.server_game_state} ")
@@ -52,7 +52,6 @@ class ServerTUI():
 				cmd = await self.loop.run_in_executor(None, input, ":> ")
 				await self.handle_command(cmd)
 			except (EOFError, KeyboardInterrupt) as e:
-				logger.warning(f"{type(e)} {e}")
 				await self.stop()
 				await self.server.stop()
 				break
@@ -86,4 +85,5 @@ class ServerTUI():
 		except Exception as e:
 			logger.error(f"TUI error: {e}")
 			await self.stop()
+			await asyncio.sleep(1)
 			await self.server.stop()

@@ -8,12 +8,15 @@ import random
 from constants import BLOCK
 from aiohttp import web
 from game.gamestate import GameState
+from server.api import ApiServer
 from utils import gen_randid
+from constants import UPDATE_TICK
 
 class BombServer:
 	def __init__(self, args):
 		self.args = args
 		self.server_game_state = GameState(args=self.args, mapname=args.mapname)
+		self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.server_game_state)
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
@@ -38,7 +41,7 @@ class BombServer:
 				break
 			self.server_game_state.update_game_state(clid, msg)
 			try:
-				if msg.get("game_event"):
+				if msg.get('game_event'):
 					game_event = msg.get('game_event')
 					await self.server_game_state.update_game_event(game_event)
 			except (TypeError, UnboundLocalError) as e:
@@ -59,7 +62,7 @@ class BombServer:
 		# last_broadcast = time.time()
 		try:
 			while not self.stopped():
-				await asyncio.sleep(1.01)
+				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError as e:
 			logger.info(f"tickertask CancelledError {e}")
 		except Exception as e:
@@ -105,6 +108,28 @@ class BombServer:
 
 				# Broadcast to all clients
 				await self.server_game_state.broadcast_event(player_joined)
+
+				modified_tiles = {}
+				for pos, gid in self.server_game_state.modified_tiles.items():
+					modified_tiles[str(pos)] = gid
+
+				# Send initial map info
+				map_info = {
+					"event_time": time.time(),
+					"event_type": "map_info",
+					"event_type": "map_info",
+					"mapname": self.server_game_state.mapname,
+					"modified_tiles": modified_tiles,
+					"client_id": client_id,
+					"handled": False,
+				}
+				if len(modified_tiles) > 0:
+					logger.debug(f'modified_tiles: {len(modified_tiles)}')
+					# map_info_json = json.dumps(map_info).encode('utf-8') + b'\n'
+					# writer.write(map_info_json)
+					# Broadcast to all clients
+					await self.server_game_state.broadcast_event(map_info)
+					# await writer.drain()
 
 			# Broadcast updated game state to all clients
 			game_state = self.server_game_state.to_json()
@@ -158,7 +183,7 @@ class BombServer:
 					# This is normal, just continue
 					continue
 				except ConnectionError as e:
-					logger.warning(f"Connection error: {e} {addr}")
+					logger.info(f"Connection {e} {addr}")
 					break
 				except Exception as e:
 					logger.error(f"Unexpected {e} {type(e)} in client handler {addr}")
@@ -193,16 +218,24 @@ class BombServer:
 			writer.close()
 			# await writer.wait_closed()
 			await asyncio.wait_for(writer.wait_closed(), timeout=2.0)
-		except (ConnectionResetError, asyncio.TimeoutError, Exception) as e:
+		except Exception as e:
 			# Already closed or timed out, just log and continue
 			logger.debug(f"connection cleanup: {e} {addr}")
-		logger.info(f"Connection from {addr} closed")
 
 	async def get_tile_map(self, request):
 		position = self.get_position()
+
+		modified_tiles = {}
+		for pos, gid in self.server_game_state.modified_tiles.items():
+			modified_tiles[str(pos)] = gid
+
+		map_data = {
+			"mapname": str(self.args.mapname),
+			"position": position,
+			"modified_tiles": modified_tiles}
 		if self.args.debug:
-			logger.debug(f'get_tile_map request: {request}  {self.args.mapname} {position}')
-		return web.json_response({"mapname": str(self.args.mapname), "position": position})
+			logger.debug(f'get_tile_map request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified')
+		return web.json_response(map_data)
 
 	async def new_start_server(self):
 		"""Start the game server using asyncio's high-level server API"""
@@ -248,7 +281,7 @@ class BombServer:
 					game_state = self.server_game_state.to_json()
 					await self.server_broadcast_state(game_state)
 					last_broadcast = time.time()
-				await asyncio.sleep(0.01)  # Small sleep to avoid CPU spinning
+				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError:
 			logger.info("Ticker broadcast task cancelled")
 		except Exception as e:

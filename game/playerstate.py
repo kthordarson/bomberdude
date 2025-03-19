@@ -16,7 +16,7 @@ class PlayerState:
 	msg_dt: float | None = None
 	timeout: bool | None = None
 	killed: bool | None = None
-	msgtype: str | None = None
+	event_type: str | None = None
 	event_time: int | None = None
 	event_type: str | None = None
 	handled: bool = False
@@ -34,4 +34,4 @@ class PlayerState:
 			'msg_dt': self.msg_dt,
 			'timeout': self.timeout,
 			'killed': self.killed,
-			'msgtype': self.msgtype}
+			'event_type': self.event_type}
