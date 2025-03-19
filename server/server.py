@@ -11,6 +11,7 @@ from game.gamestate import GameState
 from server.api import ApiServer
 from utils import gen_randid
 from constants import UPDATE_TICK
+from .discovery import ServerDiscovery
 
 class BombServer:
 	def __init__(self, args):
@@ -24,6 +25,8 @@ class BombServer:
 		self.loop = asyncio.get_event_loop()
 		# self.ticker_broadcast = asyncio.create_task(self.ticker_broadcast(),)
 		self._stop = Event()
+		self.discovery_service = ServerDiscovery(self)
+		asyncio.create_task(self.discovery_service.start_discovery_service())
 
 	async def process_messages(self):
 		"""Process messages from client queue"""

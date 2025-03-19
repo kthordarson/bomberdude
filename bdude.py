@@ -100,6 +100,9 @@ async def main(args):
                 pass
             elif action in ['option1', 'option2', 'option3']:
                 logger.info(f"Setup {action} not implemented")
+            elif action == 'Find server':
+                logger.info("Find server ....")
+                await asyncio.sleep(1)
             elif action == 'Quit':
                 logger.info("Quitting...")
                 running = False

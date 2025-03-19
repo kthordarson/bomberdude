@@ -264,8 +264,6 @@ class GameState:
 				# Apply any tile modifications (destroyed blocks)
 				modified_tiles = game_event.get('modified_tiles', {})
 				for pos_str, new_gid in modified_tiles.items():
-					if self.args.debug:
-						logger.debug(f'[map_info] map modification: {pos_str=} -> {new_gid=}')
 					# Convert string key back to tuple
 					x, y = eval(pos_str) if isinstance(pos_str, str) else pos_str
 
@@ -290,8 +288,8 @@ class GameState:
 									if block in self.collidable_tiles:
 										self.collidable_tiles.remove(block)
 									break
-
-				logger.info(f"Applied {len(modified_tiles)} map modifications")
+				if self.args.debug:
+					logger.info(f"[map_info] Applied {len(modified_tiles)} map modifications {pos_str=} -> {new_gid=}")
 
 			case 'map_update':
 				# Handle incremental map updates during gameplay
@@ -300,8 +298,6 @@ class GameState:
 
 				# Apply modification
 				layer = self.tile_map.get_layer_by_name('Blocks')
-				if self.args.debug:
-					logger.debug(f'[map_update] map modification: {tile_x=}, {tile_y=} -> {new_gid=}')
 				layer.data[tile_y][tile_x] = new_gid
 
 				# Track the modification
@@ -323,6 +319,8 @@ class GameState:
 							if block in self.collidable_tiles:
 								self.collidable_tiles.remove(block)
 							break
+				if self.args.debug:
+					logger.debug(f'[map_update] map modification: {tile_x=}, {tile_y=} -> {new_gid=}')
 				await self.broadcast_event(game_event)
 
 			case 'player_joined':
