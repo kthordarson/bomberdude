@@ -43,7 +43,7 @@ class KeysPressed:
 @dataclass(eq=True)
 class Bomberplayer(Sprite):
 	texture: str
-	scale: float = 0.7
+	scale: float = 0.6
 	client_id: str = None
 	position: Vec2d = field(default_factory=lambda: Vec2d(99, 99))
 	# name: str = 'xnonex'
@@ -54,7 +54,7 @@ class Bomberplayer(Sprite):
 		self.rect = self.image.get_rect()
 		self.change_x = 0
 		self.change_y = 0
-		self.bombsleft = 3
+		self.bombsleft = 13
 		self.health = 101
 		self.killed = False
 		self.timeout = False
@@ -112,7 +112,6 @@ class Bomberplayer(Sprite):
 
 	def drop_bomb(self):
 		event = {"event_time": 0,
-				"event_type": "drop_bomb",
 				"client_id": self.client_id,
 				"position": self.rect.center,
 				# "position": (self.rect.x, self.rect.y),
@@ -121,6 +120,18 @@ class Bomberplayer(Sprite):
 				"handled": False,
 				"handledby": self.client_id,
 				"eventid": gen_randid(),}
+		if self.killed:
+			self.bombsleft = 0
+			event['event_type'] = "nodropbombkill"
+			logger.warning(f'{self} no bomb {self.bombsleft=} {self.killed=}')
+		if self.bombsleft <= 0:
+			self.bombsleft = 0
+			event['event_type'] = "nodropbombsleft"
+			logger.warning(f'{self} no bombs left {self.bombsleft=} {self.killed=}')
+		else:
+			self.bombsleft -= 1
+			event["event_type"] = "drop_bomb"
+			logger.info(f'{self} drop bomb {self.bombsleft=} {self.killed=}')
 		return event
 
 	def draw(self, screen):
@@ -146,11 +157,8 @@ class Bomberplayer(Sprite):
 		if self.health <= 0:
 			self.killed = True
 			self.kill(dmgfrom)
-			return 5
-		return 1
 
 	def kill(self, dmgfrom):
 		logger.info(f'{self} killed by {dmgfrom}')
 		self.killed = True
 		self.image = pygame.image.load('data/netplayerdead.png')
-		return 11

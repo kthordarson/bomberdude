@@ -363,7 +363,11 @@ class Bomberdude():
 			self.client_game_state.keyspressed.keys[key] = True
 		if key == pygame.K_SPACE:
 			drop_bomb_event = player_one.drop_bomb()
-			await self.client_game_state.event_queue.put(drop_bomb_event)
+			if drop_bomb_event['event_type'] == "drop_bomb":
+				await self.client_game_state.event_queue.put(drop_bomb_event)
+			else:
+				logger.error(f"drop_bomb_event: {drop_bomb_event}")
+				await asyncio.sleep(1 / UPDATE_TICK)
 
 	async def handle_on_key_release(self, key):
 		try:

@@ -68,6 +68,7 @@ class GameState:
 			"position": (tile_x, tile_y),
 			"new_gid": 0,  # 0 = removed
 			"event_time": time.time(),
+			"client_id": self.client_id,
 			"handled": False,
 		}
 		# await self.update_game_event(map_update_event)
@@ -75,7 +76,7 @@ class GameState:
 		# Send to server via event_queue instead of broadcast
 		await self.event_queue.put(map_update_event)
 		if self.args.debug:
-			logger.debug(f"Sent map_update to server: {map_update_event}")
+			logger.debug(f"{self.client_id} sending map_update to server: {tile_x=} {tile_y=}")
 
 	def ready(self):
 		return self._ready
@@ -167,12 +168,6 @@ class GameState:
 				self.remove_connection(dead_conn)
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
-
-	def get_player_attribute(self, player, attribute, default=None):
-		"""Safely get attribute from either dict or PlayerState player"""
-		if isinstance(player, dict):
-			return player.get(attribute, default)
-		return getattr(player, attribute, default)
 
 	def get_playerone(self, client_id=None):
 		for player in self.players_sprites:
@@ -320,7 +315,7 @@ class GameState:
 								self.collidable_tiles.remove(block)
 							break
 				if self.args.debug:
-					logger.debug(f'[map_update] map modification: {tile_x=}, {tile_y=} -> {new_gid=}')
+					logger.debug(f'[map_update] {game_event.get('client_id')} sent {tile_x=}, {tile_y=} -> {new_gid=}')
 				await self.broadcast_event(game_event)
 
 			case 'player_joined':
@@ -364,14 +359,15 @@ class GameState:
 						self.playerlist[msg_client_id] = PlayerState(client_id=msg_client_id, position=position, health=DEFAULT_HEALTH, bombsleft=3, score=0)
 				await self.broadcast_event(game_event)
 				await asyncio.sleep(1 / UPDATE_TICK)
+
 			case 'playerquit':
 				client_id = game_event.get('client_id')
 				if client_id in self.playerlist:
 					logger.info(f"Player {client_id} has disconnected")
 					del self.playerlist[client_id]
-
 				# self.playerlist[msg_client_id]['playerquit'] = True
 				await self.event_queue.put(game_event)
+
 			case 'acknewplayer':
 				self._ready = True
 				game_event['handled'] = True
@@ -387,6 +383,7 @@ class GameState:
 				# await self.broadcast_state({"event_type": "acknewplayer", "event": game_event})
 				await self.broadcast_event(game_event)
 				# await self.event_queue.put(game_event)
+
 			case 'drop_bomb':
 				game_event['handledby'] = 'ugsbomb'
 				try:
@@ -460,7 +457,7 @@ class GameState:
 							"handledby": "dictplayer_hit",
 							"eventid": gen_randid()
 						}
-						await self.broadcast_event(kill_event)
+						# await self.broadcast_event(kill_event)
 				else:
 					# Handle PlayerState objects
 					player.health -= damage
@@ -478,11 +475,13 @@ class GameState:
 							"handledby": "PlayerStateplayer_hit",
 							"eventid": gen_randid()
 						}
-						await self.broadcast_event(kill_event)
-				# game_event['health'] = player['health']  # Include updated health in event
-				# Broadcast the hit event to all clients
-				# await self.broadcast_event(game_event)
-				asyncio.create_task(self.event_queue.put(game_event))
+						# await self.broadcast_event(kill_event)
+				if not game_event.get('handled'):
+					game_event['handled'] = True
+					game_event['health'] = player.health  # Include updated health in event
+					# Broadcast the hit event to all clients
+				await self.broadcast_event(game_event)
+				# asyncio.create_task(self.event_queue.put(game_event))
 
 			case 'player_killed':
 				killer_id = msg_client_id
@@ -523,11 +522,6 @@ class GameState:
 				playerlist.append(player.to_dict())
 			else:
 				playerlist.append(player)
-
-		# Ensure modified_tiles keys are strings for JSON
-		# modified_tiles = {}
-		# for pos, gid in self.modified_tiles.items():
-		# 	modified_tiles[str(pos)] = gid
 		modified_tiles = {str(pos): gid for pos, gid in self.modified_tiles.items()}
 		return {
 			'event_type': 'playerlistupdate',
@@ -538,131 +532,133 @@ class GameState:
 		}
 
 	async def from_json(self, data):
-		if data.get('event_type') == 'acknewplayer':
-			await self.update_game_event(data)
-		elif data.get('event_type') == 'send_game_state':
-			for player_data in data.get('playerlist', []):
-				client_id = player_data.get('client_id')
-				if client_id != self.client_id:  # Don't update our own player
-					if client_id in self.playerlist:
-						# Update existing player
-						player = self.playerlist[client_id]
-						player.position = player_data.get('position')
-						player.health = player_data.get('health')
-						player.score = player_data.get('score')
-					else:
-						# Create new player
-						self.playerlist[client_id] = PlayerState(**player_data)
-		elif data.get('event_type') == 'map_info':
-			# Handle map info messages
-			if self.args.debug:
-				logger.info(f"Received map info: {data.get('mapname')} {data=}")
-			# Get mapname and load it if needed
-			map_name = data.get('mapname')
-			if map_name and map_name != self.mapname:
-				logger.info(f"Loading map from map_info: {map_name}")
-				self.load_tile_map(map_name)
-
-			# Apply any tile modifications (destroyed blocks)
-			modified_tiles = data.get('modified_tiles', {})
-			for pos_str, new_gid in modified_tiles.items():
-				# Convert string key back to tuple
-				x, y = eval(pos_str) if isinstance(pos_str, str) else pos_str
-
-				# Apply the modification
-				layer = self.tile_map.get_layer_by_name('Blocks')
-				if layer and 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):
-					layer.data[y][x] = new_gid
-
-					# Update visual representation
-					if new_gid == 0:  # If block was destroyed
-						floor_tile = self.tile_cache.get(1)  # Get floor tile
-						if floor_tile:
-							self.static_map_surface.blit(floor_tile,
-								(x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
-
-							# Update collision lists if applicable - no sprites to remove here
-							# but we can update our internal tracking
-							self.modified_tiles[(x, y)] = new_gid
+		event_type = data.get('event_type')
+		match event_type:
+			case 'acknewplayer':
+				await self.update_game_event(data)
+			case 'send_game_state':
+				for player_data in data.get('playerlist', []):
+					client_id = player_data.get('client_id')
+					if client_id != self.client_id:  # Don't update our own player
+						if client_id in self.playerlist:
+							# Update existing player
+							player = self.playerlist[client_id]
+							player.position = player_data.get('position')
+							player.health = player_data.get('health')
+							player.score = player_data.get('score')
+						else:
+							# Create new player
+							self.playerlist[client_id] = PlayerState(**player_data)
+			case 'map_info':
+				# Handle map info messages
 				if self.args.debug:
-					logger.info(f"Applied {len(modified_tiles)} map modifications from map_info")
-		elif data.get('event_type') == 'playerlist':
-			try:
-				for player_data in data.get('playerlist', []):
-					client_id = player_data.get('client_id')
-					if client_id != self.client_id:  # Don't update our own player
-						if client_id in self.playerlist:
-							# Update existing player
-							player = self.playerlist[client_id]
-							position = player_data.get('position')
-							if position:
-								if hasattr(player, 'position'):
-									if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-										player.position.x, player.position.y = position[0], position[1]
-									else:
-										player.position = position
-								else:
-									player['position'] = position
+					logger.info(f"Received map info: {data.get('mapname')} {data=}")
+				# Get mapname and load it if needed
+				map_name = data.get('mapname')
+				if map_name and map_name != self.mapname:
+					logger.info(f"Loading map from map_info: {map_name}")
+					self.load_tile_map(map_name)
 
-								# Set up interpolation data
-								if hasattr(player, 'target_position'):
-									player.target_position = position
-									player.position_updated = True
-						else:
-							# Create new player
-							logger.debug(f'newplayer {client_id=} {player_data=}')
-							try:
-								self.playerlist[client_id] = PlayerState(
-									client_id=client_id,
-									position=player_data.get('position', (0, 0)),
-									health=DEFAULT_HEALTH,
-									bombsleft=player_data.get('bombsleft', 3),
-									score=player_data.get('score', 0)
-								)
-							except Exception as e:
-								logger.error(f"Could not create PlayerState: {e}")
-			except Exception as e:
-				logger.error(f"Error updating player from json: {e}")
-		elif data.get('event_type') == 'playerlistupdate':
-			try:
-				for player_data in data.get('playerlist', []):
-					client_id = player_data.get('client_id')
-					if client_id != self.client_id:  # Don't update our own player
-						if client_id in self.playerlist:
-							# Update existing player
-							player = self.playerlist[client_id]
-							position = player_data.get('position')
-							if position:
-								if hasattr(player, 'position'):
-									if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-										player.position.x, player.position.y = position[0], position[1]
-									else:
-										player.position = position
-								else:
-									player['position'] = position
+				# Apply any tile modifications (destroyed blocks)
+				modified_tiles = data.get('modified_tiles', {})
+				for pos_str, new_gid in modified_tiles.items():
+					# Convert string key back to tuple
+					x, y = eval(pos_str) if isinstance(pos_str, str) else pos_str
 
-								# Set up interpolation data
-								if hasattr(player, 'target_position'):
-									player.target_position = position
-									player.position_updated = True
-						else:
-							# Create new player
-							newplayer = PlayerState(
-									client_id=client_id,
-									position=player_data.get('position', (0, 0)),
-									health=DEFAULT_HEALTH,
-									bombsleft=player_data.get('bombsleft', 3),
-									score=player_data.get('score', 0)
-								)
-							logger.info(f'newplayer {client_id=} pos: {newplayer.position}')
-							try:
-								self.playerlist[client_id] = newplayer
-							except Exception as e:
-								logger.error(f"Could not create PlayerState: {e}")
-			except Exception as e:
-				logger.error(f"Error updating player from json: {e}")
-		else:
-			logger.warning(f"Unknown event_type: {data.get('event_type')} data: {data}")
+					# Apply the modification
+					layer = self.tile_map.get_layer_by_name('Blocks')
+					if layer and 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):
+						layer.data[y][x] = new_gid
+
+						# Update visual representation
+						if new_gid == 0:  # If block was destroyed
+							floor_tile = self.tile_cache.get(1)  # Get floor tile
+							if floor_tile:
+								self.static_map_surface.blit(floor_tile,
+									(x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
+
+								# Update collision lists if applicable - no sprites to remove here
+								# but we can update our internal tracking
+								self.modified_tiles[(x, y)] = new_gid
+					if self.args.debug:
+						logger.info(f"Applied {len(modified_tiles)} map modifications from map_info")
+			case 'playerlist':
+				try:
+					for player_data in data.get('playerlist', []):
+						client_id = player_data.get('client_id')
+						if client_id != self.client_id:  # Don't update our own player
+							if client_id in self.playerlist:
+								# Update existing player
+								player = self.playerlist[client_id]
+								position = player_data.get('position')
+								if position:
+									if hasattr(player, 'position'):
+										if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
+											player.position.x, player.position.y = position[0], position[1]
+										else:
+											player.position = position
+									else:
+										player['position'] = position
+
+									# Set up interpolation data
+									if hasattr(player, 'target_position'):
+										player.target_position = position
+										player.position_updated = True
+							else:
+								# Create new player
+								logger.debug(f'newplayer {client_id=} {player_data=}')
+								try:
+									self.playerlist[client_id] = PlayerState(
+										client_id=client_id,
+										position=player_data.get('position', (0, 0)),
+										health=DEFAULT_HEALTH,
+										bombsleft=player_data.get('bombsleft', 3),
+										score=player_data.get('score', 0)
+									)
+								except Exception as e:
+									logger.error(f"Could not create PlayerState: {e}")
+				except Exception as e:
+					logger.error(f"Error updating player from json: {e}")
+			case 'playerlistupdate':
+				try:
+					for player_data in data.get('playerlist', []):
+						client_id = player_data.get('client_id')
+						if client_id != self.client_id:  # Don't update our own player
+							if client_id in self.playerlist:
+								# Update existing player
+								player = self.playerlist[client_id]
+								position = player_data.get('position')
+								if position:
+									if hasattr(player, 'position'):
+										if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
+											player.position.x, player.position.y = position[0], position[1]
+										else:
+											player.position = position
+									else:
+										player['position'] = position
+
+									# Set up interpolation data
+									if hasattr(player, 'target_position'):
+										player.target_position = position
+										player.position_updated = True
+							else:
+								# Create new player
+								newplayer = PlayerState(
+										client_id=client_id,
+										position=player_data.get('position', (0, 0)),
+										health=DEFAULT_HEALTH,
+										bombsleft=player_data.get('bombsleft', 3),
+										score=player_data.get('score', 0)
+									)
+								logger.info(f'newplayer {client_id=} pos: {newplayer.position}')
+								try:
+									self.playerlist[client_id] = newplayer
+								except Exception as e:
+									logger.error(f"Could not create PlayerState: {e}")
+				except Exception as e:
+					logger.error(f"Error updating player from json: {e}")
+			case _:
+				logger.warning(f"Unknown event_type: {data.get('event_type')} data: {data}")
 
 	def update_remote_players(self, delta_time):
 		"""Update remote player interpolation"""
