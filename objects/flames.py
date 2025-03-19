@@ -24,7 +24,7 @@ class Flame(Sprite):
 		self.max_distance = power * 32  # Max distance based on power (assuming 32px tiles)
 		self.distance_traveled = 0
 
-	def update(self, collidable_tiles, game_state):
+	async def update(self, collidable_tiles, game_state):
 		old_position = Vec2d(self.position)
 		self.position.x += self.direction[0] * FLAME_SPEED
 		self.position.y += self.direction[1] * FLAME_SPEED
@@ -51,9 +51,7 @@ class Flame(Sprite):
 			for tile in game_state.killable_tiles:
 				try:
 					if self.rect.colliderect(tile.rect):
-						# logger.info(f"Flame collision with: {tile} {type(tile)}")
-						game_state.destroy_block(tile)
-						logger.info(f"killable_tilesFlame collision with: {tile} {type(tile)}")
+						await game_state.destroy_block(tile)
 						self.kill()
 						break
 				except Exception as e:
@@ -62,7 +60,6 @@ class Flame(Sprite):
 			for tile in game_state.collidable_tiles:
 				try:
 					if self.rect.colliderect(tile.rect):
-						# logger.info(f"Flame collision with: {tile} {type(tile)}")
 						self.kill()
 						break
 				except Exception as e:

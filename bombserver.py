@@ -9,14 +9,14 @@ from server.tui import ServerTUI
 
 async def async_start_server(args) -> None:
 	server = BombServer(args)
-	apiserver = ApiServer("bombapi", server)
+	# apiserver = ApiServer("bombapi", server)
 	tui = ServerTUI(server, args.debug)
 
-	api_task = asyncio.create_task(apiserver.run(args.listen, 9691))
+	api_task = asyncio.create_task(server.apiserver.run(args.listen, 9691))
 	tui_task = asyncio.create_task(tui.start())
 	new_server_start_task = asyncio.create_task(server.new_start_server())
 
-	logger.debug(f'{server=} {tui=} {apiserver=}')
+	logger.debug(f'{server=} {tui=} {server.apiserver=}')
 	try:
 		await asyncio.wait([api_task, tui_task, new_server_start_task], return_when=asyncio.FIRST_COMPLETED)
 	except (asyncio.CancelledError, KeyboardInterrupt) as e:

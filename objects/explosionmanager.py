@@ -41,10 +41,10 @@ class ExplosionManager:
 	def add_flame(self, flame):
 		self.flames.add(flame)
 
-	def update(self, collidable_tiles, game_state):
+	async def update(self, collidable_tiles, game_state):
 		self.particles.update(collidable_tiles)
 		for flame in self.flames:
-			flame.update(collidable_tiles, game_state)
+			await flame.update(collidable_tiles, game_state)
 
 	def draw(self, screen, camera):
 		for particle in self.particles:

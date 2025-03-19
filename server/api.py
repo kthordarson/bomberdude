@@ -3,7 +3,7 @@ from loguru import logger
 import asyncio
 
 class ApiServer:
-	def __init__(self, name, server):
+	def __init__(self, name, server, game_state):
 		self.app = web.Application()
 		self._name = name
 		self.runner = None
@@ -11,6 +11,7 @@ class ApiServer:
 		self._ready = asyncio.Event()
 		self.add_url_rule("/get_tile_map", view_func=server.get_tile_map, methods=["GET"])
 		self.add_url_rule("/get_position", view_func=server.get_position, methods=["GET"])
+		self.game_state = game_state
 
 	def __repr__(self):
 		return f'ApiServer({self._name})'
