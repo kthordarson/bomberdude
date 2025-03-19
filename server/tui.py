@@ -29,8 +29,10 @@ class ServerTUI():
 		"""Get current server state information"""
 		state = self.server.server_game_state.to_json()
 		logger.debug(f"players: {len(state.get('playerlist'))} event_queue: {self.server.server_game_state.event_queue.qsize()} client_queue: {self.server.server_game_state.client_queue.qsize()}")
+		logger.debug(f'modified_tiles: {state.get("modified_tiles")}')
 		for player in state.get('playerlist'):
 			logger.debug(f'player: {player.get('client_id')} {player.get('position')}')
+		logger.info(f'status: {state}')
 
 	def dumpgameevents(self):
 		logger.debug(f"gamestate: {self.server.server_game_state} ")

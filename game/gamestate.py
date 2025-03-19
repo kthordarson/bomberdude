@@ -40,6 +40,7 @@ class GameState:
 		self.explosion_manager = ExplosionManager()
 		self._ready = False
 		self.modified_tiles = {}  # Format: {(tile_x, tile_y): new_gid}
+		self.tile_cache = {}
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
@@ -69,8 +70,11 @@ class GameState:
 			"event_time": time.time(),
 			"handled": False,
 		}
-		await self.update_game_event(map_update_event)
-		await self.broadcast_event(map_update_event)
+		# await self.update_game_event(map_update_event)
+		# await self.broadcast_event(map_update_event)
+		# Send to server via event_queue instead of broadcast
+		await self.event_queue.put(map_update_event)
+		logger.debug(f"Sent map_update to server: {map_update_event}")
 
 	def ready(self):
 		return self._ready
@@ -133,13 +137,10 @@ class GameState:
 			logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
 			return
 
-		# If this is a full state update, ensure modified_tiles is included
-		if isinstance(game_state, dict) and 'event_type' in game_state and game_state['event_type'] == 'playerlistupdate':
-			# Add map modifications to ensure they're distributed
-			modified_tiles = {}
-			for pos, gid in self.modified_tiles.items():
-				modified_tiles[str(pos)] = gid
-			game_state['modified_tiles'] = modified_tiles
+		modified_tiles = {}
+		for pos, gid in self.modified_tiles.items():
+			modified_tiles[str(pos)] = gid
+		game_state['modified_tiles'] = modified_tiles
 
 		try:
 			for conn in self.connections:
@@ -152,6 +153,7 @@ class GameState:
 						conn.write(data)
 						await conn.drain()
 					else:  # Socket
+						logger.warning(f'{conn} {type(conn)}')
 						await loop.sock_sendall(conn, data)
 				except Exception as e:
 					logger.error(f"Error broadcasting to client: {e}")
@@ -197,7 +199,6 @@ class GameState:
 		self.mapname = mapname
 		self.tile_map = load_pygame(self.mapname)
 		# Create a cache for tile images
-		self.tile_cache = {}
 		self.static_map_surface = pygame.Surface((self.tile_map.width * self.tile_map.tilewidth, self.tile_map.height * self.tile_map.tileheight))
 
 		for layer in self.tile_map.visible_layers:
@@ -369,6 +370,7 @@ class GameState:
 			case 'acknewplayer':
 				self._ready = True
 				game_event['handled'] = True
+				await self.broadcast_state({"event_type": "acknewplayer", "event": game_event})
 
 			case 'connection_event':
 				game_event['handled'] = True
@@ -377,7 +379,8 @@ class GameState:
 				client_id = game_event.get('client_id')
 				if client_id not in self.playerlist:
 					self.playerlist[client_id] = PlayerState(client_id=client_id, position=game_event.get('position'), health=100)
-				await self.broadcast_state({"event_type": "acknewplayer", "event": game_event})
+				# await self.broadcast_state({"event_type": "acknewplayer", "event": game_event})
+				await self.broadcast_event(game_event)
 				# await self.event_queue.put(game_event)
 			case 'drop_bomb':
 				game_event['handledby'] = 'ugsbomb'
@@ -472,7 +475,8 @@ class GameState:
 						await self.broadcast_event(kill_event)
 				# game_event['health'] = player['health']  # Include updated health in event
 				# Broadcast the hit event to all clients
-				await self.broadcast_event(game_event)
+				# await self.broadcast_event(game_event)
+				asyncio.create_task(self.event_queue.put(game_event))
 
 			case 'player_killed':
 				killer_id = msg_client_id
@@ -515,12 +519,11 @@ class GameState:
 				playerlist.append(player)
 
 		# Ensure modified_tiles keys are strings for JSON
-		modified_tiles = {}
-		for pos, gid in self.modified_tiles.items():
-			modified_tiles[str(pos)] = gid
-
+		# modified_tiles = {}
+		# for pos, gid in self.modified_tiles.items():
+		# 	modified_tiles[str(pos)] = gid
+		modified_tiles = {str(pos): gid for pos, gid in self.modified_tiles.items()}
 		return {
-			'event_type': 'playerlistupdate',
 			'event_type': 'playerlistupdate',
 			'playerlist': playerlist,
 			'connections': len(self.connections),
