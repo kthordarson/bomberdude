@@ -6,8 +6,9 @@ import pygame
 from constants import FLAME_SPEED
 
 class Flame(Sprite):
-	def __init__(self, position, direction, size=1, power=3):
+	def __init__(self, position, direction, client_id, size=1, power=3):
 		super().__init__()
+		self.client_id = client_id
 		self.original_image = pygame.image.load('data/flameball.png')
 		self.size = size
 		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))

@@ -16,7 +16,7 @@ from .discovery import ServerDiscovery
 class BombServer:
 	def __init__(self, args):
 		self.args = args
-		self.server_game_state = GameState(args=self.args, mapname=args.mapname)
+		self.server_game_state = GameState(args=self.args, mapname=args.mapname, client_id='bombserver')
 		self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.server_game_state)
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
@@ -38,25 +38,28 @@ class BombServer:
 				continue
 			self.server_game_state.client_queue.task_done()
 			try:
-				clid = msg.get('game_event').get('client_id')
+				client_id = msg.get('client_id')
 			except Exception as e:
 				logger.error(f"Error processing message: {e} {type(e)}    {msg}")
 				break
-			self.server_game_state.update_game_state(clid, msg)
-			try:
-				if msg.get('game_event'):
-					game_event = msg.get('game_event')
-					await self.server_game_state.update_game_event(game_event)
-			except (TypeError, UnboundLocalError) as e:
-				logger.warning(f"{e} {type(e)} {msg}")
-			except asyncio.CancelledError as e:
-				logger.info(f"CancelledError {e}")
-				await self.stop()
-				break
-			except Exception as e:
-				logger.error(f"Message processing error: {e} {type(e)} {msg}")
-				await self.stop()
-				break
+			if client_id:
+				self.server_game_state.update_game_state(client_id, msg)
+				try:
+					if msg.get('game_event'):
+						game_event = msg.get('game_event')
+						await self.server_game_state.update_game_event(game_event)
+				except (TypeError, UnboundLocalError) as e:
+					logger.warning(f"{e} {type(e)} {msg}")
+				except asyncio.CancelledError as e:
+					logger.info(f"CancelledError {e}")
+					await self.stop()
+					break
+				except Exception as e:
+					logger.error(f"Message processing error: {e} {type(e)} {msg}")
+					await self.stop()
+					break
+			else:
+				logger.error(f"Error processing message: {msg}")
 
 	async def ticker(self) -> None:
 		logger.debug(f"tickertask start")  # noqa: F541

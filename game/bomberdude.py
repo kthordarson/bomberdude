@@ -77,25 +77,31 @@ class Bomberdude():
 		if self.args.debug:
 			logger.debug(f'conn: {self.connected()} {pos=} event_queue: {self.client_game_state.event_queue.qsize()}')
 
+		player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
+		player_one.position = pos
+		self.client_game_state.players_sprites.add(player_one)
 		connection_event = {
 			"event_time": 0,
 			"event_type": "connection_event",
-			"client_id": str(self.client_id),
-			"position": (pos.x, pos.y),
+			"client_id": str(player_one.client_id),
+			"position": (player_one.position[0], player_one.position[1]),
+			"bombsleft": player_one.bombsleft,
+			"health": player_one.health,
+			"score": player_one.score,
 			"handled": False,
 			"handledby": "connection_event",
 			"eventid": gen_randid(),
 		}
-		player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
-		player_one.position = pos
-		self.client_game_state.players_sprites.add(player_one)
 		while not self.client_game_state.ready():
 			await self.client_game_state.event_queue.put(connection_event)
 			self._connected = True
 			await asyncio.sleep(1 / UPDATE_TICK)
-			logger.debug(f'conn: {self.connected()} event_queue: {self.client_game_state.event_queue.qsize()} waiting for client_game_state.ready {self.client_game_state.ready()}')
+			if self.args.debug:
+				logger.debug(f'conn: {self.connected()} event_queue: {self.client_game_state.event_queue.qsize()} waiting for client_game_state.ready {self.client_game_state.ready()}')
 			await asyncio.sleep(1 / UPDATE_TICK)
 			if self.client_game_state.ready():
+				if self.args.debug:
+					logger.debug(f'conn: {self.connected()} event_queue: {self.client_game_state.event_queue.qsize()} waiting for client_game_state.ready {self.client_game_state.ready()}')
 				return True
 
 	def apply_map_modifications(self, modified_tiles):
@@ -146,17 +152,14 @@ class Bomberdude():
 		try:
 			if isinstance(player_data, dict):
 				player = Bomberplayer(texture="data/player2.png", client_id=player_data.get('client_id'))
-				player.position = Vec2d(player_data.get('position', [0, 0]))
-				player.rect.topleft = (player.position.x, player.position.y)
-				self.screen.blit(player.image, self.camera.apply(player.rect))
+				player.position = Vec2d(player_data.get('position'))
 			elif isinstance(player_data, PlayerState):
 				player = Bomberplayer(texture="data/player2.png", client_id=player_data.client_id)
 				player.position = Vec2d(player_data.position)
-				# player.rect.topleft = (player.position[0], player.position[1])
-				player.rect.topleft = (player.position.x, player.position.y)
-				self.screen.blit(player.image, self.camera.apply(player.rect))
 			else:
 				logger.warning(f'player_data: {player_data} {type(player_data)}')
+			player.rect.topleft = (player.position.x, player.position.y)
+			self.screen.blit(player.image, self.camera.apply(player.rect))
 		except Exception as e:
 			logger.error(f'{e} {type(e)} player_data: {player_data}')
 
@@ -185,7 +188,7 @@ class Bomberdude():
 			pos = self.camera.apply(bomb.rect)
 			self.screen.blit(bomb.image, pos)
 
-		self.client_game_state.bombs.update(self.client_game_state.explosion_manager)
+		self.client_game_state.bombs.update(self.client_game_state)
 
 		# Draw explosion particles
 		self.client_game_state.explosion_manager.draw(self.screen, self.camera)
@@ -363,10 +366,10 @@ class Bomberdude():
 			self.client_game_state.keyspressed.keys[key] = True
 		if key == pygame.K_SPACE:
 			drop_bomb_event = player_one.drop_bomb()
-			if drop_bomb_event['event_type'] == "drop_bomb":
+			if drop_bomb_event['event_type'] == "player_drop_bomb":
 				await self.client_game_state.event_queue.put(drop_bomb_event)
 			else:
-				logger.error(f"drop_bomb_event: {drop_bomb_event}")
+				# logger.error(f"drop_bomb_event: {drop_bomb_event}")
 				await asyncio.sleep(1 / UPDATE_TICK)
 
 	async def handle_on_key_release(self, key):
@@ -424,7 +427,6 @@ class Bomberdude():
 		playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
 		update_event = {
 			"event_time": self.timer,
-			"event_type": "player_update",
 			"event_type": "player_update",
 			"client_id": str(player_one.client_id),
 			"position": (player_one.position.x, player_one.position.y),

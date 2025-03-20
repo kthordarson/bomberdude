@@ -54,11 +54,11 @@ class ExplosionManager:
 			screen_pos = camera.apply(flame.rect)
 			screen.blit(flame.image, screen_pos)
 
-	def create_flames(self, rect):
+	def create_flames(self, owner):
 		directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]  # Right, Left, Down, Up
 		for direction in directions:
 			# for i in range(1, self.power + 1):
 			# flame_position = Vec2d(self.position.x + direction[0] * i * self.rect.width, self.position.y + direction[1] * i * self.rect.height)
-			flame_position = Vec2d(rect.center[0] + direction[0] * 3, rect.center[1] + direction[1] * 2)
-			flame = Flame(flame_position, direction)
+			flame_position = Vec2d(owner.rect.center[0] + direction[0] * 3, owner.rect.center[1] + direction[1] * 2)
+			flame = Flame(flame_position, direction, owner.client_id)
 			self.add_flame(flame)

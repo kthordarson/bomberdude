@@ -19,7 +19,7 @@ import json
 
 @dataclass
 class GameState:
-	def __init__(self, args, mapname=None, client_id=None):
+	def __init__(self, args, client_id, mapname=None):
 		self.client_id = client_id
 		self.args = args
 		self.players_sprites = Group()
@@ -41,6 +41,7 @@ class GameState:
 		self._ready = False
 		self.modified_tiles = {}  # Format: {(tile_x, tile_y): new_gid}
 		self.tile_cache = {}
+		self.last_update_times = {}
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
@@ -102,11 +103,7 @@ class GameState:
 # 		if event_type == 'player_update':
 		client_id = event.get('client_id')
 		current_time = time.time()
-
 		# Use per-client rate limiting
-		if not hasattr(self, 'last_update_times'):
-			self.last_update_times = {}
-
 		# Get last update time for this client (default to 0)
 		last_time = self.last_update_times.get(client_id, 0)
 		timediff = current_time - last_time
@@ -182,9 +179,9 @@ class GameState:
 				player_state = PlayerState(
 					client_id=player.get('client_id'),
 					position=player.get('position'),
-					health=player.get('health', DEFAULT_HEALTH),
-					bombsleft=player.get('bombsleft', 3),
-					score=player.get('score', 0)
+					health=player.get('health'),
+					bombsleft=player.get('bombsleft'),
+					score=player.get('score')
 				)
 				return player_state
 			return player
@@ -230,10 +227,10 @@ class GameState:
 		self.explosion_manager.draw(screen, camera)
 		screen.blit(self.static_map_surface, camera.apply(pygame.Rect(0, 0, self.static_map_surface.get_width(), self.static_map_surface.get_height())))
 
-	def update_game_state(self, clid, msg):
+	def update_game_state(self, client_id, msg):
 		msg_event = msg.get('game_event')
 		playerdict = {
-			'client_id': clid,
+			'client_id': self.client_id,
 			'position': msg_event.get('position'),
 			'score': msg_event.get('score'),
 			'health': msg_event.get('health'),
@@ -243,11 +240,11 @@ class GameState:
 			'event_type': 'update_game_state',
 			'bombsleft': msg_event.get('bombsleft'),
 		}
-		self.playerlist[clid] = playerdict
+		self.playerlist[client_id] = playerdict
 
 	async def update_game_event(self, game_event):
 		event_type = game_event.get('event_type')
-		msg_client_id = game_event.get("client_id")
+		client_id = game_event.get("client_id")
 		match event_type:
 			case 'map_info':
 				# Get mapname and load it
@@ -320,20 +317,20 @@ class GameState:
 
 			case 'player_joined':
 				# Add a visual notification for clients
-				logger.info(f"Player {msg_client_id} has joined the game!")
+				logger.info(f"Player {client_id} has joined the game!")
 
 				# Add player to local playerlist if not present
-				if msg_client_id not in self.playerlist:
+				if client_id not in self.playerlist:
 					position = game_event.get('position', [100, 100])
-					self.playerlist[msg_client_id] = PlayerState(
-						client_id=msg_client_id,
+					self.playerlist[client_id] = PlayerState(
+						client_id=client_id,
 						position=position,
 						health=DEFAULT_HEALTH,
 						bombsleft=3,
 						score=0
 					)
 					if self.args.debug:
-						logger.debug(f"Added new player {msg_client_id} at position {position}")
+						logger.debug(f"Added new player {client_id} at position {position}")
 
 				# If client is the server, re-broadcast to ensure all clients get it
 				if not hasattr(self, 'client_id'):
@@ -341,22 +338,22 @@ class GameState:
 
 			case 'player_update':
 				# Update other player's position in playerlist
-				if msg_client_id != self.client_id:
+				if client_id != self.client_id:
 					position = game_event.get('position')
-					if msg_client_id in self.playerlist:
-						player = self.playerlist[msg_client_id]
+					bombsleft = game_event.get('bombsleft')
+					if client_id in self.playerlist:
+						player = self.playerlist[client_id]
 						if isinstance(player, dict):
 							# Direct update without complex interpolation
-							# player['position'] = position
-							# player['client_id'] = msg_client_id
-							self.playerlist[msg_client_id] = PlayerState(client_id=msg_client_id, position=position, health=player.get('health', DEFAULT_HEALTH), bombsleft=player.get('bombsleft', 3), score=player.get('score', 0))
+							self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health'), bombsleft=player.get('bombsleft'), score=player.get('score'))
 						else:
 							# Handle PlayerState objects
 							player.position = position
+							player.bombsleft = bombsleft
 					else:
-						logger.warning(f'unknownplayer {msg_client_id=} {self.playerlist=} {game_event=}')
+						logger.warning(f'unknownplayer {client_id=} {self.playerlist=} {game_event=}')
 						# Add new player with minimal required fields
-						self.playerlist[msg_client_id] = PlayerState(client_id=msg_client_id, position=position, health=DEFAULT_HEALTH, bombsleft=3, score=0)
+						self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health', DEFAULT_HEALTH), bombsleft=1, score=0)
 				await self.broadcast_event(game_event)
 				await asyncio.sleep(1 / UPDATE_TICK)
 
@@ -365,13 +362,12 @@ class GameState:
 				if client_id in self.playerlist:
 					logger.info(f"Player {client_id} has disconnected")
 					del self.playerlist[client_id]
-				# self.playerlist[msg_client_id]['playerquit'] = True
 				await self.event_queue.put(game_event)
 
 			case 'acknewplayer':
-				self._ready = True
 				game_event['handled'] = True
 				await self.broadcast_state({"event_type": "acknewplayer", "event": game_event})
+				self._ready = True
 
 			case 'connection_event':
 				game_event['handled'] = True
@@ -384,24 +380,15 @@ class GameState:
 				await self.broadcast_event(game_event)
 				# await self.event_queue.put(game_event)
 
-			case 'drop_bomb':
+			case 'player_drop_bomb':  # todo make server decide if bomb can be dropped
 				game_event['handledby'] = 'ugsbomb'
-				try:
-					if msg_client_id == self.client_id:
-						bomb = Bomb(position=game_event.get('position'))
-					else:
-						bomb = Bomb(position=game_event.get('position'), bomb_size=(5,5))
-					self.bombs.add(bomb)
-				except AttributeError as e:
-					logger.error(f'{e} unable to add bomb {game_event=} players_sprites: {self.players_sprites}')
 				game_event['event_type'] = 'ackbombdrop'
 				await self.broadcast_event(game_event)
 
-			case 'ackbombdrop':
-				if msg_client_id != self.client_id:
-					bomb = Bomb(position=game_event.get('position'), bomb_size=(5,5))
-				elif msg_client_id == self.client_id:
-					bomb = Bomb(position=game_event.get('position'), bomb_size=(10,10))
+			case 'ackbombdrop':  # todo make server decide if bomb can be dropped
+				if self.args.debug:
+					logger.debug(f'ackbombdrop {client_id=} {self.client_id=}')
+				bomb = Bomb(position=game_event.get('position'), client_id=game_event.get('client_id'))
 				self.bombs.add(bomb)
 
 			case 'bulletfired':
@@ -414,11 +401,11 @@ class GameState:
 				# bullet = Bullet()
 				bullet_position = Vec2d(game_event.get('position')[0], game_event.get('position')[1])
 				bullet_direction = Vec2d(game_event.get('direction')[0], game_event.get('direction')[1])
-				if msg_client_id == self.get_playerone().client_id:
+				if client_id == self.get_playerone().client_id:
 					bullet_size = (10,10)
 				else:
 					bullet_size = (5,5)
-				bullet = Bullet(position=bullet_position, direction=bullet_direction, screen_rect=self.get_playerone().rect, bullet_size=bullet_size, owner_id=msg_client_id)
+				bullet = Bullet(position=bullet_position, direction=bullet_direction, screen_rect=self.get_playerone().rect, bullet_size=bullet_size, owner_id=client_id)
 				self.bullets.add(bullet)
 
 			case 'player_hit':
@@ -450,7 +437,7 @@ class GameState:
 						kill_event = {
 							"event_time": time.time(),
 							"event_type": "player_killed",
-							"client_id": msg_client_id,  # Killer
+							"client_id": client_id,  # Killer
 							"target_id": target_id,      # Victim
 							"position": game_event.get('position'),
 							"handled": False,
@@ -468,7 +455,7 @@ class GameState:
 						kill_event = {
 							"event_time": time.time(),
 							"event_type": "player_killed",
-							"client_id": msg_client_id,
+							"client_id": client_id,
 							"target_id": target_id,
 							"position": game_event.get('position'),
 							"handled": False,
@@ -484,7 +471,7 @@ class GameState:
 				# asyncio.create_task(self.event_queue.put(game_event))
 
 			case 'player_killed':
-				killer_id = msg_client_id
+				killer_id = client_id
 				target_id = game_event.get('target_id')
 
 				logger.info(f'player_killed {target_id} by {killer_id} ')
@@ -498,17 +485,55 @@ class GameState:
 							self.playerlist[killer_id].score += 1
 						except TypeError as e:
 							logger.error(f'{e} {type(e)} {killer_id=} playerlist: {self.playerlist}')
-				# Reset target player (respawn)
-				if target_id in self.playerlist:
-					if isinstance(self.playerlist[target_id], dict):
-						self.playerlist[target_id]['health'] = 123
-						self.playerlist[target_id]['killed'] = True
-					else:
-						self.playerlist[target_id].health = 321
-						self.playerlist[target_id].killed = True
 
-				# Broadcast the kill event
-				await self.broadcast_event(game_event)
+					await self.broadcast_event(game_event)
+
+			case 'bomb_exploded':
+				owner_id = game_event.get('owner_id')
+				if owner_id == self.client_id:
+					logger.debug(f'bomb_exploded {owner_id=} {game_event=}')
+					return
+				if owner_id in self.playerlist:
+					player = self.playerlist[owner_id]
+					# Check if bombserver using dict access for safety
+					if isinstance(player, dict) and player.get('client_id') == 'bombserver':
+						# logger.warning(f'bombserver {player=} game_event: {game_event}')
+						return
+					elif isinstance(player, dict):
+						# Initialize bombsleft if missing/None
+						current_bombs = player.get('bombsleft')
+						if current_bombs is None:
+							if self.args.debug:
+								logger.warning(f"Player {owner_id} has no bombsleft attribute game_event={game_event} player={player}")
+								logger.warning(f"playerlist: {self.playerlist}")
+							player['bombsleft'] = 1
+						else:
+							player['bombsleft'] = current_bombs + 1
+					elif isinstance(player, PlayerState):
+						# Handle PlayerState object
+						try:
+							if not hasattr(player, 'bombsleft') or player.bombsleft is None:
+								if self.args.debug:
+									logger.warning(f"Player {owner_id} has no bombsleft attribute game_event={game_event}")
+								player.bombsleft = 1
+							else:
+								player.bombsleft += 1
+						except AttributeError:
+							logger.warning(f"Player {owner_id} has no bombsleft attribute")
+							player.bombsleft = 1
+					else:
+						logger.warning(f'unknown player type: {player=} game_event: {game_event}')
+
+					# Update player in sprites group if exists
+					for sprite in self.players_sprites:
+						if getattr(sprite, 'client_id', None) == owner_id:
+							sprite.bombsleft = player['bombsleft'] if isinstance(player, dict) else player.bombsleft
+							break
+
+					await self.broadcast_event(game_event)
+				else:
+					logger.warning(f'owner_id not in playerlist: {owner_id=}')
+
 			case _:
 				# payload = {'event_type': 'error99', 'payload': ''}
 				logger.warning(f'unknown game_event:{event_type} from game_event={game_event}')
@@ -586,6 +611,9 @@ class GameState:
 				try:
 					for player_data in data.get('playerlist', []):
 						client_id = player_data.get('client_id')
+						if not client_id:
+							logger.error(f'client_id missing in player_data: {player_data}')
+							continue
 						if client_id != self.client_id:  # Don't update our own player
 							if client_id in self.playerlist:
 								# Update existing player
@@ -623,6 +651,11 @@ class GameState:
 				try:
 					for player_data in data.get('playerlist', []):
 						client_id = player_data.get('client_id')
+						if client_id == 'bombserver':
+							continue
+						if not client_id:
+							logger.error(f'client_id missing in player_data: {player_data}')
+							continue
 						if client_id != self.client_id:  # Don't update our own player
 							if client_id in self.playerlist:
 								# Update existing player

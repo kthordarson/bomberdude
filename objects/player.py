@@ -123,15 +123,16 @@ class Bomberplayer(Sprite):
 		if self.killed:
 			self.bombsleft = 0
 			event['event_type'] = "nodropbombkill"
-			logger.warning(f'{self} no bomb {self.bombsleft=} {self.killed=}')
+			logger.warning(f'dead {self.bombsleft=} {self.killed=}')
 		if self.bombsleft <= 0:
 			self.bombsleft = 0
 			event['event_type'] = "nodropbombsleft"
-			logger.warning(f'{self} no bombs left {self.bombsleft=} {self.killed=}')
+			logger.warning(f'no bombs left {self.bombsleft=} {self.killed=}')
 		else:
 			self.bombsleft -= 1
-			event["event_type"] = "drop_bomb"
-			logger.info(f'{self} drop bomb {self.bombsleft=} {self.killed=}')
+			event["event_type"] = "player_drop_bomb"
+			event['bombsleft'] = self.bombsleft
+			logger.info(f'drop bomb {self.bombsleft=} {self.killed=}')
 		return event
 
 	def draw(self, screen):
