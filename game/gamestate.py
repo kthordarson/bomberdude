@@ -130,11 +130,7 @@ class GameState:
 		dead_connections = set()
 		loop = asyncio.get_event_loop()
 		try:
-			# Fix the data encoding
-			if isinstance(game_state, bytes):
-				data = game_state + b'\n'  # Add newline for message boundary
-			else:
-				data = json.dumps(game_state).encode('utf-8') + b'\n'
+			data = json.dumps(game_state).encode('utf-8') + b'\n'
 		except TypeError as e:
 			logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
 			return
@@ -283,31 +279,6 @@ class GameState:
 				score=0
 			)
 
-	def oldensure_player_state(self, player_data):
-		"""Convert dictionary player data to PlayerState if needed"""
-		if isinstance(player_data, dict):
-			# Ensure all required fields have defaults
-			return PlayerState(
-				client_id=player_data.get('client_id', 'unknown'),
-				position=player_data.get('position', [0, 0]),
-				health=player_data.get('health', DEFAULT_HEALTH),
-				initial_bombs=player_data.get('bombsleft', 3),  # Always default to 3
-				score=player_data.get('score', 0),
-				killed=player_data.get('killed', False),
-				timeout=player_data.get('timeout', False)
-			)
-		elif not isinstance(player_data, PlayerState):
-			# Handle unexpected types
-			logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
-			return PlayerState(
-				client_id=str(getattr(player_data, 'client_id', 'unknown')),
-				position=[0, 0],
-				health=DEFAULT_HEALTH,
-				bombsleft=3,
-				score=0
-			)
-		return player_data
-
 	async def update_game_event(self, game_event):
 		event_type = game_event.get('event_type')
 		client_id = game_event.get("client_id")
@@ -417,7 +388,7 @@ class GameState:
 					position = game_event.get('position')
 					bombsleft = game_event.get('bombsleft')
 					if client_id in self.playerlist:
-						player = self.playerlist[client_id]
+						player = self.ensure_player_state(self.playerlist[client_id])
 						if player:
 							if isinstance(player, dict):
 								# Direct update without complex interpolation
@@ -438,6 +409,9 @@ class GameState:
 				if client_id in self.playerlist:
 					logger.info(f"Player {client_id} has disconnected")
 					del self.playerlist[client_id]
+					# Broadcast quit event to all clients so they can update their playerlists
+					await self.broadcast_event(game_event)
+				# Still pass the event to the local event queue for local handling
 				await self.event_queue.put(game_event)
 
 			case 'acknewplayer':
@@ -445,7 +419,7 @@ class GameState:
 				self._ready = True
 				ack_event = {"event_type": "acknewplayer", "client_id": self.client_id, "event": game_event}
 				if self.args.debug:
-					logger.info(f"acknewplayer {ack_event=} {game_event=}")
+					logger.info(f"acknewplayer {ack_event.get('event_type')} {ack_event.get('client_id')} ")
 				# await self.broadcast_state(ack_event)
 
 			case 'connection_event':
@@ -503,7 +477,7 @@ class GameState:
 					logger.warning(f'playerlist: {self.playerlist}')
 					self.playerlist[target_id] = PlayerState(client_id=target_id, position=game_event.get('position', [0, 0]), health=100 - damage)
 				# else:  # target_id in self.playerlist:
-				player = self.playerlist[target_id]
+				player = self.ensure_player_state(self.playerlist[target_id])
 				if isinstance(player, dict):
 					try:
 						player['health'] = player.get('health') - damage
@@ -571,12 +545,15 @@ class GameState:
 				event_id = game_event.get('event_id', '')
 				# Skip if already processed this event
 				if event_id and event_id in self.processed_explosions:
+					logger.warning(f'Skipping already processed explosion: {event_id} game_event: {game_event}')
 					return
 
 				# Add to processed events
 				if event_id:
 					self.processed_explosions.add(event_id)
 					# Limit size to prevent memory issues
+					if len(self.processed_explosions) > 1000:
+						self.processed_explosions = set(list(self.processed_explosions)[-1000:])
 
 				owner_id = game_event.get('owner_id')
 				if owner_id in self.playerlist:
@@ -630,17 +607,29 @@ class GameState:
 		event_type = data.get('event_type')
 		sender_client_id = data.get('client_id')
 		match event_type:
+			case 'playerquit':
+				quit_client_id = data.get('client_id')
+				if quit_client_id and quit_client_id in self.playerlist:
+					logger.info(f"Removing quit player {quit_client_id} from local playerlist")
+					del self.playerlist[quit_client_id]
+
+					# Also remove from sprites if present
+					for sprite in list(self.players_sprites):
+						if getattr(sprite, 'client_id', None) == quit_client_id:
+							sprite.kill()
+
 			case 'acknewplayer':
 				if self.args.debug:
 					logger.info(f"{event_type} {data=}")
 				await self.update_game_event(data)
+
 			case 'send_game_state':
 				for player_data in data.get('playerlist', []):
 					client_id = player_data.get('client_id')
 					if client_id != self.client_id:  # Don't update our own player
 						if client_id in self.playerlist:
 							# Update existing player
-							player = self.playerlist[client_id]
+							player = self.ensure_player_state(self.playerlist[client_id])
 							player.position = player_data.get('position')
 							player.health = player_data.get('health')
 							player.score = player_data.get('score')
@@ -695,7 +684,7 @@ class GameState:
 						elif client_id != self.client_id:  # Don't update our own player
 							if client_id in self.playerlist:
 								# Update existing player
-								player = self.playerlist[client_id]
+								player = self.ensure_player_state(self.playerlist[client_id])
 								position = player_data.get('position')
 								if position:
 									if hasattr(player, 'position'):
@@ -743,7 +732,7 @@ class GameState:
 						elif client_id != self.client_id:  # Don't update our own player
 							if client_id in self.playerlist:
 								# Update existing player
-								player = self.playerlist[client_id]
+								player = self.ensure_player_state(self.playerlist[client_id])
 								position = player_data.get('position')
 								if position:
 									if hasattr(player, 'position'):
@@ -760,22 +749,24 @@ class GameState:
 										player.position_updated = True
 							else:
 								# Create new player
-								newplayer = PlayerState(
-										client_id=client_id,
-										position=player_data.get('position', (0, 0)),
-										health=DEFAULT_HEALTH,
-										initial_bombs=player_data.get('bombsleft', 3),
-										score=player_data.get('score', 0)
-									)
-								logger.info(f'newplayer {client_id=} pos: {newplayer.position}')
-								try:
-									self.playerlist[client_id] = newplayer
-								except Exception as e:
-									logger.error(f"Could not create PlayerState: {e}")
+								newplayer = PlayerState(client_id=client_id, position=player_data.get('position', (0, 0)), health=DEFAULT_HEALTH, initial_bombs=player_data.get('bombsleft', 3), score=player_data.get('score', 0))
+								if newplayer.position:
+									logger.info(f'newplayer {client_id=} pos: {newplayer.position}')
+									try:
+										self.playerlist[client_id] = newplayer
+									except Exception as e:
+										logger.error(f"Could not create PlayerState: {e}")
 				except Exception as e:
 					logger.error(f"Error updating player from json: {e} {data}")
 			case _:
 				logger.warning(f"Unknown event_type: {data.get('event_type')} data: {data}")
+
+	def cleanup_playerlist(self):
+		"""Remove players with None positions from playerlist"""
+		for client_id, player in list(self.playerlist.items()):
+			if (isinstance(player, PlayerState) and player.position is None) or (isinstance(player, dict) and player.get('position') is None):
+				logger.info(f"Removing player with None position: {client_id}")
+				del self.playerlist[client_id]
 
 	def update_remote_players(self, delta_time):
 		"""Update remote player interpolation"""

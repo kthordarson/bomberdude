@@ -11,7 +11,7 @@ from .flames import Flame
 from utils import gen_randid
 
 class Bomb(Sprite):
-	def __init__(self, position, client_id, power=3, speed=10, timer=3, bomb_size=(10,10)):
+	def __init__(self, position, client_id, power=3, speed=10, timer=4, bomb_size=(10,10)):
 		super().__init__()
 		self.client_id = client_id
 		# self.image = pygame.Surface(bomb_size)

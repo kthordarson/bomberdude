@@ -147,6 +147,18 @@ class Bomberdude():
 			logger.error(f"Error applying map modifications: {e}")
 
 	def draw_player(self, player_data):
+		player_state = self.client_game_state.ensure_player_state(player_data)
+		player = Bomberplayer(texture="data/player2.png", client_id=player_state.client_id)
+
+		# Skip players with None position
+		if player_state.position is None:
+			return
+
+		player.position = Vec2d(player_state.position)
+		player.rect.topleft = (player.position.x, player.position.y)
+		self.screen.blit(player.image, self.camera.apply(player.rect))
+
+	def old_draw_player(self, player_data):
 		if player_data:
 			try:
 				if isinstance(player_data, dict):
@@ -177,7 +189,10 @@ class Bomberdude():
 			# Draw remote players from playerlist
 			for client_id, player in self.client_game_state.playerlist.items():
 				if client_id != self.client_id:
-					self.draw_player(player)
+					try:
+						self.draw_player(player)
+					except Exception as e:
+						logger.error(f'draw_player {e} {type(e)} player: {player} {type(player)}')
 		else:
 			logger.warning(f"Player one not found {player_one=} {self.client_game_state=}")
 
@@ -370,11 +385,9 @@ class Bomberdude():
 			self.client_game_state.keyspressed.keys[key] = True
 		if key == pygame.K_SPACE:
 			drop_bomb_event = player_one.drop_bomb()
-			if drop_bomb_event['event_type'] == "player_drop_bomb":
-				await self.client_game_state.event_queue.put(drop_bomb_event)
-			else:
-				# logger.error(f"drop_bomb_event: {drop_bomb_event}")
-				await asyncio.sleep(1 / UPDATE_TICK)
+			if drop_bomb_event:
+				if drop_bomb_event['event_type'] == "player_drop_bomb":
+					await self.client_game_state.event_queue.put(drop_bomb_event)
 
 	async def handle_on_key_release(self, key):
 		try:
@@ -427,7 +440,7 @@ class Bomberdude():
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
 		self.client_game_state.check_bullet_collisions()
 		await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
-
+		self.client_game_state.cleanup_playerlist()
 		playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
 		update_event = {
 			"event_time": self.timer,

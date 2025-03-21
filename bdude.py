@@ -41,11 +41,8 @@ async def start_game(args):
         if not connected:
             logger.error("Failed to establish connection")
             return
-    except asyncio.TimeoutError as e:
-        logger.error("Connection attempt timed out")
-        raise e
     except Exception as e:
-        logger.error(f"Connection error: {e}")
+        logger.error(f"Connection error: {e} {type(e)}")
         raise e
 
     # Calculate frame time in seconds
@@ -119,6 +116,7 @@ async def main(args):
                 await asyncio.sleep(1)
     except Exception as e:
         logger.error(f"Error in main: {e} {type(e)}")
+        raise e
     finally:
         pygame.quit()
 

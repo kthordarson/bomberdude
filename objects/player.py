@@ -67,6 +67,15 @@ class Bomberplayer(Sprite):
 	def __hash__(self):
 		return hash((self.client_id))
 
+	@property
+	def bombsleft(self):
+		return self._bombsleft
+
+	@bombsleft.setter
+	def bombsleft(self, value):
+		# Never exceed 3 bombs
+		self._bombsleft = min(3, max(0, value))
+
 	def to_dict(self):
 		"""Convert player object to dictionary"""
 		try:
@@ -114,7 +123,6 @@ class Bomberplayer(Sprite):
 		event = {"event_time": 0,
 				"client_id": self.client_id,
 				"position": self.rect.center,
-				# "position": (self.rect.x, self.rect.y),
 				"ba": 1,
 				"timer": 1,
 				"handled": False,
@@ -124,16 +132,15 @@ class Bomberplayer(Sprite):
 			self.bombsleft = 0
 			event['event_type'] = "nodropbombkill"
 			logger.warning(f'dead {self.bombsleft=} {self.killed=}')
-		if self.bombsleft <= 0:
-			self.bombsleft = 0
-			event['event_type'] = "nodropbombsleft"
-			logger.warning(f'no bombs left {self.bombsleft=} {self.killed=}')
-		else:
+		elif 0 < self.bombsleft <= 3:
 			self.bombsleft -= 1
 			event["event_type"] = "player_drop_bomb"
 			event['bombsleft'] = self.bombsleft
 			logger.info(f'drop bomb {self.bombsleft=} {self.killed=}')
-		return event
+			return event
+		else:
+			event['event_type'] = "nodropbomb"
+			logger.warning(f'no bombs left {self.bombsleft=} {self.killed=}')
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
