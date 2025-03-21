@@ -22,12 +22,17 @@ async def send_game_state(game):
 			logger.error(f"Error: {e} {type(e)}")
 			continue
 		client_keys = json.loads(game.client_game_state.keyspressed.to_json())
-		try:
-			player_one = game.client_game_state.get_playerone()
-		except AttributeError as e:
-			logger.error(f'{e} {type(e)}')
+		if game.client_id == 'bdudenotset' or game.client_game_state.client_id == 'gamestatenotset' or game.client_game_state.client_id == 'missingclientid':
+			logger.error(f'client_id not set game: {game}')
 			await asyncio.sleep(1)
 			continue
+		else:
+			try:
+				player_one = game.client_game_state.get_playerone()
+			except AttributeError as e:
+				logger.error(f'{e} {type(e)}')
+				await asyncio.sleep(1)
+				continue
 		# playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in game.client_game_state.playerlist.values()]
 		playerlist = [player for player in game.client_game_state.playerlist.values()]
 		msg = {

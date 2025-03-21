@@ -39,6 +39,7 @@ class Bomb(Sprite):
 		explosion_event = {
 			"event_type": "bomb_exploded",
 			"owner_id": self.client_id,
+			"client_id": self.client_id,
 			"position": (self.rect.x, self.rect.y),
 			"event_time": time.time(),
 			"handled": False

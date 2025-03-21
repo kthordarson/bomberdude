@@ -4,8 +4,8 @@ from constants import DEFAULT_HEALTH
 
 @dataclass
 class PlayerState:
-	client_id: str
 	position: tuple
+	client_id: str = 'notset'
 	score: int = 0
 	bombsleft: int = 3
 	health: int = DEFAULT_HEALTH

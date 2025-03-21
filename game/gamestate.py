@@ -19,8 +19,7 @@ import json
 
 @dataclass
 class GameState:
-	def __init__(self, args, client_id, mapname=None):
-		self.client_id = client_id
+	def __init__(self, args, client_id='missingclientid', mapname=None):
 		self.args = args
 		self.players_sprites = Group()
 		self.bullets = Group()
@@ -42,6 +41,7 @@ class GameState:
 		self.modified_tiles = {}  # Format: {(tile_x, tile_y): new_gid}
 		self.tile_cache = {}
 		self.last_update_times = {}
+		self.client_id = client_id
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
@@ -69,7 +69,7 @@ class GameState:
 			"position": (tile_x, tile_y),
 			"new_gid": 0,  # 0 = removed
 			"event_time": time.time(),
-			"client_id": self.client_id,
+			"client_id": self.client_id,  # todo: get client_id from server
 			"handled": False,
 		}
 		# await self.update_game_event(map_update_event)
@@ -228,23 +228,50 @@ class GameState:
 		screen.blit(self.static_map_surface, camera.apply(pygame.Rect(0, 0, self.static_map_surface.get_width(), self.static_map_surface.get_height())))
 
 	def update_game_state(self, client_id, msg):
+		if self.client_id == 'gamestatenotset' or self.client_id == 'missingclientid':
+			logger.warning(f'self.client_id={self.client_id} client_id not set {client_id} {msg=}')
 		msg_event = msg.get('game_event')
-		playerdict = {
-			'client_id': self.client_id,
-			'position': msg_event.get('position'),
-			'score': msg_event.get('score'),
-			'health': msg_event.get('health'),
-			'msg_dt': msg_event.get('msg_dt'),
-			'timeout': msg_event.get('timeout'),
-			'killed': msg_event.get('killed'),
-			'event_type': 'update_game_state',
-			'bombsleft': msg_event.get('bombsleft'),
-		}
-		self.playerlist[client_id] = playerdict
+		msg_client_id = msg_event.get('client_id')
+		if msg_client_id:
+			playerdict = {
+				'client_id': msg_client_id,
+				'position': msg_event.get('position'),
+				'score': msg_event.get('score'),
+				'health': msg_event.get('health'),
+				'msg_dt': msg_event.get('msg_dt'),
+				'timeout': msg_event.get('timeout'),
+				'killed': msg_event.get('killed'),
+				'event_type': 'update_game_state',
+				'bombsleft': msg_event.get('bombsleft'),
+			}
+			self.playerlist[client_id] = playerdict
+		else:
+			logger.warning(f'no client_id in msg: {msg}')
+
+	def ensure_player_state(self, player_data):
+		"""Convert dictionary player data to PlayerState if needed"""
+		if isinstance(player_data, dict):
+			return PlayerState(
+				client_id=player_data.get('client_id'),
+				position=player_data.get('position'),
+				health=player_data.get('health', DEFAULT_HEALTH),
+				bombsleft=player_data.get('bombsleft', 3),
+				score=player_data.get('score', 0)
+			)
+		return player_data
 
 	async def update_game_event(self, game_event):
 		event_type = game_event.get('event_type')
 		client_id = game_event.get("client_id")
+		# Ensure client_id is always a string
+		if client_id is not None and not isinstance(client_id, str):
+			client_id = str(client_id)
+			game_event["client_id"] = client_id
+
+		# If owner_id exists, ensure it's a string too
+		if "owner_id" in game_event and not isinstance(game_event["owner_id"], str):
+			game_event["owner_id"] = str(game_event["owner_id"])
+
 		match event_type:
 			case 'map_info':
 				# Get mapname and load it
@@ -333,9 +360,18 @@ class GameState:
 						logger.debug(f"Added new player {client_id} at position {position}")
 
 				# If client is the server, re-broadcast to ensure all clients get it
-				if not hasattr(self, 'client_id'):
-					await self.broadcast_event(game_event)
-
+				# if not hasattr(self, 'client_id'):
+				await self.broadcast_event(game_event)
+			# case 'player_update':
+			# 	if client_id in self.playerlist:
+			# 		player_data = game_event.get('player_data')
+			# 		self.playerlist[client_id] = self.ensure_player_state(player_data)
+			# 	else:
+			# 		logger.warning(f'unknownplayer {client_id=} {self.playerlist=} {game_event=}')
+			# 		# Add new player with minimal required fields
+			# 		self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health', DEFAULT_HEALTH), bombsleft=1, score=0)
+			# 	await self.broadcast_event(game_event)
+			# 	await asyncio.sleep(1 / UPDATE_TICK)
 			case 'player_update':
 				# Update other player's position in playerlist
 				if client_id != self.client_id:
@@ -343,17 +379,18 @@ class GameState:
 					bombsleft = game_event.get('bombsleft')
 					if client_id in self.playerlist:
 						player = self.playerlist[client_id]
-						if isinstance(player, dict):
-							# Direct update without complex interpolation
-							self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health'), bombsleft=player.get('bombsleft'), score=player.get('score'))
-						else:
-							# Handle PlayerState objects
-							player.position = position
-							player.bombsleft = bombsleft
+						if player:
+							if isinstance(player, dict):
+								# Direct update without complex interpolation
+								self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health'), bombsleft=player.get('bombsleft'), score=player.get('score'))
+							else:
+								# Handle PlayerState objects
+								player.position = position
+								player.bombsleft = bombsleft
 					else:
-						logger.warning(f'unknownplayer {client_id=} {self.playerlist=} {game_event=}')
+						logger.warning(f'newunknownplayer {client_id=}')
 						# Add new player with minimal required fields
-						self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health', DEFAULT_HEALTH), bombsleft=1, score=0)
+						self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=DEFAULT_HEALTH, bombsleft=1, score=0)
 				await self.broadcast_event(game_event)
 				await asyncio.sleep(1 / UPDATE_TICK)
 
@@ -366,8 +403,11 @@ class GameState:
 
 			case 'acknewplayer':
 				game_event['handled'] = True
-				await self.broadcast_state({"event_type": "acknewplayer", "event": game_event})
 				self._ready = True
+				ack_event = {"event_type": "acknewplayer", "client_id": self.client_id, "event": game_event}
+				if self.args.debug:
+					logger.info(f"acknewplayer {ack_event=} {game_event=}")
+				# await self.broadcast_state(ack_event)
 
 			case 'connection_event':
 				game_event['handled'] = True
@@ -543,10 +583,13 @@ class GameState:
 		"""Convert game state to JSON-serializable format"""
 		playerlist = []
 		for player in self.playerlist.values():
-			if hasattr(player, 'to_dict'):
-				playerlist.append(player.to_dict())
-			else:
-				playerlist.append(player)
+			if player:
+				if hasattr(player, 'to_dict'):
+					if player.client_id != 'bomberserver':
+						playerlist.append(player.to_dict())
+				else:
+					if player['client_id'] != 'bomberserver':
+						playerlist.append(player)
 		modified_tiles = {str(pos): gid for pos, gid in self.modified_tiles.items()}
 		return {
 			'event_type': 'playerlistupdate',
@@ -558,8 +601,11 @@ class GameState:
 
 	async def from_json(self, data):
 		event_type = data.get('event_type')
+		sender_client_id = data.get('client_id')
 		match event_type:
 			case 'acknewplayer':
+				if self.args.debug:
+					logger.info(f"{event_type} {data=}")
 				await self.update_game_event(data)
 			case 'send_game_state':
 				for player_data in data.get('playerlist', []):
@@ -572,6 +618,8 @@ class GameState:
 							player.health = player_data.get('health')
 							player.score = player_data.get('score')
 						else:
+							if self.args.debug:
+								logger.info(f"{event_type} {data=}")
 							# Create new player
 							self.playerlist[client_id] = PlayerState(**player_data)
 			case 'map_info':
@@ -614,7 +662,10 @@ class GameState:
 						if not client_id:
 							logger.error(f'client_id missing in player_data: {player_data}')
 							continue
-						if client_id != self.client_id:  # Don't update our own player
+						elif client_id == 'gamestatenotset' or client_id == 'missingclientid' or client_id == 'bdudenotset':
+							logger.warning(f'invalid client_id player_data: {player_data} data={data}')
+							continue
+						elif client_id != self.client_id:  # Don't update our own player
 							if client_id in self.playerlist:
 								# Update existing player
 								player = self.playerlist[client_id]
@@ -645,18 +696,24 @@ class GameState:
 									)
 								except Exception as e:
 									logger.error(f"Could not create PlayerState: {e}")
+						else:
+							logger.warning(f"Skipping player: {client_id} {data=}")
 				except Exception as e:
 					logger.error(f"Error updating player from json: {e}")
 			case 'playerlistupdate':
 				try:
 					for player_data in data.get('playerlist', []):
 						client_id = player_data.get('client_id')
-						if client_id == 'bombserver':
-							continue
 						if not client_id:
 							logger.error(f'client_id missing in player_data: {player_data}')
 							continue
-						if client_id != self.client_id:  # Don't update our own player
+						elif client_id == 'bombserver':
+							logger.warning(f'bombserverplayer_data: {player_data} data={data}')
+							continue
+						elif client_id == 'gamestatenotset':
+							logger.warning(f'gamestatenotset: {player_data} data={data}')
+							continue
+						elif client_id != self.client_id:  # Don't update our own player
 							if client_id in self.playerlist:
 								# Update existing player
 								player = self.playerlist[client_id]
@@ -689,7 +746,7 @@ class GameState:
 								except Exception as e:
 									logger.error(f"Could not create PlayerState: {e}")
 				except Exception as e:
-					logger.error(f"Error updating player from json: {e}")
+					logger.error(f"Error updating player from json: {e} {data}")
 			case _:
 				logger.warning(f"Unknown event_type: {data.get('event_type')} data: {data}")
 

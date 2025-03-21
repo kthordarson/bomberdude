@@ -16,7 +16,7 @@ from .discovery import ServerDiscovery
 class BombServer:
 	def __init__(self, args):
 		self.args = args
-		self.server_game_state = GameState(args=self.args, mapname=args.mapname, client_id='bombserver')
+		self.server_game_state = GameState(args=self.args, mapname=args.mapname, client_id='theserver')
 		self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.server_game_state)
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
@@ -41,13 +41,13 @@ class BombServer:
 				client_id = msg.get('client_id')
 			except Exception as e:
 				logger.error(f"Error processing message: {e} {type(e)}    {msg}")
-				break
-			if client_id:
-				self.server_game_state.update_game_state(client_id, msg)
+				raise e
+			if client_id == 'gamestatenotset' or client_id == 'bdudenotset' or client_id == 'missingclientid':
+				logger.error(f"client_id not set: {msg}")
+				continue
+			else:
 				try:
-					if msg.get('game_event'):
-						game_event = msg.get('game_event')
-						await self.server_game_state.update_game_event(game_event)
+					self.server_game_state.update_game_state(client_id, msg)
 				except (TypeError, UnboundLocalError) as e:
 					logger.warning(f"{e} {type(e)} {msg}")
 				except asyncio.CancelledError as e:
@@ -58,23 +58,12 @@ class BombServer:
 					logger.error(f"Message processing error: {e} {type(e)} {msg}")
 					await self.stop()
 					break
-			else:
-				logger.error(f"Error processing message: {msg}")
-
-	async def ticker(self) -> None:
-		logger.debug(f"tickertask start")  # noqa: F541
-		self.process_task = self.loop.create_task(self.process_messages())
-		# Send out the game state to all players 60 times per second.
-		# last_broadcast = time.time()
-		try:
-			while not self.stopped():
-				await asyncio.sleep(1 / UPDATE_TICK)
-		except asyncio.CancelledError as e:
-			logger.info(f"tickertask CancelledError {e}")
-		except Exception as e:
-			logger.error(f"tickertask {e} {type(e)}")
-		finally:
-			logger.debug("Ticker task exiting")
+				if msg.get('game_event'):
+					game_event = msg.get('game_event')
+					try:
+						await self.server_game_state.update_game_event(game_event)
+					except Exception as e:
+						logger.error(f'{e} {type(e)} msg={msg}')
 
 	async def client_connected_cb(self, reader, writer):
 		"""Handle new client connections using StreamReader/StreamWriter"""
@@ -88,7 +77,6 @@ class BombServer:
 			# sock.setblocking(False)
 			self.connections.add(writer)
 			self.server_game_state.add_connection(writer)
-
 			# Process first message to get client ID
 			data = await asyncio.wait_for(reader.readline(), timeout=1.0)
 			if not data:
@@ -98,6 +86,14 @@ class BombServer:
 			client_id = msg.get('client_id') or msg.get('game_event', {}).get('client_id')
 
 			if client_id:
+				ack_event = {
+							"event_type": "acknewplayer",
+							"client_id": client_id,
+							"handled": False,
+							"handledby": "server.client_connected",
+							"event_time": time.time()
+						}
+				await self.server_game_state.broadcast_event(ack_event)
 				# Store client ID
 				self.connection_to_client_id[writer] = client_id
 
@@ -238,7 +234,8 @@ class BombServer:
 		map_data = {
 			"mapname": str(self.args.mapname),
 			"position": position,
-			"modified_tiles": modified_tiles}
+			"modified_tiles": modified_tiles,
+			"client_id": str(gen_randid())}
 		if self.args.debug:
 			logger.debug(f'get_tile_map request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified')
 		return web.json_response(map_data)

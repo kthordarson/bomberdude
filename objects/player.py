@@ -44,7 +44,7 @@ class KeysPressed:
 class Bomberplayer(Sprite):
 	texture: str
 	scale: float = 0.6
-	client_id: str = None
+	client_id: str = 'Bomberplayer'
 	position: Vec2d = field(default_factory=lambda: Vec2d(99, 99))
 	# name: str = 'xnonex'
 
@@ -54,7 +54,7 @@ class Bomberplayer(Sprite):
 		self.rect = self.image.get_rect()
 		self.change_x = 0
 		self.change_y = 0
-		self.bombsleft = 13
+		self.bombsleft = 3
 		self.health = 101
 		self.killed = False
 		self.timeout = False

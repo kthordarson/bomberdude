@@ -23,7 +23,7 @@ class Bomberdude():
 		# self.screen = pygame.display.get_surface()
 		self.running = True
 		self.selected_bomb = 1
-		self.client_id = str(gen_randid())
+		self.client_id = 'bdudenotset'  # str(gen_randid())
 		self.client_game_state = GameState(args=self.args, client_id=self.client_id)
 		self._connected = False
 		self.timer = 0
@@ -53,6 +53,8 @@ class Bomberdude():
 			resp = requests.get(f"http://{self.args.server}:9699/get_tile_map").text
 			resp = json.loads(resp)
 			mapname = resp.get("mapname")
+			self.client_id = resp.get("client_id")
+			self.client_game_state.client_id = resp.get("client_id")
 			tile_x = resp.get('position').get('position')[0]
 			tile_y = resp.get('position').get('position')[1]
 			modified_tiles = resp.get('modified_tiles', {})  # Get map modifications
@@ -92,17 +94,13 @@ class Bomberdude():
 			"handledby": "connection_event",
 			"eventid": gen_randid(),
 		}
-		while not self.client_game_state.ready():
-			await self.client_game_state.event_queue.put(connection_event)
-			self._connected = True
-			await asyncio.sleep(1 / UPDATE_TICK)
+		await self.client_game_state.event_queue.put(connection_event)
+		self._connected = True
+		while not self.client_game_state._ready:
 			if self.args.debug:
 				logger.debug(f'conn: {self.connected()} event_queue: {self.client_game_state.event_queue.qsize()} waiting for client_game_state.ready {self.client_game_state.ready()}')
-			await asyncio.sleep(1 / UPDATE_TICK)
-			if self.client_game_state.ready():
-				if self.args.debug:
-					logger.debug(f'conn: {self.connected()} event_queue: {self.client_game_state.event_queue.qsize()} waiting for client_game_state.ready {self.client_game_state.ready()}')
-				return True
+			await asyncio.sleep(0.2)
+		return True
 
 	def apply_map_modifications(self, modified_tiles):
 		"""Apply map modifications received from the server"""
@@ -149,19 +147,22 @@ class Bomberdude():
 			logger.error(f"Error applying map modifications: {e}")
 
 	def draw_player(self, player_data):
-		try:
-			if isinstance(player_data, dict):
-				player = Bomberplayer(texture="data/player2.png", client_id=player_data.get('client_id'))
-				player.position = Vec2d(player_data.get('position'))
-			elif isinstance(player_data, PlayerState):
-				player = Bomberplayer(texture="data/player2.png", client_id=player_data.client_id)
-				player.position = Vec2d(player_data.position)
-			else:
-				logger.warning(f'player_data: {player_data} {type(player_data)}')
-			player.rect.topleft = (player.position.x, player.position.y)
-			self.screen.blit(player.image, self.camera.apply(player.rect))
-		except Exception as e:
-			logger.error(f'{e} {type(e)} player_data: {player_data}')
+		if player_data:
+			try:
+				if isinstance(player_data, dict):
+					player = Bomberplayer(texture="data/player2.png", client_id=player_data.get('client_id'))
+					player.position = Vec2d(player_data.get('position'))
+				elif isinstance(player_data, PlayerState):
+					player = Bomberplayer(texture="data/player2.png", client_id=player_data.client_id)
+					player.position = Vec2d(player_data.position)
+				else:
+					logger.warning(f'player_data: {player_data} {type(player_data)}')
+				player.rect.topleft = (player.position.x, player.position.y)
+				self.screen.blit(player.image, self.camera.apply(player.rect))
+			except Exception as e:
+				logger.error(f'{e} {type(e)} player_data: {player_data}')
+		else:
+			logger.error(f"draw_player: {player_data}")
 
 	def on_draw(self):
 		# Clear screen
@@ -170,12 +171,15 @@ class Bomberdude():
 		self.client_game_state.render_map(self.screen, self.camera)
 		# Draw local player
 		player_one = self.client_game_state.get_playerone()
-		self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
+		if player_one:
+			self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
 
-		# Draw remote players from playerlist
-		for client_id, player in self.client_game_state.playerlist.items():
-			if client_id != self.client_id:
-				self.draw_player(player)
+			# Draw remote players from playerlist
+			for client_id, player in self.client_game_state.playerlist.items():
+				if client_id != self.client_id:
+					self.draw_player(player)
+		else:
+			logger.warning(f"Player one not found {player_one=} {self.client_game_state=}")
 
 		# Draw bullets, bombs, etc.
 		for bullet in self.client_game_state.bullets:

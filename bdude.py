@@ -25,7 +25,11 @@ def get_args():
     return parser.parse_args()
 
 async def start_game(args):
-    bomberdude_main = Bomberdude(args=args)
+    try:
+        bomberdude_main = Bomberdude(args=args)
+    except Exception as e:
+        logger.error(f'Error: {e} {type(e)}')
+        raise e
 
     sender_task = asyncio.create_task(send_game_state(bomberdude_main))
     receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
@@ -37,12 +41,12 @@ async def start_game(args):
         if not connected:
             logger.error("Failed to establish connection")
             return
-    except asyncio.TimeoutError:
+    except asyncio.TimeoutError as e:
         logger.error("Connection attempt timed out")
-        return
+        raise e
     except Exception as e:
         logger.error(f"Connection error: {e}")
-        return
+        raise e
 
     # Calculate frame time in seconds
     target_fps = UPDATE_TICK  # Using your constant from constants.py
@@ -53,7 +57,11 @@ async def start_game(args):
     while running:
         # start_time = time.time()
         frame_start = time.time()
-        await bomberdude_main.update()
+        try:
+            await bomberdude_main.update()
+        except Exception as e:
+            logger.error(f"Error in update: {e} {type(e)}")
+            await asyncio.sleep(1)
         bomberdude_main.on_draw()
         pygame.display.flip()
         for event in pygame.event.get():
@@ -90,8 +98,8 @@ async def main(args):
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(SCREEN_TITLE)
     running = True
+    mainmenu = MainMenu(screen=screen, args=args)
     try:
-        mainmenu = MainMenu(screen=screen, args=args)
         while running:
             action = mainmenu.run()
             if action == "Start":
