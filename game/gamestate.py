@@ -244,19 +244,66 @@ class GameState:
 				'event_type': 'update_game_state',
 				'bombsleft': msg_event.get('bombsleft'),
 			}
-			self.playerlist[client_id] = playerdict
+			self.playerlist[client_id] = self.ensure_player_state(playerdict)
+			# self.playerlist[client_id] = playerdict
 		else:
 			logger.warning(f'no client_id in msg: {msg}')
 
 	def ensure_player_state(self, player_data):
+		"""Convert dictionary player data to PlayerState with guaranteed defaults"""
+		if isinstance(player_data, dict):
+			# Create PlayerState with explicit defaults for None values
+			return PlayerState(
+				position=player_data.get('position', [0, 0]),
+				client_id=player_data.get('client_id', 'unknown'),
+				score=player_data.get('score', 0) or 0,  # Convert None to 0
+				bombsleft=player_data.get('bombsleft', 3) or 3,  # Convert None to 3
+				health=player_data.get('health', 100) or 100,  # Convert None to 100
+				killed=player_data.get('killed', False) or False,
+				timeout=player_data.get('timeout', False) or False
+			)
+		elif isinstance(player_data, PlayerState):
+			# Ensure PlayerState has non-None values for critical attributes
+			if player_data.bombsleft is None:
+				player_data.bombsleft = 3
+			if player_data.health is None:
+				player_data.health = 100
+			if player_data.score is None:
+				player_data.score = 0
+			return player_data
+		else:
+			# For unexpected types, create a safe default PlayerState
+			logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
+			return PlayerState(
+				position=[0, 0],
+				client_id=str(getattr(player_data, 'client_id', 'unknown')),
+				bombsleft=3,
+				health=100,
+				score=0
+			)
+
+	def oldensure_player_state(self, player_data):
 		"""Convert dictionary player data to PlayerState if needed"""
 		if isinstance(player_data, dict):
+			# Ensure all required fields have defaults
 			return PlayerState(
-				client_id=player_data.get('client_id'),
-				position=player_data.get('position'),
+				client_id=player_data.get('client_id', 'unknown'),
+				position=player_data.get('position', [0, 0]),
 				health=player_data.get('health', DEFAULT_HEALTH),
-				bombsleft=player_data.get('bombsleft', 3),
-				score=player_data.get('score', 0)
+				bombsleft=player_data.get('bombsleft', 3),  # Always default to 3
+				score=player_data.get('score', 0),
+				killed=player_data.get('killed', False),
+				timeout=player_data.get('timeout', False)
+			)
+		elif not isinstance(player_data, PlayerState):
+			# Handle unexpected types
+			logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
+			return PlayerState(
+				client_id=str(getattr(player_data, 'client_id', 'unknown')),
+				position=[0, 0],
+				health=DEFAULT_HEALTH,
+				bombsleft=3,
+				score=0
 			)
 		return player_data
 
@@ -530,44 +577,19 @@ class GameState:
 
 			case 'bomb_exploded':
 				owner_id = game_event.get('owner_id')
-				if owner_id == self.client_id:
-					logger.debug(f'bomb_exploded {owner_id=} {game_event=}')
-					return
 				if owner_id in self.playerlist:
-					player = self.playerlist[owner_id]
-					# Check if bombserver using dict access for safety
-					if isinstance(player, dict) and player.get('client_id') == 'bombserver':
-						# logger.warning(f'bombserver {player=} game_event: {game_event}')
-						return
-					elif isinstance(player, dict):
-						# Initialize bombsleft if missing/None
-						current_bombs = player.get('bombsleft')
-						if current_bombs is None:
-							if self.args.debug:
-								logger.warning(f"Player {owner_id} has no bombsleft attribute game_event={game_event} player={player}")
-								logger.warning(f"playerlist: {self.playerlist}")
-							player['bombsleft'] = 1
-						else:
-							player['bombsleft'] = current_bombs + 1
-					elif isinstance(player, PlayerState):
-						# Handle PlayerState object
-						try:
-							if not hasattr(player, 'bombsleft') or player.bombsleft is None:
-								if self.args.debug:
-									logger.warning(f"Player {owner_id} has no bombsleft attribute game_event={game_event}")
-								player.bombsleft = 1
-							else:
-								player.bombsleft += 1
-						except AttributeError:
-							logger.warning(f"Player {owner_id} has no bombsleft attribute")
-							player.bombsleft = 1
-					else:
-						logger.warning(f'unknown player type: {player=} game_event: {game_event}')
+					# Convert to PlayerState with guaranteed defaults
+					player = self.ensure_player_state(self.playerlist[owner_id])
+					# Store back the PlayerState
+					self.playerlist[owner_id] = player
+
+					# Safely increment bombsleft (now guaranteed to exist)
+					player.bombsleft += 1
 
 					# Update player in sprites group if exists
 					for sprite in self.players_sprites:
-						if getattr(sprite, 'client_id', None) == owner_id:
-							sprite.bombsleft = player['bombsleft'] if isinstance(player, dict) else player.bombsleft
+						if str(getattr(sprite, 'client_id', None)) == str(owner_id):
+							sprite.bombsleft = player.bombsleft
 							break
 
 					await self.broadcast_event(game_event)
