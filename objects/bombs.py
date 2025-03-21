@@ -8,6 +8,7 @@ import random
 from constants import PARTICLE_COUNT, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED
 from .particles import Particle
 from .flames import Flame
+from utils import gen_randid
 
 class Bomb(Sprite):
 	def __init__(self, position, client_id, power=3, speed=10, timer=3, bomb_size=(10,10)):
@@ -42,7 +43,8 @@ class Bomb(Sprite):
 			"client_id": self.client_id,
 			"position": (self.rect.x, self.rect.y),
 			"event_time": time.time(),
-			"handled": False
+			"handled": False,
+			"event_id": gen_randid(),
 		}
 		await gamestate.event_queue.put(explosion_event)
 		self.kill()

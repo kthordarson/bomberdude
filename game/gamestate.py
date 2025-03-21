@@ -42,6 +42,7 @@ class GameState:
 		self.tile_cache = {}
 		self.last_update_times = {}
 		self.client_id = client_id
+		self.processed_explosions = set()  # Track processed explosion IDs
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
@@ -180,7 +181,7 @@ class GameState:
 					client_id=player.get('client_id'),
 					position=player.get('position'),
 					health=player.get('health'),
-					bombsleft=player.get('bombsleft'),
+					initial_bombs=player.get('bombsleft'),
 					score=player.get('score')
 				)
 				return player_state
@@ -257,7 +258,7 @@ class GameState:
 				position=player_data.get('position', [0, 0]),
 				client_id=player_data.get('client_id', 'unknown'),
 				score=player_data.get('score', 0) or 0,  # Convert None to 0
-				bombsleft=player_data.get('bombsleft', 3) or 3,  # Convert None to 3
+				# bombsleft=player_data.get('bombsleft', 3) or 3,  # Convert None to 3
 				health=player_data.get('health', 100) or 100,  # Convert None to 100
 				killed=player_data.get('killed', False) or False,
 				timeout=player_data.get('timeout', False) or False
@@ -290,7 +291,7 @@ class GameState:
 				client_id=player_data.get('client_id', 'unknown'),
 				position=player_data.get('position', [0, 0]),
 				health=player_data.get('health', DEFAULT_HEALTH),
-				bombsleft=player_data.get('bombsleft', 3),  # Always default to 3
+				initial_bombs=player_data.get('bombsleft', 3),  # Always default to 3
 				score=player_data.get('score', 0),
 				killed=player_data.get('killed', False),
 				timeout=player_data.get('timeout', False)
@@ -400,7 +401,7 @@ class GameState:
 						client_id=client_id,
 						position=position,
 						health=DEFAULT_HEALTH,
-						bombsleft=3,
+						initial_bombs=3,
 						score=0
 					)
 					if self.args.debug:
@@ -409,16 +410,7 @@ class GameState:
 				# If client is the server, re-broadcast to ensure all clients get it
 				# if not hasattr(self, 'client_id'):
 				await self.broadcast_event(game_event)
-			# case 'player_update':
-			# 	if client_id in self.playerlist:
-			# 		player_data = game_event.get('player_data')
-			# 		self.playerlist[client_id] = self.ensure_player_state(player_data)
-			# 	else:
-			# 		logger.warning(f'unknownplayer {client_id=} {self.playerlist=} {game_event=}')
-			# 		# Add new player with minimal required fields
-			# 		self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health', DEFAULT_HEALTH), bombsleft=1, score=0)
-			# 	await self.broadcast_event(game_event)
-			# 	await asyncio.sleep(1 / UPDATE_TICK)
+
 			case 'player_update':
 				# Update other player's position in playerlist
 				if client_id != self.client_id:
@@ -429,7 +421,7 @@ class GameState:
 						if player:
 							if isinstance(player, dict):
 								# Direct update without complex interpolation
-								self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health'), bombsleft=player.get('bombsleft'), score=player.get('score'))
+								self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health'), score=player.get('score'))
 							else:
 								# Handle PlayerState objects
 								player.position = position
@@ -437,7 +429,7 @@ class GameState:
 					else:
 						logger.warning(f'newunknownplayer {client_id=}')
 						# Add new player with minimal required fields
-						self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=DEFAULT_HEALTH, bombsleft=1, score=0)
+						self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=DEFAULT_HEALTH, score=0)
 				await self.broadcast_event(game_event)
 				await asyncio.sleep(1 / UPDATE_TICK)
 
@@ -576,6 +568,16 @@ class GameState:
 					await self.broadcast_event(game_event)
 
 			case 'bomb_exploded':
+				event_id = game_event.get('event_id', '')
+				# Skip if already processed this event
+				if event_id and event_id in self.processed_explosions:
+					return
+
+				# Add to processed events
+				if event_id:
+					self.processed_explosions.add(event_id)
+					# Limit size to prevent memory issues
+
 				owner_id = game_event.get('owner_id')
 				if owner_id in self.playerlist:
 					# Convert to PlayerState with guaranteed defaults
@@ -592,7 +594,10 @@ class GameState:
 							sprite.bombsleft = player.bombsleft
 							break
 
-					await self.broadcast_event(game_event)
+					# Only broadcast if you didn't create this event
+					if not game_event.get('handledby') == self.client_id:
+						game_event['handledby'] = self.client_id  # Mark that you handled it
+						await self.broadcast_event(game_event)
 				else:
 					logger.warning(f'owner_id not in playerlist: {owner_id=}')
 
@@ -759,7 +764,7 @@ class GameState:
 										client_id=client_id,
 										position=player_data.get('position', (0, 0)),
 										health=DEFAULT_HEALTH,
-										bombsleft=player_data.get('bombsleft', 3),
+										initial_bombs=player_data.get('bombsleft', 3),
 										score=player_data.get('score', 0)
 									)
 								logger.info(f'newplayer {client_id=} pos: {newplayer.position}')
