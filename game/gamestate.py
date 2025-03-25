@@ -4,7 +4,7 @@ from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Group
 from loguru import logger
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from game.playerstate import PlayerState
 from utils import gen_randid
 from objects.player import KeysPressed

@@ -2,12 +2,7 @@ import asyncio
 import time
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
-import math
 import pygame
-import random
-from constants import PARTICLE_COUNT, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED
-from .particles import Particle
-from .flames import Flame
 from utils import gen_randid
 
 class Bomb(Sprite):

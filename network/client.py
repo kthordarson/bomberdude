@@ -1,14 +1,9 @@
 #!/usr/bin/python
 import orjson as json
-import sys
 import asyncio
 import time
-from argparse import ArgumentParser
-import pygame
 from loguru import logger
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
-from panels import MainMenu, SetupMenu
-from game.bomberdude import Bomberdude
+from constants import UPDATE_TICK
 
 async def send_game_state(game):
 	logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')

@@ -1,5 +1,4 @@
 #!/usr/bin/python
-import orjson as json
 import sys
 import asyncio
 import time
@@ -7,7 +6,7 @@ from argparse import ArgumentParser
 import pygame
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
-from panels import MainMenu, SetupMenu
+from panels import MainMenu
 from game.bomberdude import Bomberdude
 from network.client import send_game_state, receive_game_state
 

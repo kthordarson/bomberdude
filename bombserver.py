@@ -3,7 +3,6 @@ import asyncio
 import sys
 from argparse import ArgumentParser
 from loguru import logger
-from server.api import ApiServer
 from server.server import BombServer
 from server.tui import ServerTUI
 

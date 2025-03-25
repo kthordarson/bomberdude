@@ -1,8 +1,5 @@
-from typing import Tuple, Union
-from pygame.math import Vector2 as Vec2d
 import struct
 import random
-import hashlib as md5lib
 import pygame
 
 md5_unpacker = struct.Struct("4I")
