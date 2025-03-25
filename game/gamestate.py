@@ -182,9 +182,6 @@ class GameState:
 				)
 				return player_state
 			return player
-
-		logger.warning(f'player one NOT found in self.players_sprites:\n{self.players_sprites}')
-		logger.warning(f'{self} playerlist: {self.playerlist}')
 		raise AttributeError('player one NOT found in self.players_sprites or self.players')
 
 	def load_tile_map(self, mapname):
@@ -194,28 +191,25 @@ class GameState:
 		self.static_map_surface = pygame.Surface((self.tile_map.width * self.tile_map.tilewidth, self.tile_map.height * self.tile_map.tileheight))
 
 		for layer in self.tile_map.visible_layers:
-			if isinstance(layer, pytmx.TiledTileLayer):
-				for x, y, gid in layer:
-					# Skip empty tiles (gid = 0)
-					if gid == 0:
-						continue
-					# Cache the tile image if not already cached
-					if gid not in self.tile_cache:
-						self.tile_cache[gid] = self.tile_map.get_tile_image_by_gid(gid)
+			for x, y, gid in layer:
+				# Skip empty tiles (gid = 0)
+				if gid == 0:
+					continue
+				# Cache the tile image if not already cached
+				if gid not in self.tile_cache:
+					self.tile_cache[gid] = self.tile_map.get_tile_image_by_gid(gid)
 
-					tile = self.tile_cache[gid]
-					if tile:
-						self.static_map_surface.blit(tile, (x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
-						if layer.properties.get('collidable'):
-							sprite = pygame.sprite.Sprite()
-							sprite.image = tile
-							sprite.rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
-							sprite.layer = layer.name
-							self.collidable_tiles.append(sprite)
-							if layer.properties.get('killable'):
-								self.killable_tiles.append(sprite)
-			else:
-				logger.warning(f'unknown layer {layer} {type(layer)}')
+				tile = self.tile_cache[gid]
+				if tile:
+					self.static_map_surface.blit(tile, (x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
+					if layer.properties.get('collidable'):
+						sprite = pygame.sprite.Sprite()
+						sprite.image = tile
+						sprite.rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
+						sprite.layer = layer.name
+						self.collidable_tiles.append(sprite)
+						if layer.properties.get('killable'):
+							self.killable_tiles.append(sprite)
 		if self.args.debug:
 			logger.debug(f'loading {self.mapname} done. Cached {len(self.tile_cache)} unique tiles.')
 
@@ -225,8 +219,6 @@ class GameState:
 		screen.blit(self.static_map_surface, camera.apply(pygame.Rect(0, 0, self.static_map_surface.get_width(), self.static_map_surface.get_height())))
 
 	def update_game_state(self, client_id, msg):
-		if self.client_id == 'gamestatenotset' or self.client_id == 'missingclientid':
-			logger.warning(f'self.client_id={self.client_id} client_id not set {client_id} {msg=}')
 		msg_event = msg.get('game_event')
 		msg_client_id = msg_event.get('client_id')
 		if msg_client_id:
@@ -368,18 +360,10 @@ class GameState:
 				# Add player to local playerlist if not present
 				if client_id not in self.playerlist:
 					position = game_event.get('position', [100, 100])
-					self.playerlist[client_id] = PlayerState(
-						client_id=client_id,
-						position=position,
-						health=DEFAULT_HEALTH,
-						initial_bombs=3,
-						score=0
-					)
+					self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=DEFAULT_HEALTH, initial_bombs=3, score=0)
 					if self.args.debug:
 						logger.debug(f"Added new player {client_id} at position {position}")
 
-				# If client is the server, re-broadcast to ensure all clients get it
-				# if not hasattr(self, 'client_id'):
 				await self.broadcast_event(game_event)
 
 			case 'player_update':
@@ -393,6 +377,7 @@ class GameState:
 							if isinstance(player, dict):
 								# Direct update without complex interpolation
 								self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health'), score=player.get('score'))
+								logger.warning(f'playerdict {player} {game_event=}')
 							else:
 								# Handle PlayerState objects
 								player.position = position
@@ -464,13 +449,12 @@ class GameState:
 			case 'player_hit':
 				target_id = game_event.get('target_id')
 				damage = game_event.get('damage', 10)
-				if hasattr(self, 'client_id') and self.client_id:
-					try:
-						player_one = self.get_playerone()
-						if player_one.client_id == target_id:
-							player_one.take_damage(damage, game_event.get('client_id'))
-					except Exception as e:
-						logger.error(f'{e} {type(e)}')
+				try:
+					player_one = self.get_playerone()
+					if player_one.client_id == target_id:
+						player_one.take_damage(damage, game_event.get('client_id'))
+				except Exception as e:
+					logger.error(f'{e} {type(e)}')
 				# Apply damage to target player
 				if target_id not in self.playerlist:
 					logger.warning(f'target_id not in playerlist: {target_id=}')
