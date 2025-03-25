@@ -292,9 +292,9 @@ class PlayerInfoPanel:
         self.rect = pygame.Rect(0, screen.get_height() - height, screen.get_width(), height)
 
         # Create fonts for different text elements
-        self.title_font = pygame.font.Font(None, 24)
-        self.player_font = pygame.font.Font(None, 22)
-        self.stats_font = pygame.font.Font(None, 20)
+        self.title_font = pygame.font.Font(None, 20)
+        self.player_font = pygame.font.Font(None, 16)
+        self.stats_font = pygame.font.Font(None, 14)
 
         # Player colors (local player = green, remote players = different colors)
         self.local_color = (100, 255, 100)
@@ -326,9 +326,7 @@ class PlayerInfoPanel:
         self.surface.blit(title, title_rect)
 
         # Draw horizontal separator
-        pygame.draw.line(self.surface, (200, 200, 200),
-                         (10, self.header_height),
-                         (self.rect.width - 10, self.header_height), 1)
+        pygame.draw.line(self.surface, (200, 200, 200), (10, self.header_height), (self.rect.width - 10, self.header_height), 1)
 
         # Get all players to display
         players = list(self.game_state.playerlist.values())
@@ -374,8 +372,8 @@ class PlayerInfoPanel:
 
         # Get player attributes (safely)
         client_id = getattr(player, 'client_id', 'unknown')
-        if isinstance(client_id, str) and len(client_id) > 8:
-            client_id = client_id[:8] + "..."
+        # if isinstance(client_id, str) and len(client_id) > 8:
+        #     client_id = client_id[:8] + "..."
 
         health = getattr(player, 'health', 0)
         if isinstance(player, dict):
