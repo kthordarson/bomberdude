@@ -487,16 +487,12 @@ class GameState:
 					# Check if player is killed
 					if player['health'] <= 0:
 						# Create kill event
-						kill_event = {
-							"event_time": time.time(),
-							"event_type": "player_killed",
-							"client_id": client_id,  # Killer
-							"target_id": target_id,      # Victim
-							"position": game_event.get('position'),
-							"handled": False,
-							"handledby": "dictplayer_hit",
-							"eventid": gen_randid()
-						}
+						game_event["event_time"] = time.time(),
+						game_event["event_type"] =  "player_killed",
+						game_event["client_id"] =  client_id,
+						game_event["target_id"] = target_id,
+						game_event["position"] = game_event.get('position'),
+						game_event["handledby"] = "PlayerStateplayer_hit",
 						# await self.broadcast_event(kill_event)
 				else:
 					# Handle PlayerState objects
@@ -603,14 +599,13 @@ class GameState:
 		sender_client_id = data.get('client_id')
 		match event_type:
 			case 'playerquit':
-				quit_client_id = data.get('client_id')
-				if quit_client_id and quit_client_id in self.playerlist:
-					logger.info(f"Removing quit player {quit_client_id} from local playerlist")
-					del self.playerlist[quit_client_id]
+				if sender_client_id and sender_client_id in self.playerlist:
+					logger.info(f"Removing quit player {sender_client_id} from local playerlist")
+					del self.playerlist[sender_client_id]
 
 					# Also remove from sprites if present
 					for sprite in list(self.players_sprites):
-						if getattr(sprite, 'client_id', None) == quit_client_id:
+						if getattr(sprite, 'client_id', None) == sender_client_id:
 							sprite.kill()
 
 			case 'acknewplayer':
