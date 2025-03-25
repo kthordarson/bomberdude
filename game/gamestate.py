@@ -472,8 +472,8 @@ class GameState:
 					if player['health'] <= 0:
 						# Create kill event
 						game_event["event_time"] = time.time(),
-						game_event["event_type"] =  "player_killed",
-						game_event["client_id"] =  client_id,
+						game_event["event_type"] = "player_killed",
+						game_event["client_id"] = client_id,
 						game_event["target_id"] = target_id,
 						game_event["position"] = game_event.get('position'),
 						game_event["handledby"] = "PlayerStateplayer_hit",
@@ -486,8 +486,8 @@ class GameState:
 					if player.health <= 0:
 						# Create kill event
 						game_event["event_time"] = time.time(),
-						game_event["event_type"] =  "player_killed",
-						game_event["client_id"] =  client_id,
+						game_event["event_type"] = "player_killed",
+						game_event["client_id"] = client_id,
 						game_event["target_id"] = target_id,
 						game_event["position"] = game_event.get('position'),
 						game_event["handledby"] = "PlayerStateplayer_hit",
