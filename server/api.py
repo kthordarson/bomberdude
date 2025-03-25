@@ -30,11 +30,11 @@ class ApiServer:
 		try:
 			self.runner = web.AppRunner(self.app)
 			await self.runner.setup()
-			logger.debug(f'{self} runner: {self.runner} {host} {port}')
+			logger.debug(f'{self} runner host {host} port {port}')
 			self.site = web.TCPSite(self.runner, host, port)
 			await self.site.start()
 			self._ready.set()
-			logger.info(f"API server {self.site} running at http://{host}:{port}")
+			logger.info(f"API server running at http://{host}:{port}")
 			# Keep the server running
 			while True:
 				await asyncio.sleep(3600)  # Sleep for an hour

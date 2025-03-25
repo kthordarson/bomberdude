@@ -8,11 +8,11 @@ import orjson as json
 from loguru import logger
 from utils import gen_randid
 from game.gamestate import GameState
-from game.playerstate import PlayerState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT
 from camera import Camera
 from objects.player import Bomberplayer
 from debug import draw_debug_info
+from panels import PlayerInfoPanel
 
 class Bomberdude():
 	def __init__(self, args):
@@ -20,10 +20,9 @@ class Bomberdude():
 		self.args = args
 		self.draw_debug = True
 		self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-		# self.screen = pygame.display.get_surface()
 		self.running = True
 		self.selected_bomb = 1
-		self.client_id = str(gen_randid())
+		self.client_id = 'bdudenotset'  # str(gen_randid())
 		self.client_game_state = GameState(args=self.args, client_id=self.client_id)
 		self._connected = False
 		self.timer = 0
@@ -36,6 +35,7 @@ class Bomberdude():
 		self.last_frame_time = time.time()
 		self.delta_time = 0
 		self.show_minimap = False
+		self.player_info_panel = PlayerInfoPanel(self.screen, self.client_game_state)
 
 	def __repr__(self):
 		return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} {self.connected()})"
@@ -47,12 +47,12 @@ class Bomberdude():
 		self.sock.setblocking(False)
 		logger.info(f'connecting to server... event_queue: {self.client_game_state.event_queue.qsize()} ')
 		await asyncio.get_event_loop().sock_connect(self.sock, (self.args.server, 9696))
-		if self.args.debug:
-			logger.debug(f'conn: {self.connected()}')
 		try:
 			resp = requests.get(f"http://{self.args.server}:9699/get_tile_map").text
 			resp = json.loads(resp)
 			mapname = resp.get("mapname")
+			self.client_id = resp.get("client_id")
+			self.client_game_state.client_id = resp.get("client_id")
 			tile_x = resp.get('position').get('position')[0]
 			tile_y = resp.get('position').get('position')[1]
 			modified_tiles = resp.get('modified_tiles', {})  # Get map modifications
@@ -62,10 +62,12 @@ class Bomberdude():
 		self.client_game_state.load_tile_map(mapname)
 		# Apply map modifications
 		if modified_tiles:
-			logger.info(f"Applying {len(modified_tiles)} map modifications from server")
+			if self.args.debug:
+				logger.info(f"Applying {len(modified_tiles)} map modifications from server")
 			self.apply_map_modifications(modified_tiles)
 		else:
-			logger.debug(f'no apply_map_modifications {modified_tiles=} {resp=}')
+			if self.args.debug:
+				logger.debug(f'no apply_map_modifications {len(modified_tiles)}')
 		pixel_x = tile_x * self.client_game_state.tile_map.tilewidth
 		pixel_y = tile_y * self.client_game_state.tile_map.tileheight
 
@@ -74,29 +76,30 @@ class Bomberdude():
 		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
 		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
 		self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
-		if self.args.debug:
-			logger.debug(f'conn: {self.connected()} {pos=} event_queue: {self.client_game_state.event_queue.qsize()}')
-
+		player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
+		player_one.position = pos
+		self.client_game_state.players_sprites.add(player_one)
 		connection_event = {
 			"event_time": 0,
 			"event_type": "connection_event",
-			"client_id": str(self.client_id),
-			"position": (pos.x, pos.y),
+			"client_id": str(player_one.client_id),
+			"position": (player_one.position[0], player_one.position[1]),
+			"bombsleft": player_one.bombsleft,
+			"health": player_one.health,
+			"score": player_one.score,
 			"handled": False,
 			"handledby": "connection_event",
 			"eventid": gen_randid(),
 		}
-		player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
-		player_one.position = pos
-		self.client_game_state.players_sprites.add(player_one)
-		while not self.client_game_state.ready():
-			await self.client_game_state.event_queue.put(connection_event)
-			self._connected = True
-			await asyncio.sleep(1 / UPDATE_TICK)
-			logger.debug(f'conn: {self.connected()} event_queue: {self.client_game_state.event_queue.qsize()} waiting for client_game_state.ready {self.client_game_state.ready()}')
-			await asyncio.sleep(1 / UPDATE_TICK)
-			if self.client_game_state.ready():
-				return True
+		await self.client_game_state.event_queue.put(connection_event)
+		self._connected = True
+		while not self.client_game_state._ready:
+			if self.args.debug:
+				logger.debug(f'connected: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} ')
+			await asyncio.sleep(0.2)
+		if self.args.debug:
+			logger.info(f'connected: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} ')
+		return True
 
 	def apply_map_modifications(self, modified_tiles):
 		"""Apply map modifications received from the server"""
@@ -137,28 +140,22 @@ class Bomberdude():
 
 				# Store the modification in client's state too
 				self.client_game_state.modified_tiles[(tile_x, tile_y)] = new_gid
-
-			logger.info(f"Applied {len(modified_tiles)} map modifications")
+			if self.args.debug:
+				logger.info(f"Applied {len(modified_tiles)} map modifications")
 		except Exception as e:
 			logger.error(f"Error applying map modifications: {e}")
 
 	def draw_player(self, player_data):
-		try:
-			if isinstance(player_data, dict):
-				player = Bomberplayer(texture="data/player2.png", client_id=player_data.get('client_id'))
-				player.position = Vec2d(player_data.get('position', [0, 0]))
-				player.rect.topleft = (player.position.x, player.position.y)
-				self.screen.blit(player.image, self.camera.apply(player.rect))
-			elif isinstance(player_data, PlayerState):
-				player = Bomberplayer(texture="data/player2.png", client_id=player_data.client_id)
-				player.position = Vec2d(player_data.position)
-				# player.rect.topleft = (player.position[0], player.position[1])
-				player.rect.topleft = (player.position.x, player.position.y)
-				self.screen.blit(player.image, self.camera.apply(player.rect))
-			else:
-				logger.warning(f'player_data: {player_data} {type(player_data)}')
-		except Exception as e:
-			logger.error(f'{e} {type(e)} player_data: {player_data}')
+		player_state = self.client_game_state.ensure_player_state(player_data)
+		player = Bomberplayer(texture="data/player2.png", client_id=player_state.client_id)
+
+		# Skip players with None position
+		if player_state.position is None:
+			return
+
+		player.position = Vec2d(player_state.position)
+		player.rect.topleft = (player.position.x, player.position.y)
+		self.screen.blit(player.image, self.camera.apply(player.rect))
 
 	def on_draw(self):
 		# Clear screen
@@ -167,12 +164,18 @@ class Bomberdude():
 		self.client_game_state.render_map(self.screen, self.camera)
 		# Draw local player
 		player_one = self.client_game_state.get_playerone()
-		self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
+		if player_one:
+			self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
 
-		# Draw remote players from playerlist
-		for client_id, player in self.client_game_state.playerlist.items():
-			if client_id != self.client_id:
-				self.draw_player(player)
+			# Draw remote players from playerlist
+			for client_id, player in self.client_game_state.playerlist.items():
+				if client_id != self.client_id:
+					try:
+						self.draw_player(player)
+					except Exception as e:
+						logger.error(f'draw_player {e} {type(e)} player: {player} {type(player)}')
+		else:
+			logger.warning(f"Player one not found {player_one=} {self.client_game_state=}")
 
 		# Draw bullets, bombs, etc.
 		for bullet in self.client_game_state.bullets:
@@ -185,7 +188,7 @@ class Bomberdude():
 			pos = self.camera.apply(bomb.rect)
 			self.screen.blit(bomb.image, pos)
 
-		self.client_game_state.bombs.update(self.client_game_state.explosion_manager)
+		self.client_game_state.bombs.update(self.client_game_state)
 
 		# Draw explosion particles
 		self.client_game_state.explosion_manager.draw(self.screen, self.camera)
@@ -194,6 +197,7 @@ class Bomberdude():
 			draw_debug_info(self.screen, self.client_game_state, self.camera)
 		if self.show_minimap:
 			self.draw_minimap()
+		self.player_info_panel.draw()
 
 	def draw_minimap(self):
 		"""Draw a minimap in the bottom-right corner showing all players"""
@@ -363,7 +367,9 @@ class Bomberdude():
 			self.client_game_state.keyspressed.keys[key] = True
 		if key == pygame.K_SPACE:
 			drop_bomb_event = player_one.drop_bomb()
-			await self.client_game_state.event_queue.put(drop_bomb_event)
+			if drop_bomb_event:
+				if drop_bomb_event['event_type'] == "player_drop_bomb":
+					await self.client_game_state.event_queue.put(drop_bomb_event)
 
 	async def handle_on_key_release(self, key):
 		try:
@@ -416,11 +422,10 @@ class Bomberdude():
 		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
 		self.client_game_state.check_bullet_collisions()
 		await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
-
+		self.client_game_state.cleanup_playerlist()
 		playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
 		update_event = {
 			"event_time": self.timer,
-			"event_type": "player_update",
 			"event_type": "player_update",
 			"client_id": str(player_one.client_id),
 			"position": (player_one.position.x, player_one.position.y),

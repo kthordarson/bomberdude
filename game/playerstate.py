@@ -1,13 +1,14 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, InitVar
 from utils import gen_randid
 from constants import DEFAULT_HEALTH
 
 @dataclass
 class PlayerState:
-	client_id: str
 	position: tuple
+	client_id: str = 'notset'
 	score: int = 0
-	bombsleft: int = 3
+	# bombsleft: int = 3
+	initial_bombs: InitVar[int] = 3  # Use InitVar for constructor param
 	health: int = DEFAULT_HEALTH
 	prev_position: tuple | None = None
 	target_position: tuple | None = None
@@ -23,6 +24,19 @@ class PlayerState:
 	handledby: str = 'PlayerState'
 	playerlist: list = field(default_factory=list)
 	eventid: str = field(default_factory=gen_randid)
+
+	def __post_init__(self, initial_bombs):
+		# Initialize the private attribute for the property
+		self._bombsleft = initial_bombs
+
+	@property
+	def bombsleft(self):
+		return self._bombsleft
+
+	@bombsleft.setter
+	def bombsleft(self, value):
+		# Never exceed 3 bombs
+		self._bombsleft = min(3, max(0, value))
 
 	def to_dict(self):
 		return {

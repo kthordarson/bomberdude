@@ -43,8 +43,8 @@ class KeysPressed:
 @dataclass(eq=True)
 class Bomberplayer(Sprite):
 	texture: str
-	scale: float = 0.7
-	client_id: str = None
+	scale: float = 0.6
+	client_id: str = 'Bomberplayer'
 	position: Vec2d = field(default_factory=lambda: Vec2d(99, 99))
 	# name: str = 'xnonex'
 
@@ -66,6 +66,15 @@ class Bomberplayer(Sprite):
 
 	def __hash__(self):
 		return hash((self.client_id))
+
+	@property
+	def bombsleft(self):
+		return self._bombsleft
+
+	@bombsleft.setter
+	def bombsleft(self, value):
+		# Never exceed 3 bombs
+		self._bombsleft = min(3, max(0, value))
 
 	def to_dict(self):
 		"""Convert player object to dictionary"""
@@ -112,16 +121,26 @@ class Bomberplayer(Sprite):
 
 	def drop_bomb(self):
 		event = {"event_time": 0,
-				"event_type": "drop_bomb",
 				"client_id": self.client_id,
 				"position": self.rect.center,
-				# "position": (self.rect.x, self.rect.y),
 				"ba": 1,
 				"timer": 1,
 				"handled": False,
 				"handledby": self.client_id,
 				"eventid": gen_randid(),}
-		return event
+		if self.killed:
+			self.bombsleft = 0
+			event['event_type'] = "nodropbombkill"
+			logger.warning(f'dead {self.bombsleft=} {self.killed=}')
+		elif 0 < self.bombsleft <= 3:
+			self.bombsleft -= 1
+			event["event_type"] = "player_drop_bomb"
+			event['bombsleft'] = self.bombsleft
+			logger.info(f'drop bomb {self.bombsleft=} {self.killed=}')
+			return event
+		else:
+			event['event_type'] = "nodropbomb"
+			logger.warning(f'no bombs left {self.bombsleft=} {self.killed=}')
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
@@ -146,11 +165,8 @@ class Bomberplayer(Sprite):
 		if self.health <= 0:
 			self.killed = True
 			self.kill(dmgfrom)
-			return 5
-		return 1
 
 	def kill(self, dmgfrom):
 		logger.info(f'{self} killed by {dmgfrom}')
 		self.killed = True
 		self.image = pygame.image.load('data/netplayerdead.png')
-		return 11

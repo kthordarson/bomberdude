@@ -2,6 +2,7 @@
 import pygame
 import time
 from loguru import logger
+import math
 
 # Store the last few frame times for smoothing
 frame_times = []
@@ -44,8 +45,10 @@ def draw_debug_info(screen, game_state, camera):
     # for player in game_state.playerlist.values():
     #     debug_text = font.render(f"netplayer: {player.client_id} {player.position}", True, (155, 125, 125))
     #     screen.blit(debug_text, player.position)
+
     draw_bullet_debug(screen, game_state, camera)
     draw_other_player_id(screen, game_state, camera)
+    draw_blocks_around_player(screen, game_state, camera)
 
 def draw_other_player_id(screen, game_state, camera):
     # Draw player one's ID above their sprite
@@ -84,3 +87,62 @@ def draw_bullet_debug(screen, game_state, camera):
         start_pos = camera.apply(bullet.rect).center
         end_pos = (start_pos[0] + bullet.direction.x * 25, start_pos[1] + bullet.direction.y * 25)
         pygame.draw.line(screen, (255, 255, 0), start_pos, end_pos, 2)
+
+def draw_blocks_around_player(screen, game_state, camera):
+    """
+    Highlights blocks near the player and shows their tile position/ID
+    """
+    # Get player position
+    player_one = game_state.get_playerone()
+    if not player_one:
+        return
+
+    # Convert player position to tile coordinates
+    tile_width = game_state.tile_map.tilewidth
+    tile_height = game_state.tile_map.tileheight
+    player_tile_x = int(player_one.position.x // tile_width)
+    player_tile_y = int(player_one.position.y // tile_height)
+
+    # Define how many tiles around player to highlight
+    highlight_range = 3
+
+    # Create a font for block IDs
+    font = pygame.font.Font(None, 14)
+
+    # Highlight blocks around player
+    for tile in game_state.collidable_tiles:
+        # Calculate tile coordinates
+        tile_x = tile.rect.x // tile_width
+        tile_y = tile.rect.y // tile_height
+
+        # Check if within range of player
+        if (abs(tile_x - player_tile_x) <= highlight_range and abs(tile_y - player_tile_y) <= highlight_range):
+
+            # Convert to screen coordinates
+            screen_rect = camera.apply(tile.rect)
+
+            # Draw highlight
+            highlight_color = (255, 255, 0, 128)  # Yellow semi-transparent
+            if hasattr(tile, 'layer') and tile.layer == 'Blocks':
+                highlight_color = (0, 255, 255, 128)  # Cyan for destructible blocks
+
+            # Draw outline around block
+            pygame.draw.rect(screen, highlight_color, screen_rect, 2)
+
+            # Show block position/ID
+            pos_text = f"({tile_x},{tile_y})"
+            if hasattr(tile, 'id'):
+                pos_text = f"ID:{tile.id}"
+
+            text_surf = font.render(pos_text, True, (255, 255, 255))
+            screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2,
+                                   screen_rect.centery - text_surf.get_height()//2))
+
+            # Draw line from player to this block
+            pygame.draw.line(
+                screen,
+                (100, 100, 255),  # Light blue
+                camera.apply(player_one.rect).center,
+                screen_rect.center,
+                1  # Line width
+            )

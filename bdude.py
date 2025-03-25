@@ -1,5 +1,4 @@
 #!/usr/bin/python
-import orjson as json
 import sys
 import asyncio
 import time
@@ -7,7 +6,7 @@ from argparse import ArgumentParser
 import pygame
 from loguru import logger
 from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
-from panels import MainMenu, SetupMenu
+from panels import MainMenu
 from game.bomberdude import Bomberdude
 from network.client import send_game_state, receive_game_state
 
@@ -25,7 +24,11 @@ def get_args():
     return parser.parse_args()
 
 async def start_game(args):
-    bomberdude_main = Bomberdude(args=args)
+    try:
+        bomberdude_main = Bomberdude(args=args)
+    except Exception as e:
+        logger.error(f'Error: {e} {type(e)}')
+        raise e
 
     sender_task = asyncio.create_task(send_game_state(bomberdude_main))
     receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
@@ -37,12 +40,9 @@ async def start_game(args):
         if not connected:
             logger.error("Failed to establish connection")
             return
-    except asyncio.TimeoutError:
-        logger.error("Connection attempt timed out")
-        return
     except Exception as e:
-        logger.error(f"Connection error: {e}")
-        return
+        logger.error(f"Connection error: {e} {type(e)}")
+        raise e
 
     # Calculate frame time in seconds
     target_fps = UPDATE_TICK  # Using your constant from constants.py
@@ -53,7 +53,11 @@ async def start_game(args):
     while running:
         # start_time = time.time()
         frame_start = time.time()
-        await bomberdude_main.update()
+        try:
+            await bomberdude_main.update()
+        except Exception as e:
+            logger.error(f"Error in update: {e} {type(e)}")
+            await asyncio.sleep(1)
         bomberdude_main.on_draw()
         pygame.display.flip()
         for event in pygame.event.get():
@@ -90,8 +94,8 @@ async def main(args):
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(SCREEN_TITLE)
     running = True
+    mainmenu = MainMenu(screen=screen, args=args)
     try:
-        mainmenu = MainMenu(screen=screen, args=args)
         while running:
             action = mainmenu.run()
             if action == "Start":
@@ -100,6 +104,9 @@ async def main(args):
                 pass
             elif action in ['option1', 'option2', 'option3']:
                 logger.info(f"Setup {action} not implemented")
+            elif action == 'Find server':
+                logger.info("Find server ....")
+                await asyncio.sleep(1)
             elif action == 'Quit':
                 logger.info("Quitting...")
                 running = False
@@ -108,6 +115,7 @@ async def main(args):
                 await asyncio.sleep(1)
     except Exception as e:
         logger.error(f"Error in main: {e} {type(e)}")
+        raise e
     finally:
         pygame.quit()
 
