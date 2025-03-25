@@ -8,7 +8,6 @@ import orjson as json
 from loguru import logger
 from utils import gen_randid
 from game.gamestate import GameState
-from game.playerstate import PlayerState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT
 from camera import Camera
 from objects.player import Bomberplayer
@@ -20,7 +19,6 @@ class Bomberdude():
 		self.args = args
 		self.draw_debug = True
 		self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-		# self.screen = pygame.display.get_surface()
 		self.running = True
 		self.selected_bomb = 1
 		self.client_id = 'bdudenotset'  # str(gen_randid())
@@ -47,8 +45,6 @@ class Bomberdude():
 		self.sock.setblocking(False)
 		logger.info(f'connecting to server... event_queue: {self.client_game_state.event_queue.qsize()} ')
 		await asyncio.get_event_loop().sock_connect(self.sock, (self.args.server, 9696))
-		if self.args.debug:
-			logger.debug(f'conn: {self.connected()}')
 		try:
 			resp = requests.get(f"http://{self.args.server}:9699/get_tile_map").text
 			resp = json.loads(resp)
@@ -64,10 +60,12 @@ class Bomberdude():
 		self.client_game_state.load_tile_map(mapname)
 		# Apply map modifications
 		if modified_tiles:
-			logger.info(f"Applying {len(modified_tiles)} map modifications from server")
+			if self.args.debug:
+				logger.info(f"Applying {len(modified_tiles)} map modifications from server")
 			self.apply_map_modifications(modified_tiles)
 		else:
-			logger.debug(f'no apply_map_modifications {modified_tiles=} {resp=}')
+			if self.args.debug:
+				logger.debug(f'no apply_map_modifications {len(modified_tiles)}')
 		pixel_x = tile_x * self.client_game_state.tile_map.tilewidth
 		pixel_y = tile_y * self.client_game_state.tile_map.tileheight
 
@@ -76,9 +74,6 @@ class Bomberdude():
 		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
 		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
 		self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
-		if self.args.debug:
-			logger.debug(f'conn: {self.connected()} {pos=} event_queue: {self.client_game_state.event_queue.qsize()}')
-
 		player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
 		player_one.position = pos
 		self.client_game_state.players_sprites.add(player_one)
@@ -98,8 +93,10 @@ class Bomberdude():
 		self._connected = True
 		while not self.client_game_state._ready:
 			if self.args.debug:
-				logger.debug(f'conn: {self.connected()} event_queue: {self.client_game_state.event_queue.qsize()} waiting for client_game_state.ready {self.client_game_state.ready()}')
+				logger.debug(f'connected: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} ')
 			await asyncio.sleep(0.2)
+		if self.args.debug:
+			logger.info(f'connected: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} ')
 		return True
 
 	def apply_map_modifications(self, modified_tiles):
@@ -141,8 +138,8 @@ class Bomberdude():
 
 				# Store the modification in client's state too
 				self.client_game_state.modified_tiles[(tile_x, tile_y)] = new_gid
-
-			logger.info(f"Applied {len(modified_tiles)} map modifications")
+			if self.args.debug:
+				logger.info(f"Applied {len(modified_tiles)} map modifications")
 		except Exception as e:
 			logger.error(f"Error applying map modifications: {e}")
 
@@ -157,24 +154,6 @@ class Bomberdude():
 		player.position = Vec2d(player_state.position)
 		player.rect.topleft = (player.position.x, player.position.y)
 		self.screen.blit(player.image, self.camera.apply(player.rect))
-
-	def old_draw_player(self, player_data):
-		if player_data:
-			try:
-				if isinstance(player_data, dict):
-					player = Bomberplayer(texture="data/player2.png", client_id=player_data.get('client_id'))
-					player.position = Vec2d(player_data.get('position'))
-				elif isinstance(player_data, PlayerState):
-					player = Bomberplayer(texture="data/player2.png", client_id=player_data.client_id)
-					player.position = Vec2d(player_data.position)
-				else:
-					logger.warning(f'player_data: {player_data} {type(player_data)}')
-				player.rect.topleft = (player.position.x, player.position.y)
-				self.screen.blit(player.image, self.camera.apply(player.rect))
-			except Exception as e:
-				logger.error(f'{e} {type(e)} player_data: {player_data}')
-		else:
-			logger.error(f"draw_player: {player_data}")
 
 	def on_draw(self):
 		# Clear screen

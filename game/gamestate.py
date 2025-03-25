@@ -70,7 +70,7 @@ class GameState:
 			"position": (tile_x, tile_y),
 			"new_gid": 0,  # 0 = removed
 			"event_time": time.time(),
-			"client_id": self.client_id,  # todo: get client_id from server
+			"client_id": self.client_id,
 			"handled": False,
 		}
 		# await self.update_game_event(map_update_event)

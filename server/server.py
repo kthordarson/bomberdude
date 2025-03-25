@@ -70,7 +70,7 @@ class BombServer:
 		addr = writer.get_extra_info('peername')
 		# sock = writer.get_extra_info('socket')
 
-		logger.info(f"New connection from {addr}")
+		logger.info(f"New connection from {addr[0]} ")
 
 		try:
 			# Add to connection tracking
@@ -119,7 +119,6 @@ class BombServer:
 				map_info = {
 					"event_time": time.time(),
 					"event_type": "map_info",
-					"event_type": "map_info",
 					"mapname": self.server_game_state.mapname,
 					"modified_tiles": modified_tiles,
 					"client_id": client_id,
@@ -127,11 +126,8 @@ class BombServer:
 				}
 				if len(modified_tiles) > 0:
 					logger.debug(f'modified_tiles: {len(modified_tiles)}')
-					# map_info_json = json.dumps(map_info).encode('utf-8') + b'\n'
-					# writer.write(map_info_json)
 					# Broadcast to all clients
 					await self.server_game_state.broadcast_event(map_info)
-					# await writer.drain()
 
 			# Broadcast updated game state to all clients
 			game_state = self.server_game_state.to_json()
@@ -146,7 +142,7 @@ class BombServer:
 						break
 					message = data.decode('utf-8').strip()
 					if not message:  # Skip empty messages
-						logger.warning(f'empty message from {addr}')
+						logger.warning(f'empty message from {addr[0]}')
 						continue
 					try:
 						msg = json.loads(message)
@@ -165,7 +161,7 @@ class BombServer:
 							# Already closed or timed out, just log and continue
 							logger.error(f"Error during connection cleanup: {e} {addr}")
 						client_id = self.connection_to_client_id.get(writer)
-						logger.warning(f"Error decoding json: {e} from: {client_id} data: {message} {addr}")
+						logger.warning(f"Error decoding json: {e} from: {client_id} data: {message} fromaddr: {addr}")
 						try:
 							del self.connection_to_client_id[writer]
 							del self.server_game_state.playerlist[client_id]
@@ -246,7 +242,6 @@ class BombServer:
 		server = await asyncio.start_server(lambda r, w: self.client_connected_cb(r, w), host=self.args.host, port=9696, reuse_address=True,)
 
 		addr = server.sockets[0].getsockname()
-		logger.info(f'Server started on {addr}')
 
 		# Create the HTTP server for map requests
 		app = web.Application()
@@ -255,7 +250,7 @@ class BombServer:
 		await runner.setup()
 		site = web.TCPSite(runner, self.args.host, 9699)
 		await site.start()
-		logger.info(f'HTTP server started on {self.args.host}:9699')
+		logger.info(f'HTTPapi server started on {self.args.host}:9699 addr: {addr}')
 
 		# Start processing messages
 		self.process_task = self.loop.create_task(self.process_messages())
