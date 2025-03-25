@@ -505,17 +505,12 @@ class GameState:
 						logger.debug(f'PlayerStateplayer_hit {target_id=} {damage=} {player.client_id=} {player.health=} ')
 					if player.health <= 0:
 						# Create kill event
-						kill_event = {
-							"event_time": time.time(),
-							"event_type": "player_killed",
-							"client_id": client_id,
-							"target_id": target_id,
-							"position": game_event.get('position'),
-							"handled": False,
-							"handledby": "PlayerStateplayer_hit",
-							"eventid": gen_randid()
-						}
-						# await self.broadcast_event(kill_event)
+						game_event["event_time"] = time.time(),
+						game_event["event_type"] =  "player_killed",
+						game_event["client_id"] =  client_id,
+						game_event["target_id"] = target_id,
+						game_event["position"] = game_event.get('position'),
+						game_event["handledby"] = "PlayerStateplayer_hit",
 				if not game_event.get('handled'):
 					game_event['handled'] = True
 					game_event['health'] = player.health  # Include updated health in event
