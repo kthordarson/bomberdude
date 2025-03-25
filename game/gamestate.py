@@ -73,12 +73,7 @@ class GameState:
 			"client_id": self.client_id,
 			"handled": False,
 		}
-		# await self.update_game_event(map_update_event)
-		# await self.broadcast_event(map_update_event)
-		# Send to server via event_queue instead of broadcast
 		await self.event_queue.put(map_update_event)
-		if self.args.debug:
-			logger.debug(f"{self.client_id} sending map_update to server: {tile_x=} {tile_y=}")
 
 	def ready(self):
 		return self._ready
@@ -349,8 +344,6 @@ class GameState:
 							if block in self.collidable_tiles:
 								self.collidable_tiles.remove(block)
 							break
-				if self.args.debug:
-					logger.debug(f'[map_update] {game_event.get('client_id')} sent {tile_x=}, {tile_y=} -> {new_gid=}')
 				await self.broadcast_event(game_event)
 
 			case 'player_joined':

@@ -116,8 +116,7 @@ def draw_blocks_around_player(screen, game_state, camera):
         tile_y = tile.rect.y // tile_height
 
         # Check if within range of player
-        if (abs(tile_x - player_tile_x) <= highlight_range and
-            abs(tile_y - player_tile_y) <= highlight_range):
+        if (abs(tile_x - player_tile_x) <= highlight_range and abs(tile_y - player_tile_y) <= highlight_range):
 
             # Convert to screen coordinates
             screen_rect = camera.apply(tile.rect)

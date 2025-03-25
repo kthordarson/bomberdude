@@ -12,6 +12,7 @@ from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_H
 from camera import Camera
 from objects.player import Bomberplayer
 from debug import draw_debug_info
+from panels import PlayerInfoPanel
 
 class Bomberdude():
 	def __init__(self, args):
@@ -34,6 +35,7 @@ class Bomberdude():
 		self.last_frame_time = time.time()
 		self.delta_time = 0
 		self.show_minimap = False
+		self.player_info_panel = PlayerInfoPanel(self.screen, self.client_game_state)
 
 	def __repr__(self):
 		return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} {self.connected()})"
@@ -195,6 +197,7 @@ class Bomberdude():
 			draw_debug_info(self.screen, self.client_game_state, self.camera)
 		if self.show_minimap:
 			self.draw_minimap()
+		self.player_info_panel.draw()
 
 	def draw_minimap(self):
 		"""Draw a minimap in the bottom-right corner showing all players"""

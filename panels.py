@@ -271,3 +271,146 @@ class ServerDiscoveryPanel():
                 button.draw(surface)
         except Exception as e:
             logger.error(f"Error drawing server discovery panel: {e} {type(e)}")
+
+class PlayerInfoPanel:
+    def __init__(self, screen, game_state, height=80, bg_color=(30, 30, 40, 180)):
+        """
+        Create a panel showing player information at the bottom of the screen
+
+        Args:
+            screen: The pygame surface to draw on
+            game_state: The game state containing player information
+            height: Height of the panel in pixels
+            bg_color: Background color with optional alpha (transparency)
+        """
+        self.screen = screen
+        self.game_state = game_state
+        self.height = height
+        self.bg_color = bg_color
+
+        # Panel position at the bottom of the screen
+        self.rect = pygame.Rect(0, screen.get_height() - height, screen.get_width(), height)
+
+        # Create fonts for different text elements
+        self.title_font = pygame.font.Font(None, 24)
+        self.player_font = pygame.font.Font(None, 22)
+        self.stats_font = pygame.font.Font(None, 20)
+
+        # Player colors (local player = green, remote players = different colors)
+        self.local_color = (100, 255, 100)
+        self.remote_colors = [(255, 100, 100), (100, 100, 255), (255, 255, 100), (255, 100, 255)]
+
+        # Health bar colors
+        self.health_bg = (60, 60, 60)
+        self.health_fg = (220, 50, 50)
+
+        # Header height
+        self.header_height = 25
+
+        # Player card dimensions
+        self.card_width = 180
+        self.card_height = self.height - self.header_height - 10  # 5px padding top and bottom
+        self.card_spacing = 10
+
+        # Create a semi-transparent surface for the background
+        self.surface = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+
+    def draw(self):
+        """Draw the player info panel"""
+        # Clear the surface with semi-transparent background
+        self.surface.fill(self.bg_color)
+
+        # Draw panel title
+        title = self.title_font.render("PLAYERS", True, (255, 255, 255))
+        title_rect = title.get_rect(midtop=(self.rect.width // 2, 5))
+        self.surface.blit(title, title_rect)
+
+        # Draw horizontal separator
+        pygame.draw.line(self.surface, (200, 200, 200),
+                         (10, self.header_height),
+                         (self.rect.width - 10, self.header_height), 1)
+
+        # Get all players to display
+        players = list(self.game_state.playerlist.values())
+        local_player = self.game_state.get_playerone()
+
+        # Calculate how many player cards can fit in a row
+        cards_per_row = max(1, (self.rect.width - 20) // (self.card_width + self.card_spacing))
+
+        # Draw player cards
+        if local_player:
+            # Always draw local player first
+            self._draw_player_card(0, local_player, self.local_color)
+
+            # Draw remote players
+            card_index = 1
+            for player in players:
+                # Skip local player as it's already drawn
+                if hasattr(player, 'client_id') and player.client_id == local_player.client_id:
+                    continue
+
+                # Skip if we've run out of space
+                if card_index >= cards_per_row:
+                    break
+
+                # Draw remote player card with cycling colors
+                color_index = (card_index - 1) % len(self.remote_colors)
+                self._draw_player_card(card_index, player, self.remote_colors[color_index])
+                card_index += 1
+
+        # Blit the panel surface onto the screen
+        self.screen.blit(self.surface, self.rect)
+
+    def _draw_player_card(self, index, player, color):
+        """Draw a card with player information"""
+        # Calculate card position
+        x = 10 + index * (self.card_width + self.card_spacing)
+        y = self.header_height + 5
+
+        # Create player card background with rounded corners
+        card_rect = pygame.Rect(x, y, self.card_width, self.card_height)
+        pygame.draw.rect(self.surface, (50, 50, 60), card_rect, border_radius=5)
+        pygame.draw.rect(self.surface, color, card_rect, width=2, border_radius=5)
+
+        # Get player attributes (safely)
+        client_id = getattr(player, 'client_id', 'unknown')
+        if isinstance(client_id, str) and len(client_id) > 8:
+            client_id = client_id[:8] + "..."
+
+        health = getattr(player, 'health', 0)
+        if isinstance(player, dict):
+            health = player.get('health', 0)
+            score = player.get('score', 0)
+            bombsleft = player.get('bombsleft', 0)
+        else:
+            health = getattr(player, 'health', 0)
+            score = getattr(player, 'score', 0)
+            bombsleft = getattr(player, 'bombsleft', 0)
+
+        # Draw player ID
+        id_text = self.player_font.render(f"Player: {client_id}", True, (255, 255, 255))
+        self.surface.blit(id_text, (x + 10, y + 5))
+
+        # Draw health bar
+        health_bar_rect = pygame.Rect(x + 10, y + 30, self.card_width - 20, 12)
+        pygame.draw.rect(self.surface, self.health_bg, health_bar_rect)
+
+        # Calculate health bar width
+        health_pct = max(0, min(100, health)) / 100
+        health_width = int(health_pct * (self.card_width - 20))
+
+        if health_width > 0:
+            health_fill_rect = pygame.Rect(x + 10, y + 30, health_width, 12)
+            pygame.draw.rect(self.surface, self.health_fg, health_fill_rect)
+
+        # Draw health text on top of the bar
+        health_text = self.stats_font.render(f"HP: {health}", True, (255, 255, 255))
+        health_text_rect = health_text.get_rect(center=health_bar_rect.center)
+        self.surface.blit(health_text, health_text_rect)
+
+        # Draw score and bombs
+        score_text = self.stats_font.render(f"Score: {score}", True, (255, 255, 255))
+        self.surface.blit(score_text, (x + 10, y + 47))
+
+        bombs_text = self.stats_font.render(f"Bombs: {bombsleft}", True, (255, 255, 255))
+        self.surface.blit(bombs_text, (x + 10, y + 67))
