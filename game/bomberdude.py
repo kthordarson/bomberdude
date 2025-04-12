@@ -18,7 +18,7 @@ class Bomberdude():
 	def __init__(self, args):
 		self.title = "Bomberdude"
 		self.args = args
-		self.draw_debug = True
+		self.draw_debug = False
 		self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 		self.running = True
 		self.selected_bomb = 1
