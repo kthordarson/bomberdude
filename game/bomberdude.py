@@ -3,6 +3,7 @@ import asyncio
 import requests
 import pygame
 import socket
+import argparse
 from pygame.math import Vector2 as Vec2d
 import orjson as json
 from loguru import logger
@@ -15,7 +16,7 @@ from debug import draw_debug_info
 from panels import PlayerInfoPanel
 
 class Bomberdude():
-	def __init__(self, args):
+	def __init__(self, args: argparse.Namespace):
 		self.title = "Bomberdude"
 		self.args = args
 		self.draw_debug = False

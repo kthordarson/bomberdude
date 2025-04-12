@@ -1,5 +1,6 @@
 # panels.py
 import asyncio
+import argparse
 import socket
 import json
 import pygame
@@ -32,7 +33,7 @@ class Button:
         surface.blit(text, text_rect)
 
 class MainMenu:
-    def __init__(self, screen, args):
+    def __init__(self, screen, args: argparse.Namespace):
         self.screen = screen
         self.args = args
         self.options = ["Start", "Find server", "Setup", "Quit"]
@@ -104,7 +105,7 @@ class MainMenu:
         return None
 
 class SetupMenu:
-    def __init__(self, screen, args):
+    def __init__(self, screen, args: argparse.Namespace):
         self.screen = screen
         self.args = args
         self.options = ["option1", "option2", "option3", "Back"]

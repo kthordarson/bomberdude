@@ -2,6 +2,7 @@
 import sys
 import asyncio
 import time
+import argparse
 from argparse import ArgumentParser
 import pygame
 from loguru import logger
@@ -22,7 +23,7 @@ def get_args():
     parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude_profile.prof')
     return parser.parse_args()
 
-async def start_game(args):
+async def start_game(args: argparse.Namespace):
     try:
         bomberdude_main = Bomberdude(args=args)
     except Exception as e:
