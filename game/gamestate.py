@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from game.playerstate import PlayerState
 from utils import gen_randid
-from objects.player import KeysPressed
+from objects.player import KeysPressed, Bomberplayer
 from objects.bullets import Bullet
 from objects.bombs import Bomb
 from objects.explosionmanager import ExplosionManager
@@ -61,8 +61,7 @@ class GameState:
 		layer.data[tile_y][tile_x] = 0  # Set to empty tile
 		self.modified_tiles[(tile_x, tile_y)] = 0
 		# Update visual representation
-		floor_tile = self.tile_cache.get(1)
-		self.static_map_surface.blit(floor_tile, (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))
+		self.static_map_surface.blit(self.tile_cache.get(1), (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))  # type: ignore
 
 		# Broadcast the map modification to all clients
 		map_update_event = {
@@ -158,7 +157,7 @@ class GameState:
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
 
-	def get_playerone(self, client_id=None):
+	def get_playerone(self, client_id=None) -> Bomberplayer | None:
 		for player in self.players_sprites:
 			if player.client_id == self.client_id:
 				return player
@@ -169,11 +168,11 @@ class GameState:
 			if isinstance(player, dict):
 				# Create a temporary PlayerState for dict type
 				player_state = PlayerState(
-					client_id=player.get('client_id'),
-					position=player.get('position'),
-					health=player.get('health'),
-					initial_bombs=player.get('bombsleft'),
-					score=player.get('score')
+					client_id=player.get('client_id', 'unknown'),
+					position=player.get('position', [0, 0]),
+					health=player.get('health', 100),
+					initial_bombs=player.get('bombsleft', 3),
+					score=player.get('score', 0),
 				)
 				return player_state
 			return player
@@ -261,7 +260,6 @@ class GameState:
 			return PlayerState(
 				position=[0, 0],
 				client_id=str(getattr(player_data, 'client_id', 'unknown')),
-				bombsleft=3,
 				health=100,
 				score=0
 			)

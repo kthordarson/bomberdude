@@ -4,7 +4,7 @@ from threading import Thread, Event
 
 class ServerTUI():
 	def __init__(self, server, debug=False, gq=None):
-		Thread.__init__(self, daemon=True, name="tui")
+		# Thread.__init__(self, daemon=True, name="tui")
 		self.gq = gq
 		self.server = server
 		self.debug = debug

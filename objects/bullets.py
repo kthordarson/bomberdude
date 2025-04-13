@@ -14,7 +14,7 @@ class Bullet(pygame.sprite.Sprite):
 		if self.direction.length() > 0:
 			self.direction = self.direction.normalize()
 		self.rect = self.image.get_rect(center=(int(self.world_position.x), int(self.world_position.y)))
-		self.rect.center = (self.world_position.x, self.world_position.y)
+		self.rect.center = (int(self.world_position.x), int(self.world_position.y))
 
 		self.screen_rect = screen_rect
 		self.bounce_count = bounce_count

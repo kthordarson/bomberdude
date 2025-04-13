@@ -43,7 +43,7 @@ class ExplosionManager:
 	async def update(self, collidable_tiles, game_state):
 		self.particles.update(collidable_tiles)
 		for flame in self.flames:
-			await flame.update(collidable_tiles, game_state)
+			await flame.flame_update(collidable_tiles, game_state)
 
 	def draw(self, screen, camera):
 		for particle in self.particles:
@@ -58,6 +58,6 @@ class ExplosionManager:
 		for direction in directions:
 			# for i in range(1, self.power + 1):
 			# flame_position = Vec2d(self.position.x + direction[0] * i * self.rect.width, self.position.y + direction[1] * i * self.rect.height)
-			flame_position = Vec2d(owner.rect.center[0] + direction[0] * 3, owner.rect.center[1] + direction[1] * 2)
+			flame_position = Vec2d(int(owner.rect.center[0] + direction[0] * 3), int(owner.rect.center[1] + direction[1] * 2))
 			flame = Flame(flame_position, direction, owner.client_id)
 			self.add_flame(flame)

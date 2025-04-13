@@ -18,7 +18,7 @@ def load_image(fullname, colorkey=None):
 		print(f"[load_image] {fullname} {e}")
 
 
-def gen_randid() -> int:
+def gen_randid() -> str:
 	return generate_name()  # int(''.join([str(random.randint(0,9)) for k in range(10)]))
 
 def generate_name(style="bomber"):

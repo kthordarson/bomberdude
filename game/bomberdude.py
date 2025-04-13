@@ -63,12 +63,10 @@ class Bomberdude():
 		self.client_game_state.load_tile_map(mapname)
 		# Apply map modifications
 		if modified_tiles:
-			if self.args.debug:
-				logger.info(f"Applying {len(modified_tiles)} map modifications from server")
 			self.apply_map_modifications(modified_tiles)
 		else:
 			if self.args.debug:
-				logger.debug(f'no apply_map_modifications {len(modified_tiles)}')
+				logger.debug(f'no modified_tiles {len(modified_tiles)}')
 		pixel_x = tile_x * self.client_game_state.tile_map.tilewidth
 		pixel_y = tile_y * self.client_game_state.tile_map.tileheight
 
@@ -104,6 +102,8 @@ class Bomberdude():
 
 	def apply_map_modifications(self, modified_tiles):
 		"""Apply map modifications received from the server"""
+		if self.args.debug:
+			logger.info(f"Applying {len(modified_tiles)} map modifications from server")
 		try:
 			for pos_str, new_gid in modified_tiles.items():
 				# Convert string key back to tuple if needed
@@ -116,31 +116,34 @@ class Bomberdude():
 
 				# Apply the modification to the tile map
 				layer = self.client_game_state.tile_map.get_layer_by_name('Blocks')
-				if layer and 0 <= tile_y < len(layer.data) and 0 <= tile_x < len(layer.data[0]):
-					layer.data[tile_y][tile_x] = new_gid
+				if layer and hasattr(layer, 'data'):
+					if self.args.debug:
+						logger.debug(f'layer: {layer} layerdatalen: {len(layer.data)}')
+					if layer and 0 <= tile_y < len(layer.data) and 0 <= tile_x < len(layer.data[0]):
+						layer.data[tile_y][tile_x] = new_gid
 
-					# Update visual representation
-					if new_gid == 0:  # If block was destroyed
-						floor_tile = self.client_game_state.tile_cache.get(1)  # Get floor tile
-						if floor_tile:
-							self.client_game_state.static_map_surface.blit(
-								floor_tile,
-								(tile_x * self.client_game_state.tile_map.tilewidth,
-								tile_y * self.client_game_state.tile_map.tileheight)
-							)
+						# Update visual representation
+						if new_gid == 0:  # If block was destroyed
+							floor_tile = self.client_game_state.tile_cache.get(1)  # Get floor tile
+							if floor_tile:
+								self.client_game_state.static_map_surface.blit(
+									floor_tile,
+									(tile_x * self.client_game_state.tile_map.tilewidth,
+									tile_y * self.client_game_state.tile_map.tileheight)
+								)
 
-						# Remove from collision lists if applicable
-						for block in self.client_game_state.killable_tiles[:]:
-							block_x = block.rect.x // self.client_game_state.tile_map.tilewidth
-							block_y = block.rect.y // self.client_game_state.tile_map.tileheight
-							if block_x == tile_x and block_y == tile_y:
-								self.client_game_state.killable_tiles.remove(block)
-								if block in self.client_game_state.collidable_tiles:
-									self.client_game_state.collidable_tiles.remove(block)
-								break
+							# Remove from collision lists if applicable
+							for block in self.client_game_state.killable_tiles[:]:
+								block_x = block.rect.x // self.client_game_state.tile_map.tilewidth
+								block_y = block.rect.y // self.client_game_state.tile_map.tileheight
+								if block_x == tile_x and block_y == tile_y:
+									self.client_game_state.killable_tiles.remove(block)
+									if block in self.client_game_state.collidable_tiles:
+										self.client_game_state.collidable_tiles.remove(block)
+									break
 
-				# Store the modification in client's state too
-				self.client_game_state.modified_tiles[(tile_x, tile_y)] = new_gid
+					# Store the modification in client's state too
+					self.client_game_state.modified_tiles[(tile_x, tile_y)] = new_gid
 			if self.args.debug:
 				logger.info(f"Applied {len(modified_tiles)} map modifications")
 		except Exception as e:
@@ -155,7 +158,7 @@ class Bomberdude():
 			return
 
 		player.position = Vec2d(player_state.position)
-		player.rect.topleft = (player.position.x, player.position.y)
+		player.rect.topleft = (int(player.position.x), int(player.position.y))
 		self.screen.blit(player.image, self.camera.apply(player.rect))
 
 	def on_draw(self):
@@ -165,7 +168,7 @@ class Bomberdude():
 		self.client_game_state.render_map(self.screen, self.camera)
 		# Draw local player
 		player_one = self.client_game_state.get_playerone()
-		if player_one:
+		if player_one.image:
 			self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
 
 			# Draw remote players from playerlist
@@ -232,15 +235,15 @@ class Bomberdude():
 		# Draw player one (as green dot)
 		try:
 			player_one = self.client_game_state.get_playerone()
-			player_x = minimap_x + int(player_one.position.x * scale)
-			player_y = minimap_y + int(player_one.position.y * scale)
+			player_x = minimap_x + int(player_one.position[0] * scale)
+			player_y = minimap_y + int(player_one.position[1] * scale)
 			pygame.draw.circle(self.screen, (0, 255, 0), (player_x, player_y), 3)
 
 			# Get camera viewport position
 			# Instead of using offset_x and offset_y directly, calculate it from player position and screen center
 			# This assumes camera is centered on player (modify if your camera logic is different)
-			center_x = player_one.position.x - SCREEN_WIDTH/2
-			center_y = player_one.position.y - SCREEN_HEIGHT/2
+			center_x = player_one.position[0] - SCREEN_WIDTH/2
+			center_y = player_one.position[1] - SCREEN_HEIGHT/2
 
 			# Clamp to map boundaries
 			center_x = max(0, min(center_x, map_width - SCREEN_WIDTH))
@@ -262,7 +265,7 @@ class Bomberdude():
 					if isinstance(player, dict) and 'position' in player:
 						pos = player['position']
 					elif hasattr(player, 'position'):
-						pos = player.position
+						pos = player.position  # type: ignore
 					else:
 						continue
 
@@ -288,7 +291,7 @@ class Bomberdude():
 				# Convert screen coordinates to world coordinates
 				mouse_world_pos = self.camera.reverse_apply(x, y)
 				# player_world_pos = player_one.rect.center
-				player_world_pos = (player_one.position.x + player_one.rect.width/2, player_one.position.y + player_one.rect.height/2)
+				player_world_pos = (player_one.position[0] + player_one.rect.width/2, player_one.position[1] + player_one.rect.height/2)
 
 				# Calculate direction in world space
 				direction_vector = Vec2d(
