@@ -14,7 +14,7 @@ class Flame(Sprite):
 		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
 		self.rect = self.image.get_rect()
 		self.position = Vec2d(position)
-		self.rect.topleft = self.position
+		self.rect.topleft = (int(self.position[0]), int(self.position[1]))
 		self.direction = direction
 		self.shrink_rate = 0.02
 		self.speed = 2
@@ -25,11 +25,11 @@ class Flame(Sprite):
 		self.max_distance = power * 32  # Max distance based on power (assuming 32px tiles)
 		self.distance_traveled = 0
 
-	async def update(self, collidable_tiles, game_state):
+	async def flame_update(self, collidable_tiles, game_state) -> None:
 		old_position = Vec2d(self.position)
 		self.position.x += self.direction[0] * FLAME_SPEED
 		self.position.y += self.direction[1] * FLAME_SPEED
-		self.rect.topleft = self.position
+		self.rect.topleft = (int(self.position[0]), int(self.position[1]))
 
 		# Calculate distance traveled this frame
 		movement = Vec2d(self.position) - old_position
@@ -48,7 +48,7 @@ class Flame(Sprite):
 			# Update image size
 			self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
 			self.rect = self.image.get_rect()
-			self.rect.center = self.position
+			self.rect.center = (int(self.position[0]), int(self.position[1]))
 			for tile in game_state.killable_tiles:
 				try:
 					if self.rect.colliderect(tile.rect):

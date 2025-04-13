@@ -50,7 +50,8 @@ class Bomberplayer(Sprite):
 
 	def __post_init__(self):
 		super().__init__()
-		self.image = pygame.image.load(self.texture)
+		loaded_image = pygame.image.load(self.texture)
+		self.image = loaded_image.convert_alpha() if loaded_image.get_alpha() else loaded_image.convert()
 		self.rect = self.image.get_rect()
 		self.change_x = 0
 		self.change_y = 0
@@ -164,9 +165,9 @@ class Bomberplayer(Sprite):
 		logger.info(f'{self} health:{self.health} {damage=} {dmgfrom=}')
 		if self.health <= 0:
 			self.killed = True
-			self.kill(dmgfrom)
+			self.player_kill(dmgfrom)
 
-	def kill(self, dmgfrom):
+	def player_kill(self, dmgfrom):
 		logger.info(f'{self} killed by {dmgfrom}')
 		self.killed = True
 		self.image = pygame.image.load('data/netplayerdead.png')

@@ -252,7 +252,7 @@
             "selectedLayer": 1,
             "viewCenter": {
                 "x": 511.0789243046266,
-                "y": 341.97887356427873
+                "y": 341.9788735642788
             }
         },
         "data/maptest.json": {
@@ -296,11 +296,11 @@
             }
         },
         "data/maptest5.tmx": {
-            "scale": 0.75,
+            "scale": 1,
             "selectedLayer": 2,
             "viewCenter": {
-                "x": 1004,
-                "y": 534.6666666666667
+                "x": 486,
+                "y": 637
             }
         },
         "data/maptest6.tmx": {
@@ -342,10 +342,10 @@
     "project": "bomberdude.tiled-project",
     "property.type": "bool",
     "recentFiles": [
-        "data/map3.tmx",
         "data/map5.tmx",
-        "data/map4.tmx",
         "data/maptest5.tmx",
+        "data/map3.tmx",
+        "data/map4.tmx",
         "data/btiles.tsx",
         "data/map.json",
         "data/map4.json",

@@ -18,7 +18,7 @@ def load_image(fullname, colorkey=None):
 		print(f"[load_image] {fullname} {e}")
 
 
-def gen_randid() -> int:
+def gen_randid() -> str:
 	return generate_name()  # int(''.join([str(random.randint(0,9)) for k in range(10)]))
 
 def generate_name(style="bomber"):
@@ -68,13 +68,13 @@ def generate_name(style="bomber"):
 	# Generate the name
 	adj = random.choice(adjectives)
 	noun = random.choice(nouns)
-
+	idnum = int(''.join([str(random.randint(0,9)) for k in range(3)]))
 	# Add random number suffix 25% of the time
 	if random.random() < 0.25:
 		suffix = str(random.randint(1, 99))
-		return f"{adj}{noun}{suffix}"
+		return f"{adj}{noun}{suffix}{idnum}"
 
-	return f"{adj}{noun}"
+	return f"{adj}{noun}{idnum}"
 
 def generate_player_id():
 	"""Generate a unique player ID with a funny name prefix"""

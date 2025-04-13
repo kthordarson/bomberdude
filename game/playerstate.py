@@ -7,7 +7,7 @@ class PlayerState:
 	position: tuple
 	client_id: str = 'notset'
 	score: int = 0
-	# bombsleft: int = 3
+	# bombsleft: InitVar[int] = 3  # Use InitVar for constructor param
 	initial_bombs: InitVar[int] = 3  # Use InitVar for constructor param
 	health: int = DEFAULT_HEALTH
 	prev_position: tuple | None = None

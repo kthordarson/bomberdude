@@ -11,7 +11,7 @@ from game.gamestate import GameState
 from server.api import ApiServer
 from utils import gen_randid
 from constants import UPDATE_TICK
-from .discovery import ServerDiscovery
+# from .discovery import ServerDiscovery
 
 class BombServer:
 	def __init__(self, args):
@@ -25,8 +25,8 @@ class BombServer:
 		self.loop = asyncio.get_event_loop()
 		# self.ticker_broadcast = asyncio.create_task(self.ticker_broadcast(),)
 		self._stop = Event()
-		self.discovery_service = ServerDiscovery(self)
-		asyncio.create_task(self.discovery_service.start_discovery_service())
+		# self.discovery_service = ServerDiscovery(self)
+		# asyncio.create_task(self.discovery_service.start_discovery_service())
 
 	async def process_messages(self):
 		"""Process messages from client queue"""
@@ -37,33 +37,28 @@ class BombServer:
 			except asyncio.QueueEmpty:
 				continue
 			self.server_game_state.client_queue.task_done()
-			try:
-				client_id = msg.get('client_id')
-			except Exception as e:
-				logger.error(f"Error processing message: {e} {type(e)}    {msg}")
-				raise e
-			if client_id == 'gamestatenotset' or client_id == 'bdudenotset' or client_id == 'missingclientid':
+			client_id = msg.get('client_id')
+			if client_id in ('gamestatenotset', 'bdudenotset', 'missingclientid'):
 				logger.error(f"client_id not set: {msg}")
 				continue
-			else:
+			try:
+				self.server_game_state.update_game_state(client_id, msg)
+			except (TypeError, UnboundLocalError) as e:
+				logger.warning(f"{e} {type(e)} {msg}")
+			except asyncio.CancelledError as e:
+				logger.info(f"CancelledError {e}")
+				await self.stop()
+				break
+			except Exception as e:
+				logger.error(f"Message processing error: {e} {type(e)} {msg}")
+				await self.stop()
+				break
+			if msg.get('game_event'):
+				game_event = msg.get('game_event')
 				try:
-					self.server_game_state.update_game_state(client_id, msg)
-				except (TypeError, UnboundLocalError) as e:
-					logger.warning(f"{e} {type(e)} {msg}")
-				except asyncio.CancelledError as e:
-					logger.info(f"CancelledError {e}")
-					await self.stop()
-					break
+					await self.server_game_state.update_game_event(game_event)
 				except Exception as e:
-					logger.error(f"Message processing error: {e} {type(e)} {msg}")
-					await self.stop()
-					break
-				if msg.get('game_event'):
-					game_event = msg.get('game_event')
-					try:
-						await self.server_game_state.update_game_event(game_event)
-					except Exception as e:
-						logger.error(f'{e} {type(e)} msg={msg}')
+					logger.error(f'{e} {type(e)} msg={msg}')
 
 	async def client_connected_cb(self, reader, writer):
 		"""Handle new client connections using StreamReader/StreamWriter"""

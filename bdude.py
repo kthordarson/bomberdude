@@ -2,6 +2,7 @@
 import sys
 import asyncio
 import time
+import argparse
 from argparse import ArgumentParser
 import pygame
 from loguru import logger
@@ -12,18 +13,17 @@ from network.client import send_game_state, receive_game_state
 
 def get_args():
     parser = ArgumentParser(description="bdude")
-    parser.add_argument("--testclient", default=False, action="store_true", dest="testclient")
     parser.add_argument("--name", action="store", dest="name", default="bdude")
-    parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1")
-    parser.add_argument("--server", action="store", dest="server", default="127.0.0.1")
-    parser.add_argument("--port", action="store", dest="port", default=9696)
-    parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
-    parser.add_argument("-dp", "--debugpacket", action="store_true", dest="debugpacket", default=False,)
+    parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1", help='ip address to listen (server mode)')
+    parser.add_argument("--server", action="store", dest="server", default="127.0.0.1", help='ip address of the server (client mode)')
+    parser.add_argument("--port", action="store", dest="port", default=9696, type=int, help='port number')
+    parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False, help="Enable debug mode")
+    parser.add_argument("-dp", "--debugpacket", action="store_true", dest="debugpacket", default=False, help="Enable debug packet mode")
     parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
     parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude_profile.prof')
     return parser.parse_args()
 
-async def start_game(args):
+async def start_game(args: argparse.Namespace):
     try:
         bomberdude_main = Bomberdude(args=args)
     except Exception as e:
@@ -49,8 +49,7 @@ async def start_game(args):
     frame_time = 1.0 / target_fps
 
     # Main loop
-    running = True
-    while running:
+    while bomberdude_main.running:
         # start_time = time.time()
         frame_start = time.time()
         try:
@@ -64,7 +63,6 @@ async def start_game(args):
             if event.type == pygame.QUIT:
                 bomberdude_main.running = False
                 bomberdude_main._connected = False
-                running = False
             elif event.type == pygame.KEYDOWN:
                 await bomberdude_main.handle_on_key_press(event.key)
             elif event.type == pygame.KEYUP:
@@ -76,9 +74,8 @@ async def start_game(args):
         elapsed = time.time() - frame_start
         sleep_time = max(0, frame_time - elapsed)
         if sleep_time > 0:
-            await asyncio.sleep(sleep_time)
-        if sleep_time > 0.05:
-            logger.warning(f"Sleep time: {sleep_time}")
+            if sleep_time > 0.05:
+                logger.warning(f"Sleep time: {sleep_time}")
             await asyncio.sleep(sleep_time)
 
     # Clean up tasks
@@ -109,6 +106,9 @@ async def main(args):
                 await asyncio.sleep(1)
             elif action == 'Quit':
                 logger.info("Quitting...")
+                running = False
+            elif not action:
+                logger.info("no action! Quitting...")
                 running = False
             else:
                 logger.warning(f"Unknown action: {action}")

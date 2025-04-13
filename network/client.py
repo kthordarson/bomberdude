@@ -4,8 +4,9 @@ import asyncio
 import time
 from loguru import logger
 from constants import UPDATE_TICK
+from game.bomberdude import Bomberdude
 
-async def send_game_state(game):
+async def send_game_state(game: Bomberdude):
 	logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
 	while True:
 		try:
@@ -33,7 +34,7 @@ async def send_game_state(game):
 		msg = {
 			'game_event': game_event,
 			'client_id': player_one.client_id,
-			'position': (player_one.position.x, player_one.position.y),
+			'position': (player_one.position[0], player_one.position[1]),
 			'health': player_one.health,
 			'score': player_one.score,
 			'keyspressed': client_keys,
@@ -52,18 +53,18 @@ async def send_game_state(game):
 		finally:
 			await asyncio.sleep(1 / UPDATE_TICK)
 
-async def receive_game_state(game):
+async def receive_game_state(game: Bomberdude) -> None:
 	buffer = ""
 	while True:
 		try:
 			data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
-			if not data:
-				if game.sock._closed:
-					logger.warning(f'Connection closed {game.sock._closed}')
-					break
-				else:
-					await asyncio.sleep(1 / UPDATE_TICK)
-					continue
+			# if not data:
+			# 	if game.sock._closed:
+			# 		logger.warning(f'Connection closed {game.sock._closed}')
+			# 		break
+			# 	else:
+			# 		await asyncio.sleep(1 / UPDATE_TICK)
+			# 		continue
 			buffer += data.decode('utf-8')
 
 			# Process multiple messages at once if available

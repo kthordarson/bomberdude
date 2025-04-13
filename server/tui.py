@@ -1,10 +1,10 @@
 import asyncio
 from loguru import logger
-from threading import Thread, Event
+from threading import Event
 
 class ServerTUI():
 	def __init__(self, server, debug=False, gq=None):
-		Thread.__init__(self, daemon=True, name="tui")
+		# Thread.__init__(self, daemon=True, name="tui")
 		self.gq = gq
 		self.server = server
 		self.debug = debug
@@ -38,12 +38,11 @@ class ServerTUI():
 		logger.debug(f"gamestate: {self.server.server_game_state} ")
 
 	def printhelp(self):
-		help = """
+		print("""
 		cmds:
 		s = show server info
 		l = dump player list
-		"""
-		print(help)
+		""")
 
 	async def input_handler(self):
 		"""Handle command input asynchronously"""
@@ -54,6 +53,7 @@ class ServerTUI():
 			except (EOFError, KeyboardInterrupt) as e:
 				await self.stop()
 				await self.server.stop()
+				logger.info(f"{e} Stopping server and TUI")
 				break
 
 	async def handle_command(self, cmd):

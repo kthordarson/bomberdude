@@ -14,7 +14,7 @@ class ServerDiscovery:
         self.running = True
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(('', self.discovery_port))
+        sock.bind((self.bombserver, self.discovery_port))
         sock.setblocking(False)
 
         logger.info(f"Server discovery service listening on port {self.discovery_port}")

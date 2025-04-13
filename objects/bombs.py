@@ -15,7 +15,8 @@ class Bomb(Sprite):
 		self.position = Vec2d(position)
 		self.timer = timer
 		self.start_time = pygame.time.get_ticks() / 1000
-		self.rect.center = self.position
+		# self.rect.center = self.position
+		self.rect.center = (int(self.position.x), int(self.position.y))
 		self.exploded = False
 		self.power = power
 
