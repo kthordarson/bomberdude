@@ -10,7 +10,7 @@ last_frame_time = time.time()
 
 def update_fps():
     """Calculate current FPS based on frame times"""
-    global frame_times, last_frame_time
+    global last_frame_time
 
     current_time = time.time()
     dt = current_time - last_frame_time

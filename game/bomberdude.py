@@ -49,7 +49,7 @@ class Bomberdude():
 		logger.info(f'connecting to server... event_queue: {self.client_game_state.event_queue.qsize()} ')
 		await asyncio.get_event_loop().sock_connect(self.sock, (self.args.server, 9696))
 		try:
-			resp = requests.get(f"http://{self.args.server}:9699/get_tile_map").text
+			resp = requests.get(f"http://{self.args.server}:9699/get_tile_map", timeout=10).text
 			resp = json.loads(resp)
 			mapname = resp.get("mapname")
 			self.client_id = resp.get("client_id")
@@ -351,22 +351,22 @@ class Bomberdude():
 			pass
 		elif key == pygame.K_F7:
 			pygame.display.toggle_fullscreen()
-		elif key == pygame.K_ESCAPE or key == pygame.K_q or key == 27:
+		elif key in (pygame.K_ESCAPE, pygame.K_q, 27):
 			self._connected = False
 			self.running = False
 			logger.info("quit")
 			pygame.event.post(pygame.event.Event(pygame.QUIT))
 			return
-		elif key == pygame.K_UP or key == pygame.K_w or key == 119:
+		elif key in (pygame.K_UP, pygame.K_w, 119):
 			player_one.change_y = -PLAYER_MOVEMENT_SPEED
 			self.client_game_state.keyspressed.keys[key] = True
-		elif key == pygame.K_DOWN or key == pygame.K_s or key == 115:
+		elif key in (pygame.K_DOWN, pygame.K_s, 115):
 			player_one.change_y = PLAYER_MOVEMENT_SPEED
 			self.client_game_state.keyspressed.keys[key] = True
-		elif key == pygame.K_LEFT or key == pygame.K_a or key == 97:
+		elif key in (pygame.K_LEFT, pygame.K_a, 97):
 			player_one.change_x = -PLAYER_MOVEMENT_SPEED
 			self.client_game_state.keyspressed.keys[key] = True
-		elif key == pygame.K_RIGHT or key == pygame.K_d or key == 100:
+		elif key in (pygame.K_RIGHT, pygame.K_d, 100):
 			player_one.change_x = PLAYER_MOVEMENT_SPEED
 			self.client_game_state.keyspressed.keys[key] = True
 		if key == pygame.K_SPACE:
@@ -381,16 +381,16 @@ class Bomberdude():
 		except AttributeError as e:
 			logger.error(f"{e} {type(e)}")
 			return
-		if key == pygame.K_UP or key == pygame.K_w:
+		if key in (pygame.K_UP, pygame.K_w):
 			player_one.change_y = 0
 			self.client_game_state.keyspressed.keys[key] = False
-		elif key == pygame.K_DOWN or key == pygame.K_s:
+		elif key in (pygame.K_DOWN, pygame.K_s):
 			player_one.change_y = 0
 			self.client_game_state.keyspressed.keys[key] = False
-		elif key == pygame.K_LEFT or key == pygame.K_a:
+		elif key in (pygame.K_LEFT, pygame.K_a):
 			player_one.change_x = 0
 			self.client_game_state.keyspressed.keys[key] = False
-		elif key == pygame.K_RIGHT or key == pygame.K_d:
+		elif key in (pygame.K_RIGHT, pygame.K_d):
 			player_one.change_x = 0
 			self.client_game_state.keyspressed.keys[key] = False
 		if key == pygame.K_SPACE:

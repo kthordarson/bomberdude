@@ -34,13 +34,13 @@ class MainMenu:
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP or event.key == pygame.K_w or event.key == 119:
+                if event.key in (pygame.K_UP, pygame.K_w, 119):
                     self.selected_option = (self.selected_option - 1) % len(self.options)
-                elif event.key == pygame.K_DOWN or event.key == pygame.K_s or event.key == 115:
+                elif event.key in (pygame.K_DOWN, pygame.K_s, 115):
                     self.selected_option = (self.selected_option + 1) % len(self.options)
-                elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     return self.select_option()
-                elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                elif event.key in (pygame.K_q, pygame.K_ESCAPE):
                     return 'Quit'
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button
@@ -104,13 +104,13 @@ class SetupMenu:
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_UP or event.key == pygame.K_w or event.key == 119:
+                if event.key in (pygame.K_UP, pygame.K_w, 119):
                     self.selected_option = (self.selected_option - 1) % len(self.options)
-                elif event.key == pygame.K_DOWN or event.key == pygame.K_s or event.key == 115:
+                elif event.key in (pygame.K_DOWN, pygame.K_s, 115):
                     self.selected_option = (self.selected_option + 1) % len(self.options)
-                elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     return self.select_option()
-                elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                elif event.key in (pygame.K_q, pygame.K_ESCAPE):
                     return 'Back'
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button

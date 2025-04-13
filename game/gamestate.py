@@ -245,7 +245,7 @@ class GameState:
 				killed=player_data.get('killed', False) or False,
 				timeout=player_data.get('timeout', False) or False
 			)
-		elif isinstance(player_data, PlayerState):
+		if isinstance(player_data, PlayerState):
 			# Ensure PlayerState has non-None values for critical attributes
 			if player_data.bombsleft is None:
 				player_data.bombsleft = 3
@@ -254,15 +254,14 @@ class GameState:
 			if player_data.score is None:
 				player_data.score = 0
 			return player_data
-		else:
-			# For unexpected types, create a safe default PlayerState
-			logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
-			return PlayerState(
-				position=[0, 0],
-				client_id=str(getattr(player_data, 'client_id', 'unknown')),
-				health=100,
-				score=0
-			)
+		# For unexpected types, create a safe default PlayerState
+		logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
+		return PlayerState(
+			position=[0, 0],
+			client_id=str(getattr(player_data, 'client_id', 'unknown')),
+			health=100,
+			score=0
+		)
 
 	async def update_game_event(self, game_event):
 		event_type = game_event.get('event_type')
@@ -280,6 +279,8 @@ class GameState:
 			case 'map_info':
 				# Get mapname and load it
 				map_name = game_event.get('mapname')
+				pos_str = ''
+				new_gid = 0
 				if map_name and map_name != self.mapname:
 					logger.info(f"Loading map: {map_name}")
 					self.load_tile_map(map_name)
@@ -462,12 +463,12 @@ class GameState:
 					# Check if player is killed
 					if player['health'] <= 0:
 						# Create kill event
-						game_event["event_time"] = time.time(),
-						game_event["event_type"] = "player_killed",
-						game_event["client_id"] = client_id,
-						game_event["target_id"] = target_id,
-						game_event["position"] = game_event.get('position'),
-						game_event["handledby"] = "PlayerStateplayer_hit",
+						game_event["event_time"] = time.time()
+						game_event["event_type"] = "player_killed"
+						game_event["client_id"] = client_id
+						game_event["target_id"] = target_id
+						game_event["position"] = game_event.get('position')
+						game_event["handledby"] = "PlayerStateplayer_hit"
 						# await self.broadcast_event(kill_event)
 				else:
 					# Handle PlayerState objects
@@ -476,12 +477,12 @@ class GameState:
 						logger.debug(f'PlayerStateplayer_hit {target_id=} {damage=} {player.client_id=} {player.health=} ')
 					if player.health <= 0:
 						# Create kill event
-						game_event["event_time"] = time.time(),
-						game_event["event_type"] = "player_killed",
-						game_event["client_id"] = client_id,
-						game_event["target_id"] = target_id,
-						game_event["position"] = game_event.get('position'),
-						game_event["handledby"] = "PlayerStateplayer_hit",
+						game_event["event_time"] = time.time()
+						game_event["event_type"] = "player_killed"
+						game_event["client_id"] = client_id
+						game_event["target_id"] = target_id
+						game_event["position"] = game_event.get('position')
+						game_event["handledby"] = "PlayerStateplayer_hit"
 				if not game_event.get('handled'):
 					game_event['handled'] = True
 					game_event['health'] = player.health  # Include updated health in event
@@ -643,9 +644,6 @@ class GameState:
 						if not client_id:
 							logger.error(f'client_id missing in player_data: {player_data}')
 							continue
-						elif client_id == 'gamestatenotset' or client_id == 'missingclientid' or client_id == 'bdudenotset':
-							logger.warning(f'invalid client_id player_data: {player_data} data={data}')
-							continue
 						elif client_id != self.client_id:  # Don't update our own player
 							if client_id in self.playerlist:
 								# Update existing player
@@ -688,10 +686,10 @@ class GameState:
 						if not client_id:
 							logger.error(f'client_id missing in player_data: {player_data}')
 							continue
-						elif client_id == 'bombserver':
+						if client_id == 'bombserver':
 							logger.warning(f'bombserverplayer_data: {player_data} data={data}')
 							continue
-						elif client_id == 'gamestatenotset':
+						if client_id == 'gamestatenotset':
 							logger.warning(f'gamestatenotset: {player_data} data={data}')
 							continue
 						elif client_id != self.client_id:  # Don't update our own player
