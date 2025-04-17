@@ -1,3 +1,5 @@
+import pygame
+from loguru import logger
 from dataclasses import dataclass, field, InitVar
 from utils import gen_randid
 from constants import DEFAULT_HEALTH
@@ -30,6 +32,11 @@ class PlayerState:
 		self._bombsleft = initial_bombs
 
 	@property
+	def rect(self):
+		"""Create a rect on-demand for collision detection"""
+		return pygame.Rect(self.position[0], self.position[1], 32, 32)
+
+	@property
 	def bombsleft(self):
 		return self._bombsleft
 
@@ -49,3 +56,10 @@ class PlayerState:
 			'timeout': self.timeout,
 			'killed': self.killed,
 			'event_type': self.event_type}
+
+	def take_damage(self, damage, attacker_id=None):
+		"""Handle damage to player state"""
+		self.health = max(0, self.health - damage)
+		if self.health <= 0:
+			self.killed = True
+			logger.info(f"Player {self.client_id} killed by {attacker_id}")

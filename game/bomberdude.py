@@ -12,6 +12,7 @@ from game.gamestate import GameState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT
 from camera import Camera
 from objects.player import Bomberplayer
+from game.playerstate import PlayerState  # Import PlayerState
 from debug import draw_debug_info
 from panels import PlayerInfoPanel
 
@@ -150,16 +151,36 @@ class Bomberdude():
 			logger.error(f"Error applying map modifications: {e}")
 
 	def draw_player(self, player_data):
-		player_state = self.client_game_state.ensure_player_state(player_data)
-		player = Bomberplayer(texture="data/player2.png", client_id=player_state.client_id)
-
-		# Skip players with None position
-		if player_state.position is None:
+		"""Draw a player sprite based on player data"""
+		if not player_data:
 			return
 
-		player.position = Vec2d(player_state.position)
-		player.rect.topleft = (int(player.position.x), int(player.position.y))
-		self.screen.blit(player.image, self.camera.apply(player.rect))
+		try:
+			# Option 1: If it's already a sprite with an image
+			if hasattr(player_data, 'image') and player_data.image is not None:
+				player_sprite = player_data
+
+			# Option 2: Convert PlayerState or dict to sprite
+			else:
+				# Get client_id and position based on object type
+				if isinstance(player_data, dict):
+					client_id = player_data.get('client_id', 'unknown')
+					position = player_data.get('position', [0, 0])
+				else:  # PlayerState or similar
+					client_id = getattr(player_data, 'client_id', 'unknown')
+					position = getattr(player_data, 'position', [0, 0])
+
+				# Create temporary sprite for drawing
+				player_sprite = Bomberplayer(texture="data/player2.png", client_id=client_id)
+				player_sprite.position = Vec2d(position) if position else Vec2d(0, 0)
+				# player_sprite.rect.topleft = (player_sprite.position.x, player_sprite.position.y)
+				player_sprite.rect.topleft = (int(player_sprite.position.x), int(player_sprite.position.y))
+
+			# Now we can safely draw the sprite
+			self.screen.blit(player_sprite.image, self.camera.apply(player_sprite.rect))
+
+		except Exception as e:
+			logger.error(f"Error drawing player: {e} {type(player_data)}")
 
 	def on_draw(self):
 		# Clear screen
@@ -168,8 +189,8 @@ class Bomberdude():
 		self.client_game_state.render_map(self.screen, self.camera)
 		# Draw local player
 		player_one = self.client_game_state.get_playerone()
-		if player_one.image:
-			self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
+		if hasattr(player_one, 'image') and player_one.image is not None:  # type: ignore
+			self.screen.blit(player_one.image, self.camera.apply(player_one.rect))  # type: ignore
 
 			# Draw remote players from playerlist
 			for client_id, player in self.client_game_state.playerlist.items():

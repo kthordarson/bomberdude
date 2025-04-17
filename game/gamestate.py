@@ -1,4 +1,5 @@
 import asyncio
+from typing import Any
 import pygame
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Group
@@ -157,7 +158,38 @@ class GameState:
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
 
-	def get_playerone(self, client_id=None) -> Bomberplayer | None:
+	def get_playerone(self) -> Bomberplayer:
+		"""Always return a Bomberplayer instance"""
+		# Try to find player in sprites
+		for player in self.players_sprites:
+			if player.client_id == self.client_id:
+				return player
+
+		# If not found in sprites but in playerlist, create sprite from data
+		target_id = self.client_id
+		if target_id in self.playerlist:
+			player_data = self.playerlist[target_id]
+			# Convert to Bomberplayer
+			pos = getattr(player_data, 'position', None)
+			if isinstance(player_data, dict):
+				pos = player_data.get('position')
+
+			player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
+			if pos:
+				player.position = Vec2d(pos)
+				player.rect.topleft = (int(player.position.x), int(player.position.y))
+
+			# Add to sprites collection
+			self.players_sprites.add(player)
+			return player
+
+		# Create default player as last resort
+		logger.warning("Creating default player - no player found!")
+		player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
+		self.players_sprites.add(player)
+		return player
+
+	def oldget_playerone(self, client_id=None) -> Bomberplayer | PlayerState | None:
 		for player in self.players_sprites:
 			if player.client_id == self.client_id:
 				return player
@@ -198,6 +230,7 @@ class GameState:
 					self.static_map_surface.blit(tile, (x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
 					if layer.properties.get('collidable'):
 						sprite = pygame.sprite.Sprite()
+						sprite: Any = sprite  # or use a Protocol class
 						sprite.image = tile
 						sprite.rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
 						sprite.layer = layer.name
@@ -240,7 +273,7 @@ class GameState:
 				position=player_data.get('position', [0, 0]),
 				client_id=player_data.get('client_id', 'unknown'),
 				score=player_data.get('score', 0) or 0,  # Convert None to 0
-				# bombsleft=player_data.get('bombsleft', 3) or 3,  # Convert None to 3
+				initial_bombs=player_data.get('bombsleft', 3) or 3,  # Convert None to 3
 				health=player_data.get('health', 100) or 100,  # Convert None to 100
 				killed=player_data.get('killed', False) or False,
 				timeout=player_data.get('timeout', False) or False
@@ -257,7 +290,7 @@ class GameState:
 		# For unexpected types, create a safe default PlayerState
 		logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
 		return PlayerState(
-			position=[0, 0],
+			position=(0, 0),
 			client_id=str(getattr(player_data, 'client_id', 'unknown')),
 			health=100,
 			score=0
@@ -368,7 +401,7 @@ class GameState:
 						if player:
 							if isinstance(player, dict):
 								# Direct update without complex interpolation
-								self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health'), score=player.get('score'))
+								self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health',0), score=player.get('score',0))
 								logger.warning(f'playerdict {player} {game_event=}')
 							else:
 								# Handle PlayerState objects
@@ -651,13 +684,17 @@ class GameState:
 								position = player_data.get('position')
 								if position:
 									if hasattr(player, 'position'):
-										if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-											player.position.x, player.position.y = position[0], position[1]
+										if isinstance(player.position, Vec2d):
+											if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
+												player.position.x, player.position.y = position[0], position[1]
 										else:
 											player.position = position
 									else:
-										player['position'] = position
-
+										# Safely handle either dict or object
+										if isinstance(player, dict):
+											player['position'] = position
+										else:
+											setattr(player, 'position', position)
 									# Set up interpolation data
 									if hasattr(player, 'target_position'):
 										player.target_position = position
@@ -670,7 +707,7 @@ class GameState:
 										client_id=client_id,
 										position=player_data.get('position', (0, 0)),
 										health=DEFAULT_HEALTH,
-										bombsleft=player_data.get('bombsleft', 3),
+										initial_bombs=player_data.get('bombsleft', 3),
 										score=player_data.get('score', 0)
 									)
 								except Exception as e:
@@ -699,12 +736,17 @@ class GameState:
 								position = player_data.get('position')
 								if position:
 									if hasattr(player, 'position'):
-										if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-											player.position.x, player.position.y = position[0], position[1]
+										if isinstance(player.position, Vec2d):
+											if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
+												player.position.x, player.position.y = position[0], position[1]
 										else:
 											player.position = position
 									else:
-										player['position'] = position
+										# Safely handle either dict or object
+										if isinstance(player, dict):
+											player['position'] = position
+										else:
+											setattr(player, 'position', position)
 
 									# Set up interpolation data
 									if hasattr(player, 'target_position'):
@@ -794,7 +836,17 @@ class GameState:
 				if player_id == bullet_owner:
 					continue
 
-				if bullet.rect.colliderect(player.rect):
+				# Get rect for collision check
+				if hasattr(player, 'rect'):
+					player_rect = player.rect
+				elif hasattr(player, 'position'):
+					# Create temporary rect for PlayerState objects
+					pos = player.position
+					player_rect = pygame.Rect(pos[0], pos[1], 32, 32)  # Assumed size
+				else:
+					continue  # Skip if no position data
+
+				if bullet.rect.colliderect(player_rect):
 					# Create hit event to send to server
 					hit_event = {
 						"event_time": time.time(),
