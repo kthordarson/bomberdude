@@ -39,6 +39,11 @@ class Bomberdude():
 		self.show_minimap = False
 		self.player_info_panel = PlayerInfoPanel(self.screen, self.client_game_state)
 
+		self.fog_enabled = True  # Toggle for fog of war
+		self.fog_radius = 200    # Visible radius around player
+		self.fog_color = (0, 0, 0, 180)  # Semi-transparent black
+		self.fog_surface = None  # Will be created on first render
+
 	def __repr__(self):
 		return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} {self.connected()})"
 
@@ -218,6 +223,9 @@ class Bomberdude():
 		# Draw explosion particles
 		self.client_game_state.explosion_manager.draw(self.screen, self.camera)
 
+		# Draw fog of war
+		self.apply_fog_of_war()
+
 		if self.draw_debug:
 			draw_debug_info(self.screen, self.client_game_state, self.camera)
 		if self.show_minimap:
@@ -369,7 +377,8 @@ class Bomberdude():
 			self.show_minimap = not self.show_minimap
 			logger.debug(f"Minimap toggled: {self.show_minimap}")
 		elif key == pygame.K_F6:
-			pass
+			self.fog_enabled = not self.fog_enabled
+			logger.debug(f"Fog of war toggled: {self.fog_enabled}")
 		elif key == pygame.K_F7:
 			pygame.display.toggle_fullscreen()
 		elif key in (pygame.K_ESCAPE, pygame.K_q, 27):
@@ -470,3 +479,199 @@ class Bomberdude():
 			await self.client_game_state.event_queue.put(update_event)
 			self.last_position_update = current_time
 			await asyncio.sleep(1 / UPDATE_TICK)
+
+	def apply_fog_of_war_slow(self):
+		"""Apply fog of war effect - only visible area is around player"""
+		if not self.fog_enabled:
+			return
+
+		# Get screen dimensions
+		screen_width, screen_height = self.screen.get_size()
+
+		# Create fog surface if doesn't exist
+		if not self.fog_surface:
+			self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+
+		# Fill with fog color (semi-transparent black)
+		self.fog_surface.fill((0, 0, 0, 100))
+
+		try:
+			# Get player position in screen coordinates
+			player_one = self.client_game_state.get_playerone()
+			player_rect = self.camera.apply(player_one.rect)
+			center_x = player_rect.centerx
+			center_y = player_rect.centery
+
+			# Create radial gradient mask
+			for y in range(screen_height):
+				for x in range(screen_width):
+					# Calculate distance from player
+					distance = ((x - center_x) ** 2 + (y - center_y) ** 2) ** 0.5
+
+					# Visibility decreases with distance
+					if distance < self.fog_radius:
+						# Gradient transparency (fully visible near player, fades to fog)
+						alpha = int(180 * (distance / self.fog_radius))
+						# Draw pixel with calculated alpha
+						self.fog_surface.set_at((x, y), (0, 0, 0, alpha))
+
+			# Apply fog to screen
+			self.screen.blit(self.fog_surface, (0, 0))
+		except Exception as e:
+			logger.error(f"Fog of war error: {e}")
+
+	def apply_fog_of_war(self):
+		"""Apply fog of war effect with smooth gradient"""
+		if not self.fog_enabled:
+			return
+
+		# Get screen dimensions
+		screen_width, screen_height = self.screen.get_size()
+
+		# Create fog surface if doesn't exist
+		if not self.fog_surface:
+			self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+
+		try:
+			# Get player position in screen coordinates
+			player_one = self.client_game_state.get_playerone()
+			player_rect = self.camera.apply(player_one.rect)
+			center_x = player_rect.centerx
+			center_y = player_rect.centery
+
+			# Create a radial gradient surface
+			gradient_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+
+			# Create gradient using multiple circles (more circles = smoother gradient)
+			num_circles = 20  # Increased for smoother transition
+			max_alpha = 255   # Maximum darkness
+
+			# Start with a fully dark background
+			gradient_surface.fill((0, 0, 0, max_alpha))
+
+			# Create a transparent circle in center that fades to dark at edges
+			for i in range(num_circles, 0, -1):
+				ratio = i / num_circles
+				radius = int(self.fog_radius * ratio)
+				alpha = int(max_alpha * ratio)
+
+				# Draw circle with decreasing opacity as we get closer to center
+				pygame.draw.circle(
+					gradient_surface,
+					(0, 0, 0, alpha),
+					(center_x, center_y),
+					radius
+				)
+
+			# Create the final clear area in the center
+			pygame.draw.circle(
+				gradient_surface,
+				(0, 0, 0, 0),  # Fully transparent
+				(center_x, center_y),
+				int(self.fog_radius * 0.4)  # Clear visibility zone
+			)
+
+			# Apply the gradient fog
+			self.screen.blit(gradient_surface, (0, 0))
+
+		except Exception as e:
+			logger.error(f"Fog of war error: {e}")
+
+
+	def apply_fog_of_war_v2(self):
+		"""Apply fog of war effect - only visible area is around player"""
+		if not self.fog_enabled:
+			return
+
+		# Get screen dimensions
+		screen_width, screen_height = self.screen.get_size()
+
+		# Create fog surface if doesn't exist
+		if not self.fog_surface:
+			self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+
+		# Fill with fog color (semi-transparent black)
+		self.fog_surface.fill((0, 0, 0, 255))
+
+		try:
+			# Get player position in screen coordinates
+			player_one = self.client_game_state.get_playerone()
+			player_rect = self.camera.apply(player_one.rect)
+			center_x = player_rect.centerx
+			center_y = player_rect.centery
+
+			# Create a circular mask using multiple circles with decreasing opacity
+			num_circles = 8
+			for i in range(num_circles):
+				# Calculate radius for this circle
+				factor = i / num_circles
+				radius = int(self.fog_radius * (1 - factor))
+				# Calculate alpha for this circle (inner circles more transparent)
+				alpha = int(180 * factor)
+				# Draw circle with this radius and alpha
+				pygame.draw.circle(
+					self.fog_surface,
+					(0, 0, 0, alpha),
+					(center_x, center_y),
+					radius
+				)
+
+			# Apply fog to screen
+			self.screen.blit(self.fog_surface, (0, 0))
+		except Exception as e:
+			logger.error(f"Fog of war error: {e}")
+
+	def apply_fog_of_war_v3(self):
+		"""Apply fog of war effect - only visible area is around player"""
+		if not self.fog_enabled:
+			return
+
+		# Get screen dimensions
+		screen_width, screen_height = self.screen.get_size()
+
+		# Create fog surface if doesn't exist
+		if not self.fog_surface:
+			self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+
+		# Fill with fog color (semi-transparent black)
+		self.fog_surface.fill((0, 0, 0, 180))  # Moderate darkness for the fog
+
+		try:
+			# Get player position in screen coordinates
+			player_one = self.client_game_state.get_playerone()
+			player_rect = self.camera.apply(player_one.rect)
+			center_x = player_rect.centerx
+			center_y = player_rect.centery
+
+			# Create visibility circle - this clears the fog around the player
+			pygame.draw.circle(
+				self.fog_surface,
+				(0, 0, 0, 0),  # Fully transparent
+				(center_x, center_y),
+				int(self.fog_radius * 0.5)  # Inner circle fully visible
+			)
+
+			# Create smooth gradient edge
+			gradient_width = int(self.fog_radius * 0.5)  # Width of gradient transition
+			num_circles = 8
+
+			for i in range(num_circles):
+				# Calculate parameters for gradient circles
+				factor = i / num_circles
+				inner_radius = int(self.fog_radius * 0.5)
+				radius = inner_radius + int(gradient_width * factor)
+				# Alpha increases as we move outward (transparent→opaque)
+				alpha = int(180 * factor)
+
+				pygame.draw.circle(
+					self.fog_surface,
+					(0, 0, 0, alpha),
+					(center_x, center_y),
+					radius,
+					width=3  # Draw as rings for better blending
+				)
+
+			# Apply fog to screen
+			self.screen.blit(self.fog_surface, (0, 0))
+		except Exception as e:
+			logger.error(f"Fog of war error: {e}")

@@ -34,6 +34,7 @@ class Shockwave:
 		# Fade out as it expands
 		alpha = max(0, int(255 * (1.0 - self.life / self.duration)))
 		self.color = (*self.color[:3], alpha)
+		# self.color = [k-k*0.1 for k in self.color]  # Reduce color intensity
 
 		# Kill when duration exceeded
 		if self.life >= self.duration:
@@ -53,7 +54,7 @@ class Shockwave:
 
 		# Draw the wave as a circle with a thin outline
 		center = (surf_size // 2, surf_size // 2)
-		thickness = max(1, int(self.current_radius * 0.05))  # Thin line, scales with radius
+		thickness = max(1, int(self.current_radius * 0.07))  # Thin line, scales with radius
 		pygame.draw.circle(surf, self.color, center, self.current_radius - thickness // 2, thickness)
 
 		# Create a temporary rect for the shockwave position

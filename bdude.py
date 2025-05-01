@@ -57,7 +57,13 @@ async def start_game(args: argparse.Namespace):
         except Exception as e:
             logger.error(f"Error in update: {e} {type(e)}")
             await asyncio.sleep(1)
-        bomberdude_main.on_draw()
+            continue
+        try:
+            bomberdude_main.on_draw()
+        except Exception as e:
+            logger.error(f"Error in on_draw: {e} {type(e)}")
+            await asyncio.sleep(1)
+            continue
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
