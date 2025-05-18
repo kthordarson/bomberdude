@@ -60,6 +60,10 @@ class Bomberdude():
 		await asyncio.get_event_loop().sock_connect(self.sock, (self.args.server, 9696))
 		try:
 			resp = requests.get(f"http://{self.args.server}:9699/get_tile_map", timeout=10).text
+		except Exception as e:
+			logger.error(f"Error connecting to server: {e} {type(e)}")
+			return 0
+		try:
 			resp = json.loads(resp)
 			mapname = resp.get("mapname")
 			self.client_id = resp.get("client_id")

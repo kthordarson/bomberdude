@@ -53,7 +53,7 @@ class ServerTUI():
 			except (EOFError, KeyboardInterrupt) as e:
 				await self.stop()
 				await self.server.stop()
-				logger.info(f"{e} Stopping server and TUI")
+				logger.error(f"{e} {type(e)} Stopping server and TUI")
 				break
 
 	async def handle_command(self, cmd):

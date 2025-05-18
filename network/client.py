@@ -82,6 +82,10 @@ async def receive_game_state(game: Bomberdude) -> None:
 			await asyncio.sleep(1)
 			logger.error(f'{e} {type(e)}')
 			continue
+		except ConnectionRefusedError as e:
+			logger.error(f"Connection refused: {e} {type(e)}")
+			await asyncio.sleep(1)
+			break
 		except Exception as e:
 			logger.error(f"Error in receive_game_state: {e} {type(e)}")
 			await asyncio.sleep(1)
