@@ -6,8 +6,8 @@
     "activeFile": "",
     "automapping.whileDrawing": true,
     "expandedProjectPaths": [
-        ".",
-        "data"
+        "data",
+        "."
     ],
     "file.lastUsedOpenFilter": "All Files (*)",
     "fileStates": {

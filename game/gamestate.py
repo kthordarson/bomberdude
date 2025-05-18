@@ -465,9 +465,9 @@ class GameState:
 				bullet_position = Vec2d(game_event.get('position')[0], game_event.get('position')[1])
 				bullet_direction = Vec2d(game_event.get('direction')[0], game_event.get('direction')[1])
 				if client_id == self.get_playerone().client_id:
-					bullet_size = (10,10)
+					bullet_size = (7,7)
 				else:
-					bullet_size = (5,5)
+					bullet_size = (7,7)
 				bullet = Bullet(position=bullet_position, direction=bullet_direction, screen_rect=self.get_playerone().rect, bullet_size=bullet_size, owner_id=client_id)
 				self.bullets.add(bullet)
 
