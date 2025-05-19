@@ -158,6 +158,26 @@ class GameState:
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
 
+	async def send_to_client(self, connection, data):
+		"""Send data to specific client connection"""
+		try:
+			loop = asyncio.get_event_loop()
+			if isinstance(data, dict):
+				data_out = json.dumps(data).encode('utf-8') + b'\n'
+			elif isinstance(data, bytes):
+				data_out = data + b'\n'
+			else:
+				data_out = str(data).encode('utf-8') + b'\n'
+
+			if hasattr(connection, 'write'):  # StreamWriter
+				connection.write(data_out)
+				await connection.drain()
+			else:  # Socket
+				await loop.sock_sendall(connection, data_out)
+		except Exception as e:
+			logger.error(f"Error sending to client: {e}")
+			self.remove_connection(connection)
+
 	def get_playerone(self) -> Bomberplayer:
 		"""Always return a Bomberplayer instance"""
 		# Try to find player in sprites
@@ -443,12 +463,44 @@ class GameState:
 				await self.broadcast_event(game_event)
 				# await self.event_queue.put(game_event)
 
-			case 'player_drop_bomb':  # todo make server decide if bomb can be dropped
-				game_event['handledby'] = 'ugsbomb'
-				game_event['event_type'] = 'ackbombdrop'
-				await self.broadcast_event(game_event)
+			case 'player_drop_bomb':
+				# Server-side validation of bomb limit
+				owner_id = game_event.get('client_id')
 
-			case 'ackbombdrop':  # todo make server decide if bomb can be dropped
+				# Count active bombs for this player
+				active_bomb_count = sum(1 for bomb in self.bombs if bomb.client_id == owner_id and not bomb.exploded)
+
+				# Check if player already has 3 bombs on the field
+				if active_bomb_count >= 3:
+					# Reject the bomb drop and notify the client
+					game_event['event_type'] = "dropcooldown"
+					game_event['handledby'] = "server_validation"
+					game_event['message'] = "Maximum bombs reached (3)"
+
+					# Only send back to the requesting client
+					if owner_id in self.playerlist:
+						# Update client's bombsleft to match server state (3 - active bombs)
+						player = self.playerlist[owner_id]
+						if isinstance(player, Bomberplayer):
+							player.bombsleft = max(0, 3 - active_bomb_count)
+						elif isinstance(player, dict) and 'bombsleft' in player:
+							player['bombsleft'] = max(0, 3 - active_bomb_count)
+
+						game_event['bombsleft'] = max(0, 3 - active_bomb_count)
+
+						# Send only to the client who tried to drop the bomb
+						for conn in self.connections:
+							if hasattr(conn, 'client_id') and conn.client_id == owner_id:
+								await self.send_to_client(conn, game_event)
+								break
+				else:
+					# Allow bomb drop
+					game_event['handledby'] = 'ugsbomb'
+					game_event['event_type'] = 'ackbombdrop'
+					game_event['active_bombs'] = active_bomb_count + 1
+					await self.broadcast_event(game_event)
+
+			case 'ackbombdrop':
 				if self.args.debug:
 					logger.debug(f'ackbombdrop {client_id=} {self.client_id=}')
 				bomb = Bomb(position=game_event.get('position'), client_id=game_event.get('client_id'))
@@ -542,41 +594,46 @@ class GameState:
 					await self.broadcast_event(game_event)
 
 			case 'bomb_exploded':
-				event_id = game_event.get('event_id', '')
-				# Skip if already processed this event
-				if event_id and event_id in self.processed_explosions:
-					logger.warning(f'Skipping already processed explosion: {event_id} game_event: {game_event}')
+				# Process the explosion
+				client_id = game_event.get('owner_id') or game_event.get('client_id')
+				position = game_event.get('position')
+
+				# Unique ID to prevent duplicate processing
+				event_id = game_event.get('event_id', str(time.time()))
+
+				# Skip if we already processed this explosion
+				if event_id in self.processed_explosions:
 					return
 
-				# Add to processed events
-				if event_id:
-					self.processed_explosions.add(event_id)
-					# Limit size to prevent memory issues
-					if len(self.processed_explosions) > 1000:
-						self.processed_explosions = set(list(self.processed_explosions)[-1000:])
+				self.processed_explosions.add(event_id)
+				# Limit set size to prevent memory growth
+				if len(self.processed_explosions) > 1000:
+					self.processed_explosions = set(list(self.processed_explosions)[-500:])
 
-				owner_id = game_event.get('owner_id')
-				if owner_id in self.playerlist:
-					# Convert to PlayerState with guaranteed defaults
-					player = self.ensure_player_state(self.playerlist[owner_id])
-					# Store back the PlayerState
-					self.playerlist[owner_id] = player
+				# Create visual explosion
+				if hasattr(self, 'explosion_manager'):
+					self.explosion_manager.create_explosion(position)
 
-					# Safely increment bombsleft (now guaranteed to exist)
-					player.bombsleft += 1
+				# Count remaining bombs for this player AFTER this one exploded
+				active_bomb_count = sum(1 for bomb in self.bombs
+										if bomb.client_id == client_id and not bomb.exploded)
 
-					# Update player in sprites group if exists
-					for sprite in self.players_sprites:
-						if str(getattr(sprite, 'client_id', None)) == str(owner_id):
-							sprite.bombsleft = player.bombsleft
-							break
+				# Restore bomb to the player's inventory - server is authoritative on bomb count
+				if client_id in self.playerlist:
+					player = self.playerlist[client_id]
+					bombs_restored = False
 
-					# Only broadcast if you didn't create this event
-					if not game_event.get('handledby') == self.client_id:
-						game_event['handledby'] = self.client_id  # Mark that you handled it
-						await self.broadcast_event(game_event)
-				else:
-					logger.warning(f'owner_id not in playerlist: {owner_id=}')
+					if isinstance(player, Bomberplayer):
+						# Always set to correct value (3 - active bombs)
+						player.bombsleft = min(3, 3 - active_bomb_count)
+						game_event['bombsleft'] = player.bombsleft
+					elif isinstance(player, dict) and 'bombsleft' in player:
+						player['bombsleft'] = min(3, 3 - active_bomb_count)
+						game_event['bombsleft'] = player['bombsleft']
+						logger.debug(f"Restored bomb to {client_id}, now has {player['bombsleft']}")
+
+				# Broadcast the explosion event to all clients with updated bomb count
+				await self.broadcast_event(game_event)
 
 			case _:
 				# payload = {'event_type': 'error99', 'payload': ''}
@@ -729,6 +786,11 @@ class GameState:
 						if client_id == 'gamestatenotset':
 							logger.warning(f'gamestatenotset: {player_data} data={data}')
 							continue
+						# IMPORTANT: Update bombsleft for local player
+						if client_id == self.client_id and 'bombsleft' in player_data:
+							player_one = self.get_playerone()
+							player_one.bombsleft = player_data['bombsleft']
+							logger.debug(f"Local player bombs updated: {player_one.bombsleft}")
 						elif client_id != self.client_id:  # Don't update our own player
 							if client_id in self.playerlist:
 								# Update existing player

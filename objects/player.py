@@ -121,27 +121,42 @@ class Bomberplayer(Sprite):
 		return bullet  # self.bullets.add(bullet)
 
 	def drop_bomb(self):
-		event = {"event_time": 0,
-				"client_id": self.client_id,
-				"position": self.rect.center,
-				"ba": 1,
-				"timer": 1,
-				"handled": False,
-				"handledby": self.client_id,
-				"eventid": gen_randid(),}
+		"""Try to drop a bomb and return event"""
+		current_time = time.time()
+		cooldown_period = 0.5  # Half-second cooldown between bomb drops
+
+		event = {
+			"event_time": current_time,
+			"event_type": "player_drop_bomb",  # Changed to always send to server for validation
+			"client_id": self.client_id,
+			"position": self.rect.center,
+			"ba": 1,
+			"timer": 1,
+			"handled": False,
+			"handledby": self.client_id,
+			"eventid": gen_randid(),
+		}
+
+		# Check cooldown first
+		if hasattr(self, 'lastdrop') and (current_time - self.lastdrop) < cooldown_period:
+			event['event_type'] = "dropcooldown"
+			logger.debug(f'Bomb drop on cooldown {(current_time - self.lastdrop):.2f}s')
+			return event
+
 		if self.killed:
 			self.bombsleft = 0
 			event['event_type'] = "nodropbombkill"
 			logger.warning(f'dead {self.bombsleft=} {self.killed=}')
+			return event
 		elif 0 < self.bombsleft <= 3:
-			self.bombsleft -= 1
-			event["event_type"] = "player_drop_bomb"
-			event['bombsleft'] = self.bombsleft
-			logger.info(f'drop bomb {self.bombsleft=} {self.killed=}')
+			# Don't decrease client-side - let server validate and update
+			self.lastdrop = current_time  # Set last drop time to prevent spam
+			logger.info(f'Attempting to drop bomb {self.bombsleft=} bombs left')
 			return event
 		else:
 			event['event_type'] = "nodropbomb"
 			logger.warning(f'no bombs left {self.bombsleft=} {self.killed=}')
+			return event
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
@@ -171,3 +186,11 @@ class Bomberplayer(Sprite):
 		logger.info(f'{self} killed by {dmgfrom}')
 		self.killed = True
 		self.image = pygame.image.load('data/netplayerdead.png')
+
+	def restore_bomb(self):
+		"""Restore a bomb to the player's inventory after one has exploded"""
+		if self._bombsleft < 3:
+			self._bombsleft += 1
+			logger.debug(f"Restored bomb to {self.client_id}, now has {self._bombsleft}")
+			return self._bombsleft
+		return False
