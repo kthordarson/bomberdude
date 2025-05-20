@@ -43,7 +43,6 @@ class Bomberdude():
 		self.fog_radius = 200    # Visible radius around player
 		self.fog_color = (0, 0, 0, 180)  # Semi-transparent black
 		self.fog_surface = None  # Will be created on first render
-		self.visited_positions = []  # Store positions player has been
 		self.memory_duration = 10.0  # How long to remember (in seconds)
 		self.trail_radius = 100      # Radius of trail visibility (smaller than main)
 		self.max_trail_points = 100  # Limit trail length for performance
@@ -502,131 +501,24 @@ class Bomberdude():
 
 		try:
 			# Fill with SEMI-transparent black
-			self.fog_surface.fill((0, 0, 0, 180))
+			self.fog_surface.fill((0, 0, 0, 250))
 
 			player_one = self.client_game_state.get_playerone()
 			current_time = time.time()
 
-			# Store current position in trail with timestamp (more frequently)
-			if len(self.visited_positions) == 0 or Vec2d(self.visited_positions[-1][0]).distance_to(player_one.position) > 10:
-				self.visited_positions.append((player_one.position, current_time))
-				# Trim list if too long
-				if len(self.visited_positions) > self.max_trail_points:
-					self.visited_positions.pop(0)
-
 			# Create visibility mask (all positions visible to player)
 			visibility_mask = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
 			# Fill with WHITE initially (opposite of before)
-			visibility_mask.fill((255, 255, 255, 255))
-
-			# Draw BLACK circles for visible areas (inverted from original)
-			for pos, timestamp in self.visited_positions[:]:
-				# Calculate how long ago this position was visited
-				age = current_time - timestamp
-
-				# Remove positions older than memory duration
-				if age > self.memory_duration:
-					self.visited_positions.remove((pos, timestamp))
-					continue
-
-				# Keep radius more consistent, just fade alpha
-				alpha = int(180 * (1 - (age / self.memory_duration)))
-				radius = int(self.trail_radius * 0.8)  # More consistent radius
-
-				# Convert world to screen coordinates
-				screen_pos = self.camera_apply_pos((pos.x, pos.y))
-
-				# Draw BLACK circle to visibility mask
-				pygame.draw.circle(
-					visibility_mask,
-					(0, 0, 0, alpha),  # Black with fading alpha
-					(screen_pos[0], screen_pos[1]),
-					radius
-				)
+			visibility_mask.fill((0, 0, 0, 255))
 
 			# Add current player position with BLACK
 			screen_pos = self.camera_apply_pos((player_one.position.x, player_one.position.y))
-			pygame.draw.circle(
-				visibility_mask,
-				(0, 0, 0, 220),  # Black with high alpha
-				(screen_pos[0], screen_pos[1]),
-				self.fog_radius
-			)
+			pygame.draw.circle(visibility_mask,(0, 0, 0, 0), (screen_pos[0], screen_pos[1]), self.fog_radius)
 
 			# Apply visibility mask (unchanged blend mode)
 			self.fog_surface.blit(visibility_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
 
 			# Apply fog to screen
-			self.screen.blit(self.fog_surface, (0, 0))
-
-		except Exception as e:
-			logger.error(f"Error in fog of war: {e}")
-
-	def apply_fog_of_war_v1(self):
-		"""Apply fog of war effect with smooth gradient"""
-		if not self.fog_enabled:
-			return
-
-		# Get screen dimensions
-		screen_width, screen_height = self.screen.get_size()
-
-		# Create fog surface if doesn't exist
-		if not self.fog_surface:
-			self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
-
-		try:
-			# Fill the fog surface with semi-transparent black
-			self.fog_surface.fill((0, 0, 0, 255))  # Semi-transparent black
-
-			player_one = self.client_game_state.get_playerone()
-			current_time = time.time()
-
-			# Store current position in trail with timestamp
-			if len(self.visited_positions) == 0 or Vec2d(self.visited_positions[-1][0]).distance_to(player_one.position) > 20:
-				self.visited_positions.append((player_one.position, current_time))
-				# Trim list if too long
-				if len(self.visited_positions) > self.max_trail_points:
-					self.visited_positions.pop(0)
-
-			# First, draw the trail (previous positions) with fading
-			for pos, timestamp in self.visited_positions[:]:
-				# Calculate how long ago this position was visited
-				age = current_time - timestamp
-
-				# Remove positions older than memory duration
-				if age > self.memory_duration:
-					self.visited_positions.remove((pos, timestamp))
-					continue
-
-				# Calculate alpha based on age (fade from 150 to 30)
-				alpha = int(150 * (1 - (age / self.memory_duration)))
-				radius = int(self.trail_radius * (1 - (age / self.memory_duration * 0.5)))
-
-				# Convert world to screen coordinates
-				screen_pos = self.camera_apply_pos((pos.x, pos.y))
-
-				# Create a smaller transparent circle for the trail
-				# Use a separate surface to get proper alpha blending
-				trail_surf = pygame.Surface((radius*2, radius*2), pygame.SRCALPHA)
-				pygame.draw.circle(trail_surf, (255, 255, 255, alpha), (radius, radius), radius)
-
-				# Blit the trail surface onto the fog
-				# self.fog_surface.blit(trail_surf, (screen_pos[0]-radius, screen_pos[1]-radius), special_flags=pygame.BLEND_RGBA_SUB)
-
-			# Then, draw the player's current visibility (larger and more prominent)
-			screen_pos = self.camera_apply_pos((player_one.position.x, player_one.position.y))
-
-			# Create gradient for player's vision
-			vision_surf = pygame.Surface((self.fog_radius*2, self.fog_radius*2), pygame.SRCALPHA)
-			for r in range(self.fog_radius, 0, -1):
-				# Calculate alpha for this ring (center is most transparent, edge is most opaque)
-				alpha = int(200 * (r / self.fog_radius))
-				pygame.draw.circle(vision_surf, (255, 255, 255, 255-alpha), (self.fog_radius, self.fog_radius), r)
-
-			# Apply the vision to the fog surface
-			# self.fog_surface.blit(vision_surf, (screen_pos[0]-self.fog_radius, screen_pos[1]-self.fog_radius), special_flags=pygame.BLEND_RGBA_SUB)
-			# self.fog_surface.blit(visibility_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-			# Apply the fog to the screen
 			self.screen.blit(self.fog_surface, (0, 0))
 
 		except Exception as e:

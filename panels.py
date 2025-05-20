@@ -247,7 +247,7 @@ class ServerDiscoveryPanel():
             logger.error(f"Error drawing server discovery panel: {e} {type(e)}")
 
 class PlayerInfoPanel:
-    def __init__(self, screen, game_state, height=80, bg_color=(30, 30, 40, 180)):
+    def __init__(self, screen, game_state, height=110, bg_color=(30, 30, 40, 180)):
         """
         Create a panel showing player information at the bottom of the screen
 
@@ -382,7 +382,10 @@ class PlayerInfoPanel:
 
         # Draw score and bombs
         score_text = self.stats_font.render(f"Score: {score}", True, (255, 255, 255))
-        self.surface.blit(score_text, (x + 10, y + 47))
+        # self.surface.blit(score_text, (x + 10, y + 47))
 
         bombs_text = self.stats_font.render(f"Bombs: {bombsleft}", True, (255, 255, 255))
-        self.surface.blit(bombs_text, (x + 10, y + 67))
+        # self.surface.blit(bombs_text, (x + 10, y + 67))
+        # Position score on the left and bombs on the right of the same line
+        self.surface.blit(score_text, (x + 10, y + 47))
+        self.surface.blit(bombs_text, (x + self.card_width - bombs_text.get_width() - 10, y + 47))

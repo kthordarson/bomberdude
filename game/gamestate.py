@@ -790,7 +790,7 @@ class GameState:
 						if client_id == self.client_id and 'bombsleft' in player_data:
 							player_one = self.get_playerone()
 							player_one.bombsleft = player_data['bombsleft']
-							logger.debug(f"Local player bombs updated: {player_one.bombsleft}")
+							# logger.debug(f"Local player bombs updated: {player_one.bombsleft}")
 						elif client_id != self.client_id:  # Don't update our own player
 							if client_id in self.playerlist:
 								# Update existing player

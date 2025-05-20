@@ -140,7 +140,7 @@ class Bomberplayer(Sprite):
 		# Check cooldown first
 		if hasattr(self, 'lastdrop') and (current_time - self.lastdrop) < cooldown_period:
 			event['event_type'] = "dropcooldown"
-			logger.debug(f'Bomb drop on cooldown {(current_time - self.lastdrop):.2f}s')
+			# logger.debug(f'Bomb drop on cooldown {(current_time - self.lastdrop):.2f}s')
 			return event
 
 		if self.killed:
@@ -151,7 +151,7 @@ class Bomberplayer(Sprite):
 		elif 0 < self.bombsleft <= 3:
 			# Don't decrease client-side - let server validate and update
 			self.lastdrop = current_time  # Set last drop time to prevent spam
-			logger.info(f'Attempting to drop bomb {self.bombsleft=} bombs left')
+			# logger.info(f'Attempting to drop bomb {self.bombsleft=} bombs left')
 			return event
 		else:
 			event['event_type'] = "nodropbomb"
