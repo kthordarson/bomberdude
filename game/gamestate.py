@@ -603,7 +603,7 @@ class GameState:
 
 				# Create visual explosion
 				if hasattr(self, 'explosion_manager'):
-					self.explosion_manager.create_explosion(position)
+					self.explosion_manager.create_explosion(position, count=1)
 
 				# Count remaining bombs for this player AFTER this one exploded
 				active_bomb_count = sum(1 for bomb in self.bombs

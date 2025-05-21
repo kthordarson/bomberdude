@@ -27,7 +27,7 @@ class Bomb(Sprite):
 		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:
 			# Create explosion particles if manager is provided
 			if not self.exploded:
-				game_state.explosion_manager.create_explosion(self.rect.center)
+				game_state.explosion_manager.create_explosion(self.rect.center, count=2)
 				game_state.explosion_manager.create_flames(self)
 				self.exploded = True
 			asyncio.create_task(self.explode(game_state))

@@ -49,21 +49,29 @@ class Flame(Sprite):
 			self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
 			self.rect = self.image.get_rect()
 			self.rect.center = (int(self.position[0]), int(self.position[1]))
-			for tile in game_state.killable_tiles:
-				try:
-					if self.rect.colliderect(tile.rect):
-						await game_state.destroy_block(tile)
-						self.kill()
-						break
-				except Exception as e:
-					logger.warning(f"{e} {type(e)} tile: {tile} {type(tile)}\n{dir(tile)}")
-					break
-			for tile in game_state.collidable_tiles:
-				try:
-					if self.rect.colliderect(tile.rect):
-						self.kill()
-						break
-				except Exception as e:
-					logger.warning(f"{e} {type(e)} tile: {tile} {type(tile)}\n{dir(tile)}")
-					break
+
+			# Use spatial partitioning - define a small area around the flame
+			flame_area = pygame.Rect(
+				self.rect.x - 32,  # Expand 32px left
+				self.rect.y - 32,  # Expand 32px up
+				self.rect.width + 64,  # Add 32px to both sides
+				self.rect.height + 64   # Add 32px to top and bottom
+			)
+
+			# Get nearby tiles using rect intersection instead of direct coordinate access
+			nearby_killable = [tile for tile in game_state.killable_tiles if flame_area.colliderect(tile.rect)]
+			nearby_collidable = [tile for tile in game_state.collidable_tiles if flame_area.colliderect(tile.rect)]
+
+			# Check collision with nearby killable tiles first
+			for tile in nearby_killable:
+				if self.rect.colliderect(tile.rect):
+					await game_state.destroy_block(tile)
+					self.kill()
+					return
+
+			# Then check collision with nearby collidable tiles
+			for tile in nearby_collidable:
+				if self.rect.colliderect(tile.rect):
+					self.kill()
+					return
 
