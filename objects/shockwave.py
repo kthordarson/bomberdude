@@ -2,7 +2,7 @@ import pygame
 from pygame.math import Vector2 as Vec2d
 
 class Shockwave:
-	def __init__(self, position, max_radius=150, duration=1.0, color=(255, 255, 255, 180)):
+	def __init__(self, position, max_radius=150, duration=1.0, color=(255, 255, 255, 180), expansion_rate=None):
 		"""
 		Create a shockwave effect
 
@@ -20,8 +20,13 @@ class Shockwave:
 		self.life = 0
 		self.alive = True
 
-		# Calculate expansion rate
-		self.expansion_rate = max_radius / duration
+		# Use either provided expansion rate or calculate from duration
+		if expansion_rate is not None:
+			self.expansion_rate = expansion_rate
+			self.duration = max_radius / expansion_rate
+		else:
+			self.duration = duration
+			self.expansion_rate = max_radius / duration
 
 	def update(self, delta_time):
 		"""Update shockwave size and opacity"""

@@ -67,11 +67,9 @@ class Flame(Sprite):
 				if self.rect.colliderect(tile.rect):
 					await game_state.destroy_block(tile)
 					self.kill()
-					return
 
 			# Then check collision with nearby collidable tiles
 			for tile in nearby_collidable:
 				if self.rect.colliderect(tile.rect):
 					self.kill()
-					return
 

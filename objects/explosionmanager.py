@@ -2,7 +2,7 @@ from pygame.math import Vector2 as Vec2d
 import math
 import pygame
 import random
-from constants import PARTICLE_COUNT, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED
+from constants import PARTICLE_COUNT, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED, SHOCKWAVE_EXPANSION_RATE, SHOCKWAVE_MAX_RADIUS_PRIMARY, SHOCKWAVE_MAX_RADIUS_SECONDARY
 from .particles import Particle
 from .flames import Flame
 from .shockwave import Shockwave
@@ -44,8 +44,9 @@ class ExplosionManager:
 		# Primary shockwave - faster and more transparent
 		primary = Shockwave(
 			position=position,
-			max_radius=150,
+			max_radius=SHOCKWAVE_MAX_RADIUS_PRIMARY,
 			duration=0.8,
+			expansion_rate=SHOCKWAVE_EXPANSION_RATE,
 			color=(255, 255, 255, 100)  # White with 100/255 alpha
 		)
 		self.shockwaves.append(primary)
@@ -53,8 +54,8 @@ class ExplosionManager:
 		# Secondary shockwave - slower and more visible
 		secondary = Shockwave(
 			position=position,
-			max_radius=100,
-			duration=0.6,
+			max_radius=SHOCKWAVE_MAX_RADIUS_SECONDARY,
+			duration=SHOCKWAVE_EXPANSION_RATE * 0.8,
 			color=(255, 220, 150, 130)  # Light orange with 130/255 alpha
 		)
 		self.shockwaves.append(secondary)
