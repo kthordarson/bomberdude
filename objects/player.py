@@ -6,7 +6,7 @@ import orjson as json
 import pygame
 import time
 from utils import gen_randid
-from constants import PLAYER_MOVEMENT_SPEED
+from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING
 from .bullets import Bullet
 
 MOVE_MAP = {
@@ -43,7 +43,7 @@ class KeysPressed:
 @dataclass(eq=True)
 class Bomberplayer(Sprite):
 	texture: str
-	scale: float = 0.6
+	scale: float = PLAYER_SCALING
 	client_id: str = 'Bomberplayer'
 	position: Vec2d = field(default_factory=lambda: Vec2d(99, 99))
 	# name: str = 'xnonex'

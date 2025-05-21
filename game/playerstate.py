@@ -2,7 +2,7 @@ import pygame
 from loguru import logger
 from dataclasses import dataclass, field, InitVar
 from utils import gen_randid
-from constants import DEFAULT_HEALTH
+from constants import DEFAULT_HEALTH, BLOCK
 
 @dataclass
 class PlayerState:
@@ -33,7 +33,7 @@ class PlayerState:
 	@property
 	def rect(self):
 		"""Create a rect on-demand for collision detection"""
-		return pygame.Rect(self.position[0], self.position[1], 32, 32)
+		return pygame.Rect(self.position[0], self.position[1], BLOCK, BLOCK)
 
 	@property
 	def bombsleft(self):

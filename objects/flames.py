@@ -3,7 +3,7 @@ from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 # from pymunk import Vec2d
 import pygame
-from constants import FLAME_SPEED
+from constants import FLAME_SPEED, BLOCK
 
 class Flame(Sprite):
 	def __init__(self, position, direction, client_id, size=1, power=3):
@@ -22,7 +22,7 @@ class Flame(Sprite):
 
 		# New properties for distance tracking
 		self.starting_position = Vec2d(position)  # Store initial position
-		self.max_distance = power * 32  # Max distance based on power (assuming 32px tiles)
+		self.max_distance = power * BLOCK  # Max distance based on power (assuming 32px tiles)
 		self.distance_traveled = 0
 
 	async def flame_update(self, collidable_tiles, game_state) -> None:
@@ -52,10 +52,10 @@ class Flame(Sprite):
 
 			# Use spatial partitioning - define a small area around the flame
 			flame_area = pygame.Rect(
-				self.rect.x - 32,  # Expand 32px left
-				self.rect.y - 32,  # Expand 32px up
-				self.rect.width + 64,  # Add 32px to both sides
-				self.rect.height + 64   # Add 32px to top and bottom
+				self.rect.x - BLOCK,  # Expand 32px left
+				self.rect.y - BLOCK,  # Expand 32px up
+				self.rect.width + BLOCK*2,  # Add 32px to both sides
+				self.rect.height + BLOCK*2   # Add 32px to top and bottom
 			)
 
 			# Get nearby tiles using rect intersection instead of direct coordinate access

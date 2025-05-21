@@ -3,6 +3,7 @@ import pygame
 import time
 from loguru import logger
 import math
+from constants import BLOCK
 
 # Store the last few frame times for smoothing
 frame_times = []
@@ -62,7 +63,7 @@ def draw_other_player_id(screen, game_state, camera):
     for player in game_state.playerlist.values():
         if player.client_id != game_state.get_playerone().client_id:
             try:
-                player_rect = pygame.Rect(player.position[0], player.position[1], 32, 32)
+                player_rect = pygame.Rect(player.position[0], player.position[1], BLOCK, BLOCK)
                 # Convert world position to screen position
                 screen_pos = camera.apply(player_rect).topleft
                 # Generate and draw the player ID text above the sprite

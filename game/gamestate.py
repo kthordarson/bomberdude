@@ -12,7 +12,7 @@ from objects.player import KeysPressed, Bomberplayer
 from objects.bullets import Bullet
 from objects.bombs import Bomb
 from objects.explosionmanager import ExplosionManager
-from constants import DEFAULT_HEALTH, UPDATE_TICK, GLOBAL_RATE_LIMIT
+from constants import DEFAULT_HEALTH, UPDATE_TICK, GLOBAL_RATE_LIMIT, BLOCK
 import pytmx
 from pytmx import load_pygame
 import json
@@ -895,7 +895,7 @@ class GameState:
 				elif hasattr(player, 'position'):
 					# Create temporary rect for PlayerState objects
 					pos = player.position
-					player_rect = pygame.Rect(pos[0], pos[1], 32, 32)  # Assumed size
+					player_rect = pygame.Rect(pos[0], pos[1], BLOCK, BLOCK)  # Assumed size
 				else:
 					continue  # Skip if no position data
 
