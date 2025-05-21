@@ -43,7 +43,6 @@ class GameState:
 		self.tile_cache = {}
 		self.last_update_times = {}
 		self.client_id = client_id
-		self.processed_explosions = set()  # Track processed explosion IDs
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
@@ -120,6 +119,29 @@ class GameState:
 			logger.error(f"Error in broadcast_event: {e} {type(e)}")
 
 	async def broadcast_state(self, game_state):
+		"""Broadcast game state to all connected clients"""
+		try:
+			data = json.dumps(game_state).encode('utf-8') + b'\n'
+
+			# Convert modified_tiles once before serialization
+			modified_tiles = {str(pos): gid for pos, gid in self.modified_tiles.items()}
+			game_state['modified_tiles'] = modified_tiles
+
+			# Broadcast in parallel using gather
+			tasks = []
+			for conn in list(self.connections):
+				if hasattr(conn, 'write'):
+					if not conn.is_closing():
+						conn.write(data)
+						tasks.append(conn.drain())
+
+			if tasks:
+				await asyncio.gather(*tasks, return_exceptions=True)
+
+		except Exception as e:
+			logger.error(f"Error in broadcast_state: {e} {type(e)}")
+
+	async def broadcast_state_v1(self, game_state):
 		"""Broadcast game state to all connected clients"""
 		dead_connections = set()
 		loop = asyncio.get_event_loop()
@@ -578,16 +600,6 @@ class GameState:
 
 				# Unique ID to prevent duplicate processing
 				event_id = game_event.get('event_id', str(time.time()))
-
-				# Skip if we already processed this explosion
-				if event_id in self.processed_explosions:
-					return
-
-				self.processed_explosions.add(event_id)
-				# Limit set size to prevent memory growth
-				if len(self.processed_explosions) > 1000:
-					logger.warning(f'processed_explosions {len(self.processed_explosions)} size exceeded, trimming to last 500')
-					self.processed_explosions = set(list(self.processed_explosions)[-500:])
 
 				# Create visual explosion
 				if hasattr(self, 'explosion_manager'):
