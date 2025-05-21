@@ -163,15 +163,14 @@ class Bomberplayer(Sprite):
 		# Player has bombs and can drop
 		self.lastdrop = current_time  # Set last drop time to prevent spam
 
-		# IMPORTANT - Actually decrement bomb count here, will be restored if server rejects
-		self.bombs_left -= 1
-
+		# Client will temporarily decrement the bomb count
+		# but server's value will be authoritative when ackbombdrop comes back
 		return {
 			"event_time": current_time,
 			"event_type": "player_drop_bomb",
 			"client_id": self.client_id,
 			"position": self.rect.center,
-			"bombs_left": self.bombs_left,  # Send the UPDATED bomb count
+			"bombs_left": self.bombs_left,  # Current count before server decrements
 			"handled": False,
 			"handledby": self.client_id,
 			"eventid": gen_randid(),
