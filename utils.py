@@ -2,8 +2,6 @@ import struct
 import random
 import pygame
 
-md5_unpacker = struct.Struct("4I")
-
 def load_image(fullname, colorkey=None):
 	# fullname = os.path.join("data", name)
 	try:

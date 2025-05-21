@@ -135,8 +135,7 @@ def draw_blocks_around_player(screen, game_state, camera):
                 pos_text = f"ID:{tile.id}"
 
             text_surf = font.render(pos_text, True, (255, 255, 255))
-            screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2,
-                                   screen_rect.centery - text_surf.get_height()//2))
+            screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))
 
             # Draw line from player to this block
             pygame.draw.line(
