@@ -186,11 +186,3 @@ class Bomberplayer(Sprite):
 		logger.info(f'{self} killed by {dmgfrom}')
 		self.killed = True
 		self.image = pygame.image.load('data/netplayerdead.png')
-
-	def restore_bomb(self):
-		"""Restore a bomb to the player's inventory after one has exploded"""
-		if self._bombsleft < 3:
-			self._bombsleft += 1
-			logger.debug(f"Restored bomb to {self.client_id}, now has {self._bombsleft}")
-			return self._bombsleft
-		return False

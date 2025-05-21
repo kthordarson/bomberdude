@@ -209,27 +209,6 @@ class GameState:
 		self.players_sprites.add(player)
 		return player
 
-	def oldget_playerone(self, client_id=None) -> Bomberplayer | PlayerState | None:
-		for player in self.players_sprites:
-			if player.client_id == self.client_id:
-				return player
-		target_id = client_id or self.client_id
-		if target_id in self.playerlist:
-			player = self.playerlist[target_id]
-			# Ensure we can access .client_id regardless of type
-			if isinstance(player, dict):
-				# Create a temporary PlayerState for dict type
-				player_state = PlayerState(
-					client_id=player.get('client_id', 'unknown'),
-					position=player.get('position', [0, 0]),
-					health=player.get('health', 100),
-					initial_bombs=player.get('bombsleft', 3),
-					score=player.get('score', 0),
-				)
-				return player_state
-			return player
-		raise AttributeError('player one NOT found in self.players_sprites or self.players')
-
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
 		self.tile_map = load_pygame(self.mapname)
@@ -608,6 +587,7 @@ class GameState:
 				self.processed_explosions.add(event_id)
 				# Limit set size to prevent memory growth
 				if len(self.processed_explosions) > 1000:
+					logger.warning(f'processed_explosions {len(self.processed_explosions)} size exceeded, trimming to last 500')
 					self.processed_explosions = set(list(self.processed_explosions)[-500:])
 
 				# Create visual explosion
