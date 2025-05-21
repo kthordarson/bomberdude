@@ -94,9 +94,8 @@ class GameState:
 	async def broadcast_event(self, event):
 		# Only broadcast player_update events at a reduced rate
 		do_send = True
-		event_type = event.get('event_type')
+		# event_type = event.get('event_type')
 
-# 		if event_type == 'player_update':
 		client_id = event.get('client_id')
 		current_time = time.time()
 		# Use per-client rate limiting
@@ -115,7 +114,7 @@ class GameState:
 			if do_send:
 				await self.broadcast_state({"event_type": "broadcast_event", "event": event})
 				# Track last time we sent an update for this specific client
-				if event_type == 'player_update':
+				if event.get('event_type') == 'player_update':
 					self.last_update_times[event.get('client_id')] = time.time()
 		except Exception as e:
 			logger.error(f"Error in broadcast_event: {e} {type(e)}")

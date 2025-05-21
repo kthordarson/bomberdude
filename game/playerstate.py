@@ -21,7 +21,6 @@ class PlayerState:
 	killed: bool | None = None
 	event_type: str | None = None
 	event_time: int | None = None
-	event_type: str | None = None
 	handled: bool = False
 	handledby: str = 'PlayerState'
 	playerlist: list = field(default_factory=list)
