@@ -43,6 +43,7 @@ class GameState:
 		self.tile_cache = {}
 		self.last_update_times = {}
 		self.client_id = client_id
+		self.player_active_bombs = {}  # player_id -> active bomb count
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
@@ -504,7 +505,22 @@ class GameState:
 				if self.args.debug:
 					logger.debug(f'ackbombdrop {client_id=} {self.client_id=}')
 				bomb = Bomb(position=game_event.get('position'), client_id=game_event.get('client_id'))
+				# Add bomb to active bombs counter
+				self.player_active_bombs[client_id] = min(3, self.player_active_bombs.get(client_id, 0) + 1)
 				self.bombs.add(bomb)
+
+				# Update bombs left on player object to ensure consistency
+				if client_id in self.playerlist:
+					player = self.playerlist[client_id]
+					bombs_left = max(0, 3 - self.player_active_bombs[client_id])
+
+					# Update player's bombsleft attribute
+					if isinstance(player, Bomberplayer):
+						player.bombsleft = bombs_left
+					elif isinstance(player, PlayerState):
+						player.bombsleft = bombs_left
+					elif isinstance(player, dict):
+						player['bombsleft'] = bombs_left
 
 			case 'bulletfired':
 				game_event['handledby'] = 'ackbulletupdate_game_event'
@@ -612,16 +628,30 @@ class GameState:
 				# Restore bomb to the player's inventory - server is authoritative on bomb count
 				if client_id in self.playerlist:
 					player = self.playerlist[client_id]
-					bombs_restored = False
 
+					# Get bombsleft from event if available (server is authoritative)
+					if 'bombsleft' in game_event:
+						bombs_left = game_event['bombsleft']
+						# Update our tracking to match server's count
+						self.player_active_bombs[client_id] = 3 - bombs_left
+					else:
+						# Decrement our local counter
+						self.player_active_bombs[client_id] = max(0, self.player_active_bombs.get(client_id, 0) - 1)
+						bombs_left = max(0, 3 - self.player_active_bombs[client_id])
+
+					# Set bombs left on the player object
 					if isinstance(player, Bomberplayer):
-						# Always set to correct value (3 - active bombs)
-						player.bombsleft = min(3, 3 - active_bomb_count)
-						game_event['bombsleft'] = player.bombsleft
-					elif isinstance(player, dict) and 'bombsleft' in player:
-						player['bombsleft'] = min(3, 3 - active_bomb_count)
-						game_event['bombsleft'] = player['bombsleft']
-						logger.debug(f"Restored bomb to {client_id}, now has {player['bombsleft']}")
+						player.bombsleft = bombs_left
+					elif isinstance(player, PlayerState):
+						player.bombsleft = bombs_left
+					elif isinstance(player, dict):
+						player['bombsleft'] = bombs_left
+
+					# Add to event for broadcasting if not already there
+					if 'bombsleft' not in game_event:
+						game_event['bombsleft'] = bombs_left
+
+					logger.debug(f"Restored bomb to {client_id}, now has {bombs_left}")
 
 				# Broadcast the explosion event to all clients with updated bomb count
 				await self.broadcast_event(game_event)
