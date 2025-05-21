@@ -279,7 +279,7 @@ class GameState:
 				'timeout': msg_event.get('timeout'),
 				'killed': msg_event.get('killed'),
 				'event_type': 'update_game_state',
-				'bombsleft': msg_event.get('bombsleft'),
+				'bombs_left': msg_event.get('bombs_left'),
 			}
 			self.playerlist[client_id] = self.ensure_player_state(playerdict)
 			# self.playerlist[client_id] = playerdict
@@ -294,15 +294,15 @@ class GameState:
 				position=player_data.get('position', [0, 0]),
 				client_id=player_data.get('client_id', 'unknown'),
 				score=player_data.get('score', 0) or 0,  # Convert None to 0
-				initial_bombs=player_data.get('bombsleft', 3) or 3,  # Convert None to 3
+				initial_bombs=player_data.get('bombs_left', 3) or 3,  # Convert None to 3
 				health=player_data.get('health', 100) or 100,  # Convert None to 100
 				killed=player_data.get('killed', False) or False,
 				timeout=player_data.get('timeout', False) or False
 			)
 		if isinstance(player_data, PlayerState):
 			# Ensure PlayerState has non-None values for critical attributes
-			if player_data.bombsleft is None:
-				player_data.bombsleft = 3
+			if player_data.bombs_left is None:
+				player_data.bombs_left = 3
 			if player_data.health is None:
 				player_data.health = 100
 			if player_data.score is None:
@@ -416,7 +416,7 @@ class GameState:
 				# Update other player's position in playerlist
 				if client_id != self.client_id:
 					position = game_event.get('position')
-					bombsleft = game_event.get('bombsleft')
+					bombs_left = game_event.get('bombs_left')
 					if client_id in self.playerlist:
 						player = self.ensure_player_state(self.playerlist[client_id])
 						if player:
@@ -427,7 +427,7 @@ class GameState:
 							else:
 								# Handle PlayerState objects
 								player.position = position
-								player.bombsleft = bombsleft
+								player.bombs_left = bombs_left
 					else:
 						logger.warning(f'newunknownplayer {client_id=}')
 						# Add new player with minimal required fields
@@ -465,62 +465,48 @@ class GameState:
 				# await self.event_queue.put(game_event)
 
 			case 'player_drop_bomb':
-				# Server-side validation of bomb limit
+				# Server-side validation - we trust that client already checked bombs_left
 				owner_id = game_event.get('client_id')
 
-				# Count active bombs for this player
-				active_bomb_count = sum(1 for bomb in self.bombs if bomb.client_id == owner_id and not bomb.exploded)
+				# Send acknowledgment to all clients
+				game_event['handledby'] = 'server'
+				game_event['event_type'] = 'ackbombdrop'
 
-				# Check if player already has 3 bombs on the field
-				if active_bomb_count >= 3:
-					# Reject the bomb drop and notify the client
-					game_event['event_type'] = "dropcooldown"
-					game_event['handledby'] = "server_validation"
-					game_event['message'] = "Maximum bombs reached (3)"
+				# Make sure we're tracking the bombs_left correctly on server too
+				if owner_id in self.playerlist:
+					player = self.playerlist[owner_id]
+					bombs_left = game_event.get('bombs_left', 0)
 
-					# Only send back to the requesting client
-					if owner_id in self.playerlist:
-						# Update client's bombsleft to match server state (3 - active bombs)
-						player = self.playerlist[owner_id]
-						if isinstance(player, Bomberplayer):
-							player.bombsleft = max(0, 3 - active_bomb_count)
-						elif isinstance(player, dict) and 'bombsleft' in player:
-							player['bombsleft'] = max(0, 3 - active_bomb_count)
+					# Update server's copy of player state
+					if isinstance(player, Bomberplayer):
+						player.bombs_left = bombs_left
+					elif isinstance(player, PlayerState):
+						player.bombs_left = bombs_left
+					elif isinstance(player, dict):
+						player['bombs_left'] = bombs_left
 
-						game_event['bombsleft'] = max(0, 3 - active_bomb_count)
-
-						# Send only to the client who tried to drop the bomb
-						for conn in self.connections:
-							if hasattr(conn, 'client_id') and conn.client_id == owner_id:
-								await self.send_to_client(conn, game_event)
-								break
-				else:
-					# Allow bomb drop
-					game_event['handledby'] = 'ugsbomb'
-					game_event['event_type'] = 'ackbombdrop'
-					game_event['active_bombs'] = active_bomb_count + 1
-					await self.broadcast_event(game_event)
+				await self.broadcast_event(game_event)
 
 			case 'ackbombdrop':
 				if self.args.debug:
 					logger.debug(f'ackbombdrop {client_id=} {self.client_id=}')
+
+				# Create the bomb object
 				bomb = Bomb(position=game_event.get('position'), client_id=game_event.get('client_id'))
-				# Add bomb to active bombs counter
-				self.player_active_bombs[client_id] = min(3, self.player_active_bombs.get(client_id, 0) + 1)
 				self.bombs.add(bomb)
 
-				# Update bombs left on player object to ensure consistency
-				if client_id in self.playerlist:
+				# Update bombs left on player object to ensure consistency with server
+				if 'bombs_left' in game_event and client_id in self.playerlist:
 					player = self.playerlist[client_id]
-					bombs_left = max(0, 3 - self.player_active_bombs[client_id])
+					bombs_left = game_event['bombs_left']
 
-					# Update player's bombsleft attribute
+					# Update player's bombs_left attribute
 					if isinstance(player, Bomberplayer):
-						player.bombsleft = bombs_left
+						player.bombs_left = bombs_left
 					elif isinstance(player, PlayerState):
-						player.bombsleft = bombs_left
+						player.bombs_left = bombs_left
 					elif isinstance(player, dict):
-						player['bombsleft'] = bombs_left
+						player['bombs_left'] = bombs_left
 
 			case 'bulletfired':
 				game_event['handledby'] = 'ackbulletupdate_game_event'
@@ -610,50 +596,42 @@ class GameState:
 					await self.broadcast_event(game_event)
 
 			case 'bomb_exploded':
-				# Process the explosion
 				client_id = game_event.get('owner_id') or game_event.get('client_id')
 				position = game_event.get('position')
 
-				# Unique ID to prevent duplicate processing
-				event_id = game_event.get('event_id', str(time.time()))
-
-				# Create visual explosion
+				# Visual effects
 				if hasattr(self, 'explosion_manager'):
 					self.explosion_manager.create_explosion(position, count=1)
 
-				# Count remaining bombs for this player AFTER this one exploded
-				active_bomb_count = sum(1 for bomb in self.bombs
-										if bomb.client_id == client_id and not bomb.exploded)
-
-				# Restore bomb to the player's inventory - server is authoritative on bomb count
+				# Restore bomb to player's inventory
 				if client_id in self.playerlist:
 					player = self.playerlist[client_id]
 
-					# Get bombsleft from event if available (server is authoritative)
-					if 'bombsleft' in game_event:
-						bombs_left = game_event['bombsleft']
-						# Update our tracking to match server's count
-						self.player_active_bombs[client_id] = 3 - bombs_left
-					else:
-						# Decrement our local counter
-						self.player_active_bombs[client_id] = max(0, self.player_active_bombs.get(client_id, 0) - 1)
-						bombs_left = max(0, 3 - self.player_active_bombs[client_id])
-
-					# Set bombs left on the player object
+					# Get current bombs left
+					current_bombs = 0
 					if isinstance(player, Bomberplayer):
-						player.bombsleft = bombs_left
+						current_bombs = player.bombs_left
 					elif isinstance(player, PlayerState):
-						player.bombsleft = bombs_left
+						current_bombs = player.bombs_left
 					elif isinstance(player, dict):
-						player['bombsleft'] = bombs_left
+						current_bombs = player.get('bombs_left', 0)
 
-					# Add to event for broadcasting if not already there
-					if 'bombsleft' not in game_event:
-						game_event['bombsleft'] = bombs_left
+					# Increment bombs left (max 3)
+					bombs_left = min(3, current_bombs + 1)
 
+					# Update player object
+					if isinstance(player, Bomberplayer):
+						player.bombs_left = bombs_left
+					elif isinstance(player, PlayerState):
+						player.bombs_left = bombs_left
+					elif isinstance(player, dict):
+						player['bombs_left'] = bombs_left
+
+					# Add to event for clients
+					game_event['bombs_left'] = bombs_left
 					logger.debug(f"Restored bomb to {client_id}, now has {bombs_left}")
 
-				# Broadcast the explosion event to all clients with updated bomb count
+				# Broadcast to all clients
 				await self.broadcast_event(game_event)
 
 			case _:
@@ -785,7 +763,7 @@ class GameState:
 										client_id=client_id,
 										position=player_data.get('position', (0, 0)),
 										health=DEFAULT_HEALTH,
-										initial_bombs=player_data.get('bombsleft', 3),
+										initial_bombs=player_data.get('bombs_left', 3),
 										score=player_data.get('score', 0)
 									)
 								except Exception as e:
@@ -807,11 +785,11 @@ class GameState:
 						if client_id == 'gamestatenotset':
 							logger.warning(f'gamestatenotset: {player_data} data={data}')
 							continue
-						# IMPORTANT: Update bombsleft for local player
-						if client_id == self.client_id and 'bombsleft' in player_data:
+						# IMPORTANT: Update bombs_left for local player
+						if client_id == self.client_id and 'bombs_left' in player_data:
 							player_one = self.get_playerone()
-							player_one.bombsleft = player_data['bombsleft']
-							# logger.debug(f"Local player bombs updated: {player_one.bombsleft}")
+							player_one.bombs_left = player_data['bombs_left']
+							# logger.debug(f"Local player bombs updated: {player_one.bombs_left}")
 						elif client_id != self.client_id:  # Don't update our own player
 							if client_id in self.playerlist:
 								# Update existing player
@@ -837,7 +815,7 @@ class GameState:
 										player.position_updated = True
 							else:
 								# Create new player
-								newplayer = PlayerState(client_id=client_id, position=player_data.get('position', (0, 0)), health=DEFAULT_HEALTH, initial_bombs=player_data.get('bombsleft', 3), score=player_data.get('score', 0))
+								newplayer = PlayerState(client_id=client_id, position=player_data.get('position', (0, 0)), health=DEFAULT_HEALTH, initial_bombs=player_data.get('bombs_left', 3), score=player_data.get('score', 0))
 								if newplayer.position:
 									logger.info(f'newplayer {client_id=} pos: {newplayer.position}')
 									try:

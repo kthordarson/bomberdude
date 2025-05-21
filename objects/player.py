@@ -55,7 +55,7 @@ class Bomberplayer(Sprite):
 		self.rect = self.image.get_rect()
 		self.change_x = 0
 		self.change_y = 0
-		self.bombsleft = 3
+		self.bombs_left = 3
 		self.health = 101
 		self.killed = False
 		self.timeout = False
@@ -69,11 +69,11 @@ class Bomberplayer(Sprite):
 		return hash((self.client_id))
 
 	@property
-	def bombsleft(self):
+	def bombs_left(self):
 		return self._bombsleft
 
-	@bombsleft.setter
-	def bombsleft(self, value):
+	@bombs_left.setter
+	def bombs_left(self, value):
 		# Never exceed 3 bombs
 		self._bombsleft = min(3, max(0, value))
 
@@ -88,7 +88,7 @@ class Bomberplayer(Sprite):
 				'timeout': self.timeout,
 				'msg_dt': time.time(),
 				'killed': self.killed,
-				'bombsleft': self.bombsleft,
+				'bombs_left': self.bombs_left,
 			}
 		except Exception as e:
 			logger.error(f"Error converting player to dict: {e}")
@@ -125,38 +125,57 @@ class Bomberplayer(Sprite):
 		current_time = time.time()
 		cooldown_period = 0.5  # Half-second cooldown between bomb drops
 
-		event = {
+		# Check cooldown first
+		if hasattr(self, 'lastdrop') and (current_time - self.lastdrop) < cooldown_period:
+			return {
+				"event_time": current_time,
+				"event_type": "dropcooldown",
+				"client_id": self.client_id,
+				"position": self.rect.center,
+				"handled": False,
+				"handledby": self.client_id,
+				"eventid": gen_randid(),
+			}
+
+		if self.killed:
+			return {
+				"event_time": current_time,
+				"event_type": "nodropbombkill",
+				"client_id": self.client_id,
+				"position": self.rect.center,
+				"handled": False,
+				"handledby": self.client_id,
+				"eventid": gen_randid(),
+			}
+
+		# Check if player has any bombs left
+		if self.bombs_left <= 0:
+			return {
+				"event_time": current_time,
+				"event_type": "nodropbomb",
+				"client_id": self.client_id,
+				"position": self.rect.center,
+				"handled": False,
+				"handledby": self.client_id,
+				"eventid": gen_randid(),
+			}
+
+		# Player has bombs and can drop
+		self.lastdrop = current_time  # Set last drop time to prevent spam
+
+		# IMPORTANT - Actually decrement bomb count here, will be restored if server rejects
+		self.bombs_left -= 1
+
+		return {
 			"event_time": current_time,
-			"event_type": "player_drop_bomb",  # Changed to always send to server for validation
+			"event_type": "player_drop_bomb",
 			"client_id": self.client_id,
 			"position": self.rect.center,
-			"ba": 1,
-			"timer": 1,
+			"bombs_left": self.bombs_left,  # Send the UPDATED bomb count
 			"handled": False,
 			"handledby": self.client_id,
 			"eventid": gen_randid(),
 		}
-
-		# Check cooldown first
-		if hasattr(self, 'lastdrop') and (current_time - self.lastdrop) < cooldown_period:
-			event['event_type'] = "dropcooldown"
-			# logger.debug(f'Bomb drop on cooldown {(current_time - self.lastdrop):.2f}s')
-			return event
-
-		if self.killed:
-			self.bombsleft = 0
-			event['event_type'] = "nodropbombkill"
-			logger.warning(f'dead {self.bombsleft=} {self.killed=}')
-			return event
-		elif 0 < self.bombsleft <= 3:
-			# Don't decrease client-side - let server validate and update
-			self.lastdrop = current_time  # Set last drop time to prevent spam
-			# logger.info(f'Attempting to drop bomb {self.bombsleft=} bombs left')
-			return event
-		else:
-			event['event_type'] = "nodropbomb"
-			logger.warning(f'no bombs left {self.bombsleft=} {self.killed=}')
-			return event
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
@@ -165,7 +184,7 @@ class Bomberplayer(Sprite):
 		self.killed = False
 		self.health = 100
 		self.position = Vec2d(101, 101)
-		self.bombsleft = 3
+		self.bombs_left = 3
 		self.score = 0
 		self.timeout = False
 		self.image = pygame.image.load('data/playerone.png')

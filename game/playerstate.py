@@ -9,7 +9,7 @@ class PlayerState:
 	position: tuple
 	client_id: str = 'notset'
 	score: int = 0
-	# bombsleft: InitVar[int] = 3  # Use InitVar for constructor param
+	# bombs_left: InitVar[int] = 3  # Use InitVar for constructor param
 	initial_bombs: InitVar[int] = 3  # Use InitVar for constructor param
 	health: int = DEFAULT_HEALTH
 	prev_position: tuple | None = None
@@ -36,11 +36,11 @@ class PlayerState:
 		return pygame.Rect(self.position[0], self.position[1], BLOCK, BLOCK)
 
 	@property
-	def bombsleft(self):
+	def bombs_left(self):
 		return self._bombsleft
 
-	@bombsleft.setter
-	def bombsleft(self, value):
+	@bombs_left.setter
+	def bombs_left(self, value):
 		# Never exceed 3 bombs
 		self._bombsleft = min(3, max(0, value))
 
@@ -49,7 +49,7 @@ class PlayerState:
 			'client_id': self.client_id,
 			'position': self.position,
 			'health': self.health,
-			'bombsleft': self.bombsleft,
+			'bombs_left': self.bombs_left,
 			'score': self.score,
 			'msg_dt': self.msg_dt,
 			'timeout': self.timeout,

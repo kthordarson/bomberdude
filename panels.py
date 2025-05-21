@@ -353,11 +353,11 @@ class PlayerInfoPanel:
         if isinstance(player, dict):
             health = player.get('health', 0)
             score = player.get('score', 0)
-            bombsleft = player.get('bombsleft', 0)
+            bombs_left = player.get('bombs_left', 0)
         else:
             health = getattr(player, 'health', 0)
             score = getattr(player, 'score', 0)
-            bombsleft = getattr(player, 'bombsleft', 0)
+            bombs_left = getattr(player, 'bombs_left', 0)
 
         # Draw player ID
         id_text = self.player_font.render(f"Player: {client_id}", True, (255, 255, 255))
@@ -384,7 +384,7 @@ class PlayerInfoPanel:
         score_text = self.stats_font.render(f"Score: {score}", True, (255, 255, 255))
         # self.surface.blit(score_text, (x + 10, y + 47))
 
-        bombs_text = self.stats_font.render(f"Bombs: {bombsleft}", True, (255, 255, 255))
+        bombs_text = self.stats_font.render(f"Bombs: {bombs_left}", True, (255, 255, 255))
         # self.surface.blit(bombs_text, (x + 10, y + 67))
         # Position score on the left and bombs on the right of the same line
         self.surface.blit(score_text, (x + 10, y + 47))
