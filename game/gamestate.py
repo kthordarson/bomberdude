@@ -493,22 +493,22 @@ class GameState:
 					# Calculate bombs left after dropping this bomb
 					bombs_left = max(0, 2 - active_bomb_count)  # 3-1-active_count
 					game_event['bombs_left'] = bombs_left
+					# server side
+					bomb = Bomb(position=game_event.get('position'), client_id=client_id)
+					self.bombs.add(bomb)
 
+					if self.args.debug:
+						logger.debug(f"Bomb drop accepted for player {client_id} - bombs: {len(self.bombs)} active_bomb_count: {active_bomb_count} - bombs left: {bombs_left}")
 					await self.broadcast_event(game_event)
 
 			case 'ackbombdrop':
-				if self.args.debug:
-					logger.debug(f'ackbombdrop {client_id=} {self.client_id=}')
-
-				# Create the bomb
-				bomb = Bomb(position=game_event.get('position'), client_id=client_id)
-				self.bombs.add(bomb)
-
 				# Update the player's bomb count from server's value
 				if 'bombs_left' in game_event and client_id in self.playerlist:
+					# Create the bomb
+					bomb = Bomb(position=game_event.get('position'), client_id=client_id)
+					self.bombs.add(bomb)
 					player = self.playerlist[client_id]
 					bombs_left = game_event['bombs_left']
-
 					# Update based on player type
 					if isinstance(player, Bomberplayer):
 						player.bombs_left = bombs_left
@@ -516,6 +516,10 @@ class GameState:
 						player.bombs_left = bombs_left
 					elif isinstance(player, dict):
 						player['bombs_left'] = bombs_left
+					if self.args.debug:
+						logger.debug(f'ackbombdrop {client_id=} {self.client_id=} bombs: {len(self.bombs)} bombs_left: {bombs_left} player: {player} {type(player)} game_event: {game_event}')
+				else:
+					logger.warning(f'ackbombdrop: client_id {client_id} not in playerlist or bombs_left missing. game_event: {game_event}')
 
 			case 'bulletfired':
 				game_event['handledby'] = 'ackbulletupdate_game_event'
@@ -628,7 +632,10 @@ class GameState:
 				# Process explosion
 				client_id = game_event.get('owner_id') or game_event.get('client_id')
 				position = game_event.get('position')
-
+				for bomb in self.bombs:
+					if bomb.client_id == client_id and not bomb.exploded:
+						bomb.exploded = True
+						break
 				# Visual effects
 				if hasattr(self, 'explosion_manager'):
 					self.explosion_manager.create_explosion(position, count=1)
