@@ -63,11 +63,7 @@ class Shockwave:
 		pygame.draw.circle(surf, self.color, center, self.current_radius - thickness // 2, thickness)
 
 		# Create a temporary rect for the shockwave position
-		temp_rect = pygame.Rect(
-			int(self.position.x - self.current_radius),
-			int(self.position.y - self.current_radius),
-			surf_size, surf_size
-		)
+		temp_rect = pygame.Rect(int(self.position.x - self.current_radius), int(self.position.y - self.current_radius), surf_size, surf_size)
 
 		# Use the camera's apply method with our rect
 		screen_pos = camera.apply(temp_rect)

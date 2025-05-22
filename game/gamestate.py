@@ -108,7 +108,7 @@ class GameState:
 		if timediff < GLOBAL_RATE_LIMIT and last_time > 0:
 			# Use debug level instead of warning for rate limiting
 			if self.args and hasattr(self.args, 'debug') and self.args.debug:
-				logger.debug(f'Rate limiting {client_id}: {timediff:.3f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT}')
+				logger.debug(f'Rate limiting {client_id}: {timediff:.5f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT}')
 			do_send = False
 
 		try:
@@ -140,44 +140,6 @@ class GameState:
 			if tasks:
 				await asyncio.gather(*tasks, return_exceptions=True)
 
-		except Exception as e:
-			logger.error(f"Error in broadcast_state: {e} {type(e)}")
-
-	async def broadcast_state_v1(self, game_state):
-		"""Broadcast game state to all connected clients"""
-		dead_connections = set()
-		loop = asyncio.get_event_loop()
-		try:
-			data = json.dumps(game_state).encode('utf-8') + b'\n'
-		except TypeError as e:
-			logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
-			return
-
-		modified_tiles = {}
-		for pos, gid in self.modified_tiles.items():
-			modified_tiles[str(pos)] = gid
-		game_state['modified_tiles'] = modified_tiles
-
-		try:
-			for conn in self.connections:
-				try:
-					# Check if it's a StreamWriter (from NewBombServer) or a socket
-					if hasattr(conn, 'write'):  # StreamWriter
-						if conn.is_closing():
-							dead_connections.add(conn)
-							continue
-						conn.write(data)
-						await conn.drain()
-					else:  # Socket
-						logger.warning(f'{conn} {type(conn)}')
-						await loop.sock_sendall(conn, data)
-				except Exception as e:
-					logger.error(f"Error broadcasting to client: {e}")
-					dead_connections.add(conn)
-			# Clean up dead connections
-			for dead_conn in dead_connections:
-				logger.warning(f"Removing {dead_conn} from connections")
-				self.remove_connection(dead_conn)
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
 
@@ -497,8 +459,8 @@ class GameState:
 					bomb = Bomb(position=game_event.get('position'), client_id=client_id)
 					self.bombs.add(bomb)
 
-					if self.args.debug:
-						logger.debug(f"Bomb drop accepted for player {client_id} - bombs: {len(self.bombs)} active_bomb_count: {active_bomb_count} - bombs left: {bombs_left}")
+					# if self.args.debug:
+					# 	logger.debug(f"Bomb drop accepted for player {client_id} - bombs: {len(self.bombs)} active_bomb_count: {active_bomb_count} - bombs left: {bombs_left}")
 					await self.broadcast_event(game_event)
 
 			case 'ackbombdrop':
@@ -516,8 +478,8 @@ class GameState:
 						player.bombs_left = bombs_left
 					elif isinstance(player, dict):
 						player['bombs_left'] = bombs_left
-					if self.args.debug:
-						logger.debug(f'ackbombdrop {client_id=} {self.client_id=} bombs: {len(self.bombs)} bombs_left: {bombs_left} player: {player} {type(player)} game_event: {game_event}')
+					# if self.args.debug:
+					# 	logger.debug(f'ackbombdrop {client_id=} {self.client_id=} bombs: {len(self.bombs)} bombs_left: {bombs_left} player: {player} {type(player)} game_event: {game_event}')
 				else:
 					logger.warning(f'ackbombdrop: client_id {client_id} not in playerlist or bombs_left missing. game_event: {game_event}')
 
@@ -662,7 +624,7 @@ class GameState:
 
 					# Add to event for clients
 					game_event['bombs_left'] = bombs_left
-					logger.debug(f"Restored bomb to {client_id}, now has {bombs_left}")
+					# logger.debug(f"Restored bomb to {client_id}, now has {bombs_left}")
 
 				# Broadcast to all clients
 				game_event['handled'] = True

@@ -13,10 +13,13 @@ class Flame(Sprite):
 		self.size = size
 		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
 		self.rect = self.image.get_rect()
-		self.position = Vec2d(position)
-		self.rect.topleft = (int(self.position[0]), int(self.position[1]))
+
+		# Give flame an initial offset in its direction to prevent immediate collision
+		self.position = Vec2d(position[0] + direction[0] * 10, position[1] + direction[1] * 10)
+		self.rect.center = (int(self.position.x), int(self.position.y))
+
 		self.direction = direction
-		self.shrink_rate = 0.02
+		self.shrink_rate = 0.002
 		self.speed = 2
 		self.min_size = 0.2
 
@@ -24,52 +27,67 @@ class Flame(Sprite):
 		self.starting_position = Vec2d(position)  # Store initial position
 		self.max_distance = power * BLOCK  # Max distance based on power (assuming 32px tiles)
 		self.distance_traveled = 0
+		# Small grace period before checking collisions
+		self.collision_grace = 8  # pixels
 
 	async def flame_update(self, collidable_tiles, game_state) -> None:
 		old_position = Vec2d(self.position)
-		self.position.x += self.direction[0] * FLAME_SPEED
-		self.position.y += self.direction[1] * FLAME_SPEED
-		self.rect.topleft = (int(self.position[0]), int(self.position[1]))
 
-		# Calculate distance traveled this frame
-		movement = Vec2d(self.position) - old_position
-		self.distance_traveled += movement.length()
+		# Move in smaller steps to avoid missing collisions
+		steps = 3  # Check position 3 times during movement
+		dx = self.direction[0] * FLAME_SPEED / steps
+		dy = self.direction[1] * FLAME_SPEED / steps
 
-		# Check if max distance reached
-		if self.distance_traveled >= self.max_distance:
-			self.kill()
-			return
+		for _ in range(steps):
+			self.position.x += dx
+			self.position.y += dy
+			self.rect.center = (int(self.position.x), int(self.position.y))
 
-		self.size -= self.shrink_rate
-		if self.size <= self.min_size:
-			self.kill()
-			return
-		else:
-			# Update image size
-			self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
-			self.rect = self.image.get_rect()
-			self.rect.center = (int(self.position[0]), int(self.position[1]))
+			# Calculate distance traveled
+			step_movement = Vec2d(self.position) - old_position
+			self.distance_traveled += step_movement.length()
+			old_position = Vec2d(self.position)
 
-			# Use spatial partitioning - define a small area around the flame
+			# Check if max distance reached
+			if self.distance_traveled >= self.max_distance:
+				self.kill()
+				return
+
+			# Skip collision checks during grace period
+			if self.distance_traveled < self.collision_grace:
+				continue
+
+			# Check nearby tiles for collisions
 			flame_area = pygame.Rect(
-				self.rect.x - BLOCK,  # Expand 32px left
-				self.rect.y - BLOCK,  # Expand 32px up
-				self.rect.width + BLOCK*2,  # Add 32px to both sides
-				self.rect.height + BLOCK*2   # Add 32px to top and bottom
+				self.rect.x - BLOCK//2,
+				self.rect.y - BLOCK//2,
+				self.rect.width + BLOCK,
+				self.rect.height + BLOCK
 			)
 
-			# Get nearby tiles using rect intersection instead of direct coordinate access
+			# Get nearby tiles
 			nearby_killable = [tile for tile in game_state.killable_tiles if flame_area.colliderect(tile.rect)]
-			nearby_collidable = [tile for tile in game_state.collidable_tiles if flame_area.colliderect(tile.rect)]
 
-			# Check collision with nearby killable tiles first
+			# Check for killable tile collisions
 			for tile in nearby_killable:
 				if self.rect.colliderect(tile.rect):
 					await game_state.destroy_block(tile)
 					self.kill()
+					return
 
-			# Then check collision with nearby collidable tiles
+			# Check for solid wall collisions
+			nearby_collidable = [tile for tile in game_state.collidable_tiles if flame_area.colliderect(tile.rect)]
 			for tile in nearby_collidable:
 				if self.rect.colliderect(tile.rect):
 					self.kill()
+					return
+
+		# Update size/appearance for animation
+		self.size -= self.shrink_rate
+		if self.size <= self.min_size:
+			self.kill()
+		else:
+			self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
+			self.rect = self.image.get_rect()
+			self.rect.center = (int(self.position.x), int(self.position.y))
 

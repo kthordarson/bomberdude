@@ -139,10 +139,4 @@ def draw_blocks_around_player(screen, game_state, camera):
             screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))
 
             # Draw line from player to this block
-            pygame.draw.line(
-                screen,
-                (100, 100, 255),  # Light blue
-                camera.apply(player_one.rect).center,
-                screen_rect.center,
-                1  # Line width
-            )
+            pygame.draw.line(screen, (100, 100, 255), camera.apply(player_one.rect).center, screen_rect.center, 1)

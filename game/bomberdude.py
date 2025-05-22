@@ -316,7 +316,7 @@ class Bomberdude():
 			try:
 				bomb_x = minimap_x + int(bomb.position.x * scale)
 				bomb_y = minimap_y + int(bomb.position.y * scale)
-				pygame.draw.circle(self.screen, (255, 255, 0), (bomb_x, bomb_y), 2)
+				pygame.draw.circle(self.screen, (255, 55, 0), (bomb_x, bomb_y), 2)
 			except Exception as e:
 				logger.error(f"Minimap bomb error: {e} {type(e)}")
 
