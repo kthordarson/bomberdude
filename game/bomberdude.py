@@ -130,9 +130,9 @@ class Bomberdude():
 				layer = self.client_game_state.tile_map.get_layer_by_name('Blocks')
 				if layer and hasattr(layer, 'data'):
 					if self.args.debug:
-						logger.debug(f'layer: {layer} layerdatalen: {len(layer.data)}')
-					if layer and 0 <= tile_y < len(layer.data) and 0 <= tile_x < len(layer.data[0]):
-						layer.data[tile_y][tile_x] = new_gid
+						logger.debug(f'layer: {layer} layerdatalen: {len(layer.data)}')  # type: ignore
+					if layer and 0 <= tile_y < len(layer.data) and 0 <= tile_x < len(layer.data[0]):  # type: ignore
+						layer.data[tile_y][tile_x] = new_gid  # type: ignore
 
 						# Update visual representation
 						if new_gid == 0:  # If block was destroyed
@@ -503,7 +503,7 @@ class Bomberdude():
 			self.fog_surface.fill((0, 0, 0, 250))
 
 			player_one = self.client_game_state.get_playerone()
-			current_time = time.time()
+			# current_time = time.time()
 
 			# Create visibility mask (all positions visible to player)
 			visibility_mask = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
