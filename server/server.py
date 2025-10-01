@@ -147,6 +147,8 @@ class BombServer:
 							self.connection_to_client_id[writer] = msg['game_event']['client_id']
 						await self.server_game_state.client_queue.put(msg)
 					except json.JSONDecodeError as e:
+						client_id = self.connection_to_client_id.get(writer)
+						logger.warning(f"Error decoding json: {e} from: {client_id} data: {message} fromaddr: {addr}")
 						try:
 							writer.close()
 							# await writer.wait_closed()
@@ -154,8 +156,6 @@ class BombServer:
 						except (ConnectionResetError, asyncio.TimeoutError, Exception) as e:
 							# Already closed or timed out, just log and continue
 							logger.error(f"Error during connection cleanup: {e} {addr}")
-						client_id = self.connection_to_client_id.get(writer)
-						logger.warning(f"Error decoding json: {e} from: {client_id} data: {message} fromaddr: {addr}")
 						try:
 							del self.connection_to_client_id[writer]
 							del self.server_game_state.playerlist[client_id]
