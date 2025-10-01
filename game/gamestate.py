@@ -60,7 +60,7 @@ class GameState:
 
 		self.collidable_tiles.remove(block)
 		self.killable_tiles.remove(block)
-		layer.data[tile_y][tile_x] = 0  # Set to empty tile
+		layer.data[tile_y][tile_x] = 0  # type: ignore  # Set to empty tile
 		self.modified_tiles[(tile_x, tile_y)] = 0
 		# Update visual representation
 		self.static_map_surface.blit(self.tile_cache.get(1), (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))  # type: ignore
@@ -310,8 +310,8 @@ class GameState:
 
 					# Apply the modification
 					layer = self.tile_map.get_layer_by_name('Blocks')
-					if layer and 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):
-						layer.data[y][x] = new_gid
+					if layer and 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):  # type: ignore
+						layer.data[y][x] = new_gid  # type: ignore
 
 						# Update visual representation too
 						if new_gid == 0:  # If block was destroyed
@@ -339,7 +339,7 @@ class GameState:
 
 				# Apply modification
 				layer = self.tile_map.get_layer_by_name('Blocks')
-				layer.data[tile_y][tile_x] = new_gid
+				layer.data[tile_y][tile_x] = new_gid  # type: ignore
 
 				# Track the modification
 				self.modified_tiles[(tile_x, tile_y)] = new_gid
@@ -708,8 +708,8 @@ class GameState:
 
 					# Apply the modification
 					layer = self.tile_map.get_layer_by_name('Blocks')
-					if layer and 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):
-						layer.data[y][x] = new_gid
+					if layer and 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):  # type: ignore
+						layer.data[y][x] = new_gid  # type: ignore
 
 						# Update visual representation
 						if new_gid == 0:  # If block was destroyed
