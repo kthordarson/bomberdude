@@ -11,7 +11,6 @@ from game.gamestate import GameState
 from server.api import ApiServer
 from utils import gen_randid
 from constants import UPDATE_TICK
-# from .discovery import ServerDiscovery
 
 class BombServer:
 	def __init__(self, args):

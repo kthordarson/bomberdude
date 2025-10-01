@@ -1,5 +1,4 @@
 from pygame.sprite import Sprite
-# from pymunk import Vec2d
 import pygame
 
 class Upgrade(Sprite):

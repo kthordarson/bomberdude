@@ -17,10 +17,6 @@ server_process = None
 
 def run_server_process(args_dict):
 	"""Function to run server in a separate process"""
-	import asyncio
-	import sys
-	from loguru import logger
-	from bombserver import async_start_server
 
 	# Convert args_dict back to Namespace
 	args = argparse.Namespace(**args_dict)
