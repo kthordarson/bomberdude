@@ -49,5 +49,11 @@ class Bomb(Sprite):
 			"handled": False,
 			"event_id": gen_randid(),
 		}
+		# Apply locally so the owner immediately gets bomb capacity back
+		try:
+			if hasattr(gamestate, "update_game_event"):
+				await gamestate.update_game_event(explosion_event)
+		except Exception:
+			pass
 		await gamestate.event_queue.put(explosion_event)
 		self.kill()

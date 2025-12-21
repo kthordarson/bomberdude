@@ -44,6 +44,8 @@ class Bomberdude():
 		self.fog_radius = 200    # Visible radius around player
 		self.fog_color = (0, 0, 0, 180)  # Semi-transparent black
 		self.fog_surface = None  # Will be created on first render
+		self._fog_size = None
+		self._visibility_mask = None
 		self.memory_duration = 10.0  # How long to remember (in seconds)
 		self.trail_radius = 100      # Radius of trail visibility (smaller than main)
 		self.max_trail_points = 100  # Limit trail length for performance
@@ -109,11 +111,11 @@ class Bomberdude():
 			await self.client_game_state.event_queue.put(connection_event)
 			self._connected = True
 			if self.args.debug:
-				logger.debug(f'connecting {connection_attempts}: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} ')
+				logger.debug(f'connecting {connection_attempts}: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} self.client_id: {self.client_id}')
 			await asyncio.sleep(0.2)
 			connection_attempts += 1
 		if self.args.debug:
-			logger.info(f'connected after {connection_attempts} attempts: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} ')
+			logger.info(f'connected after {connection_attempts} attempts: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} self.client_id: {self.client_id}')
 		return True
 
 	def apply_map_modifications(self, modified_tiles):
@@ -181,6 +183,8 @@ class Bomberdude():
 	def draw_player(self, player_data):
 		"""Draw a player sprite based on player data"""
 		if not player_data:
+			if self.args.debug:
+				logger.warning("draw_player called with None player_data")
 			return
 
 		try:
@@ -227,6 +231,9 @@ class Bomberdude():
 							logger.error(f'draw_player {e} {type(e)} player: {player} {type(player)}')
 			else:
 				logger.warning(f"Player one not found {player_one=} {self.client_game_state=}")
+		else:
+			if self.args.debug:
+				logger.warning(f"Skipping drawing server player {player_one.client_id}")
 
 		# Draw bullets, bombs, etc.
 		for bullet in self.client_game_state.bullets:
@@ -507,37 +514,32 @@ class Bomberdude():
 		if not self.fog_enabled:
 			return
 
-		# Get screen dimensions
+		# Get screen dimensions (handle resize)
 		screen_width, screen_height = self.screen.get_size()
-
-		# Create fog surface if doesn't exist
-		if not self.fog_surface:
+		if self._fog_size != (screen_width, screen_height) or self.fog_surface is None or self._visibility_mask is None:
+			self._fog_size = (screen_width, screen_height)
 			self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+			self._visibility_mask = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
 
-		try:
-			# Fill with SEMI-transparent black
-			self.fog_surface.fill((0, 0, 0, 250))
+		# Fill with semi-transparent black
+		self.fog_surface.fill((0, 0, 0, 250))
+		# Reset mask to fully opaque black
+		self._visibility_mask.fill((0, 0, 0, 255))
 
-			player_one = self.client_game_state.get_playerone()
-			current_time = time.time()
+		player_one = self.client_game_state.get_playerone()
+		# Convert world to screen without extra allocations/calls
+		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
+		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
+		camera_x = player_one.position.x - SCREEN_WIDTH / 2
+		camera_y = player_one.position.y - SCREEN_HEIGHT / 2
+		camera_x = max(0, min(camera_x, map_width - SCREEN_WIDTH))
+		camera_y = max(0, min(camera_y, map_height - SCREEN_HEIGHT))
+		screen_x = int(player_one.position.x - camera_x)
+		screen_y = int(player_one.position.y - camera_y)
 
-			# Create visibility mask (all positions visible to player)
-			visibility_mask = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
-			# Fill with WHITE initially (opposite of before)
-			visibility_mask.fill((0, 0, 0, 255))
-
-			# Add current player position with BLACK
-			screen_pos = self.camera_apply_pos((player_one.position.x, player_one.position.y))
-			pygame.draw.circle(visibility_mask,(0, 0, 0, 0), (screen_pos[0], screen_pos[1]), self.fog_radius)
-
-			# Apply visibility mask (unchanged blend mode)
-			self.fog_surface.blit(visibility_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-
-			# Apply fog to screen
-			self.screen.blit(self.fog_surface, (0, 0))
-
-		except Exception as e:
-			logger.error(f"Error in fog of war: {e}")
+		pygame.draw.circle(self._visibility_mask, (0, 0, 0, 0), (screen_x, screen_y), self.fog_radius)
+		self.fog_surface.blit(self._visibility_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+		self.screen.blit(self.fog_surface, (0, 0))
 
 	def camera_apply_pos(self, world_pos):
 		"""Convert world position to screen position"""

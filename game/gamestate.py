@@ -129,8 +129,8 @@ class GameState:
 		# Rate limit
 		if timediff < GLOBAL_RATE_LIMIT and last_time > 0:
 			# Use debug level instead of warning for rate limiting
-			if self.args and hasattr(self.args, 'debug') and self.args.debug:
-				logger.debug(f'Rate limiting {client_id}: {timediff:.5f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT}')
+			if self.args.debug:
+				logger.warning(f'Rate limiting {client_id}: {timediff:.5f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT}')
 			do_send = False
 
 		try:
@@ -154,11 +154,9 @@ class GameState:
 			# Broadcast in parallel using gather
 			tasks = []
 			for conn in list(self.connections):
-				# if hasattr(conn, 'write'):
 				if not conn.is_closing():
 					conn.write(data)
 					tasks.append(conn.drain())
-
 			if tasks:
 				await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -359,7 +357,7 @@ class GameState:
 				killed=player_data.get('killed', False) or False,
 				timeout=player_data.get('timeout', False) or False
 			)
-		if isinstance(player_data, PlayerState):
+		elif isinstance(player_data, PlayerState):
 			# Ensure PlayerState has non-None values for critical attributes
 			if player_data.bombs_left is None:
 				player_data.bombs_left = 3
@@ -368,14 +366,15 @@ class GameState:
 			if player_data.score is None:
 				player_data.score = 0
 			return player_data
-		# For unexpected types, create a safe default PlayerState
-		logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
-		return PlayerState(
-			position=(0, 0),
-			client_id=str(getattr(player_data, 'client_id', 'unknown')),
-			health=100,
-			score=0
-		)
+		else:
+			# For unexpected types, create a safe default PlayerState
+			logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
+			return PlayerState(
+				position=(0, 0),
+				client_id=str(getattr(player_data, 'client_id', 'unknown')),
+				health=100,
+				score=0
+			)
 
 	def cleanup_playerlist(self):
 		"""Remove players with None positions from playerlist"""
@@ -406,6 +405,8 @@ class GameState:
 				else:
 					# PlayerState objects
 					if not hasattr(player, 'position') or player.position is None:
+						if self.args.debug:
+							logger.warning(f"Skipping update for player with None position: {client_id}")
 						continue
 					if not hasattr(player, 'prev_position') or player.prev_position is None:
 						player.prev_position = player.position
@@ -465,16 +466,17 @@ class GameState:
 			"dropcooldown": self._on_noop_event,
 			"nodropbomb": self._on_noop_event,
 			"nodropbombkill": self._on_noop_event,
-			"bomb_exploded": self._on_noop_event,
+			"bomb_exploded": self._on_bomb_exploded,
 		}
 
 		et_raw = event.get("event_type")
 		et: str = cast(str, et_raw) if isinstance(et_raw, str) else ""
 		handler = handlers.get(et, self._on_unknown_event)
-
 		result = handler(event)
 		if inspect.isawaitable(result):
 			await result
+			if self.args.debug:
+				logger.debug(f"Handled et: {et} et_raw: {et_raw} with handler: {handler} result: {result}")
 
 	def _to_pos_tuple(self, pos: Any) -> tuple[int, int]:
 		if isinstance(pos, (list, tuple)) and len(pos) == 2:
@@ -531,13 +533,20 @@ class GameState:
 		pos_tuple = self._to_pos_tuple(event.get("position"))
 		new_gid = event.get("new_gid")
 		if not isinstance(new_gid, int):
-			logger.debug(f"Bad map_update event (new_gid): {event}")
+			logger.warning(f"Bad map_update event (new_gid): {event}")
 			return
+		# If the map isn't fully loaded yet, skip applying.
+		if not hasattr(self, "tile_map"):
+			if self.args.debug:
+				logger.warning(f"{self} Skipping _on_map_update: tile_map not ready. event: {event}")
+			return
+		# if not hasattr(self, "static_map_surface"):
+		# 	if self.args.debug:
+		# 		logger.warning(f"{self} Skipping _on_map_update: static_map_surface not ready. event: {event}")
+		# 	# return
+
 		# Map updates are expressed in tile coords (x, y)
 		x, y = pos_tuple
-		# If the map isn't fully loaded yet, skip applying.
-		if not hasattr(self, "tile_map") or not hasattr(self, "static_map_surface"):
-			return
 		self._apply_tile_change(x, y, new_gid)
 		event["handled"] = True
 		event["handledby"] = "gamestate._on_map_update"
@@ -545,6 +554,9 @@ class GameState:
 		try:
 			if self.client_id == "theserver":
 				asyncio.create_task(self.broadcast_event(event))
+			else:
+				if self.args.debug:
+					logger.debug(f"{self} Skipping _on_map_update broadcast: not server.. self.client_id: {self.client_id}")
 		except RuntimeError as e:
 			logger.error(f"RuntimeError in _on_map_update: {e} {type(e)}")
 
@@ -596,6 +608,22 @@ class GameState:
 			logger.debug(f"Bad player_drop_bomb event client_id: {event}")
 			return
 		pos = self._to_pos_tuple(event.get("position"))
+		bombs_left = event.get("bombs_left")
+		if isinstance(bombs_left, int):
+			# Keep replicated state in sync with the event
+			player_entry = self.playerlist.get(pid_raw)
+			if isinstance(player_entry, dict):
+				player_entry["bombs_left"] = bombs_left
+			elif isinstance(player_entry, PlayerState):
+				player_entry.bombs_left = bombs_left
+			# Also update local sprite if this is us
+			try:
+				for sprite in self.players_sprites:
+					if getattr(sprite, "client_id", None) == pid_raw:
+						sprite.bombs_left = bombs_left
+						break
+			except Exception:
+				pass
 		# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
 		try:
 			bomb = Bomb(position=pos, client_id=pid_raw)
@@ -611,6 +639,51 @@ class GameState:
 				asyncio.create_task(self.broadcast_event(event))
 		except RuntimeError as e:
 			logger.error(f"RuntimeError in _on_player_drop_bomb: {e} {type(e)}")
+
+	def _on_bomb_exploded(self, event: dict[str, Any]) -> None:
+		# De-dupe explosions so the originating client doesn't double-credit bombs_left
+		explosion_id = event.get("event_id") or event.get("eventid")
+		if isinstance(explosion_id, str):
+			if explosion_id in self.processed_explosions:
+				return
+			self.processed_explosions.add(explosion_id)
+
+		owner_raw = event.get("owner_id") or event.get("client_id")
+		if not isinstance(owner_raw, str):
+			return
+
+		# Restore one bomb to the owner (capped by Bomberplayer property setter at 3)
+		try:
+			for sprite in self.players_sprites:
+				if getattr(sprite, "client_id", None) == owner_raw:
+					try:
+						sprite.bombs_left = sprite.bombs_left + 1
+					except Exception:
+						pass
+					break
+		except Exception:
+			pass
+
+		player_entry = self.playerlist.get(owner_raw)
+		if isinstance(player_entry, dict):
+			cur = player_entry.get("bombs_left")
+			if isinstance(cur, int):
+				player_entry["bombs_left"] = min(3, cur + 1)
+			else:
+				player_entry["bombs_left"] = 3
+		elif isinstance(player_entry, PlayerState):
+			if isinstance(player_entry.bombs_left, int):
+				player_entry.bombs_left = min(3, player_entry.bombs_left + 1)
+			else:
+				player_entry.bombs_left = 3
+
+		event["handled"] = True
+		event["handledby"] = "gamestate._on_bomb_exploded"
+		try:
+			if self.client_id == "theserver":
+				asyncio.create_task(self.broadcast_event(event))
+		except RuntimeError:
+			pass
 
 	def _on_noop_event(self, event: dict[str, Any]) -> None:
 		# Intentionally ignore (used for client-side feedback events)

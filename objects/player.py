@@ -195,6 +195,8 @@ class Bomberplayer(Sprite):
 
 		# Player has bombs and can drop
 		self.lastdrop = current_time  # Set last drop time to prevent spam
+		# Consume one bomb immediately (restored when the bomb explodes)
+		self.bombs_left = self.bombs_left - 1
 
 		# Calculate tile-centered position (snap to grid)
 		tile_size = BLOCK
