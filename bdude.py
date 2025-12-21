@@ -15,6 +15,106 @@ import multiprocessing
 # Global variable to track server process
 server_process = None
 
+
+async def _connect_with_timeout(bomberdude_main: Bomberdude, connection_timeout: float) -> bool:
+	try:
+		return bool(await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout))
+	except TimeoutError as e:
+		logger.error(f"Connection timed out after {connection_timeout} seconds: {e}")
+		return False
+	except Exception as e:
+		logger.error(f"Connection error: {e} {type(e)}")
+		raise
+
+
+async def _process_pygame_events(bomberdude_main: Bomberdude) -> None:
+	for event in pygame.event.get():
+		if event.type == pygame.QUIT:
+			bomberdude_main.running = False
+			bomberdude_main._connected = False
+		elif event.type == pygame.KEYDOWN:
+			await bomberdude_main.handle_on_key_press(event.key)
+		elif event.type == pygame.KEYUP:
+			await bomberdude_main.handle_on_key_release(event.key)
+		elif event.type == pygame.MOUSEBUTTONDOWN:
+			asyncio.create_task(
+				bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button)
+			)
+
+
+async def _run_frame(bomberdude_main: Bomberdude) -> bool:
+	try:
+		await bomberdude_main.update()
+	except Exception as e:
+		logger.error(f"Error in update: {e} {type(e)}")
+		await asyncio.sleep(1)
+		return False
+
+	try:
+		bomberdude_main.on_draw()
+	except Exception as e:
+		logger.error(f"Error in on_draw: {e} {type(e)}")
+		await asyncio.sleep(1)
+		return False
+
+	pygame.display.flip()
+	await _process_pygame_events(bomberdude_main)
+	return True
+
+
+async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None:
+	while bomberdude_main.running:
+		frame_start = time.time()
+		await _run_frame(bomberdude_main)
+
+		elapsed = time.time() - frame_start
+		sleep_time = max(0, frame_time - elapsed)
+		if sleep_time > 0:
+			if sleep_time > 0.05:
+				logger.warning(f"Sleep time: {sleep_time}")
+			await asyncio.sleep(sleep_time)
+
+
+async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argparse.Namespace) -> bool:
+	if action == "Start":
+		await start_game(args)
+		return True
+
+	if action == "Start Server":
+		success = await start_server_background(args)
+		if success:
+			mainmenu.server_running = True
+			logger.info("Server started and ready. You can now connect.")
+		return True
+
+	if action == "Stop Server":
+		success = await stop_server_background()
+		if success:
+			mainmenu.server_running = False
+		return True
+
+	if action == "Back":
+		return True
+
+	if action in ["option1", "option2", "option3"]:
+		logger.info(f"Setup {action} not implemented")
+		return True
+
+	if action == "Find server":
+		logger.info("Find server ....")
+		await asyncio.sleep(1)
+		return True
+
+	if action == "Quit":
+		if mainmenu.server_running:
+			await stop_server_background()
+		logger.info("Quitting...")
+		return False
+
+	logger.warning(f"Unknown action: {action}")
+	await asyncio.sleep(1)
+	return True
+
 def run_server_process(args_dict):
 	"""Function to run server in a separate process"""
 	import asyncio
@@ -123,74 +223,28 @@ async def start_game(args: argparse.Namespace):
 	try:
 		bomberdude_main = Bomberdude(args=args)
 	except Exception as e:
-		logger.error(f'Error: {e} {type(e)}')
-		raise e
-	# sender_task = asyncio.create_task(asyncio.to_thread(send_game_state, bomberdude_main))
-	# receive_task = asyncio.create_task(asyncio.to_thread(receive_game_state, bomberdude_main))
+		logger.error(f"Error: {e} {type(e)}")
+		raise
 
 	sender_task = asyncio.create_task(send_game_state(bomberdude_main))
 	receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
 
 	connection_timeout = 5  # seconds
-	connection_attempts = 0
+	logger.info(f"Connecting {bomberdude_main}")
 	try:
-		logger.info(f"Connecting {connection_attempts} {bomberdude_main}")
-		connection_attempts += 1
-		connected = await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout)
+		connected = await _connect_with_timeout(bomberdude_main, connection_timeout)
 		if not connected:
 			logger.error("Failed to establish connection")
 			return
-	except TimeoutError as e:
-		logger.error(f"Connection timed out after {connection_timeout} seconds: {e}")
-		return
-	except Exception as e:
-		logger.error(f"Connection error: {e} {type(e)}")
-		raise e
 
-	# Calculate frame time in seconds
-	target_fps = UPDATE_TICK  # Using your constant from constants.py
-	frame_time = 1.0 / target_fps
-
-	# Main loop
-	while bomberdude_main.running:
-		# start_time = time.time()
-		frame_start = time.time()
-		try:
-			await bomberdude_main.update()
-		except Exception as e:
-			logger.error(f"Error in update: {e} {type(e)}")
-			await asyncio.sleep(1)
-			continue
-		try:
-			bomberdude_main.on_draw()
-		except Exception as e:
-			logger.error(f"Error in on_draw: {e} {type(e)}")
-			await asyncio.sleep(1)
-			continue
-		pygame.display.flip()
-		for event in pygame.event.get():
-			if event.type == pygame.QUIT:
-				bomberdude_main.running = False
-				bomberdude_main._connected = False
-			elif event.type == pygame.KEYDOWN:
-				await bomberdude_main.handle_on_key_press(event.key)
-			elif event.type == pygame.KEYUP:
-				await bomberdude_main.handle_on_key_release(event.key)
-			elif event.type == pygame.MOUSEBUTTONDOWN:
-				asyncio.create_task(bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button))
-
-		# Calculate sleep time to maintain constant frame rate
-		elapsed = time.time() - frame_start
-		sleep_time = max(0, frame_time - elapsed)
-		if sleep_time > 0:
-			if sleep_time > 0.05:
-				logger.warning(f"Sleep time: {sleep_time}")
-			await asyncio.sleep(sleep_time)
-
-	# Clean up tasks
-	sender_task.cancel()
-	receive_task.cancel()
-	await asyncio.gather(sender_task, receive_task, return_exceptions=True)
+		# Calculate frame time in seconds
+		frame_time = 1.0 / UPDATE_TICK
+		await _run_game_loop(bomberdude_main, frame_time)
+	finally:
+		# Clean up tasks even on early return/exception
+		sender_task.cancel()
+		receive_task.cancel()
+		await asyncio.gather(sender_task, receive_task, return_exceptions=True)
 	# pygame.display.quit()
 	# pygame.quit()
 
@@ -198,44 +252,18 @@ async def main(args):
 	pygame.init()
 	screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 	pygame.display.set_caption(SCREEN_TITLE)
-	running = True
 	mainmenu = MainMenu(screen=screen, args=args)
 	try:
+		running = True
 		while running:
 			action = mainmenu.run()
-			if action == "Start":
-				await start_game(args)
-			elif action == "Start Server":
-				success = await start_server_background(args)
-				if success:
-					mainmenu.server_running = True
-					logger.info("Server started and ready. You can now connect.")
-			elif action == "Stop Server":
-				success = await stop_server_background()
-				if success:
-					mainmenu.server_running = False
-			elif action == 'Back':
-				pass
-			elif action in ['option1', 'option2', 'option3']:
-				logger.info(f"Setup {action} not implemented")
-			elif action == 'Find server':
-				logger.info("Find server ....")
-				await asyncio.sleep(1)
-			elif action == 'Quit':
-				# Stop server if running before quitting
-				if mainmenu.server_running:
-					await stop_server_background()
-				logger.info("Quitting...")
-				running = False
-			elif not action:
+			if not action:
 				logger.info("no action! Quitting...")
-				running = False
-			else:
-				logger.warning(f"Unknown action: {action}")
-				await asyncio.sleep(1)
+				break
+			running = await _handle_main_menu_action(action, mainmenu, args)
 	except Exception as e:
 		logger.error(f"Error in main: {e} {type(e)}")
-		raise e
+		raise
 	finally:
 		# Ensure server is stopped on exit
 		if mainmenu.server_running:

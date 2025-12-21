@@ -231,6 +231,10 @@ class GameState:
 		tmap = self.tile_map
 		tw, th = tmap.tilewidth, tmap.tileheight
 		self.static_map_surface = pygame.Surface((tmap.width * tw, tmap.height * th))
+		blit = self.static_map_surface.blit
+		tile_cache = self.tile_cache
+		Rect = pygame.Rect
+		SpriteCls = pygame.sprite.Sprite
 
 		# Reset caches and indexes when loading a new map
 		self.collidable_tiles.clear()
@@ -246,24 +250,29 @@ class GameState:
 				if gid == 0:
 					continue
 				# Cache the tile image if not already cached
-				if gid not in self.tile_cache:
-					self.tile_cache[gid] = tmap.get_tile_image_by_gid(gid)
+				tile = tile_cache.get(gid)
+				if tile is None:
+					tile = tmap.get_tile_image_by_gid(gid)
+					tile_cache[gid] = tile
 
-				tile = self.tile_cache[gid]
-				if tile:
-					self.static_map_surface.blit(tile, (x * tw, y * th))
-					if collidable:
-						sprite = pygame.sprite.Sprite()
-						sprite: Any = sprite  # or use a Protocol class
-						sprite.image = tile
-						sprite.rect = pygame.Rect(x * tw, y * th, tw, th)
-						sprite.layer = layer.name
-						sprite.tile_pos = (x, y)
-						self.collidable_tiles.add(sprite)
-						self.collidable_by_tile[(x, y)] = sprite
-						if killable:
-							self.killable_tiles.add(sprite)
-							self.killable_by_tile[(x, y)] = sprite
+				if not tile:
+					continue
+
+				blit(tile, (x * tw, y * th))
+				if not collidable:
+					continue
+
+				sprite = SpriteCls()
+				sprite: Any = sprite  # or use a Protocol class
+				sprite.image = tile
+				sprite.rect = Rect(x * tw, y * th, tw, th)
+				sprite.layer = layer.name
+				sprite.tile_pos = (x, y)
+				self.collidable_tiles.add(sprite)
+				self.collidable_by_tile[(x, y)] = sprite
+				if killable:
+					self.killable_tiles.add(sprite)
+					self.killable_by_tile[(x, y)] = sprite
 		if self.args.debug:
 			logger.debug(f'loading {self.mapname} done. Cached {len(self.tile_cache)} unique tiles.')
 
