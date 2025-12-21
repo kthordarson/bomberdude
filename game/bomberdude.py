@@ -12,7 +12,7 @@ from utils import gen_randid
 from game.gamestate import GameState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT
 from camera import Camera
-from objects.player import Bomberplayer
+from objects.player import Bomberplayer, MOVE_MAP
 from game.playerstate import PlayerState  # Import PlayerState
 from debug import draw_debug_info
 from panels import PlayerInfoPanel
@@ -416,23 +416,39 @@ class Bomberdude():
 			logger.info("quit")
 			pygame.event.post(pygame.event.Event(pygame.QUIT))
 			return
-		elif key in (pygame.K_UP, pygame.K_w, 119):
-			player_one.change_y = -PLAYER_MOVEMENT_SPEED
+		# Movement (table-driven)
+		move = MOVE_MAP.get(key)
+		if move is not None:
+			dx, dy = move
+			player_one.change_x = dx
+			player_one.change_y = dy
 			self.client_game_state.keyspressed.keys[key] = True
-		elif key in (pygame.K_DOWN, pygame.K_s, 115):
-			player_one.change_y = PLAYER_MOVEMENT_SPEED
-			self.client_game_state.keyspressed.keys[key] = True
-		elif key in (pygame.K_LEFT, pygame.K_a, 97):
-			player_one.change_x = -PLAYER_MOVEMENT_SPEED
-			self.client_game_state.keyspressed.keys[key] = True
-		elif key in (pygame.K_RIGHT, pygame.K_d, 100):
-			player_one.change_x = PLAYER_MOVEMENT_SPEED
-			self.client_game_state.keyspressed.keys[key] = True
+			return
+
+		# Actions
 		if key == pygame.K_SPACE:
 			drop_bomb_event = player_one.drop_bomb()
-			if drop_bomb_event:
-				if drop_bomb_event['event_type'] == "player_drop_bomb":
-					await self.client_game_state.event_queue.put(drop_bomb_event)
+			if drop_bomb_event and drop_bomb_event.get("event_type") == "player_drop_bomb":
+				await self.client_game_state.event_queue.put(drop_bomb_event)
+			return
+
+		# elif key in (pygame.K_UP, pygame.K_w, 119):
+		# 	player_one.change_y = -PLAYER_MOVEMENT_SPEED
+		# 	self.client_game_state.keyspressed.keys[key] = True
+		# elif key in (pygame.K_DOWN, pygame.K_s, 115):
+		# 	player_one.change_y = PLAYER_MOVEMENT_SPEED
+		# 	self.client_game_state.keyspressed.keys[key] = True
+		# elif key in (pygame.K_LEFT, pygame.K_a, 97):
+		# 	player_one.change_x = -PLAYER_MOVEMENT_SPEED
+		# 	self.client_game_state.keyspressed.keys[key] = True
+		# elif key in (pygame.K_RIGHT, pygame.K_d, 100):
+		# 	player_one.change_x = PLAYER_MOVEMENT_SPEED
+		# 	self.client_game_state.keyspressed.keys[key] = True
+		# if key == pygame.K_SPACE:
+		# 	drop_bomb_event = player_one.drop_bomb()
+		# 	if drop_bomb_event:
+		# 		if drop_bomb_event['event_type'] == "player_drop_bomb":
+		# 			await self.client_game_state.event_queue.put(drop_bomb_event)
 
 	async def handle_on_key_release(self, key):
 		try:
