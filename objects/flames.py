@@ -4,6 +4,7 @@ from pygame.sprite import Sprite
 # from pymunk import Vec2d
 import pygame
 from constants import FLAME_SPEED, BLOCK
+import math
 
 class Flame(Sprite):
 	def __init__(self, position, direction, client_id, size=1, power=3):
@@ -31,22 +32,19 @@ class Flame(Sprite):
 		self.collision_grace = 8  # pixels
 
 	async def flame_update(self, collidable_tiles, game_state) -> None:
-		old_position = Vec2d(self.position)
-
 		# Move in smaller steps to avoid missing collisions
 		steps = 3  # Check position 3 times during movement
 		dx = self.direction[0] * FLAME_SPEED / steps
 		dy = self.direction[1] * FLAME_SPEED / steps
+		step_len = math.hypot(dx, dy)
 
 		for _ in range(steps):
 			self.position.x += dx
 			self.position.y += dy
 			self.rect.center = (int(self.position.x), int(self.position.y))
 
-			# Calculate distance traveled
-			step_movement = Vec2d(self.position) - old_position
-			self.distance_traveled += step_movement.length()
-			old_position = Vec2d(self.position)
+			# Accumulate distance with constant step length
+			self.distance_traveled += step_len
 
 			# Check if max distance reached
 			if self.distance_traveled >= self.max_distance:
@@ -57,7 +55,7 @@ class Flame(Sprite):
 			if self.distance_traveled < self.collision_grace:
 				continue
 
-			# Check nearby tiles for collisions
+			# Check nearby tiles for collisions without allocating lists
 			flame_area = pygame.Rect(
 				self.rect.x - BLOCK//2,
 				self.rect.y - BLOCK//2,
@@ -65,20 +63,16 @@ class Flame(Sprite):
 				self.rect.height + BLOCK
 			)
 
-			# Get nearby tiles
-			nearby_killable = [tile for tile in game_state.killable_tiles if flame_area.colliderect(tile.rect)]
-
-			# Check for killable tile collisions
-			for tile in nearby_killable:
-				if self.rect.colliderect(tile.rect):
+			# Killable tiles
+			for tile in game_state.killable_tiles:
+				if flame_area.colliderect(tile.rect) and self.rect.colliderect(tile.rect):
 					await game_state.destroy_block(tile)
 					self.kill()
 					return
 
-			# Check for solid wall collisions
-			nearby_collidable = [tile for tile in game_state.collidable_tiles if flame_area.colliderect(tile.rect)]
-			for tile in nearby_collidable:
-				if self.rect.colliderect(tile.rect):
+			# Solid walls / collidables
+			for tile in game_state.collidable_tiles:
+				if flame_area.colliderect(tile.rect) and self.rect.colliderect(tile.rect):
 					self.kill()
 					return
 

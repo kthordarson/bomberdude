@@ -132,12 +132,17 @@ async def start_game(args: argparse.Namespace):
 	receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
 
 	connection_timeout = 5  # seconds
+	connection_attempts = 0
 	try:
-		logger.info(f"Connecting.... {bomberdude_main}")
+		logger.info(f"Connecting {connection_attempts} {bomberdude_main}")
+		connection_attempts += 1
 		connected = await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout)
 		if not connected:
 			logger.error("Failed to establish connection")
 			return
+	except TimeoutError as e:
+		logger.error(f"Connection timed out after {connection_timeout} seconds: {e}")
+		return
 	except Exception as e:
 		logger.error(f"Connection error: {e} {type(e)}")
 		raise e

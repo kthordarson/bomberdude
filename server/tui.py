@@ -1,6 +1,7 @@
 import asyncio
 from loguru import logger
 from threading import Event
+from typing import Any, cast
 
 class ServerTUI():
 	def __init__(self, server, debug=False, gq=None):
@@ -27,12 +28,26 @@ class ServerTUI():
 
 	async def get_serverinfo(self):
 		"""Get current server state information"""
-		state = self.server.server_game_state.to_json()
-		logger.debug(f"players: {len(state.get('playerlist'))} event_queue: {self.server.server_game_state.event_queue.qsize()} client_queue: {self.server.server_game_state.client_queue.qsize()}")
-		logger.debug(f'modified_tiles: {state.get("modified_tiles")}')
-		for player in state.get('playerlist'):
-			logger.debug(f'player: {player.get('client_id')} {player.get('position')}')
-		logger.info(f'status: {state}')
+		state: dict[str, Any] = {'playerlist': []}  # self.server.server_game_state.to_json()
+		playerlist = cast(list[dict[str, Any]], state.get('playerlist') or [])
+		logger.debug(
+			f"players: {len(playerlist)} "
+			f"event_queue: {self.server.server_game_state.event_queue.qsize()} "
+			f"client_queue: {self.server.server_game_state.client_queue.qsize()}"
+		)
+		logger.debug(f"modified_tiles: {state.get('modified_tiles')}")
+
+		for player in playerlist:
+			# Fix nested quotes in the f-string
+			logger.debug(f"player: {player.get('client_id')} {player.get('position')}")
+
+		logger.info(f"status: {state}")
+
+		# logger.debug(f"players: {len(state.get('playerlist'))} event_queue: {self.server.server_game_state.event_queue.qsize()} client_queue: {self.server.server_game_state.client_queue.qsize()}")
+		# logger.debug(f'modified_tiles: {state.get("modified_tiles")}')
+		# for player in state.get('playerlist'):
+		# 	logger.debug(f'player: {player.get('client_id')} {player.get('position')}')
+		# logger.info(f'status: {state}')
 
 	def dumpgameevents(self):
 		logger.debug(f"gamestate: {self.server.server_game_state} ")

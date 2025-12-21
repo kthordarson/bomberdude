@@ -104,14 +104,16 @@ class Bomberdude():
 			"handledby": "connection_event",
 			"eventid": gen_randid(),
 		}
-		await self.client_game_state.event_queue.put(connection_event)
-		self._connected = True
+		connection_attempts = 0
 		while not self.client_game_state._ready:
+			await self.client_game_state.event_queue.put(connection_event)
+			self._connected = True
 			if self.args.debug:
-				logger.debug(f'connected: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} ')
+				logger.debug(f'connecting {connection_attempts}: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} ')
 			await asyncio.sleep(0.2)
+			connection_attempts += 1
 		if self.args.debug:
-			logger.info(f'connected: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} ')
+			logger.info(f'connected after {connection_attempts} attempts: {self.connected()} client_game_state.ready {self.client_game_state.ready()} event_queue: {self.client_game_state.event_queue.qsize()} ')
 		return True
 
 	def apply_map_modifications(self, modified_tiles):

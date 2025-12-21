@@ -57,13 +57,6 @@ async def receive_game_state(game: Bomberdude) -> None:
 	while True:
 		try:
 			data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
-			# if not data:
-			# 	if game.sock._closed:
-			# 		logger.warning(f'Connection closed {game.sock._closed}')
-			# 		break
-			# 	else:
-			# 		await asyncio.sleep(1 / UPDATE_TICK)
-			# 		continue
 			buffer += data.decode('utf-8')
 
 			# Process multiple messages at once if available
@@ -73,10 +66,11 @@ async def receive_game_state(game: Bomberdude) -> None:
 					logger.warning(f'no message in buffer: {buffer}')
 					continue
 				game_state_json = json.loads(message)
-				if game_state_json.get('event_type') == 'broadcast_event':
-					asyncio.create_task(game.client_game_state.update_game_event(game_state_json["event"]))
-				else:
-					await game.client_game_state.from_json(game_state_json)
+				event = game_state_json.get("event")
+				if event:
+					# update_game_event is async now; schedule it without blocking receive loop
+					asyncio.create_task(game.client_game_state.update_game_event(event))
+
 		except (BlockingIOError, InterruptedError) as e:
 			await asyncio.sleep(1)
 			logger.error(f'{e} {type(e)}')
