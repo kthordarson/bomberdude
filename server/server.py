@@ -27,7 +27,7 @@ class BombServer:
 		# self.discovery_service = ServerDiscovery(self)
 		# asyncio.create_task(self.discovery_service.start_discovery_service())
 
-	async def client_connected_cb(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+	async def client_connected_callback(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 		logger.info(f"New connection from {writer.get_extra_info('peername')[0]} ")
 		self.server_game_state.add_connection(writer)
 		# Start a per-connection message loop
@@ -58,8 +58,8 @@ class BombServer:
 			try:
 				writer.close()
 				await writer.wait_closed()
-			except Exception:
-				pass
+			except Exception as e:
+				logger.error(f"Error closing connection: {e} {type(e)}")
 			self.server_game_state.remove_connection(writer)
 
 	async def get_tile_map(self, request):
@@ -81,7 +81,7 @@ class BombServer:
 	async def new_start_server(self):
 		"""Start the game server using asyncio's high-level server API"""
 		# Create the server
-		server = await asyncio.start_server(lambda r, w: self.client_connected_cb(r, w), host=self.args.host, port=9696, reuse_address=True,)
+		server = await asyncio.start_server(lambda r, w: self.client_connected_callback(r, w), host=self.args.host, port=9696, reuse_address=True,)
 
 		addr = server.sockets[0].getsockname()
 
@@ -165,14 +165,10 @@ class BombServer:
 
 	async def server_broadcast_state(self, state):
 		data = json.dumps(state).encode('utf-8') + b'\n'
-
 		# Use gather for concurrent sending
 		send_tasks = []
-
 		for writer in self.connections:
 			send_tasks.append(self._send_to_client(writer, data))
-			# send_tasks.append(self.loop.sock_sendall(conn, data))
-
 		# Wait for all sends to complete
 		if send_tasks:
 			try:
@@ -196,13 +192,12 @@ class BombServer:
 			logger.error(f"Error sending to client: {e}")
 			return False
 
-	# Add these helpers to keep client_connected_cb simple
 	def _build_ack_event(self, client_id: str) -> dict:
 		return {
 			"event_type": "acknewplayer",
 			"client_id": client_id,
 			"handled": False,
-			"handledby": "server.client_connected",
+			"handledby": "_build_ack_event",
 			"event_time": time.time(),
 		}
 
@@ -214,7 +209,7 @@ class BombServer:
 			"client_id": client_id,
 			"position": pos,
 			"handled": False,
-			"handledby": "client_connected_cb",
+			"handledby": "_build_player_joined",
 			"eventid": gen_randid(),
 		}
 

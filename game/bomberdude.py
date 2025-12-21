@@ -142,7 +142,8 @@ class Bomberdude():
 					# Safe and fast enough for many keys
 					try:
 						pos = ast.literal_eval(pos_key)
-					except Exception:
+					except Exception as e:
+						logger.error(f'Error parsing position key {pos_key}: {e} {type(e)}')
 						# Fallback simple parser "(x, y)" -> (x,y)
 						s = pos_key.strip().strip('()')
 						x_s, y_s = s.split(',')

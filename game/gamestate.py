@@ -267,7 +267,8 @@ class GameState:
 		if isinstance(key, str):
 			try:
 				return tuple(ast.literal_eval(key))  # type: ignore
-			except Exception:
+			except Exception as e:
+				logger.error(f'Error parsing position key {key}: {e} {type(e)}')
 				s = key.strip().strip('()')
 				x_s, y_s = s.split(',')
 				return (int(x_s), int(y_s))
@@ -544,8 +545,8 @@ class GameState:
 		try:
 			if self.client_id == "theserver":
 				asyncio.create_task(self.broadcast_event(event))
-		except RuntimeError:
-			pass
+		except RuntimeError as e:
+			logger.error(f"RuntimeError in _on_map_update: {e} {type(e)}")
 
 	def _on_bullet_fired(self, event: dict) -> None:
 		pid_raw = event.get("client_id")
@@ -586,8 +587,8 @@ class GameState:
 			try:
 				if self.client_id == "theserver":
 					asyncio.create_task(self.broadcast_event(event))
-			except RuntimeError:
-				pass
+			except RuntimeError as e:
+				logger.error(f"RuntimeError in _on_bullet_fired: {e} {type(e)}")
 
 	def _on_player_drop_bomb(self, event: dict[str, Any]) -> None:
 		pid_raw = event.get("client_id")
@@ -608,8 +609,8 @@ class GameState:
 		try:
 			if self.client_id == "theserver":
 				asyncio.create_task(self.broadcast_event(event))
-		except RuntimeError:
-			pass
+		except RuntimeError as e:
+			logger.error(f"RuntimeError in _on_player_drop_bomb: {e} {type(e)}")
 
 	def _on_noop_event(self, event: dict[str, Any]) -> None:
 		# Intentionally ignore (used for client-side feedback events)
@@ -671,9 +672,9 @@ class GameState:
 		event["handledby"] = "gamestate._on_player_update"
 		try:
 			asyncio.create_task(self.broadcast_event(event))
-		except RuntimeError:
+		except RuntimeError as e:
 			# No running loop (e.g., during tests); skip scheduling
-			pass
+			logger.error(f"RuntimeError in _on_player_update: {e} {type(e)}")
 
 	def _on_unknown_event(self, event: dict) -> None:
 		logger.debug(f"Unknown event_type: {event.get('event_type')}")
