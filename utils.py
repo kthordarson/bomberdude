@@ -59,9 +59,3 @@ def generate_name(style="bomber"):
 		return f"{adj}{noun}{suffix}{idnum}"
 
 	return f"{adj}{noun}{idnum}"
-
-def generate_player_id():
-	"""Generate a unique player ID with a funny name prefix"""
-	funny_name = generate_name()
-	unique_id = gen_randid()
-	return f"{funny_name}_{unique_id}"
