@@ -568,7 +568,7 @@ class GameState:
 		# Bullet stores screen_rect but doesn't currently use it for update; provide a sane default.
 		screen_rect = pygame.Rect(0, 0, 0, 0)
 		player_sprite = self.get_playerone()
-		if player_sprite and player_sprite.client_id != 'theserver':
+		if player_sprite:
 			try:
 				screen_rect = player_sprite.rect
 			except Exception as e:
