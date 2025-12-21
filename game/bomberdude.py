@@ -1,4 +1,5 @@
 import time
+import ast
 import asyncio
 import requests
 import pygame
@@ -118,47 +119,59 @@ class Bomberdude():
 		if self.args.debug:
 			logger.info(f"Applying {len(modified_tiles)} map modifications from server")
 		try:
-			for pos_str, new_gid in modified_tiles.items():
-				# Convert string key back to tuple if needed
-				if isinstance(pos_str, str):
-					pos = eval(pos_str)
+			gstate = self.client_game_state
+			tmap = gstate.tile_map
+			layer = tmap.get_layer_by_name('Blocks')
+			if not layer:
+				logger.warning("'Blocks' layer not found; skipping modifications")
+				return
+
+			# Cache frequently used values
+			tw = tmap.tilewidth
+			th = tmap.tileheight
+			floor_tile = gstate.tile_cache.get(1)
+
+			# Track positions that become empty to update visuals and collisions in batch
+			positions_to_clear = set()
+
+			# First pass: update tile data and collect positions to clear
+			for pos_key, new_gid in modified_tiles.items():
+				if isinstance(pos_key, str):
+					# Safe and fast enough for many keys
+					try:
+						pos = ast.literal_eval(pos_key)
+					except Exception:
+						# Fallback simple parser "(x, y)" -> (x,y)
+						s = pos_key.strip().strip('()')
+						x_s, y_s = s.split(',')
+						pos = (int(x_s), int(y_s))
 				else:
-					pos = pos_str
+					pos = pos_key
 
 				tile_x, tile_y = pos
+				# Bounds check once
+				if 0 <= tile_y < len(layer.data) and 0 <= tile_x < len(layer.data[0]):  # type: ignore
+					layer.data[tile_y][tile_x] = new_gid  # type: ignore
+					# Persist modification in client state
+					gstate.modified_tiles[(tile_x, tile_y)] = new_gid
+					if new_gid == 0:
+						positions_to_clear.add((tile_x, tile_y))
 
-				# Apply the modification to the tile map
-				layer = self.client_game_state.tile_map.get_layer_by_name('Blocks')
-				if layer and hasattr(layer, 'data'):
-					if self.args.debug:
-						logger.debug(f'layer: {layer} layerdatalen: {len(layer.data)}')  # type: ignore
-					if layer and 0 <= tile_y < len(layer.data) and 0 <= tile_x < len(layer.data[0]):  # type: ignore
-						layer.data[tile_y][tile_x] = new_gid  # type: ignore
+			# Second pass: update visuals (blits) for cleared positions
+			if positions_to_clear and floor_tile is not None:
+				for (tx, ty) in positions_to_clear:
+					gstate.static_map_surface.blit(floor_tile, (tx * tw, ty * th))
 
-						# Update visual representation
-						if new_gid == 0:  # If block was destroyed
-							floor_tile = self.client_game_state.tile_cache.get(1)  # Get floor tile
-							if floor_tile:
-								self.client_game_state.static_map_surface.blit(
-									floor_tile,
-									(tile_x * self.client_game_state.tile_map.tilewidth,
-									tile_y * self.client_game_state.tile_map.tileheight)
-								)
+			# Final pass: rebuild collision lists without cleared positions
+			if positions_to_clear:
+				def pos_of(block):
+					return (block.rect.x // tw, block.rect.y // th)
 
-							# Remove from collision lists if applicable
-							for block in self.client_game_state.killable_tiles[:]:
-								block_x = block.rect.x // self.client_game_state.tile_map.tilewidth
-								block_y = block.rect.y // self.client_game_state.tile_map.tileheight
-								if block_x == tile_x and block_y == tile_y:
-									self.client_game_state.killable_tiles.remove(block)
-									if block in self.client_game_state.collidable_tiles:
-										self.client_game_state.collidable_tiles.remove(block)
-									break
+				gstate.killable_tiles = [b for b in gstate.killable_tiles if pos_of(b) not in positions_to_clear]
+				gstate.collidable_tiles = [b for b in gstate.collidable_tiles if pos_of(b) not in positions_to_clear]
 
-					# Store the modification in client's state too
-					self.client_game_state.modified_tiles[(tile_x, tile_y)] = new_gid
 			if self.args.debug:
-				logger.info(f"Applied {len(modified_tiles)} map modifications")
+				logger.info(f"Applied {len(modified_tiles)} map modifications; cleared {len(positions_to_clear)} blocks")
 		except Exception as e:
 			logger.error(f"Error applying map modifications: {e}")
 
@@ -168,11 +181,8 @@ class Bomberdude():
 			return
 
 		try:
-			# Option 1: If it's already a sprite with an image
 			if hasattr(player_data, 'image') and player_data.image is not None:
 				player_sprite = player_data
-
-			# Option 2: Convert PlayerState or dict to sprite
 			else:
 				# Get client_id and position based on object type
 				if isinstance(player_data, dict):
@@ -201,7 +211,7 @@ class Bomberdude():
 		self.client_game_state.render_map(self.screen, self.camera)
 		# Draw local player
 		player_one = self.client_game_state.get_playerone()
-		if hasattr(player_one, 'image') and player_one.image is not None:  # type: ignore
+		if player_one.image is not None:  # type: ignore
 			self.screen.blit(player_one.image, self.camera.apply(player_one.rect))  # type: ignore
 
 			# Draw remote players from playerlist
@@ -261,7 +271,7 @@ class Bomberdude():
 
 		# Draw map blocks
 		for tile in self.client_game_state.collidable_tiles:
-			if hasattr(tile, 'layer') and tile.layer == 'Blocks':
+			if tile.layer == 'Blocks':
 				mini_x = minimap_x + int(tile.rect.x * scale)
 				mini_y = minimap_y + int(tile.rect.y * scale)
 				mini_w = max(2, int(tile.rect.width * scale))

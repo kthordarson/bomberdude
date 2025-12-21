@@ -156,7 +156,7 @@ class Bomberplayer(Sprite):
 		cooldown_period = 0.5  # Half-second cooldown between bomb drops
 
 		# Check cooldown first
-		if hasattr(self, 'lastdrop') and (current_time - self.lastdrop) < cooldown_period:
+		if (current_time - self.lastdrop) < cooldown_period:
 			return {
 				"event_time": current_time,
 				"event_type": "dropcooldown",

@@ -318,7 +318,7 @@ class PlayerInfoPanel:
             card_index = 1
             for player in players:
                 # Skip local player as it's already drawn
-                if hasattr(player, 'client_id') and player.client_id == local_player.client_id:
+                if player.client_id == local_player.client_id:
                     continue
 
                 # Skip if we've run out of space

@@ -124,7 +124,7 @@ def draw_blocks_around_player(screen, game_state, camera):
 
             # Draw highlight
             highlight_color = (255, 255, 0, 128)  # Yellow semi-transparent
-            if hasattr(tile, 'layer') and tile.layer == 'Blocks':
+            if tile.layer == 'Blocks':
                 highlight_color = (0, 255, 255, 128)  # Cyan for destructible blocks
 
             # Draw outline around block

@@ -233,7 +233,7 @@ async def main(args):
 		raise e
 	finally:
 		# Ensure server is stopped on exit
-		if hasattr(mainmenu, 'server_running') and mainmenu.server_running:
+		if mainmenu.server_running:
 			await stop_server_background()
 		pygame.quit()
 

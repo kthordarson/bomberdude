@@ -132,10 +132,10 @@ class GameState:
 			# Broadcast in parallel using gather
 			tasks = []
 			for conn in list(self.connections):
-				if hasattr(conn, 'write'):
-					if not conn.is_closing():
-						conn.write(data)
-						tasks.append(conn.drain())
+				# if hasattr(conn, 'write'):
+				if not conn.is_closing():
+					conn.write(data)
+					tasks.append(conn.drain())
 
 			if tasks:
 				await asyncio.gather(*tasks, return_exceptions=True)
@@ -440,16 +440,20 @@ class GameState:
 					# Reject the bomb drop
 					logger.debug(f"Rejecting bomb drop - player {client_id} already has {active_bomb_count} active bombs")
 					game_event['event_type'] = "nodropbomb"
-					game_event['handledby'] = "server_validation"
+					game_event['handledby'] = "server_validation_reject_bombdrop"
 
 					# Send rejection only to requesting client
 					for conn in self.connections:
 						if hasattr(conn, 'client_id') and conn.client_id == client_id:
-							await self.send_to_client(conn, json.dumps(game_event).encode('utf-8') + b'\n')
-							break
+							try:
+								if conn.client_id == client_id:
+									await self.send_to_client(conn, json.dumps(game_event).encode('utf-8') + b'\n')
+									# break
+							except Exception as e:
+								logger.error(f"{type(e)} Error sending nodropbomb to client {client_id}: {e}")
 				else:
 					# Accept the bomb drop
-					game_event['handledby'] = 'server_validation'
+					game_event['handledby'] = 'server_validation_accept_bombdrop'
 					game_event['event_type'] = 'ackbombdrop'
 
 					# Calculate bombs left after dropping this bomb
@@ -575,8 +579,8 @@ class GameState:
 				event_id = game_event.get('event_id', str(time.time()))
 
 				# Track processed explosions with a set if not already done
-				if not hasattr(self, 'processed_explosions'):
-					self.processed_explosions = set()
+				# if not hasattr(self, 'processed_explosions'):
+				self.processed_explosions = set()
 
 				# Skip if we've already processed this exact explosion
 				if event_id in self.processed_explosions:
@@ -599,8 +603,8 @@ class GameState:
 						bomb.exploded = True
 						break
 				# Visual effects
-				if hasattr(self, 'explosion_manager'):
-					self.explosion_manager.create_explosion(position, count=1)
+				# if hasattr(self, 'explosion_manager'):
+				self.explosion_manager.create_explosion(position, count=1)
 
 				# Count active bombs for this player AFTER this one exploded
 				active_bomb_count = sum(1 for bomb in self.bombs if bomb.client_id == client_id and not bomb.exploded)

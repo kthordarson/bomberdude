@@ -29,7 +29,6 @@ async def send_game_state(game: Bomberdude) -> None:
 				logger.error(f'{e} {type(e)}')
 				await asyncio.sleep(1)
 				continue
-		# playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in game.client_game_state.playerlist.values()]
 		playerlist = [player for player in game.client_game_state.playerlist.values()]
 		msg = {
 			'game_event': game_event,

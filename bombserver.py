@@ -24,7 +24,6 @@ async def async_start_server(args: argparse.Namespace) -> None:
 		api_task.cancel()
 		tui_task.cancel()
 		new_server_start_task.cancel()
-		# server.ticker_broadcast.cancel()
 		await asyncio.gather(api_task, tui_task, return_exceptions=True)
 
 if __name__ == "__main__":

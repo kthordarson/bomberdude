@@ -23,7 +23,6 @@ class BombServer:
 		self.connection_to_client_id = {}  # Map connections to client IDs
 		self.process_task = None
 		self.loop = asyncio.get_event_loop()
-		# self.ticker_broadcast = asyncio.create_task(self.ticker_broadcast(),)
 		self._stop = Event()
 		# self.discovery_service = ServerDiscovery(self)
 		# asyncio.create_task(self.discovery_service.start_discovery_service())
@@ -57,6 +56,8 @@ class BombServer:
 				game_event = msg.get('game_event')
 				try:
 					await self.server_game_state.update_game_event(game_event)
+				except AttributeError as e:
+					logger.warning(f'{e} {type(e)} msg={msg} game_event={game_event}')
 				except Exception as e:
 					logger.error(f'{e} {type(e)} msg={msg}')
 
@@ -175,8 +176,8 @@ class BombServer:
 				except asyncio.TimeoutError:
 					# This is normal, just continue
 					continue
-				except ConnectionError as e:
-					logger.info(f"Connection {e} {addr}")
+				except (ConnectionResetError, ConnectionError) as e:
+					logger.warning(f"{e} {type(e)} {addr}")
 					break
 				except Exception as e:
 					logger.error(f"Unexpected {e} {type(e)} in client handler {addr}")
@@ -211,9 +212,11 @@ class BombServer:
 			writer.close()
 			# await writer.wait_closed()
 			await asyncio.wait_for(writer.wait_closed(), timeout=2.0)
+		except ConnectionResetError as e:
+			logger.warning(f"connection cleanup: {e} {type(e)}  addr = {addr}")
 		except Exception as e:
 			# Already closed or timed out, just log and continue
-			logger.debug(f"connection cleanup: {e} {addr}")
+			logger.error(f"connection cleanup: {e} {type(e)}  addr = {addr}")
 
 	async def get_tile_map(self, request):
 		position = self.get_position()
@@ -275,8 +278,8 @@ class BombServer:
 					await self.server_broadcast_state(game_state)
 					last_broadcast = time.time()
 				await asyncio.sleep(1 / UPDATE_TICK)
-		except asyncio.CancelledError:
-			logger.info("Ticker broadcast task cancelled")
+		except asyncio.CancelledError as e:
+			logger.warning(f"Ticker broadcast task cancelled: {e} {type(e)}")
 		except Exception as e:
 			logger.error(f"Error in ticker broadcast: {e} {type(e)}")
 
