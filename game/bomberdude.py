@@ -120,63 +120,13 @@ class Bomberdude():
 
 	def apply_map_modifications(self, modified_tiles):
 		"""Apply map modifications received from the server"""
+		if not modified_tiles:
+			return
 		if self.args.debug:
 			logger.info(f"Applying {len(modified_tiles)} map modifications from server")
 		try:
-			gstate = self.client_game_state
-			tmap = gstate.tile_map
-			layer = tmap.get_layer_by_name('Blocks')
-			if not layer:
-				logger.warning("'Blocks' layer not found; skipping modifications")
-				return
-
-			# Cache frequently used values
-			tw = tmap.tilewidth
-			th = tmap.tileheight
-			floor_tile = gstate.tile_cache.get(1)
-
-			# Track positions that become empty to update visuals and collisions in batch
-			positions_to_clear = set()
-
-			# First pass: update tile data and collect positions to clear
-			for pos_key, new_gid in modified_tiles.items():
-				if isinstance(pos_key, str):
-					# Safe and fast enough for many keys
-					try:
-						pos = ast.literal_eval(pos_key)
-					except Exception as e:
-						logger.error(f'Error parsing position key {pos_key}: {e} {type(e)}')
-						# Fallback simple parser "(x, y)" -> (x,y)
-						s = pos_key.strip().strip('()')
-						x_s, y_s = s.split(',')
-						pos = (int(x_s), int(y_s))
-				else:
-					pos = pos_key
-
-				tile_x, tile_y = pos
-				# Bounds check once
-				if 0 <= tile_y < len(layer.data) and 0 <= tile_x < len(layer.data[0]):  # type: ignore
-					layer.data[tile_y][tile_x] = new_gid  # type: ignore
-					# Persist modification in client state
-					gstate.modified_tiles[(tile_x, tile_y)] = new_gid
-					if new_gid == 0:
-						positions_to_clear.add((tile_x, tile_y))
-
-			# Second pass: update visuals (blits) for cleared positions
-			if positions_to_clear and floor_tile is not None:
-				for (tx, ty) in positions_to_clear:
-					gstate.static_map_surface.blit(floor_tile, (tx * tw, ty * th))
-
-			# Final pass: rebuild collision lists without cleared positions
-			if positions_to_clear:
-				def pos_of(block):
-					return (block.rect.x // tw, block.rect.y // th)
-
-				gstate.killable_tiles = [b for b in gstate.killable_tiles if pos_of(b) not in positions_to_clear]
-				gstate.collidable_tiles = [b for b in gstate.collidable_tiles if pos_of(b) not in positions_to_clear]
-
-			if self.args.debug:
-				logger.info(f"Applied {len(modified_tiles)} map modifications; cleared {len(positions_to_clear)} blocks")
+			# Reuse the GameState batch applier (parses "(x,y)" keys and updates visuals/collisions)
+			self.client_game_state._apply_modifications_dict(modified_tiles)
 		except Exception as e:
 			logger.error(f"Error applying map modifications: {e}")
 
