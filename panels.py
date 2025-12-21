@@ -10,19 +10,30 @@ class MainMenu:
     def __init__(self, screen, args: argparse.Namespace):
         self.screen = screen
         self.args = args
-        self.options = ["Start", "Find server", "Setup", "Quit"]
+        # Add server management options
+        self.options = ["Start", "Start Server", "Stop Server", "Find server", "Setup", "Quit"]
         self.selected_option = 0
         self.font = pygame.font.Font(None, 36)
         self.running = True
         self.option_rects = []
         self.setup_panel = SetupMenu(screen, args)
         self.discovery_panel = ServerDiscoveryPanel(self.screen)
+        self.server_running = False
 
     def draw(self):
         self.screen.fill((0, 0, 0))
         self.option_rects = []
-        for i, option in enumerate(self.options):
+
+        # Filter options based on server state
+        display_options = [opt for opt in self.options if not (opt == "Stop Server" and not self.server_running) and not (opt == "Start Server" and self.server_running)]
+
+        for i, option in enumerate(display_options):
             color = (255, 0, 0) if i == self.selected_option else (255, 255, 255)
+
+            # Add status indicator for server
+            if option == "Start" and self.server_running:
+                option = "Start (Server Running)"
+
             text = self.font.render(option, True, color)
             rect = text.get_rect(center=(self.screen.get_width() // 2, 150 + i * 50))
             self.screen.blit(text, rect)
@@ -55,17 +66,20 @@ class MainMenu:
         return None
 
     def select_option(self):
-        if self.options[self.selected_option] == "Start":
+        current_option = self.options[self.selected_option]
+
+        if current_option == "Start":
             return "Start"
-        elif self.options[self.selected_option] == "Find server":
-            # todo fix
-            # action = self.discovery_panel.run()
-            # asyncio.create_task(self.discovery_panel.discover_servers())
-            return self.options[self.selected_option]  # action
-        elif self.options[self.selected_option] == "Setup":
+        elif current_option == "Start Server":
+            return "Start Server"
+        elif current_option == "Stop Server":
+            return "Stop Server"
+        elif current_option == "Find server":
+            return "Find server"
+        elif current_option == "Setup":
             action = self.setup_panel.run()
             return action
-        elif self.options[self.selected_option] == "Quit":
+        elif current_option == "Quit":
             self.running = False
             return 'Quit'
         return None
@@ -233,7 +247,7 @@ class ServerDiscoveryPanel():
             logger.error(f"Error drawing server discovery panel: {e} {type(e)}")
 
 class PlayerInfoPanel:
-    def __init__(self, screen, game_state, height=80, bg_color=(30, 30, 40, 180)):
+    def __init__(self, screen, game_state, height=110, bg_color=(30, 30, 40, 180)):
         """
         Create a panel showing player information at the bottom of the screen
 
@@ -304,7 +318,7 @@ class PlayerInfoPanel:
             card_index = 1
             for player in players:
                 # Skip local player as it's already drawn
-                if hasattr(player, 'client_id') and player.client_id == local_player.client_id:
+                if player.client_id == local_player.client_id:
                     continue
 
                 # Skip if we've run out of space
@@ -339,11 +353,11 @@ class PlayerInfoPanel:
         if isinstance(player, dict):
             health = player.get('health', 0)
             score = player.get('score', 0)
-            bombsleft = player.get('bombsleft', 0)
+            bombs_left = player.get('bombs_left', 0)
         else:
             health = getattr(player, 'health', 0)
             score = getattr(player, 'score', 0)
-            bombsleft = getattr(player, 'bombsleft', 0)
+            bombs_left = getattr(player, 'bombs_left', 0)
 
         # Draw player ID
         id_text = self.player_font.render(f"Player: {client_id}", True, (255, 255, 255))
@@ -368,7 +382,10 @@ class PlayerInfoPanel:
 
         # Draw score and bombs
         score_text = self.stats_font.render(f"Score: {score}", True, (255, 255, 255))
-        self.surface.blit(score_text, (x + 10, y + 47))
+        # self.surface.blit(score_text, (x + 10, y + 47))
 
-        bombs_text = self.stats_font.render(f"Bombs: {bombsleft}", True, (255, 255, 255))
-        self.surface.blit(bombs_text, (x + 10, y + 67))
+        bombs_text = self.stats_font.render(f"Bombs: {bombs_left}", True, (255, 255, 255))
+        # self.surface.blit(bombs_text, (x + 10, y + 67))
+        # Position score on the left and bombs on the right of the same line
+        self.surface.blit(score_text, (x + 10, y + 47))
+        self.surface.blit(bombs_text, (x + self.card_width - bombs_text.get_width() - 10, y + 47))

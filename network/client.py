@@ -6,7 +6,7 @@ from loguru import logger
 from constants import UPDATE_TICK
 from game.bomberdude import Bomberdude
 
-async def send_game_state(game: Bomberdude):
+async def send_game_state(game: Bomberdude) -> None:
 	logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
 	while True:
 		try:
@@ -29,7 +29,6 @@ async def send_game_state(game: Bomberdude):
 				logger.error(f'{e} {type(e)}')
 				await asyncio.sleep(1)
 				continue
-		# playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in game.client_game_state.playerlist.values()]
 		playerlist = [player for player in game.client_game_state.playerlist.values()]
 		msg = {
 			'game_event': game_event,
@@ -58,13 +57,6 @@ async def receive_game_state(game: Bomberdude) -> None:
 	while True:
 		try:
 			data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
-			# if not data:
-			# 	if game.sock._closed:
-			# 		logger.warning(f'Connection closed {game.sock._closed}')
-			# 		break
-			# 	else:
-			# 		await asyncio.sleep(1 / UPDATE_TICK)
-			# 		continue
 			buffer += data.decode('utf-8')
 
 			# Process multiple messages at once if available
@@ -74,14 +66,19 @@ async def receive_game_state(game: Bomberdude) -> None:
 					logger.warning(f'no message in buffer: {buffer}')
 					continue
 				game_state_json = json.loads(message)
-				if game_state_json.get('event_type') == 'broadcast_event':
-					asyncio.create_task(game.client_game_state.update_game_event(game_state_json["event"]))
-				else:
-					await game.client_game_state.from_json(game_state_json)
+				event = game_state_json.get("event")
+				if event:
+					# update_game_event is async now; schedule it without blocking receive loop
+					asyncio.create_task(game.client_game_state.update_game_event(event))
+
 		except (BlockingIOError, InterruptedError) as e:
 			await asyncio.sleep(1)
 			logger.error(f'{e} {type(e)}')
 			continue
+		except ConnectionRefusedError as e:
+			logger.error(f"Connection refused: {e} {type(e)}")
+			await asyncio.sleep(1)
+			break
 		except Exception as e:
 			logger.error(f"Error in receive_game_state: {e} {type(e)}")
 			await asyncio.sleep(1)

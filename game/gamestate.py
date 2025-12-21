@@ -1,4 +1,6 @@
 import asyncio
+from typing import Any, Callable, cast
+import ast
 import pygame
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Group
@@ -11,11 +13,11 @@ from objects.player import KeysPressed, Bomberplayer
 from objects.bullets import Bullet
 from objects.bombs import Bomb
 from objects.explosionmanager import ExplosionManager
-from constants import DEFAULT_HEALTH, UPDATE_TICK, GLOBAL_RATE_LIMIT
+from constants import DEFAULT_HEALTH, UPDATE_TICK, GLOBAL_RATE_LIMIT, BLOCK
 import pytmx
 from pytmx import load_pygame
 import json
-
+import inspect  # <-- add
 
 @dataclass
 class GameState:
@@ -30,8 +32,12 @@ class GameState:
 		self.event_queue = asyncio.Queue()
 		self.keyspressed = KeysPressed('gamestate')
 		self.tile_map = pytmx.TiledMap(mapname)
-		self.collidable_tiles = []
-		self.killable_tiles = []
+		# Use sets for O(1) add/remove; these are iterated frequently for collision checks.
+		self.collidable_tiles = set()
+		self.killable_tiles = set()
+		# Index tiles by (tile_x, tile_y) to avoid linear scans on removal.
+		self.collidable_by_tile: dict[tuple[int, int], Any] = {}
+		self.killable_by_tile: dict[tuple[int, int], Any] = {}
 		self.connections = set()
 		self.client_queue = asyncio.Queue()
 		self.playerlist = {}  # dict = field(default_factory=dict)
@@ -42,10 +48,32 @@ class GameState:
 		self.tile_cache = {}
 		self.last_update_times = {}
 		self.client_id = client_id
-		self.processed_explosions = set()  # Track processed explosion IDs
+		self.player_active_bombs = {}  # player_id -> active bomb count
+		self.active_bombs_per_player = {}  # Track active bombs per player
+		self.processed_explosions = set()  # Track processed explosions globally
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
+
+	def to_json(self):
+		"""Convert game state to JSON-serializable format"""
+		playerlist = []
+		for player in self.playerlist.values():
+			if player:
+				if hasattr(player, 'to_dict'):
+					if player.client_id != 'bomberserver':
+						playerlist.append(player.to_dict())
+				else:
+					if player['client_id'] != 'bomberserver':
+						playerlist.append(player)
+		modified_tiles = {str(pos): gid for pos, gid in self.modified_tiles.items()}
+		return {
+			'event_type': 'playerlistupdate',
+			'playerlist': playerlist,
+			'connections': len(self.connections),
+			'mapname': self.mapname,
+			'modified_tiles': modified_tiles,  # Include map modifications
+		}
 
 	async def destroy_block(self, block):
 		"""
@@ -56,9 +84,11 @@ class GameState:
 		tile_y = y // self.tile_map.tileheight
 		layer = self.tile_map.get_layer_by_name('Blocks')
 
-		self.collidable_tiles.remove(block)
-		self.killable_tiles.remove(block)
-		layer.data[tile_y][tile_x] = 0  # Set to empty tile
+		self.collidable_tiles.discard(block)
+		self.killable_tiles.discard(block)
+		self.collidable_by_tile.pop((tile_x, tile_y), None)
+		self.killable_by_tile.pop((tile_x, tile_y), None)
+		layer.data[tile_y][tile_x] = 0  # Set to empty tile  # type: ignore
 		self.modified_tiles[(tile_x, tile_y)] = 0
 		# Update visual representation
 		self.static_map_surface.blit(self.tile_cache.get(1), (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))  # type: ignore
@@ -93,9 +123,8 @@ class GameState:
 	async def broadcast_event(self, event):
 		# Only broadcast player_update events at a reduced rate
 		do_send = True
-		event_type = event.get('event_type')
+		# event_type = event.get('event_type')
 
-# 		if event_type == 'player_update':
 		client_id = event.get('client_id')
 		current_time = time.time()
 		# Use per-client rate limiting
@@ -106,104 +135,144 @@ class GameState:
 		# Rate limit
 		if timediff < GLOBAL_RATE_LIMIT and last_time > 0:
 			# Use debug level instead of warning for rate limiting
-			if self.args and hasattr(self.args, 'debug') and self.args.debug:
-				logger.debug(f'Rate limiting {client_id}: {timediff:.3f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT}')
+			if self.args.debug:
+				logger.warning(f'Rate limiting {client_id}: {timediff:.5f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT}')
 			do_send = False
 
 		try:
 			if do_send:
 				await self.broadcast_state({"event_type": "broadcast_event", "event": event})
 				# Track last time we sent an update for this specific client
-				if event_type == 'player_update':
+				if event.get('event_type') == 'player_update':
 					self.last_update_times[event.get('client_id')] = time.time()
 		except Exception as e:
 			logger.error(f"Error in broadcast_event: {e} {type(e)}")
 
 	async def broadcast_state(self, game_state):
 		"""Broadcast game state to all connected clients"""
-		dead_connections = set()
-		loop = asyncio.get_event_loop()
 		try:
 			data = json.dumps(game_state).encode('utf-8') + b'\n'
-		except TypeError as e:
-			logger.error(f"Error encoding game_state: {e} game_state: {game_state}")
-			return
 
-		modified_tiles = {}
-		for pos, gid in self.modified_tiles.items():
-			modified_tiles[str(pos)] = gid
-		game_state['modified_tiles'] = modified_tiles
+			# Convert modified_tiles once before serialization
+			modified_tiles = {str(pos): gid for pos, gid in self.modified_tiles.items()}
+			game_state['modified_tiles'] = modified_tiles
 
-		try:
-			for conn in self.connections:
-				try:
-					# Check if it's a StreamWriter (from NewBombServer) or a socket
-					if hasattr(conn, 'write'):  # StreamWriter
-						if conn.is_closing():
-							dead_connections.add(conn)
-							continue
-						conn.write(data)
-						await conn.drain()
-					else:  # Socket
-						logger.warning(f'{conn} {type(conn)}')
-						await loop.sock_sendall(conn, data)
-				except Exception as e:
-					logger.error(f"Error broadcasting to client: {e}")
-					dead_connections.add(conn)
-			# Clean up dead connections
-			for dead_conn in dead_connections:
-				logger.warning(f"Removing {dead_conn} from connections")
-				self.remove_connection(dead_conn)
+			# Broadcast in parallel using gather
+			tasks = []
+			for conn in list(self.connections):
+				if not conn.is_closing():
+					conn.write(data)
+					tasks.append(conn.drain())
+			if tasks:
+				await asyncio.gather(*tasks, return_exceptions=True)
+
 		except Exception as e:
 			logger.error(f"Error in broadcast_state: {e} {type(e)}")
 
-	def get_playerone(self, client_id=None) -> Bomberplayer | None:
+	async def send_to_client(self, connection, data):
+		"""Send data to specific client connection"""
+		try:
+			loop = asyncio.get_event_loop()
+			if isinstance(data, dict):
+				data_out = json.dumps(data).encode('utf-8') + b'\n'
+			elif isinstance(data, bytes):
+				data_out = data + b'\n'
+			else:
+				data_out = str(data).encode('utf-8') + b'\n'
+
+			if hasattr(connection, 'write'):  # StreamWriter
+				connection.write(data_out)
+				await connection.drain()
+			else:  # Socket
+				await loop.sock_sendall(connection, data_out)
+		except Exception as e:
+			logger.error(f"Error sending to client: {e}")
+			self.remove_connection(connection)
+
+	def get_playerone(self) -> Bomberplayer:
+		"""Always return a Bomberplayer instance"""
+		if self.client_id == 'theserver':
+			player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
+			self.players_sprites.add(player)
+			return player
+		# Try to find player in sprites
 		for player in self.players_sprites:
 			if player.client_id == self.client_id:
 				return player
-		target_id = client_id or self.client_id
+
+		# If not found in sprites but in playerlist, create sprite from data
+		target_id = self.client_id
 		if target_id in self.playerlist:
-			player = self.playerlist[target_id]
-			# Ensure we can access .client_id regardless of type
-			if isinstance(player, dict):
-				# Create a temporary PlayerState for dict type
-				player_state = PlayerState(
-					client_id=player.get('client_id', 'unknown'),
-					position=player.get('position', [0, 0]),
-					health=player.get('health', 100),
-					initial_bombs=player.get('bombsleft', 3),
-					score=player.get('score', 0),
-				)
-				return player_state
+			player_data = self.playerlist[target_id]
+			# Convert to Bomberplayer
+			pos = getattr(player_data, 'position', None)
+			if isinstance(player_data, dict):
+				pos = player_data.get('position')
+
+			player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
+			if pos:
+				player.position = Vec2d(pos)
+				player.rect.topleft = (int(player.position.x), int(player.position.y))
+
+			# Add to sprites collection
+			self.players_sprites.add(player)
 			return player
-		raise AttributeError('player one NOT found in self.players_sprites or self.players')
+
+		# Create default player as last resort
+		logger.warning(f"Creating default player - no player found! target_id: {target_id} playerlist keys: {list(self.playerlist.keys())}")
+		player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
+		self.players_sprites.add(player)
+		return player
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
 		self.tile_map = load_pygame(self.mapname)
 		# Create a cache for tile images
-		self.static_map_surface = pygame.Surface((self.tile_map.width * self.tile_map.tilewidth, self.tile_map.height * self.tile_map.tileheight))
+		tmap = self.tile_map
+		tw, th = tmap.tilewidth, tmap.tileheight
+		self.static_map_surface = pygame.Surface((tmap.width * tw, tmap.height * th))
+		blit = self.static_map_surface.blit
+		tile_cache = self.tile_cache
+		Rect = pygame.Rect
+		SpriteCls = pygame.sprite.Sprite
 
-		for layer in self.tile_map.visible_layers:
+		# Reset caches and indexes when loading a new map
+		self.collidable_tiles.clear()
+		self.killable_tiles.clear()
+		self.collidable_by_tile.clear()
+		self.killable_by_tile.clear()
+
+		for layer in tmap.visible_layers:
+			collidable = bool(layer.properties.get('collidable'))
+			killable = bool(layer.properties.get('killable'))
 			for x, y, gid in layer:
 				# Skip empty tiles (gid = 0)
 				if gid == 0:
 					continue
 				# Cache the tile image if not already cached
-				if gid not in self.tile_cache:
-					self.tile_cache[gid] = self.tile_map.get_tile_image_by_gid(gid)
+				tile = tile_cache.get(gid)
+				if tile is None:
+					tile = tmap.get_tile_image_by_gid(gid)
+					tile_cache[gid] = tile
 
-				tile = self.tile_cache[gid]
-				if tile:
-					self.static_map_surface.blit(tile, (x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
-					if layer.properties.get('collidable'):
-						sprite = pygame.sprite.Sprite()
-						sprite.image = tile
-						sprite.rect = pygame.Rect(x * self.tile_map.tilewidth, y * self.tile_map.tileheight, self.tile_map.tilewidth, self.tile_map.tileheight)
-						sprite.layer = layer.name
-						self.collidable_tiles.append(sprite)
-						if layer.properties.get('killable'):
-							self.killable_tiles.append(sprite)
+				if not tile:
+					continue
+
+				blit(tile, (x * tw, y * th))
+				if not collidable:
+					continue
+
+				sprite = SpriteCls()
+				sprite: Any = sprite  # or use a Protocol class
+				sprite.image = tile
+				sprite.rect = Rect(x * tw, y * th, tw, th)
+				sprite.layer = layer.name
+				sprite.tile_pos = (x, y)
+				self.collidable_tiles.add(sprite)
+				self.collidable_by_tile[(x, y)] = sprite
+				if killable:
+					self.killable_tiles.add(sprite)
+					self.killable_by_tile[(x, y)] = sprite
 		if self.args.debug:
 			logger.debug(f'loading {self.mapname} done. Cached {len(self.tile_cache)} unique tiles.')
 
@@ -211,6 +280,75 @@ class GameState:
 		"""Render the map using cached tile images"""
 		self.explosion_manager.draw(screen, camera)
 		screen.blit(self.static_map_surface, camera.apply(pygame.Rect(0, 0, self.static_map_surface.get_width(), self.static_map_surface.get_height())))
+
+	# ---------- Helpers for map updates ----------
+	def _parse_pos_key(self, key):
+		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
+		if isinstance(key, tuple):
+			return key
+		if isinstance(key, str):
+			try:
+				return tuple(ast.literal_eval(key))  # type: ignore
+			except Exception as e:
+				logger.error(f'Error parsing position key {key}: {e} {type(e)}')
+				s = key.strip().strip('()')
+				x_s, y_s = s.split(',')
+				return (int(x_s), int(y_s))
+		return key
+
+	def _apply_tile_change(self, x, y, new_gid):
+		"""Apply a single tile change and update visuals/collisions/state."""
+		layer = self.tile_map.get_layer_by_name('Blocks')
+		if not layer:
+			return
+		tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
+		if 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):  # type: ignore
+			layer.data[y][x] = new_gid  # type: ignore
+			self.modified_tiles[(x, y)] = new_gid
+			if new_gid == 0:
+				floor_tile = self.tile_cache.get(1)
+				if floor_tile:
+					self.static_map_surface.blit(floor_tile, (x * tw, y * th))
+				# O(1) removals using indexes (no scanning)
+				block = self.killable_by_tile.pop((x, y), None)
+				if block is None:
+					block = self.collidable_by_tile.pop((x, y), None)
+				else:
+					self.collidable_by_tile.pop((x, y), None)
+				if block is not None:
+					self.killable_tiles.discard(block)
+					self.collidable_tiles.discard(block)
+
+	def _apply_modifications_dict(self, modified_tiles: dict):
+		"""Batch-apply many tile modifications efficiently."""
+		layer = self.tile_map.get_layer_by_name('Blocks')
+		if not layer:
+			return
+		tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
+		floor_tile = self.tile_cache.get(1)
+		positions_to_clear = set()
+
+		for pos_key, new_gid in modified_tiles.items():
+			x, y = self._parse_pos_key(pos_key)
+			if 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):  # type: ignore
+				layer.data[y][x] = new_gid  # type: ignore
+				self.modified_tiles[(x, y)] = new_gid
+				if new_gid == 0:
+					positions_to_clear.add((x, y))
+
+		if positions_to_clear and floor_tile is not None:
+			for (x, y) in positions_to_clear:
+				self.static_map_surface.blit(floor_tile, (x * tw, y * th))
+		# Remove cleared positions from collision sets and indexes in O(k)
+		for (x, y) in positions_to_clear:
+			block = self.killable_by_tile.pop((x, y), None)
+			if block is None:
+				block = self.collidable_by_tile.pop((x, y), None)
+			else:
+				self.collidable_by_tile.pop((x, y), None)
+			if block is not None:
+				self.killable_tiles.discard(block)
+				self.collidable_tiles.discard(block)
 
 	def update_game_state(self, client_id, msg):
 		msg_event = msg.get('game_event')
@@ -225,7 +363,7 @@ class GameState:
 				'timeout': msg_event.get('timeout'),
 				'killed': msg_event.get('killed'),
 				'event_type': 'update_game_state',
-				'bombsleft': msg_event.get('bombsleft'),
+				'bombs_left': msg_event.get('bombs_left'),
 			}
 			self.playerlist[client_id] = self.ensure_player_state(playerdict)
 			# self.playerlist[client_id] = playerdict
@@ -240,489 +378,29 @@ class GameState:
 				position=player_data.get('position', [0, 0]),
 				client_id=player_data.get('client_id', 'unknown'),
 				score=player_data.get('score', 0) or 0,  # Convert None to 0
-				# bombsleft=player_data.get('bombsleft', 3) or 3,  # Convert None to 3
+				initial_bombs=player_data.get('bombs_left', 3) or 3,  # Convert None to 3
 				health=player_data.get('health', 100) or 100,  # Convert None to 100
 				killed=player_data.get('killed', False) or False,
 				timeout=player_data.get('timeout', False) or False
 			)
-		if isinstance(player_data, PlayerState):
+		elif isinstance(player_data, PlayerState):
 			# Ensure PlayerState has non-None values for critical attributes
-			if player_data.bombsleft is None:
-				player_data.bombsleft = 3
+			if player_data.bombs_left is None:
+				player_data.bombs_left = 3
 			if player_data.health is None:
 				player_data.health = 100
 			if player_data.score is None:
 				player_data.score = 0
 			return player_data
-		# For unexpected types, create a safe default PlayerState
-		logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
-		return PlayerState(
-			position=[0, 0],
-			client_id=str(getattr(player_data, 'client_id', 'unknown')),
-			health=100,
-			score=0
-		)
-
-	async def update_game_event(self, game_event):
-		event_type = game_event.get('event_type')
-		client_id = game_event.get("client_id")
-		# Ensure client_id is always a string
-		if client_id is not None and not isinstance(client_id, str):
-			client_id = str(client_id)
-			game_event["client_id"] = client_id
-
-		# If owner_id exists, ensure it's a string too
-		if "owner_id" in game_event and not isinstance(game_event["owner_id"], str):
-			game_event["owner_id"] = str(game_event["owner_id"])
-
-		match event_type:
-			case 'map_info':
-				# Get mapname and load it
-				map_name = game_event.get('mapname')
-				pos_str = ''
-				new_gid = 0
-				if map_name and map_name != self.mapname:
-					logger.info(f"Loading map: {map_name}")
-					self.load_tile_map(map_name)
-
-				# Apply any tile modifications (destroyed blocks)
-				modified_tiles = game_event.get('modified_tiles', {})
-				for pos_str, new_gid in modified_tiles.items():
-					# Convert string key back to tuple
-					x, y = eval(pos_str) if isinstance(pos_str, str) else pos_str
-
-					# Apply the modification
-					layer = self.tile_map.get_layer_by_name('Blocks')
-					if layer and 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):
-						layer.data[y][x] = new_gid
-
-						# Update visual representation too
-						if new_gid == 0:  # If block was destroyed
-							floor_tile = self.tile_cache.get(1)  # Get floor tile
-							if floor_tile:
-								self.static_map_surface.blit(floor_tile,
-									(x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
-
-							# Remove from collision handling if applicable
-							for block in self.killable_tiles[:]:
-								block_x = block.rect.x // self.tile_map.tilewidth
-								block_y = block.rect.y // self.tile_map.tileheight
-								if block_x == x and block_y == y:
-									self.killable_tiles.remove(block)
-									if block in self.collidable_tiles:
-										self.collidable_tiles.remove(block)
-									break
-				if self.args.debug:
-					logger.info(f"[map_info] Applied {len(modified_tiles)} map modifications {pos_str=} -> {new_gid=}")
-
-			case 'map_update':
-				# Handle incremental map updates during gameplay
-				tile_x, tile_y = game_event.get('position')
-				new_gid = game_event.get('new_gid')
-
-				# Apply modification
-				layer = self.tile_map.get_layer_by_name('Blocks')
-				layer.data[tile_y][tile_x] = new_gid
-
-				# Track the modification
-				self.modified_tiles[(tile_x, tile_y)] = new_gid
-
-				# Update visual representation
-				if new_gid == 0:  # If block was destroyed
-					floor_tile = self.tile_cache.get(1)
-					if floor_tile:
-						self.static_map_surface.blit(floor_tile,
-							(tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))
-
-					# Remove from collision lists if applicable
-					for block in self.killable_tiles[:]:
-						block_x = block.rect.x // self.tile_map.tilewidth
-						block_y = block.rect.y // self.tile_map.tileheight
-						if block_x == tile_x and block_y == tile_y:
-							self.killable_tiles.remove(block)
-							if block in self.collidable_tiles:
-								self.collidable_tiles.remove(block)
-							break
-				await self.broadcast_event(game_event)
-
-			case 'player_joined':
-				# Add a visual notification for clients
-				logger.info(f"Player {client_id} has joined the game!")
-
-				# Add player to local playerlist if not present
-				if client_id not in self.playerlist:
-					position = game_event.get('position', [100, 100])
-					self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=DEFAULT_HEALTH, initial_bombs=3, score=0)
-					if self.args.debug:
-						logger.debug(f"Added new player {client_id} at position {position}")
-
-				await self.broadcast_event(game_event)
-
-			case 'player_update':
-				# Update other player's position in playerlist
-				if client_id != self.client_id:
-					position = game_event.get('position')
-					bombsleft = game_event.get('bombsleft')
-					if client_id in self.playerlist:
-						player = self.ensure_player_state(self.playerlist[client_id])
-						if player:
-							if isinstance(player, dict):
-								# Direct update without complex interpolation
-								self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=player.get('health'), score=player.get('score'))
-								logger.warning(f'playerdict {player} {game_event=}')
-							else:
-								# Handle PlayerState objects
-								player.position = position
-								player.bombsleft = bombsleft
-					else:
-						logger.warning(f'newunknownplayer {client_id=}')
-						# Add new player with minimal required fields
-						self.playerlist[client_id] = PlayerState(client_id=client_id, position=position, health=DEFAULT_HEALTH, score=0)
-				await self.broadcast_event(game_event)
-				await asyncio.sleep(1 / UPDATE_TICK)
-
-			case 'playerquit':
-				client_id = game_event.get('client_id')
-				if client_id in self.playerlist:
-					logger.info(f"Player {client_id} has disconnected")
-					del self.playerlist[client_id]
-					# Broadcast quit event to all clients so they can update their playerlists
-					await self.broadcast_event(game_event)
-				# Still pass the event to the local event queue for local handling
-				await self.event_queue.put(game_event)
-
-			case 'acknewplayer':
-				game_event['handled'] = True
-				self._ready = True
-				ack_event = {"event_type": "acknewplayer", "client_id": self.client_id, "event": game_event}
-				if self.args.debug:
-					logger.info(f"acknewplayer {ack_event.get('event_type')} {ack_event.get('client_id')} ")
-				# await self.broadcast_state(ack_event)
-
-			case 'connection_event':
-				game_event['handled'] = True
-				game_event['handledby'] = 'ugsnc'
-				game_event['event_type'] = 'acknewplayer'
-				client_id = game_event.get('client_id')
-				if client_id not in self.playerlist:
-					self.playerlist[client_id] = PlayerState(client_id=client_id, position=game_event.get('position'), health=100)
-				# await self.broadcast_state({"event_type": "acknewplayer", "event": game_event})
-				await self.broadcast_event(game_event)
-				# await self.event_queue.put(game_event)
-
-			case 'player_drop_bomb':  # todo make server decide if bomb can be dropped
-				game_event['handledby'] = 'ugsbomb'
-				game_event['event_type'] = 'ackbombdrop'
-				await self.broadcast_event(game_event)
-
-			case 'ackbombdrop':  # todo make server decide if bomb can be dropped
-				if self.args.debug:
-					logger.debug(f'ackbombdrop {client_id=} {self.client_id=}')
-				bomb = Bomb(position=game_event.get('position'), client_id=game_event.get('client_id'))
-				self.bombs.add(bomb)
-
-			case 'bulletfired':
-				game_event['handledby'] = 'ackbulletupdate_game_event'
-				game_event['event_type'] = 'ackbullet'
-				game_event['handled'] = True
-				await self.broadcast_event(game_event)
-
-			case 'ackbullet':
-				# bullet = Bullet()
-				bullet_position = Vec2d(game_event.get('position')[0], game_event.get('position')[1])
-				bullet_direction = Vec2d(game_event.get('direction')[0], game_event.get('direction')[1])
-				if client_id == self.get_playerone().client_id:
-					bullet_size = (10,10)
-				else:
-					bullet_size = (5,5)
-				bullet = Bullet(position=bullet_position, direction=bullet_direction, screen_rect=self.get_playerone().rect, bullet_size=bullet_size, owner_id=client_id)
-				self.bullets.add(bullet)
-
-			case 'player_hit':
-				target_id = game_event.get('target_id')
-				damage = game_event.get('damage', 10)
-				try:
-					player_one = self.get_playerone()
-					if player_one.client_id == target_id:
-						player_one.take_damage(damage, game_event.get('client_id'))
-				except Exception as e:
-					logger.error(f'{e} {type(e)}')
-				# Apply damage to target player
-				if target_id not in self.playerlist:
-					logger.warning(f'target_id not in playerlist: {target_id=}')
-					logger.warning(f'playerlist: {self.playerlist}')
-					self.playerlist[target_id] = PlayerState(client_id=target_id, position=game_event.get('position', [0, 0]), health=100 - damage)
-				# else:  # target_id in self.playerlist:
-				player = self.ensure_player_state(self.playerlist[target_id])
-				if isinstance(player, dict):
-					try:
-						player['health'] = player.get('health') - damage
-					except Exception as e:
-						logger.error(f'Error updating health: {e} {type(e)} {player=}')
-					logger.info(f'dictplayer_hit {target_id=} {damage=} player: {player["client_id"]} {player["health"]}')
-					# Check if player is killed
-					if player['health'] <= 0:
-						# Create kill event
-						game_event["event_time"] = time.time()
-						game_event["event_type"] = "player_killed"
-						game_event["client_id"] = client_id
-						game_event["target_id"] = target_id
-						game_event["position"] = game_event.get('position')
-						game_event["handledby"] = "PlayerStateplayer_hit"
-						# await self.broadcast_event(kill_event)
-				else:
-					# Handle PlayerState objects
-					player.health -= damage
-					if self.args.debug:
-						logger.debug(f'PlayerStateplayer_hit {target_id=} {damage=} {player.client_id=} {player.health=} ')
-					if player.health <= 0:
-						# Create kill event
-						game_event["event_time"] = time.time()
-						game_event["event_type"] = "player_killed"
-						game_event["client_id"] = client_id
-						game_event["target_id"] = target_id
-						game_event["position"] = game_event.get('position')
-						game_event["handledby"] = "PlayerStateplayer_hit"
-				if not game_event.get('handled'):
-					game_event['handled'] = True
-					game_event['health'] = player.health  # Include updated health in event
-					# Broadcast the hit event to all clients
-				await self.broadcast_event(game_event)
-				# asyncio.create_task(self.event_queue.put(game_event))
-
-			case 'player_killed':
-				killer_id = client_id
-				target_id = game_event.get('target_id')
-
-				logger.info(f'player_killed {target_id} by {killer_id} ')
-
-				# Award points to killer
-				if killer_id in self.playerlist:
-					if isinstance(self.playerlist[killer_id], dict):
-						self.playerlist[killer_id]['score'] = self.playerlist[killer_id].get('score', 0) + 1
-					else:
-						try:
-							self.playerlist[killer_id].score += 1
-						except TypeError as e:
-							logger.error(f'{e} {type(e)} {killer_id=} playerlist: {self.playerlist}')
-
-					await self.broadcast_event(game_event)
-
-			case 'bomb_exploded':
-				event_id = game_event.get('event_id', '')
-				# Skip if already processed this event
-				if event_id and event_id in self.processed_explosions:
-					logger.warning(f'Skipping already processed explosion: {event_id} game_event: {game_event}')
-					return
-
-				# Add to processed events
-				if event_id:
-					self.processed_explosions.add(event_id)
-					# Limit size to prevent memory issues
-					if len(self.processed_explosions) > 1000:
-						self.processed_explosions = set(list(self.processed_explosions)[-1000:])
-
-				owner_id = game_event.get('owner_id')
-				if owner_id in self.playerlist:
-					# Convert to PlayerState with guaranteed defaults
-					player = self.ensure_player_state(self.playerlist[owner_id])
-					# Store back the PlayerState
-					self.playerlist[owner_id] = player
-
-					# Safely increment bombsleft (now guaranteed to exist)
-					player.bombsleft += 1
-
-					# Update player in sprites group if exists
-					for sprite in self.players_sprites:
-						if str(getattr(sprite, 'client_id', None)) == str(owner_id):
-							sprite.bombsleft = player.bombsleft
-							break
-
-					# Only broadcast if you didn't create this event
-					if not game_event.get('handledby') == self.client_id:
-						game_event['handledby'] = self.client_id  # Mark that you handled it
-						await self.broadcast_event(game_event)
-				else:
-					logger.warning(f'owner_id not in playerlist: {owner_id=}')
-
-			case _:
-				# payload = {'event_type': 'error99', 'payload': ''}
-				logger.warning(f'unknown game_event:{event_type} from game_event={game_event}')
-				# await self.event_queue.put(payload)
-
-	def to_json(self):
-		"""Convert game state to JSON-serializable format"""
-		playerlist = []
-		for player in self.playerlist.values():
-			if player:
-				if hasattr(player, 'to_dict'):
-					if player.client_id != 'bomberserver':
-						playerlist.append(player.to_dict())
-				else:
-					if player['client_id'] != 'bomberserver':
-						playerlist.append(player)
-		modified_tiles = {str(pos): gid for pos, gid in self.modified_tiles.items()}
-		return {
-			'event_type': 'playerlistupdate',
-			'playerlist': playerlist,
-			'connections': len(self.connections),
-			'mapname': self.mapname,
-			'modified_tiles': modified_tiles,  # Include map modifications
-		}
-
-	async def from_json(self, data):
-		event_type = data.get('event_type')
-		sender_client_id = data.get('client_id')
-		match event_type:
-			case 'playerquit':
-				if sender_client_id and sender_client_id in self.playerlist:
-					logger.info(f"Removing quit player {sender_client_id} from local playerlist")
-					del self.playerlist[sender_client_id]
-
-					# Also remove from sprites if present
-					for sprite in list(self.players_sprites):
-						if getattr(sprite, 'client_id', None) == sender_client_id:
-							sprite.kill()
-
-			case 'acknewplayer':
-				if self.args.debug:
-					logger.info(f"{event_type} {data=}")
-				await self.update_game_event(data)
-
-			case 'send_game_state':
-				for player_data in data.get('playerlist', []):
-					client_id = player_data.get('client_id')
-					if client_id != self.client_id:  # Don't update our own player
-						if client_id in self.playerlist:
-							# Update existing player
-							player = self.ensure_player_state(self.playerlist[client_id])
-							player.position = player_data.get('position')
-							player.health = player_data.get('health')
-							player.score = player_data.get('score')
-						else:
-							if self.args.debug:
-								logger.info(f"{event_type} {data=}")
-							# Create new player
-							self.playerlist[client_id] = PlayerState(**player_data)
-			case 'map_info':
-				# Handle map info messages
-				if self.args.debug:
-					logger.info(f"Received map info: {data.get('mapname')} {data=}")
-				# Get mapname and load it if needed
-				map_name = data.get('mapname')
-				if map_name and map_name != self.mapname:
-					logger.info(f"Loading map from map_info: {map_name}")
-					self.load_tile_map(map_name)
-
-				# Apply any tile modifications (destroyed blocks)
-				modified_tiles = data.get('modified_tiles', {})
-				for pos_str, new_gid in modified_tiles.items():
-					# Convert string key back to tuple
-					x, y = eval(pos_str) if isinstance(pos_str, str) else pos_str
-
-					# Apply the modification
-					layer = self.tile_map.get_layer_by_name('Blocks')
-					if layer and 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):
-						layer.data[y][x] = new_gid
-
-						# Update visual representation
-						if new_gid == 0:  # If block was destroyed
-							floor_tile = self.tile_cache.get(1)  # Get floor tile
-							if floor_tile:
-								self.static_map_surface.blit(floor_tile,
-									(x * self.tile_map.tilewidth, y * self.tile_map.tileheight))
-
-								# Update collision lists if applicable - no sprites to remove here
-								# but we can update our internal tracking
-								self.modified_tiles[(x, y)] = new_gid
-					if self.args.debug:
-						logger.info(f"Applied {len(modified_tiles)} map modifications from map_info")
-			case 'playerlist':
-				try:
-					for player_data in data.get('playerlist', []):
-						client_id = player_data.get('client_id')
-						if not client_id:
-							logger.error(f'client_id missing in player_data: {player_data}')
-							continue
-						elif client_id != self.client_id:  # Don't update our own player
-							if client_id in self.playerlist:
-								# Update existing player
-								player = self.ensure_player_state(self.playerlist[client_id])
-								position = player_data.get('position')
-								if position:
-									if hasattr(player, 'position'):
-										if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-											player.position.x, player.position.y = position[0], position[1]
-										else:
-											player.position = position
-									else:
-										player['position'] = position
-
-									# Set up interpolation data
-									if hasattr(player, 'target_position'):
-										player.target_position = position
-										player.position_updated = True
-							else:
-								# Create new player
-								logger.debug(f'newplayer {client_id=} {player_data=}')
-								try:
-									self.playerlist[client_id] = PlayerState(
-										client_id=client_id,
-										position=player_data.get('position', (0, 0)),
-										health=DEFAULT_HEALTH,
-										bombsleft=player_data.get('bombsleft', 3),
-										score=player_data.get('score', 0)
-									)
-								except Exception as e:
-									logger.error(f"Could not create PlayerState: {e}")
-						else:
-							logger.warning(f"Skipping player: {client_id} {data=}")
-				except Exception as e:
-					logger.error(f"Error updating player from json: {e}")
-			case 'playerlistupdate':
-				try:
-					for player_data in data.get('playerlist', []):
-						client_id = player_data.get('client_id')
-						if not client_id:
-							logger.error(f'client_id missing in player_data: {player_data}')
-							continue
-						if client_id == 'bombserver':
-							logger.warning(f'bombserverplayer_data: {player_data} data={data}')
-							continue
-						if client_id == 'gamestatenotset':
-							logger.warning(f'gamestatenotset: {player_data} data={data}')
-							continue
-						elif client_id != self.client_id:  # Don't update our own player
-							if client_id in self.playerlist:
-								# Update existing player
-								player = self.ensure_player_state(self.playerlist[client_id])
-								position = player_data.get('position')
-								if position:
-									if hasattr(player, 'position'):
-										if hasattr(player.position, 'x') and hasattr(player.position, 'y'):
-											player.position.x, player.position.y = position[0], position[1]
-										else:
-											player.position = position
-									else:
-										player['position'] = position
-
-									# Set up interpolation data
-									if hasattr(player, 'target_position'):
-										player.target_position = position
-										player.position_updated = True
-							else:
-								# Create new player
-								newplayer = PlayerState(client_id=client_id, position=player_data.get('position', (0, 0)), health=DEFAULT_HEALTH, initial_bombs=player_data.get('bombsleft', 3), score=player_data.get('score', 0))
-								if newplayer.position:
-									logger.info(f'newplayer {client_id=} pos: {newplayer.position}')
-									try:
-										self.playerlist[client_id] = newplayer
-									except Exception as e:
-										logger.error(f"Could not create PlayerState: {e}")
-				except Exception as e:
-					logger.error(f"Error updating player from json: {e} {data}")
-			case _:
-				logger.warning(f"Unknown event_type: {data.get('event_type')} data: {data}")
+		else:
+			# For unexpected types, create a safe default PlayerState
+			logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
+			return PlayerState(
+				position=(0, 0),
+				client_id=str(getattr(player_data, 'client_id', 'unknown')),
+				health=100,
+				score=0
+			)
 
 	def cleanup_playerlist(self):
 		"""Remove players with None positions from playerlist"""
@@ -733,84 +411,359 @@ class GameState:
 
 	def update_remote_players(self, delta_time):
 		"""Update remote player interpolation"""
-		for client_id, player in self.playerlist.items():
-			if client_id != self.client_id:  # Only update remote players
-				try:
-					# Check if player is dictionary or PlayerState object
-					if isinstance(player, dict):
-						# Dictionary players (server-originated)
-						if 'position' not in player:
-							logger.warning(f'missing position in player: {player}')
-							continue
+		for client_id, player in list(self.playerlist.items()):
+			if client_id == self.client_id:
+				continue  # Only remote players
 
-						# Initialize interpolation properties if needed
-						if 'prev_position' not in player:
-							player['prev_position'] = player['position']
-							player['target_position'] = player['position']
-							player['interp_time'] = 0
-							player['position_updated'] = False
+			# Normalize dict players into PlayerState so we have one code path
+			if isinstance(player, dict):
+				player = self.ensure_player_state(player)
+				self.playerlist[client_id] = player
 
-						# Handle interpolation
-						if player.get('position_updated', False):
-							if isinstance(player['position'], list):
-								player['prev_position'] = player['position'].copy()
-							else:
-								player['prev_position'] = player['position']
-							player['interp_time'] = 0
-							player['position_updated'] = False
+			# From here on, treat as PlayerState-like
+			if not hasattr(player, "position") or player.position is None:
+				if self.args.debug:
+					logger.warning(f"Skipping update for player with None position: {client_id}")
+				continue
 
-					else:
-						# PlayerState objects (client-originated)
-						if not hasattr(player, 'position'):
-							logger.warning(f'missing position in player: {player}')
-							continue
-
-						# Initialize interpolation attributes if needed
-						if not hasattr(player, 'prev_position') or player.prev_position is None:
-							player.prev_position = player.position
-							player.target_position = player.position
-							player.interp_time = 0
-							player.position_updated = False
-
-						# Update interpolation
-						if getattr(player, 'position_updated', False):
-							player.prev_position = player.position
-							player.interp_time = 0
-							player.position_updated = False
-				except Exception as e:
-					logger.warning(f"Error in update_remote_players for {client_id}: {e}")
+			if not hasattr(player, 'prev_position') or player.prev_position is None:
+				player.prev_position = player.position
+				player.target_position = player.position
+				player.interp_time = 0
+				player.position_updated = False
+			if getattr(player, 'position_updated', False):
+				player.prev_position = player.position
+				player.interp_time = 0
+				player.position_updated = False
 
 	def check_bullet_collisions(self):
 		"""Check for collisions between bullets and players"""
+		players = list(self.players_sprites)
 		for bullet in self.bullets:
-			# Skip checking collision with the player who shot the bullet
 			bullet_owner = getattr(bullet, 'owner_id', None)
-
-			# Check collision with player sprites
-			for player in self.players_sprites:
-
-				# Skip self-collision
-				player_id = player.client_id if hasattr(player, 'client_id') else player.get('client_id')
+			brect = bullet.rect
+			bpos = bullet.position
+			for player in players:
+				player_id = getattr(player, 'client_id', None)
 				if player_id == bullet_owner:
 					continue
-
-				if bullet.rect.colliderect(player.rect):
-					# Create hit event to send to server
+				player_rect = getattr(player, 'rect', None)
+				if player_rect is None:
+					continue
+				if brect.colliderect(player_rect):
 					hit_event = {
 						"event_time": time.time(),
 						"event_type": "player_hit",
-						"client_id": bullet_owner,  # Who shot the bullet
-						"target_id": player.client_id,  # Who got hit
+						"client_id": bullet_owner,
+						"target_id": player_id,
 						"damage": 10,
-						"position": (bullet.position.x, bullet.position.y),
+						"position": (bpos.x, bpos.y),
 						"handled": False,
 						"handledby": "check_bullet_collisions",
 						"eventid": gen_randid()
 					}
-
-					# Add to event queue to be sent to server
 					asyncio.create_task(self.event_queue.put(hit_event))
-
-					# Remove the bullet
 					bullet.kill()
-					return  # One hit per bullet
+					return
+
+	async def update_game_event(self, event: dict[str, Any]) -> None:
+		# lots of if/elif event_type == ...
+		handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
+			"player_joined": self._on_player_joined,
+			"map_info": self._on_map_info,
+			"map_update": self._on_map_update,
+			"bullet_fired": self._on_bullet_fired,
+			"bulletfired": self._on_bullet_fired,
+			"tile_changed": self._on_tile_changed,
+			"acknewplayer": self._on_acknewplayer,
+			"connection_event": self._on_connection_event,  # async
+			"player_update": self._on_player_update,
+			"player_drop_bomb": self._on_player_drop_bomb,
+			"dropcooldown": self._on_noop_event,
+			"nodropbomb": self._on_noop_event,
+			"nodropbombkill": self._on_noop_event,
+			"bomb_exploded": self._on_bomb_exploded,
+		}
+
+		et_raw = event.get("event_type")
+		et: str = cast(str, et_raw) if isinstance(et_raw, str) else ""
+		handler = handlers.get(et, self._on_unknown_event)
+		result = handler(event)
+		if inspect.isawaitable(result):
+			await result
+			if self.args.debug:
+				logger.debug(f"Handled et: {et} et_raw: {et_raw} with handler: {handler} result: {result}")
+
+	def _to_pos_tuple(self, pos: Any) -> tuple[int, int]:
+		if isinstance(pos, (list, tuple)) and len(pos) == 2:
+			x, y = pos
+			if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+				return (int(x), int(y))
+		return (100, 100)  # default as tuple
+
+	def _on_player_joined(self, event: dict[str, Any]) -> None:
+		pid_raw = event.get("client_id")
+		if not isinstance(pid_raw, str):
+			return
+		pid = pid_raw
+		pos_tuple = self._to_pos_tuple(event.get("position"))
+		player_state = self.ensure_player_state({
+			"client_id": pid,
+			"position": pos_tuple,
+			"health": DEFAULT_HEALTH,
+			"bombs_left": 3,
+			"score": 0,
+		})
+		self.playerlist[pid] = player_state
+
+	def _on_acknewplayer(self, event: dict) -> None:
+		# Mark client as ready upon ack from server
+		self._ready = True
+		event["handled"] = True
+		# Optionally ensure local player is present
+		pid = event.get("client_id")
+		if isinstance(pid, str) and pid not in self.playerlist:
+			self.playerlist[pid] = PlayerState(client_id=pid, position=(100, 100), health=DEFAULT_HEALTH, initial_bombs=3, score=0)
+
+	async def _on_connection_event(self, event: dict) -> None:
+		# Treat connection_event similarly to ack for clients
+		self._ready = True
+		event["handled"] = True
+		pid = event.get("client_id")
+		pos = self._to_pos_tuple(event.get("position", (100, 100)))
+		if isinstance(pid, str) and pid not in self.playerlist:
+			self.playerlist[pid] = PlayerState(client_id=pid, position=pos, health=DEFAULT_HEALTH, initial_bombs=3, score=0)
+		# Broadcast ack to the client
+		ack_event = {
+			"event_type": "acknewplayer",
+			"client_id": pid,
+			"event": event
+		}
+		await self.broadcast_event(ack_event)
+
+	def _on_map_info(self, event: dict) -> None:
+		mods = event.get("modified_tiles") or {}
+		self._apply_modifications_dict(mods)
+
+	def _on_map_update(self, event: dict[str, Any]) -> None:
+		pos_tuple = self._to_pos_tuple(event.get("position"))
+		new_gid = event.get("new_gid")
+		if not isinstance(new_gid, int):
+			logger.warning(f"Bad map_update event (new_gid): {event}")
+			return
+		# If the map isn't fully loaded yet, skip applying.
+		if not hasattr(self, "tile_map"):
+			if self.args.debug:
+				logger.warning(f"{self} Skipping _on_map_update: tile_map not ready. event: {event}")
+			return
+		# if not hasattr(self, "static_map_surface"):
+		# 	if self.args.debug:
+		# 		logger.warning(f"{self} Skipping _on_map_update: static_map_surface not ready. event: {event}")
+		# 	# return
+
+		# Map updates are expressed in tile coords (x, y)
+		x, y = pos_tuple
+		self._apply_tile_change(x, y, new_gid)
+		event["handled"] = True
+		event["handledby"] = "gamestate._on_map_update"
+		# Server should rebroadcast map changes; clients typically have no connections.
+		try:
+			if self.client_id == "theserver":
+				asyncio.create_task(self.broadcast_event(event))
+			else:
+				if self.args.debug:
+					logger.debug(f"{self} Skipping _on_map_update broadcast: not server.. self.client_id: {self.client_id}")
+		except RuntimeError as e:
+			logger.error(f"RuntimeError in _on_map_update: {e} {type(e)}")
+
+	def _on_bullet_fired(self, event: dict) -> None:
+		pid_raw = event.get("client_id")
+		if not isinstance(pid_raw, str):
+			logger.debug(f"Bad bullet_fired event client_id: {event}")
+			return
+
+		pos_tuple = self._to_pos_tuple(event.get("position"))
+		dir_raw = event.get("direction")
+		if isinstance(dir_raw, (list, tuple)) and len(dir_raw) == 2:
+			dx, dy = dir_raw
+			if isinstance(dx, (int, float)) and isinstance(dy, (int, float)):
+				direction = (float(dx), float(dy))
+			else:
+				direction = (1.0, 0.0)
+		else:
+			direction = (1.0, 0.0)
+
+		# Bullet stores screen_rect but doesn't currently use it for update; provide a sane default.
+		screen_rect = pygame.Rect(0, 0, 0, 0)
+		player_sprite = self.get_playerone()
+		if player_sprite:
+			try:
+				screen_rect = player_sprite.rect
+			except Exception as e:
+				logger.error(f'Error getting playerone for screen_rect: {e} {type(e)}')
+
+			try:
+				bullet = Bullet(position=pos_tuple, direction=direction, screen_rect=screen_rect, owner_id=pid_raw)
+				self.bullets.add(bullet)
+			except Exception as e:
+				logger.error(f"Failed to create bullet from event: {e} event:{event}")
+				return
+
+			event["handled"] = True
+			event["handledby"] = "gamestate._on_bullet_fired"
+			# Server should rebroadcast bullet events so other clients can spawn the bullet.
+			try:
+				if self.client_id == "theserver":
+					asyncio.create_task(self.broadcast_event(event))
+			except RuntimeError as e:
+				logger.error(f"RuntimeError in _on_bullet_fired: {e} {type(e)}")
+
+	def _on_player_drop_bomb(self, event: dict[str, Any]) -> None:
+		pid_raw = event.get("client_id")
+		if not isinstance(pid_raw, str):
+			logger.debug(f"Bad player_drop_bomb event client_id: {event}")
+			return
+		pos = self._to_pos_tuple(event.get("position"))
+		bombs_left = event.get("bombs_left")
+		if isinstance(bombs_left, int):
+			# Keep replicated state in sync with the event
+			player_entry = self.playerlist.get(pid_raw)
+			if isinstance(player_entry, dict):
+				player_entry["bombs_left"] = bombs_left
+			elif isinstance(player_entry, PlayerState):
+				player_entry.bombs_left = bombs_left
+			# Also update local sprite if this is us
+			try:
+				for sprite in self.players_sprites:
+					if getattr(sprite, "client_id", None) == pid_raw:
+						sprite.bombs_left = bombs_left
+						break
+			except Exception:
+				pass
+		# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
+		try:
+			bomb = Bomb(position=pos, client_id=pid_raw)
+			self.bombs.add(bomb)
+		except Exception as e:
+			logger.error(f"Failed to create bomb from event: {e} event:{event}")
+			return
+
+		event["handled"] = True
+		event["handledby"] = "gamestate._on_player_drop_bomb"
+		try:
+			if self.client_id == "theserver":
+				asyncio.create_task(self.broadcast_event(event))
+		except RuntimeError as e:
+			logger.error(f"RuntimeError in _on_player_drop_bomb: {e} {type(e)}")
+
+	def _on_bomb_exploded(self, event: dict[str, Any]) -> None:
+		# De-dupe explosions so the originating client doesn't double-credit bombs_left
+		explosion_id = event.get("event_id") or event.get("eventid")
+		# if isinstance(explosion_id, str):
+		if explosion_id in self.processed_explosions:
+			return
+		self.processed_explosions.add(explosion_id)
+
+		owner_raw = event.get("owner_id") or event.get("client_id")
+		# if not isinstance(owner_raw, str):
+		# 	return
+
+		# Restore one bomb to the owner (capped by Bomberplayer property setter at 3)
+		try:
+			for sprite in self.players_sprites:
+				if sprite.client_id == owner_raw:
+					try:
+						sprite.bombs_left = sprite.bombs_left + 1
+					except Exception as e:
+						logger.error(f"Error updating bombs_left on sprite: {e} {type(e)}")
+					break
+		except Exception as e:
+			logger.error(f"Error finding player sprite for bomb exploded: {e} {type(e)}")
+
+		player_entry = self.playerlist.get(owner_raw)
+		if isinstance(player_entry, dict):
+			cur = player_entry.get("bombs_left")
+			# if isinstance(cur, int):
+			player_entry["bombs_left"] = min(3, cur + 1)
+			# else:
+			# 	player_entry["bombs_left"] = 3
+		elif isinstance(player_entry, PlayerState):
+			# if isinstance(player_entry.bombs_left, int):
+			player_entry.bombs_left = min(3, player_entry.bombs_left + 1)
+			# else:
+			# 	player_entry.bombs_left = 3
+
+		event["handled"] = True
+		event["handledby"] = "gamestate._on_bomb_exploded"
+		try:
+			if self.client_id == "theserver":
+				asyncio.create_task(self.broadcast_event(event))
+		except RuntimeError as e:
+			logger.error(f"RuntimeError in _on_bomb_exploded: {e} {type(e)}")
+
+	def _on_noop_event(self, event: dict[str, Any]) -> None:
+		# Intentionally ignore (used for client-side feedback events)
+		event["handled"] = True
+		event["handledby"] = "gamestate._on_noop_event"
+
+	def _on_tile_changed(self, event: dict) -> None:
+		pos_key = event.get("pos")
+		gid = event.get("gid")
+		if not isinstance(gid, int):
+			logger.debug(f"Bad tile_changed event (gid): {event}")
+			return
+		pos = self._parse_pos_key(pos_key)
+		if not isinstance(pos, tuple) or len(pos) != 2:
+			logger.debug(f"Bad tile_changed event (pos): {event}")
+			return
+		x, y = pos
+		self._apply_tile_change(x, y, gid)
+
+	def _on_player_update(self, event: dict[str, Any]) -> None:
+		# Normalize and update remote/local player state then broadcast
+		pid_raw = event.get("client_id")
+		if not isinstance(pid_raw, str):
+			logger.debug(f"Bad player_update event client_id: {event}")
+			return
+		pid = pid_raw
+		pos_tuple = self._to_pos_tuple(event.get("position"))
+
+		pos = event.get("position")
+		health = event.get("health")
+		score = event.get("score")
+		bombs_left = event.get("bombs_left")
+
+		existing = self.playerlist.get(pid)
+		if existing is None:
+			self.playerlist[pid] = PlayerState(
+				client_id=pid,
+				position=pos_tuple,
+				# position=pos if isinstance(pos, (list, tuple)) else [100, 100],
+				health=health if isinstance(health, int) else DEFAULT_HEALTH,
+				initial_bombs=bombs_left if isinstance(bombs_left, int) else 3,
+				score=score if isinstance(score, int) else 0,
+			)
+		else:
+			ps = self.ensure_player_state(existing)
+			# if isinstance(pos, (list, tuple)):
+			ps.position = pos_tuple
+			ps.position_updated = True  # helps interpolation
+			if isinstance(health, int):
+				ps.health = health
+			if isinstance(score, int):
+				ps.score = score
+			if isinstance(bombs_left, int):
+				ps.bombs_left = bombs_left
+			self.playerlist[pid] = ps
+
+		# Mark handled and schedule broadcast without blocking
+		event["handled"] = True
+		event["handledby"] = "gamestate._on_player_update"
+		try:
+			asyncio.create_task(self.broadcast_event(event))
+		except RuntimeError as e:
+			# No running loop (e.g., during tests); skip scheduling
+			logger.error(f"RuntimeError in _on_player_update: {e} {type(e)}")
+
+	def _on_unknown_event(self, event: dict) -> None:
+		logger.debug(f"Unknown event_type: {event.get('event_type')}")

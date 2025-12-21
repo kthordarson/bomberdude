@@ -3,7 +3,8 @@ from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 # from pymunk import Vec2d
 import pygame
-from constants import FLAME_SPEED
+from constants import FLAME_SPEED, BLOCK
+import math
 
 class Flame(Sprite):
 	def __init__(self, position, direction, client_id, size=1, power=3):
@@ -13,57 +14,74 @@ class Flame(Sprite):
 		self.size = size
 		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
 		self.rect = self.image.get_rect()
-		self.position = Vec2d(position)
-		self.rect.topleft = (int(self.position[0]), int(self.position[1]))
+
+		# Give flame an initial offset in its direction to prevent immediate collision
+		self.position = Vec2d(position[0] + direction[0] * 10, position[1] + direction[1] * 10)
+		self.rect.center = (int(self.position.x), int(self.position.y))
+
 		self.direction = direction
-		self.shrink_rate = 0.02
+		self.shrink_rate = 0.002
 		self.speed = 2
 		self.min_size = 0.2
 
 		# New properties for distance tracking
 		self.starting_position = Vec2d(position)  # Store initial position
-		self.max_distance = power * 32  # Max distance based on power (assuming 32px tiles)
+		self.max_distance = power * BLOCK  # Max distance based on power (assuming 32px tiles)
 		self.distance_traveled = 0
+		# Small grace period before checking collisions
+		self.collision_grace = 8  # pixels
 
 	async def flame_update(self, collidable_tiles, game_state) -> None:
-		old_position = Vec2d(self.position)
-		self.position.x += self.direction[0] * FLAME_SPEED
-		self.position.y += self.direction[1] * FLAME_SPEED
-		self.rect.topleft = (int(self.position[0]), int(self.position[1]))
+		# Move in smaller steps to avoid missing collisions
+		steps = 3  # Check position 3 times during movement
+		dx = self.direction[0] * FLAME_SPEED / steps
+		dy = self.direction[1] * FLAME_SPEED / steps
+		step_len = math.hypot(dx, dy)
 
-		# Calculate distance traveled this frame
-		movement = Vec2d(self.position) - old_position
-		self.distance_traveled += movement.length()
+		for _ in range(steps):
+			self.position.x += dx
+			self.position.y += dy
+			self.rect.center = (int(self.position.x), int(self.position.y))
 
-		# Check if max distance reached
-		if self.distance_traveled >= self.max_distance:
-			self.kill()
-			return
+			# Accumulate distance with constant step length
+			self.distance_traveled += step_len
 
+			# Check if max distance reached
+			if self.distance_traveled >= self.max_distance:
+				self.kill()
+				return
+
+			# Skip collision checks during grace period
+			if self.distance_traveled < self.collision_grace:
+				continue
+
+			# Check nearby tiles for collisions without allocating lists
+			flame_area = pygame.Rect(
+				self.rect.x - BLOCK//2,
+				self.rect.y - BLOCK//2,
+				self.rect.width + BLOCK,
+				self.rect.height + BLOCK
+			)
+
+			# Killable tiles
+			for tile in game_state.killable_tiles:
+				if flame_area.colliderect(tile.rect) and self.rect.colliderect(tile.rect):
+					await game_state.destroy_block(tile)
+					self.kill()
+					return
+
+			# Solid walls / collidables
+			for tile in game_state.collidable_tiles:
+				if flame_area.colliderect(tile.rect) and self.rect.colliderect(tile.rect):
+					self.kill()
+					return
+
+		# Update size/appearance for animation
 		self.size -= self.shrink_rate
 		if self.size <= self.min_size:
 			self.kill()
-			return
 		else:
-			# Update image size
 			self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
 			self.rect = self.image.get_rect()
-			self.rect.center = (int(self.position[0]), int(self.position[1]))
-			for tile in game_state.killable_tiles:
-				try:
-					if self.rect.colliderect(tile.rect):
-						await game_state.destroy_block(tile)
-						self.kill()
-						break
-				except Exception as e:
-					logger.warning(f"{e} {type(e)} tile: {tile} {type(tile)}\n{dir(tile)}")
-					break
-			for tile in game_state.collidable_tiles:
-				try:
-					if self.rect.colliderect(tile.rect):
-						self.kill()
-						break
-				except Exception as e:
-					logger.warning(f"{e} {type(e)} tile: {tile} {type(tile)}\n{dir(tile)}")
-					break
+			self.rect.center = (int(self.position.x), int(self.position.y))
 

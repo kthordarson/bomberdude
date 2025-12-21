@@ -1,3 +1,4 @@
+temp/*
 .vscode/*
 .git/*
 .idea/*
@@ -32,3 +33,6 @@ bomberdude.tiled-project
 bomberdude.tiled-session
 bomberdude.tiled-session
 *tiled*
+bomberdude.tiled-session
+.complexipy_cache/*
+.coverage

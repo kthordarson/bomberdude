@@ -15,7 +15,7 @@ class Bullet(pygame.sprite.Sprite):
 			self.direction = self.direction.normalize()
 		self.rect = self.image.get_rect(center=(int(self.world_position.x), int(self.world_position.y)))
 		self.rect.center = (int(self.world_position.x), int(self.world_position.y))
-
+		self.image.fill((255, 0, 0))
 		self.screen_rect = screen_rect
 		self.bounce_count = bounce_count
 		self.speed = speed

@@ -1,13 +1,15 @@
+import pygame
+from loguru import logger
 from dataclasses import dataclass, field, InitVar
 from utils import gen_randid
-from constants import DEFAULT_HEALTH
+from constants import DEFAULT_HEALTH, BLOCK
 
 @dataclass
 class PlayerState:
 	position: tuple
 	client_id: str = 'notset'
 	score: int = 0
-	# bombsleft: InitVar[int] = 3  # Use InitVar for constructor param
+	# bombs_left: InitVar[int] = 3  # Use InitVar for constructor param
 	initial_bombs: InitVar[int] = 3  # Use InitVar for constructor param
 	health: int = DEFAULT_HEALTH
 	prev_position: tuple | None = None
@@ -19,7 +21,6 @@ class PlayerState:
 	killed: bool | None = None
 	event_type: str | None = None
 	event_time: int | None = None
-	event_type: str | None = None
 	handled: bool = False
 	handledby: str = 'PlayerState'
 	playerlist: list = field(default_factory=list)
@@ -30,11 +31,16 @@ class PlayerState:
 		self._bombsleft = initial_bombs
 
 	@property
-	def bombsleft(self):
+	def rect(self):
+		"""Create a rect on-demand for collision detection"""
+		return pygame.Rect(self.position[0], self.position[1], BLOCK, BLOCK)
+
+	@property
+	def bombs_left(self):
 		return self._bombsleft
 
-	@bombsleft.setter
-	def bombsleft(self, value):
+	@bombs_left.setter
+	def bombs_left(self, value):
 		# Never exceed 3 bombs
 		self._bombsleft = min(3, max(0, value))
 
@@ -43,9 +49,16 @@ class PlayerState:
 			'client_id': self.client_id,
 			'position': self.position,
 			'health': self.health,
-			'bombsleft': self.bombsleft,
+			'bombs_left': self.bombs_left,
 			'score': self.score,
 			'msg_dt': self.msg_dt,
 			'timeout': self.timeout,
 			'killed': self.killed,
 			'event_type': self.event_type}
+
+	def take_damage(self, damage, attacker_id=None):
+		"""Handle damage to player state"""
+		self.health = max(0, self.health - damage)
+		if self.health <= 0:
+			self.killed = True
+			logger.info(f"Player {self.client_id} killed by {attacker_id}")
