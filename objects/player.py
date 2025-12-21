@@ -118,12 +118,6 @@ class Bomberplayer(Sprite):
 				self.rect.y = int(prev_y)
 				return
 
-	def shoot(self, direction):
-		# Calculate direction from player's position to target
-		bullet_pos = Vec2d(self.rect.center)
-		bullet = Bullet(position=bullet_pos,direction=direction, screen_rect=self.rect, owner_id=self.client_id)
-		return bullet  # self.bullets.add(bullet)
-
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
 
