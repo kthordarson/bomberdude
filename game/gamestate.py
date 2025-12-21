@@ -633,47 +633,47 @@ class GameState:
 	def _on_bomb_exploded(self, event: dict[str, Any]) -> None:
 		# De-dupe explosions so the originating client doesn't double-credit bombs_left
 		explosion_id = event.get("event_id") or event.get("eventid")
-		if isinstance(explosion_id, str):
-			if explosion_id in self.processed_explosions:
-				return
-			self.processed_explosions.add(explosion_id)
+		# if isinstance(explosion_id, str):
+		if explosion_id in self.processed_explosions:
+			return
+		self.processed_explosions.add(explosion_id)
 
 		owner_raw = event.get("owner_id") or event.get("client_id")
-		if not isinstance(owner_raw, str):
-			return
+		# if not isinstance(owner_raw, str):
+		# 	return
 
 		# Restore one bomb to the owner (capped by Bomberplayer property setter at 3)
 		try:
 			for sprite in self.players_sprites:
-				if getattr(sprite, "client_id", None) == owner_raw:
+				if sprite.client_id == owner_raw:
 					try:
 						sprite.bombs_left = sprite.bombs_left + 1
-					except Exception:
-						pass
+					except Exception as e:
+						logger.error(f"Error updating bombs_left on sprite: {e} {type(e)}")
 					break
-		except Exception:
-			pass
+		except Exception as e:
+			logger.error(f"Error finding player sprite for bomb exploded: {e} {type(e)}")
 
 		player_entry = self.playerlist.get(owner_raw)
 		if isinstance(player_entry, dict):
 			cur = player_entry.get("bombs_left")
-			if isinstance(cur, int):
-				player_entry["bombs_left"] = min(3, cur + 1)
-			else:
-				player_entry["bombs_left"] = 3
+			# if isinstance(cur, int):
+			player_entry["bombs_left"] = min(3, cur + 1)
+			# else:
+			# 	player_entry["bombs_left"] = 3
 		elif isinstance(player_entry, PlayerState):
-			if isinstance(player_entry.bombs_left, int):
-				player_entry.bombs_left = min(3, player_entry.bombs_left + 1)
-			else:
-				player_entry.bombs_left = 3
+			# if isinstance(player_entry.bombs_left, int):
+			player_entry.bombs_left = min(3, player_entry.bombs_left + 1)
+			# else:
+			# 	player_entry.bombs_left = 3
 
 		event["handled"] = True
 		event["handledby"] = "gamestate._on_bomb_exploded"
 		try:
 			if self.client_id == "theserver":
 				asyncio.create_task(self.broadcast_event(event))
-		except RuntimeError:
-			pass
+		except RuntimeError as e:
+			logger.error(f"RuntimeError in _on_bomb_exploded: {e} {type(e)}")
 
 	def _on_noop_event(self, event: dict[str, Any]) -> None:
 		# Intentionally ignore (used for client-side feedback events)
