@@ -125,6 +125,8 @@ async def start_game(args: argparse.Namespace):
 	except Exception as e:
 		logger.error(f'Error: {e} {type(e)}')
 		raise e
+	# sender_task = asyncio.create_task(asyncio.to_thread(send_game_state, bomberdude_main))
+	# receive_task = asyncio.create_task(asyncio.to_thread(receive_game_state, bomberdude_main))
 
 	sender_task = asyncio.create_task(send_game_state(bomberdude_main))
 	receive_task = asyncio.create_task(receive_game_state(bomberdude_main))

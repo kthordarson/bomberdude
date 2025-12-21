@@ -6,7 +6,7 @@ from loguru import logger
 from constants import UPDATE_TICK
 from game.bomberdude import Bomberdude
 
-async def send_game_state(game: Bomberdude):
+async def send_game_state(game: Bomberdude) -> None:
 	logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
 	while True:
 		try:
