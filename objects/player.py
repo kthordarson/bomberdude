@@ -51,8 +51,12 @@ class Bomberplayer(Sprite):
 	def __post_init__(self):
 		super().__init__()
 		loaded_image = pygame.image.load(self.texture)
-		self.original_image = loaded_image.convert_alpha() if loaded_image.get_alpha() else loaded_image.convert()
-		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.scale), int(self.original_image.get_height() * self.scale)))
+		if self.client_id == 'theserver':
+			self.original_image = loaded_image
+			self.image = loaded_image
+		else:
+			self.original_image = loaded_image.convert_alpha() if loaded_image.get_alpha() else loaded_image.convert()
+			self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.scale), int(self.original_image.get_height() * self.scale)))
 		self.rect = self.image.get_rect()
 		self.change_x = 0
 		self.change_y = 0
@@ -64,7 +68,6 @@ class Bomberplayer(Sprite):
 		self.candrop = True
 		self.lastdrop = 0
 		self.keyspressed = KeysPressed('gamestate')
-		# self.bullets = pygame.sprite.Group()
 
 	def __hash__(self):
 		return hash((self.client_id))

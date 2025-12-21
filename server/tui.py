@@ -28,7 +28,8 @@ class ServerTUI():
 
 	async def get_serverinfo(self):
 		"""Get current server state information"""
-		state: dict[str, Any] = {'playerlist': []}  # self.server.server_game_state.to_json()
+		# state: dict[str, Any] = {'playerlist': []}  # self.server.server_game_state.to_json()
+		state = self.server.server_game_state.to_json()
 		playerlist = cast(list[dict[str, Any]], state.get('playerlist') or [])
 		logger.debug(
 			f"players: {len(playerlist)} "

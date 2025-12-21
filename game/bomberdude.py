@@ -213,18 +213,19 @@ class Bomberdude():
 		self.client_game_state.render_map(self.screen, self.camera)
 		# Draw local player
 		player_one = self.client_game_state.get_playerone()
-		if player_one.image is not None:  # type: ignore
-			self.screen.blit(player_one.image, self.camera.apply(player_one.rect))  # type: ignore
+		if player_one.client_id != 'theserver':
+			if player_one.image is not None:  # type: ignore
+				self.screen.blit(player_one.image, self.camera.apply(player_one.rect))  # type: ignore
 
-			# Draw remote players from playerlist
-			for client_id, player in self.client_game_state.playerlist.items():
-				if client_id != self.client_id:
-					try:
-						self.draw_player(player)
-					except Exception as e:
-						logger.error(f'draw_player {e} {type(e)} player: {player} {type(player)}')
-		else:
-			logger.warning(f"Player one not found {player_one=} {self.client_game_state=}")
+				# Draw remote players from playerlist
+				for client_id, player in self.client_game_state.playerlist.items():
+					if client_id != self.client_id:
+						try:
+							self.draw_player(player)
+						except Exception as e:
+							logger.error(f'draw_player {e} {type(e)} player: {player} {type(player)}')
+			else:
+				logger.warning(f"Player one not found {player_one=} {self.client_game_state=}")
 
 		# Draw bullets, bombs, etc.
 		for bullet in self.client_game_state.bullets:
@@ -283,9 +284,10 @@ class Bomberdude():
 		# Draw player one (as green dot)
 		try:
 			player_one = self.client_game_state.get_playerone()
-			player_x = minimap_x + int(player_one.position[0] * scale)
-			player_y = minimap_y + int(player_one.position[1] * scale)
-			pygame.draw.circle(self.screen, (0, 255, 0), (player_x, player_y), 3)
+			if player_one.client_id != 'theserver':
+				player_x = minimap_x + int(player_one.position[0] * scale)
+				player_y = minimap_y + int(player_one.position[1] * scale)
+				pygame.draw.circle(self.screen, (0, 255, 0), (player_x, player_y), 3)
 
 			# Get camera viewport position
 			# Instead of using offset_x and offset_y directly, calculate it from player position and screen center
@@ -335,7 +337,7 @@ class Bomberdude():
 	async def handle_on_mouse_press(self, x, y, button) -> None:
 		if button == 1:
 			player_one = self.client_game_state.get_playerone()
-			if player_one:
+			if player_one and player_one.client_id != 'theserver':
 				# Convert screen coordinates to world coordinates
 				mouse_world_pos = self.camera.reverse_apply(x, y)
 				# player_world_pos = player_one.rect.center
@@ -358,7 +360,7 @@ class Bomberdude():
 				# Create the event
 				event = {
 					"event_time": self.timer,
-					"event_type": "bulletfired",
+					"event_type": "bullet_fired",
 					"client_id": self.client_id,
 					"position": (bullet_pos.x, bullet_pos.y),
 					"direction": (direction_vector.x, direction_vector.y),
@@ -459,45 +461,45 @@ class Bomberdude():
 		self.delta_time = current_time - self.last_frame_time
 		self.last_frame_time = current_time
 		self.timer += self.delta_time
+		if player_one.client_id != 'theserver':
+			player_one.update(self.client_game_state.collidable_tiles)
 
-		player_one.update(self.client_game_state.collidable_tiles)
+			map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
+			map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
+			player_one.position.x = max(0, min(player_one.position.x, map_width - player_one.rect.width))
+			player_one.position.y = max(0, min(player_one.position.y, map_height - player_one.rect.height))
 
-		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
-		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
-		player_one.position.x = max(0, min(player_one.position.x, map_width - player_one.rect.width))
-		player_one.position.y = max(0, min(player_one.position.y, map_height - player_one.rect.height))
+			player_one.rect.x = int(player_one.position.x)
+			player_one.rect.y = int(player_one.position.y)
 
-		player_one.rect.x = int(player_one.position.x)
-		player_one.rect.y = int(player_one.position.y)
+			self.camera.update(player_one)
 
-		self.camera.update(player_one)
+			self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
+			self.client_game_state.check_bullet_collisions()
+			# await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
 
-		self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
-		self.client_game_state.check_bullet_collisions()
-		# await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
+			# Use the already calculated delta time
+			await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state, self.delta_time)
 
-		# Use the already calculated delta time
-		await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state, self.delta_time)
-
-		self.client_game_state.cleanup_playerlist()
-		playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
-		update_event = {
-			"event_time": self.timer,
-			"event_type": "player_update",
-			"client_id": str(player_one.client_id),
-			"position": (player_one.position.x, player_one.position.y),
-			"health": player_one.health,
-			"score": player_one.score,
-			"bombs_left": player_one.bombs_left,
-			"handled": False,
-			"handledby": "game_update",
-			"playerlist": playerlist,
-			"eventid": gen_randid(),}
-		current_time = time.time()
-		if current_time - self.last_position_update > self.position_update_interval:
-			await self.client_game_state.event_queue.put(update_event)
-			self.last_position_update = current_time
-			await asyncio.sleep(1 / UPDATE_TICK)
+			self.client_game_state.cleanup_playerlist()
+			playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
+			update_event = {
+				"event_time": self.timer,
+				"event_type": "player_update",
+				"client_id": str(player_one.client_id),
+				"position": (player_one.position.x, player_one.position.y),
+				"health": player_one.health,
+				"score": player_one.score,
+				"bombs_left": player_one.bombs_left,
+				"handled": False,
+				"handledby": "game_update",
+				"playerlist": playerlist,
+				"eventid": gen_randid(),}
+			current_time = time.time()
+			if current_time - self.last_position_update > self.position_update_interval:
+				await self.client_game_state.event_queue.put(update_event)
+				self.last_position_update = current_time
+				await asyncio.sleep(1 / UPDATE_TICK)
 
 	def apply_fog_of_war(self):
 		"""Apply fog of war effect with persistent trail"""

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import pygame
 import time
 import asyncio
 import json
@@ -44,11 +45,15 @@ class BombServer:
 				if isinstance(game_event, dict):
 					await self.server_game_state.update_game_event(game_event)
 				# Optionally broadcast the current state
-				# await self.server_broadcast_state(self.server_game_state.to_json())
-		except (asyncio.IncompleteReadError, ConnectionResetError):
-			pass
+				await self.server_broadcast_state(self.server_game_state.to_json())
+		except (asyncio.IncompleteReadError, ConnectionResetError) as e:
+			logger.error(f'{e} {type(e)} Connection closed by client')
+		except pygame.error as e:
+			logger.error(f"{e} {type(e)} msg: {msg}")
+			raise e
 		except Exception as e:
 			logger.error(f"{e} {type(e)} msg:{locals().get('msg')}")
+			raise e
 		finally:
 			try:
 				writer.close()
@@ -108,8 +113,8 @@ class BombServer:
 			while not self.stopped():
 				# Broadcast player states (at a sensible rate)
 				if time.time() - last_broadcast > 0.05:  # 20 updates per second
-					# game_state = self.server_game_state.to_json()
-					# await self.server_broadcast_state(game_state)
+					game_state = self.server_game_state.to_json()
+					await self.server_broadcast_state(game_state)
 					last_broadcast = time.time()
 				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError as e:

@@ -51,6 +51,26 @@ class GameState:
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
 
+	def to_json(self):
+		"""Convert game state to JSON-serializable format"""
+		playerlist = []
+		for player in self.playerlist.values():
+			if player:
+				if hasattr(player, 'to_dict'):
+					if player.client_id != 'bomberserver':
+						playerlist.append(player.to_dict())
+				else:
+					if player['client_id'] != 'bomberserver':
+						playerlist.append(player)
+		modified_tiles = {str(pos): gid for pos, gid in self.modified_tiles.items()}
+		return {
+			'event_type': 'playerlistupdate',
+			'playerlist': playerlist,
+			'connections': len(self.connections),
+			'mapname': self.mapname,
+			'modified_tiles': modified_tiles,  # Include map modifications
+		}
+
 	async def destroy_block(self, block):
 		"""
 		Simplest possible version - just remove the block from collision group
@@ -167,6 +187,10 @@ class GameState:
 
 	def get_playerone(self) -> Bomberplayer:
 		"""Always return a Bomberplayer instance"""
+		if self.client_id == 'theserver':
+			player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
+			self.players_sprites.add(player)
+			return player
 		# Try to find player in sprites
 		for player in self.players_sprites:
 			if player.client_id == self.client_id:
@@ -191,7 +215,7 @@ class GameState:
 			return player
 
 		# Create default player as last resort
-		logger.warning("Creating default player - no player found!")
+		logger.warning(f"Creating default player - no player found! target_id: {target_id} playerlist keys: {list(self.playerlist.keys())}")
 		player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
 		self.players_sprites.add(player)
 		return player
@@ -431,6 +455,7 @@ class GameState:
 			"map_info": self._on_map_info,
 			"map_update": self._on_map_update,
 			"bullet_fired": self._on_bullet_fired,
+			"bulletfired": self._on_bullet_fired,
 			"tile_changed": self._on_tile_changed,
 			"acknewplayer": self._on_acknewplayer,
 			"connection_event": self._on_connection_event,  # async
@@ -523,8 +548,46 @@ class GameState:
 			pass
 
 	def _on_bullet_fired(self, event: dict) -> None:
-		# ...existing code to create and track bullet...
-		pass
+		pid_raw = event.get("client_id")
+		if not isinstance(pid_raw, str):
+			logger.debug(f"Bad bullet_fired event client_id: {event}")
+			return
+
+		pos_tuple = self._to_pos_tuple(event.get("position"))
+		dir_raw = event.get("direction")
+		if isinstance(dir_raw, (list, tuple)) and len(dir_raw) == 2:
+			dx, dy = dir_raw
+			if isinstance(dx, (int, float)) and isinstance(dy, (int, float)):
+				direction = (float(dx), float(dy))
+			else:
+				direction = (1.0, 0.0)
+		else:
+			direction = (1.0, 0.0)
+
+		# Bullet stores screen_rect but doesn't currently use it for update; provide a sane default.
+		screen_rect = pygame.Rect(0, 0, 0, 0)
+		player_sprite = self.get_playerone()
+		if player_sprite and player_sprite.client_id != 'theserver':
+			try:
+				screen_rect = player_sprite.rect
+			except Exception as e:
+				logger.error(f'Error getting playerone for screen_rect: {e} {type(e)}')
+
+			try:
+				bullet = Bullet(position=pos_tuple, direction=direction, screen_rect=screen_rect, owner_id=pid_raw)
+				self.bullets.add(bullet)
+			except Exception as e:
+				logger.error(f"Failed to create bullet from event: {e} event:{event}")
+				return
+
+			event["handled"] = True
+			event["handledby"] = "gamestate._on_bullet_fired"
+			# Server should rebroadcast bullet events so other clients can spawn the bullet.
+			try:
+				if self.client_id == "theserver":
+					asyncio.create_task(self.broadcast_event(event))
+			except RuntimeError:
+				pass
 
 	def _on_player_drop_bomb(self, event: dict[str, Any]) -> None:
 		pid_raw = event.get("client_id")
