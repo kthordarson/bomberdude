@@ -385,40 +385,30 @@ class GameState:
 
 	def update_remote_players(self, delta_time):
 		"""Update remote player interpolation"""
-		for client_id, player in self.playerlist.items():
+		for client_id, player in list(self.playerlist.items()):
 			if client_id == self.client_id:
 				continue  # Only remote players
-			try:
-				# Normalize dict players to have needed keys
-				if isinstance(player, dict):
-					pos = player.get('position')
-					if pos is None:
-						continue
-					player.setdefault('prev_position', pos)
-					player.setdefault('target_position', pos)
-					player.setdefault('interp_time', 0)
-					player.setdefault('position_updated', False)
-					if player.get('position_updated'):
-						player['prev_position'] = pos if isinstance(pos, list) else pos
-						player['interp_time'] = 0
-						player['position_updated'] = False
-				else:
-					# PlayerState objects
-					if not hasattr(player, 'position') or player.position is None:
-						if self.args.debug:
-							logger.warning(f"Skipping update for player with None position: {client_id}")
-						continue
-					if not hasattr(player, 'prev_position') or player.prev_position is None:
-						player.prev_position = player.position
-						player.target_position = player.position
-						player.interp_time = 0
-						player.position_updated = False
-					if getattr(player, 'position_updated', False):
-						player.prev_position = player.position
-						player.interp_time = 0
-						player.position_updated = False
-			except Exception as e:
-				logger.warning(f"Error in update_remote_players for {client_id}: {e}")
+
+			# Normalize dict players into PlayerState so we have one code path
+			if isinstance(player, dict):
+				player = self.ensure_player_state(player)
+				self.playerlist[client_id] = player
+
+			# From here on, treat as PlayerState-like
+			if not hasattr(player, "position") or player.position is None:
+				if self.args.debug:
+					logger.warning(f"Skipping update for player with None position: {client_id}")
+				continue
+
+			if not hasattr(player, 'prev_position') or player.prev_position is None:
+				player.prev_position = player.position
+				player.target_position = player.position
+				player.interp_time = 0
+				player.position_updated = False
+			if getattr(player, 'position_updated', False):
+				player.prev_position = player.position
+				player.interp_time = 0
+				player.position_updated = False
 
 	def check_bullet_collisions(self):
 		"""Check for collisions between bullets and players"""
