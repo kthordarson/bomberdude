@@ -306,6 +306,10 @@ class PlayerInfoPanel:
         players = list(self.game_state.playerlist.values())
         local_player = self.game_state.get_playerone()
 
+        client_name = self.title_font.render(f"{local_player.client_name}", True, (255, 255, 255))
+        client_name_rect = client_name.get_rect(midtop=(self.rect.width // 3, 5))
+        self.surface.blit(client_name, client_name_rect)
+
         # Calculate how many player cards can fit in a row
         cards_per_row = max(1, (self.rect.width - 20) // (self.card_width + self.card_spacing))
 

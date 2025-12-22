@@ -48,6 +48,7 @@ class PlayerState:
 	def to_dict(self):
 		return {
 			'client_id': self.client_id,
+			'client_name': self.client_name,
 			'position': self.position,
 			'health': self.health,
 			'bombs_left': self.bombs_left,

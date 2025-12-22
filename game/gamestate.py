@@ -377,6 +377,7 @@ class GameState:
 			return PlayerState(
 				position=player_data.get('position', [0, 0]),
 				client_id=player_data.get('client_id', 'unknown'),
+				client_name=player_data.get('client_name', 'client_namenotset') or 'client_namenotset',
 				score=player_data.get('score', 0) or 0,  # Convert None to 0
 				initial_bombs=player_data.get('bombs_left', 3) or 3,  # Convert None to 3
 				health=player_data.get('health', 100) or 100,  # Convert None to 100
@@ -385,6 +386,8 @@ class GameState:
 			)
 		elif isinstance(player_data, PlayerState):
 			# Ensure PlayerState has non-None values for critical attributes
+			if not getattr(player_data, 'client_name', None):
+				player_data.client_name = 'client_namenotset'
 			if player_data.bombs_left is None:
 				player_data.bombs_left = 3
 			if player_data.health is None:
@@ -511,8 +514,11 @@ class GameState:
 			return
 		pid = pid_raw
 		pos_tuple = self._to_pos_tuple(event.get("position"))
+		name_raw = event.get("client_name")
+		client_name = name_raw if isinstance(name_raw, str) and name_raw else 'client_namenotset'
 		player_state = self.ensure_player_state({
 			"client_id": pid,
+			"client_name": client_name,
 			"position": pos_tuple,
 			"health": DEFAULT_HEALTH,
 			"bombs_left": 3,
@@ -535,8 +541,17 @@ class GameState:
 		event["handled"] = True
 		pid = event.get("client_id")
 		pos = self._to_pos_tuple(event.get("position", (100, 100)))
+		name_raw = event.get("client_name")
+		client_name = name_raw if isinstance(name_raw, str) and name_raw else 'client_namenotset'
 		if isinstance(pid, str) and pid not in self.playerlist:
-			self.playerlist[pid] = PlayerState(client_id=pid, position=pos, health=DEFAULT_HEALTH, initial_bombs=3, score=0)
+			self.playerlist[pid] = PlayerState(client_id=pid, client_name=client_name, position=pos, health=DEFAULT_HEALTH, initial_bombs=3, score=0)
+		elif isinstance(pid, str):
+			# If we already have a player entry, only set name if it's missing/unset.
+			existing = self.playerlist.get(pid)
+			ps = self.ensure_player_state(existing)
+			if getattr(ps, 'client_name', 'client_namenotset') in ('', 'client_namenotset') and client_name != 'client_namenotset':
+				ps.client_name = client_name
+			self.playerlist[pid] = ps
 		# Broadcast ack to the client
 		ack_event = {
 			"event_type": "acknewplayer",
@@ -734,61 +749,112 @@ class GameState:
 
 		pos = event.get("position")
 		health = event.get("health")
+		name_raw = event.get("client_name")
+		incoming_name = name_raw if isinstance(name_raw, str) and name_raw else None
 		score = event.get("score")
 		bombs_left = event.get("bombs_left")
 
+		# Server is authoritative for health; clients may have stale state.
+		# Keep accepting health updates on clients so they reflect server state.
+		accept_health_update = self.client_id != "theserver"
+		# Client name is set by the client once; server keeps the first non-default.
+		accept_name_update = True
+
 		existing = self.playerlist.get(pid)
 		if existing is None:
-			self.playerlist[pid] = PlayerState(
+			ps = PlayerState(
 				client_id=pid,
+				client_name=incoming_name or 'client_namenotset',
 				position=pos_tuple,
 				# position=pos if isinstance(pos, (list, tuple)) else [100, 100],
-				health=health if isinstance(health, int) else DEFAULT_HEALTH,
+				health=health if (accept_health_update and isinstance(health, int)) else DEFAULT_HEALTH,
 				initial_bombs=bombs_left if isinstance(bombs_left, int) else 3,
 				score=score if isinstance(score, int) else 0,
 			)
+			self.playerlist[pid] = ps
 		else:
 			ps = self.ensure_player_state(existing)
 			# if isinstance(pos, (list, tuple)):
 			ps.position = pos_tuple
 			ps.position_updated = True  # helps interpolation
-			if isinstance(health, int):
+			if accept_health_update and isinstance(health, int):
 				ps.health = health
 			if isinstance(score, int):
 				ps.score = score
 			if isinstance(bombs_left, int):
 				ps.bombs_left = bombs_left
+			if incoming_name:
+				if self.client_id == "theserver":
+					# Only accept name if we don't already have a real one.
+					if getattr(ps, 'client_name', 'client_namenotset') in ('', 'client_namenotset'):
+						ps.client_name = incoming_name
+				else:
+					ps.client_name = incoming_name
 			self.playerlist[pid] = ps
 
 		# Mark handled and schedule broadcast without blocking
 		event["handled"] = True
 		event["handledby"] = "gamestate._on_player_update"
 		try:
-			asyncio.create_task(self.broadcast_event(event))
+			if self.client_id == "theserver":
+				# IMPORTANT: clients can have stale health; broadcast server-authoritative state.
+				out_event = dict(event)
+				out_event["handled"] = False
+				out_event["handledby"] = "server.authoritative_player_update"
+				out_event["position"] = ps.position
+				out_event["score"] = ps.score
+				out_event["bombs_left"] = ps.bombs_left
+				out_event["health"] = ps.health
+				out_event["client_name"] = getattr(ps, 'client_name', 'client_namenotset')
+				asyncio.create_task(self.broadcast_event(out_event))
+			else:
+				asyncio.create_task(self.broadcast_event(event))
 		except RuntimeError as e:
 			# No running loop (e.g., during tests); skip scheduling
 			logger.error(f"RuntimeError in _on_player_update: {e} {type(e)}")
 
 	def _on_player_hit(self, event: dict) -> None:
 		# event: {'event_time': 1766419642.6163907, 'event_type': 'player_hit', 'client_id': 'CrankyBomber172', 'target_id': 'SquishyNuke709', 'damage': 10, 'position': [78.0, 338.0], 'handled': False, 'handledby': 'check_bullet_collisions', 'eventid': 'JitteryBlast784'}
-		if event['handled']:
+		if event.get('handled'):
 			if self.args.debug:
 				logger.debug(f"Skipping already handled player_hit event: {event}")
 			return
 		target = event.get("target_id")
+		if not isinstance(target, str):
+			logger.warning(f"Bad player_hit event target_id: {event}")
+			return
 		target_player_entry = self.playerlist.get(target)
-		old_health = target_player_entry.health
+		if target_player_entry is None:
+			logger.warning(f"player_hit for unknown target {target}: {event}")
+			return
+		old_health = getattr(target_player_entry, "health", None)
+		# Keep event_type as 'player_hit' so receivers handle it consistently.
 		event["handledby"] = "gamestate._on_player_hit"
-		event['event_type'] = 'on_player_hit'
-		event['handled'] = True
 		damage = event.get('damage', 0)
-		target_player_entry.take_damage(damage, attacker_id=event.get("client_id"))
-		self.playerlist[target] = target_player_entry
-		logger.debug(f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} for {damage} damage at {event.get('position')} health: {old_health} -> {target_player_entry.health}")
-		logger.info(f"player_entry: {target_player_entry}\nself.playerlist[owner_raw]: {self.playerlist[target]} ")
-		# if self.client_id == "theserver":
 		try:
-			asyncio.create_task(self.broadcast_event(event))
+			target_player_entry.take_damage(damage, attacker_id=event.get("client_id"))
+		except Exception as e:
+			logger.error(f"Failed applying damage in _on_player_hit: {e} {type(e)} event: {event}")
+			return
+		self.playerlist[target] = target_player_entry
+		logger.debug(
+			f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} "
+			f"for {damage} damage at {event.get('position')} health: {old_health} -> {getattr(target_player_entry, 'health', None)}"
+		)
+		logger.info(f"player_entry: {target_player_entry}\nself.playerlist[owner_raw]: {self.playerlist[target]} ")
+
+		# Mark handled locally so we don't reapply if this event loops back.
+		event['handled'] = True
+		event["handledby"] = "gamestate._on_player_hit"
+
+		# Only the server should broadcast hit events.
+		try:
+			if self.client_id == "theserver":
+				# Broadcast a fresh copy that clients will actually apply.
+				out_event = dict(event)
+				out_event["handled"] = False
+				out_event["handledby"] = "server.broadcast_player_hit"
+				asyncio.create_task(self.broadcast_event(out_event))
 		except RuntimeError as e:
 			# No running loop (e.g., during tests); skip scheduling
 			logger.error(f"RuntimeError in _on_player_hit: {e} {type(e)}")
