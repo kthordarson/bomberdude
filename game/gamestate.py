@@ -51,6 +51,28 @@ class GameState:
 		self.player_active_bombs = {}  # player_id -> active bomb count
 		self.active_bombs_per_player = {}  # Track active bombs per player
 		self.processed_explosions = set()  # Track processed explosions globally
+		self.processed_hits = set()  # Track processed player_hit events (by eventid)
+		self.processed_bullets = set()  # Track processed bullet_fired events (by eventid)
+
+	def _sync_local_sprite_from_state(self, state: PlayerState) -> None:
+		"""Keep the local Bomberplayer sprite in sync with authoritative state."""
+		if not isinstance(state, PlayerState):
+			return
+		if state.client_id != self.client_id:
+			return
+		try:
+			for sprite in self.players_sprites:
+				if getattr(sprite, "client_id", None) == self.client_id:
+					# Only sync non-positional fields; movement is client-driven.
+					if hasattr(sprite, "health"):
+						sprite.health = state.health
+					if hasattr(sprite, "score"):
+						sprite.score = state.score
+					if hasattr(sprite, "bombs_left"):
+						sprite.bombs_left = state.bombs_left
+					break
+		except Exception as e:
+			logger.error(f"Error syncing local sprite from state: {e} {type(e)}")
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
@@ -458,6 +480,7 @@ class GameState:
 						"event_time": time.time(),
 						"event_type": "player_hit",
 						"client_id": bullet_owner,
+						"reported_by": self.client_id,
 						"target_id": player_id,
 						"damage": 10,
 						"position": (bpos.x, bpos.y),
@@ -596,6 +619,13 @@ class GameState:
 			logger.error(f"RuntimeError in _on_map_update: {e} {type(e)}")
 
 	def _on_bullet_fired(self, event: dict) -> None:
+		# De-dupe bullet events so we don't spawn multiple bullets from repeated broadcasts.
+		bid = event.get("eventid") or event.get("event_id")
+		if bid is not None:
+			if bid in self.processed_bullets:
+				return
+			self.processed_bullets.add(bid)
+
 		pid_raw = event.get("client_id")
 		if not isinstance(pid_raw, str):
 			logger.debug(f"Bad bullet_fired event client_id: {event}")
@@ -772,6 +802,8 @@ class GameState:
 				score=score if isinstance(score, int) else 0,
 			)
 			self.playerlist[pid] = ps
+			# Keep local sprite in sync (health/score/bombs) with authoritative data.
+			self._sync_local_sprite_from_state(ps)
 		else:
 			ps = self.ensure_player_state(existing)
 			# if isinstance(pos, (list, tuple)):
@@ -791,6 +823,7 @@ class GameState:
 				else:
 					ps.client_name = incoming_name
 			self.playerlist[pid] = ps
+			self._sync_local_sprite_from_state(ps)
 
 		# Mark handled and schedule broadcast without blocking
 		event["handled"] = True
@@ -815,10 +848,36 @@ class GameState:
 
 	def _on_player_hit(self, event: dict) -> None:
 		# event: {'event_time': 1766419642.6163907, 'event_type': 'player_hit', 'client_id': 'CrankyBomber172', 'target_id': 'SquishyNuke709', 'damage': 10, 'position': [78.0, 338.0], 'handled': False, 'handledby': 'check_bullet_collisions', 'eventid': 'JitteryBlast784'}
+		# De-dupe by event id when available
+		hit_id = event.get('eventid') or event.get('event_id')
+		if hit_id is not None and hit_id in self.processed_hits:
+			return
+
 		if event.get('handled'):
 			if self.args.debug:
 				logger.debug(f"Skipping already handled player_hit event: {event}")
 			return
+
+		# If this is the authoritative server, restrict who can report a hit.
+		# In the current client simulation, only the *victim* reliably has collision geometry
+		# (clients typically only have their own sprite in players_sprites), so accept reports
+		# from the victim (reported_by == target_id), and also allow shooter/server for future.
+		if self.client_id == "theserver":
+			shooter = event.get("client_id")
+			reported_by = event.get("reported_by")
+			target_id = event.get("target_id")
+			if isinstance(reported_by, str):
+				allowed_reporters = {"theserver"}
+				if isinstance(shooter, str):
+					allowed_reporters.add(shooter)
+				if isinstance(target_id, str):
+					allowed_reporters.add(target_id)
+				if reported_by not in allowed_reporters:
+					if self.args.debug:
+						logger.debug(
+							f"Ignoring player_hit reported_by={reported_by} shooter={shooter} target={target_id}: {event}"
+						)
+					return
 		target = event.get("target_id")
 		if not isinstance(target, str):
 			logger.warning(f"Bad player_hit event target_id: {event}")
@@ -832,11 +891,21 @@ class GameState:
 		event["handledby"] = "gamestate._on_player_hit"
 		damage = event.get('damage', 0)
 		try:
-			target_player_entry.take_damage(damage, attacker_id=event.get("client_id"))
+			# If server attached an authoritative target_health, apply it directly on clients.
+			auth_health = event.get("target_health")
+			if self.client_id != "theserver" and isinstance(auth_health, int):
+				target_player_entry.health = max(0, auth_health)
+				if target_player_entry.health <= 0:
+					target_player_entry.killed = True
+			else:
+				target_player_entry.take_damage(damage, attacker_id=event.get("client_id"))
 		except Exception as e:
 			logger.error(f"Failed applying damage in _on_player_hit: {e} {type(e)} event: {event}")
 			return
 		self.playerlist[target] = target_player_entry
+		# If we are the target, also sync the local sprite so HUD/debug reflects correct health.
+		if isinstance(target_player_entry, PlayerState):
+			self._sync_local_sprite_from_state(target_player_entry)
 		logger.debug(
 			f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} "
 			f"for {damage} damage at {event.get('position')} health: {old_health} -> {getattr(target_player_entry, 'health', None)}"
@@ -846,6 +915,8 @@ class GameState:
 		# Mark handled locally so we don't reapply if this event loops back.
 		event['handled'] = True
 		event["handledby"] = "gamestate._on_player_hit"
+		if hit_id is not None:
+			self.processed_hits.add(hit_id)
 
 		# Only the server should broadcast hit events.
 		try:
@@ -854,6 +925,7 @@ class GameState:
 				out_event = dict(event)
 				out_event["handled"] = False
 				out_event["handledby"] = "server.broadcast_player_hit"
+				out_event["target_health"] = getattr(target_player_entry, 'health', None)
 				asyncio.create_task(self.broadcast_event(out_event))
 		except RuntimeError as e:
 			# No running loop (e.g., during tests); skip scheduling
