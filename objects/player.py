@@ -137,12 +137,12 @@ class Bomberplayer(Sprite):
 		self.score += score
 		logger.info(f'{self} score:{self.score}')
 
-	def take_damage(self, damage, dmgfrom):
+	def take_damage(self, damage, attacker):
 		self.health -= damage
-		logger.info(f'{self} health:{self.health} {damage=} {dmgfrom=}')
+		logger.info(f'{self} health:{self.health} {damage=} {attacker=}')
 		if self.health <= 0:
 			self.killed = True
-			self.player_kill(dmgfrom)
+			self.player_kill(attacker)
 
 	def player_kill(self, dmgfrom):
 		logger.info(f'{self} killed by {dmgfrom}')

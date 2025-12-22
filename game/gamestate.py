@@ -484,6 +484,7 @@ class GameState:
 			"nodropbombkill": self._on_noop_event,
 			"bomb_exploded": self._on_bomb_exploded,
 			"player_hit": self._on_player_hit,
+			"on_player_hit": self._on_player_hit,
 		}
 
 		et_raw = event.get("event_type")
@@ -505,6 +506,8 @@ class GameState:
 	def _on_player_joined(self, event: dict[str, Any]) -> None:
 		pid_raw = event.get("client_id")
 		if not isinstance(pid_raw, str):
+			if self.args.debug:
+				logger.warning(f"Bad player_joined event client_id: {event} pid_raw: {pid_raw}")
 			return
 		pid = pid_raw
 		pos_tuple = self._to_pos_tuple(event.get("position"))
@@ -639,8 +642,8 @@ class GameState:
 					if getattr(sprite, "client_id", None) == pid_raw:
 						sprite.bombs_left = bombs_left
 						break
-			except Exception:
-				pass
+			except Exception as e:
+				logger.error(f"Error updating bombs_left on sprite in _on_player_drop_bomb: {e} {type(e)}")
 		# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
 		try:
 			bomb = Bomb(position=pos, client_id=pid_raw)
@@ -768,8 +771,27 @@ class GameState:
 
 	def _on_player_hit(self, event: dict) -> None:
 		# event: {'event_time': 1766419642.6163907, 'event_type': 'player_hit', 'client_id': 'CrankyBomber172', 'target_id': 'SquishyNuke709', 'damage': 10, 'position': [78.0, 338.0], 'handled': False, 'handledby': 'check_bullet_collisions', 'eventid': 'JitteryBlast784'}
-
-		logger.debug(f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} for {event.get('damage')} damage at {event.get('position')}")
+		if event['handled']:
+			if self.args.debug:
+				logger.debug(f"Skipping already handled player_hit event: {event}")
+			return
+		target = event.get("target_id")
+		target_player_entry = self.playerlist.get(target)
+		old_health = target_player_entry.health
+		event["handledby"] = "gamestate._on_player_hit"
+		event['event_type'] = 'on_player_hit'
+		event['handled'] = True
+		damage = event.get('damage', 0)
+		target_player_entry.take_damage(damage, attacker_id=event.get("client_id"))
+		self.playerlist[target] = target_player_entry
+		logger.debug(f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} for {damage} damage at {event.get('position')} health: {old_health} -> {target_player_entry.health}")
+		logger.info(f"player_entry: {target_player_entry}\nself.playerlist[owner_raw]: {self.playerlist[target]} ")
+		# if self.client_id == "theserver":
+		try:
+			asyncio.create_task(self.broadcast_event(event))
+		except RuntimeError as e:
+			# No running loop (e.g., during tests); skip scheduling
+			logger.error(f"RuntimeError in _on_player_hit: {e} {type(e)}")
 
 	def _on_unknown_event(self, event: dict) -> None:
 		logger.warning(f"Unknown event_type: {event.get('event_type')} event: {event}")
