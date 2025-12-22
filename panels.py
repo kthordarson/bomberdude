@@ -345,9 +345,7 @@ class PlayerInfoPanel:
         pygame.draw.rect(self.surface, color, card_rect, width=2, border_radius=5)
 
         # Get player attributes (safely)
-        client_id = getattr(player, 'client_id', 'unknown')
-        # if isinstance(client_id, str) and len(client_id) > 8:
-        #     client_id = client_id[:8] + "..."
+        client_name = getattr(player, 'client_name', 'unknown')
 
         health = getattr(player, 'health', 0)
         if isinstance(player, dict):
@@ -360,7 +358,7 @@ class PlayerInfoPanel:
             bombs_left = getattr(player, 'bombs_left', 0)
 
         # Draw player ID
-        id_text = self.player_font.render(f"Player: {client_id}", True, (255, 255, 255))
+        id_text = self.player_font.render(f"Player: {client_name}", True, (255, 255, 255))
         self.surface.blit(id_text, (x + 10, y + 5))
 
         # Draw health bar

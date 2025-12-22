@@ -136,7 +136,7 @@ class GameState:
 		if timediff < GLOBAL_RATE_LIMIT and last_time > 0:
 			# Use debug level instead of warning for rate limiting
 			if self.args.debug:
-				logger.warning(f'Rate limiting {client_id}: {timediff:.5f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT}')
+				logger.warning(f'Rate limiting {client_id}: {timediff:.5f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT} last_time: {last_time}')
 			do_send = False
 
 		try:
@@ -189,7 +189,7 @@ class GameState:
 			logger.error(f"Error sending to client: {e}")
 			self.remove_connection(connection)
 
-	def get_playerone(self) -> Bomberplayer:
+	def get_playerone(self) -> Bomberplayer | None:
 		"""Always return a Bomberplayer instance"""
 		if self.client_id == 'theserver':
 			player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
@@ -219,10 +219,10 @@ class GameState:
 			return player
 
 		# Create default player as last resort
-		logger.warning(f"Creating default player - no player found! target_id: {target_id} playerlist keys: {list(self.playerlist.keys())}")
-		player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
-		self.players_sprites.add(player)
-		return player
+		# logger.warning(f"Creating default player - no player found! target_id: {target_id} playerlist keys: {list(self.playerlist.keys())}")
+		# player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
+		# self.players_sprites.add(player)
+		return None
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
@@ -483,6 +483,7 @@ class GameState:
 			"nodropbomb": self._on_noop_event,
 			"nodropbombkill": self._on_noop_event,
 			"bomb_exploded": self._on_bomb_exploded,
+			"player_hit": self._on_player_hit,
 		}
 
 		et_raw = event.get("event_type")
@@ -765,5 +766,10 @@ class GameState:
 			# No running loop (e.g., during tests); skip scheduling
 			logger.error(f"RuntimeError in _on_player_update: {e} {type(e)}")
 
+	def _on_player_hit(self, event: dict) -> None:
+		# event: {'event_time': 1766419642.6163907, 'event_type': 'player_hit', 'client_id': 'CrankyBomber172', 'target_id': 'SquishyNuke709', 'damage': 10, 'position': [78.0, 338.0], 'handled': False, 'handledby': 'check_bullet_collisions', 'eventid': 'JitteryBlast784'}
+
+		logger.debug(f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} for {event.get('damage')} damage at {event.get('position')}")
+
 	def _on_unknown_event(self, event: dict) -> None:
-		logger.debug(f"Unknown event_type: {event.get('event_type')}")
+		logger.warning(f"Unknown event_type: {event.get('event_type')} event: {event}")

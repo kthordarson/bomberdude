@@ -91,8 +91,7 @@ class Bomberdude():
 		map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
 		map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
 		self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
-		player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
-		player_one.position = pos
+		player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id, position=pos)
 		self.client_game_state.players_sprites.add(player_one)
 		connection_event = {
 			"event_time": 0,

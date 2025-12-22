@@ -5,7 +5,7 @@ from pygame.sprite import Sprite
 import orjson as json
 import pygame
 import time
-from utils import gen_randid
+from utils import gen_randid, generate_name
 from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK
 from .bullets import Bullet
 
@@ -45,6 +45,7 @@ class Bomberplayer(Sprite):
 	texture: str
 	scale: float = PLAYER_SCALING
 	client_id: str = 'Bomberplayer'
+	client_name: str = 'Noname'
 	position: Vec2d = field(default_factory=lambda: Vec2d(99, 99))
 	# name: str = 'xnonex'
 
@@ -68,6 +69,7 @@ class Bomberplayer(Sprite):
 		self.candrop = True
 		self.lastdrop = 0
 		self.keyspressed = KeysPressed('gamestate')
+		self.client_name = generate_name()
 
 	def __hash__(self):
 		return hash((self.client_id))
