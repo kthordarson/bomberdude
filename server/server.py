@@ -54,7 +54,7 @@ class BombServer:
 				# Optionally broadcast the current state
 				await self.server_broadcast_state(self.server_game_state.to_json())
 		except (asyncio.IncompleteReadError, ConnectionResetError) as e:
-			logger.warning(f'{e} Connection closed by client')
+			pass  # logger.warning(f'{e} Connection closed by client')
 		except pygame.error as e:
 			logger.error(f"{e} {type(e)} ")
 			raise e

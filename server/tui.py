@@ -28,21 +28,16 @@ class ServerTUI():
 
 	async def get_serverinfo(self):
 		"""Get current server state information"""
-		# state: dict[str, Any] = {'playerlist': []}  # self.server.server_game_state.to_json()
 		state = self.server.server_game_state.to_json()
 		playerlist = cast(list[dict[str, Any]], state.get('playerlist') or [])
-		logger.debug(
-			f"players: {len(playerlist)} "
-			f"event_queue: {self.server.server_game_state.event_queue.qsize()} "
-			f"client_queue: {self.server.server_game_state.client_queue.qsize()}"
-		)
+		logger.debug(f"players: {len(playerlist)}  event_queue: {self.server.server_game_state.event_queue.qsize()}  client_queue: {self.server.server_game_state.client_queue.qsize()}")
 		logger.debug(f"modified_tiles: {state.get('modified_tiles')}")
 
 		for player in playerlist:
 			# Fix nested quotes in the f-string
-			logger.debug(f"player: {player.get('client_id')} {player.get('position')}")
+			logger.debug(f"player: {player.get('client_id')} {player.get('position')} {player.get('health')}")
 
-		logger.info(f"status: {state}")
+		# logger.info(f"status: {state}")
 
 		# logger.debug(f"players: {len(state.get('playerlist'))} event_queue: {self.server.server_game_state.event_queue.qsize()} client_queue: {self.server.server_game_state.client_queue.qsize()}")
 		# logger.debug(f'modified_tiles: {state.get("modified_tiles")}')
