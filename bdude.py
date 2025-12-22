@@ -213,7 +213,6 @@ def get_args():
 	# server
 	parser.add_argument("--host", action="store", dest="host", default="127.0.0.1")
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
-	parser.add_argument("-dp", "--debugpacket", action="store_true", dest="debugpacket", default=False,)
 	parser.add_argument("--map", action="store", dest="mapname", default="data/maptest5.tmx")
 	parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
 	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='server.prof')

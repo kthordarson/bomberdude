@@ -37,15 +37,7 @@ class ServerTUI():
 			# Fix nested quotes in the f-string
 			logger.debug(f"player: {player.get('client_id')} {player.get('position')} {player.get('health')}")
 
-		# logger.info(f"status: {state}")
-
-		# logger.debug(f"players: {len(state.get('playerlist'))} event_queue: {self.server.server_game_state.event_queue.qsize()} client_queue: {self.server.server_game_state.client_queue.qsize()}")
-		# logger.debug(f'modified_tiles: {state.get("modified_tiles")}')
-		# for player in state.get('playerlist'):
-		# 	logger.debug(f'player: {player.get('client_id')} {player.get('position')}')
-		# logger.info(f'status: {state}')
-
-	def dumpgameevents(self):
+	def server_game_state(self):
 		logger.debug(f"gamestate: {self.server.server_game_state} ")
 
 	def printhelp(self):
@@ -53,6 +45,7 @@ class ServerTUI():
 		cmds:
 		s = show server info
 		l = dump player list
+		e = show game events
 		""")
 
 	async def input_handler(self):
@@ -78,7 +71,7 @@ class ServerTUI():
 		elif cmd[:1] == "l":
 			pass  # self.dump_players()
 		elif cmd[:1] == "e":
-			self.dumpgameevents()
+			self.server_game_state()
 		elif cmd[:2] == "ec":
 			pass  # self.cleargameevents()
 		elif cmd[:1] == "q":
