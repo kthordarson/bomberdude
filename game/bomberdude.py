@@ -136,24 +136,15 @@ class Bomberdude():
 			if self.args.debug:
 				logger.warning("draw_player called with None player_data")
 			return
-
 		try:
-			if hasattr(player_data, 'image') and player_data.image is not None:
-				player_sprite = player_data
-			else:
-				# Get client_id and position based on object type
-				if isinstance(player_data, dict):
-					client_id = player_data.get('client_id', 'unknown')
-					position = player_data.get('position', [0, 0])
-				else:  # PlayerState or similar
-					client_id = getattr(player_data, 'client_id', 'unknown')
-					position = getattr(player_data, 'position', [0, 0])
+			client_id = getattr(player_data, 'client_id', 'unknown')
+			position = getattr(player_data, 'position', [0, 0])
 
-				# Create temporary sprite for drawing
-				player_sprite = Bomberplayer(texture="data/player2.png", client_id=client_id)
-				player_sprite.position = Vec2d(position) if position else Vec2d(0, 0)
-				# player_sprite.rect.topleft = (player_sprite.position.x, player_sprite.position.y)
-				player_sprite.rect.topleft = (int(player_sprite.position.x), int(player_sprite.position.y))
+			# Create temporary sprite for drawing
+			player_sprite = Bomberplayer(texture="data/player2.png", client_id=client_id)
+			player_sprite.position = Vec2d(position) if position else Vec2d(0, 0)
+			# player_sprite.rect.topleft = (player_sprite.position.x, player_sprite.position.y)
+			player_sprite.rect.topleft = (int(player_sprite.position.x), int(player_sprite.position.y))
 
 			# Now we can safely draw the sprite
 			self.screen.blit(player_sprite.image, self.camera.apply(player_sprite.rect))  # type: ignore
@@ -270,13 +261,7 @@ class Bomberdude():
 		for client_id, player in self.client_game_state.playerlist.items():
 			if client_id != self.client_id:
 				try:
-					if isinstance(player, dict) and 'position' in player:
-						pos = player['position']
-					elif hasattr(player, 'position'):
-						pos = player.position  # type: ignore
-					else:
-						continue
-
+					pos = player.position
 					other_x = minimap_x + int(pos[0] * scale)
 					other_y = minimap_y + int(pos[1] * scale)
 					pygame.draw.circle(self.screen, (255, 0, 0), (other_x, other_y), 3)

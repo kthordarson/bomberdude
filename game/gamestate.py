@@ -54,6 +54,40 @@ class GameState:
 		self.processed_hits = set()  # Track processed player_hit events (by eventid)
 		self.processed_bullets = set()  # Track processed bullet_fired events (by eventid)
 
+	def remove_player(self, client_id: str, *, remove_local: bool = False) -> None:
+		"""Remove a player from replicated state and any associated sprites.
+
+		On the server this is used to clean up after a disconnect.
+		On clients it's used by the `player_left` event handler.
+		"""
+		cid = str(client_id)
+		if not remove_local and cid == str(self.client_id):
+			return
+
+		# Remove from replicated player state.
+		self.playerlist.pop(cid, None)
+		# Be defensive: some older code paths may have inserted non-str keys.
+		try:
+			self.playerlist.pop(int(cid), None)  # type: ignore[arg-type]
+		except Exception:
+			pass
+
+		# Remove any sprites for that player.
+		try:
+			for sprite in list(self.players_sprites):
+				if str(getattr(sprite, "client_id", "")) == cid:
+					sprite.kill()
+					self.players_sprites.remove(sprite)
+		except Exception as e:
+			logger.error(f"Error removing player sprite {cid}: {e} {type(e)}")
+
+		# Clean up per-player bookkeeping if present.
+		for d in (self.player_active_bombs, self.active_bombs_per_player, self.last_update_times):
+			try:
+				d.pop(cid, None)
+			except Exception:
+				pass
+
 	def _sync_local_sprite_from_state(self, state: PlayerState) -> None:
 		"""Keep the local Bomberplayer sprite in sync with authoritative state."""
 		if not isinstance(state, PlayerState):
@@ -422,7 +456,7 @@ class GameState:
 			logger.warning(f"Converting unexpected type {type(player_data)} to PlayerState")
 			return PlayerState(
 				position=(0, 0),
-				client_id=str(getattr(player_data, 'client_id', 'unknown')),
+				client_id=int(getattr(player_data, 'client_id', 0)),
 				health=100,
 				score=0
 			)
@@ -496,6 +530,7 @@ class GameState:
 		# lots of if/elif event_type == ...
 		handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
 			"player_joined": self._on_player_joined,
+			"player_left": self._on_player_left,
 			"map_info": self._on_map_info,
 			"map_update": self._on_map_update,
 			"bullet_fired": self._on_bullet_fired,
@@ -549,6 +584,16 @@ class GameState:
 		})
 		self.playerlist[pid] = player_state
 
+	def _on_player_left(self, event: dict[str, Any]) -> None:
+		pid_raw = event.get("client_id")
+		if not isinstance(pid_raw, str) or not pid_raw:
+			if self.args.debug:
+				logger.warning(f"Bad player_left event client_id: {event}")
+			return
+		self.remove_player(pid_raw, remove_local=False)
+		event["handled"] = True
+		event["handledby"] = "gamestate._on_player_left"
+
 	def _on_acknewplayer(self, event: dict) -> None:
 		# Mark client as ready upon ack from server
 		self._ready = True
@@ -556,7 +601,7 @@ class GameState:
 		# Optionally ensure local player is present
 		pid = event.get("client_id")
 		if isinstance(pid, str) and pid not in self.playerlist:
-			self.playerlist[pid] = PlayerState(client_id=pid, position=(100, 100), health=DEFAULT_HEALTH, initial_bombs=3, score=0)
+			self.playerlist[pid] = PlayerState(client_id=pid, position=(100, 100), health=DEFAULT_HEALTH, initial_bombs=3, score=0)  # type: ignore
 
 	async def _on_connection_event(self, event: dict) -> None:
 		# Treat connection_event similarly to ack for clients
@@ -567,7 +612,7 @@ class GameState:
 		name_raw = event.get("client_name")
 		client_name = name_raw if isinstance(name_raw, str) and name_raw else 'client_namenotset'
 		if isinstance(pid, str) and pid not in self.playerlist:
-			self.playerlist[pid] = PlayerState(client_id=pid, client_name=client_name, position=pos, health=DEFAULT_HEALTH, initial_bombs=3, score=0)
+			self.playerlist[pid] = PlayerState(client_id=pid, client_name=client_name, position=pos, health=DEFAULT_HEALTH, initial_bombs=3, score=0)  # type: ignore
 		elif isinstance(pid, str):
 			# If we already have a player entry, only set name if it's missing/unset.
 			existing = self.playerlist.get(pid)
@@ -793,7 +838,7 @@ class GameState:
 		existing = self.playerlist.get(pid)
 		if existing is None:
 			ps = PlayerState(
-				client_id=pid,
+				client_id=pid,  # type: ignore
 				client_name=incoming_name or 'client_namenotset',
 				position=pos_tuple,
 				# position=pos if isinstance(pos, (list, tuple)) else [100, 100],
@@ -906,11 +951,8 @@ class GameState:
 		# If we are the target, also sync the local sprite so HUD/debug reflects correct health.
 		if isinstance(target_player_entry, PlayerState):
 			self._sync_local_sprite_from_state(target_player_entry)
-		logger.debug(
-			f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} "
-			f"for {damage} damage at {event.get('position')} health: {old_health} -> {getattr(target_player_entry, 'health', None)}"
-		)
-		logger.info(f"player_entry: {target_player_entry}\nself.playerlist[owner_raw]: {self.playerlist[target]} ")
+		logger.debug(f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} for {damage} damage at {event.get('position')} health: {old_health} -> {getattr(target_player_entry, 'health', None)}")
+		# logger.info(f"player_entry: {target_player_entry}\nself.playerlist[owner_raw]: {self.playerlist[target]} ")
 
 		# Mark handled locally so we don't reapply if this event loops back.
 		event['handled'] = True

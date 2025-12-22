@@ -144,8 +144,8 @@ class Bomberplayer(Sprite):
 			self.killed = True
 			self.player_kill(attacker)
 
-	def player_kill(self, dmgfrom):
-		logger.info(f'{self} killed by {dmgfrom}')
+	def player_kill(self, attacker):
+		logger.info(f'{self} killed by {attacker}')
 		self.killed = True
 		self.image = pygame.image.load('data/netplayerdead.png')
 
