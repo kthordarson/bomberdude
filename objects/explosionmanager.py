@@ -66,7 +66,8 @@ class ExplosionManager:
 		self.flames.add(flame)
 
 	async def update(self, collidable_tiles, game_state, delta_time=1/10):
-		self.particles.update(collidable_tiles)
+		# Pass game_state so particles can query nearby colliders efficiently.
+		self.particles.update(game_state)
 		for flame in self.flames:
 			await flame.flame_update(collidable_tiles, game_state)
 		# Update shockwaves and remove dead ones

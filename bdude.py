@@ -252,7 +252,7 @@ def get_args():
 	parser.add_argument("-g", "--debug_gamestate", action="store_true", dest="debug_gamestate", default=False)
 	parser.add_argument("--map", action="store", dest="mapname", default="data/maptest5.tmx")
 	parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
-	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='server.prof')
+	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude.prof')
 	return parser.parse_args()
 
 async def start_game(args: argparse.Namespace):

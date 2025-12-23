@@ -233,13 +233,7 @@ class Bomberdude():
             self.draw_minimap()
         self.player_info_panel.draw()
 
-        # Scale virtual frame to the actual window and present it
-        try:
-            scaled = pygame.transform.smoothscale(self.screen, self.window.get_size())
-        except Exception:
-            # Fallback if smoothscale fails for some reason
-            scaled = pygame.transform.scale(self.screen, self.window.get_size())
-        self.window.blit(scaled, (0, 0))
+        self.window.blit(self.screen, (0, 0))
 
     def draw_minimap(self):
         """Draw a minimap in the bottom-right corner showing all players"""
@@ -452,7 +446,7 @@ class Bomberdude():
         self.last_frame_time = current_time
         self.timer += self.delta_time
         if player_one.client_id != 'theserver':
-            player_one.update(self.client_game_state.collidable_tiles)
+            player_one.update(self.client_game_state)
 
             map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
             map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
@@ -464,7 +458,7 @@ class Bomberdude():
 
             self.camera.update(player_one)
 
-            self.client_game_state.bullets.update(self.client_game_state.collidable_tiles)
+            self.client_game_state.bullets.update(self.client_game_state)
             self.client_game_state.check_bullet_collisions()
             # await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
 
@@ -546,6 +540,13 @@ class Bomberdude():
         """Resize the actual OS window. Game renders at base_size and is scaled up/down."""
         width = max(320, int(width))
         height = max(240, int(height))
+        # Scale virtual frame to the actual window and present it
+        # try:
+        #     scaled = pygame.transform.smoothscale(self.screen, self.window.get_size())
+        # except Exception:
+        #     # Fallback if smoothscale fails for some reason
+        #     scaled = pygame.transform.scale(self.screen, self.window.get_size())
+
         self.window = pygame.display.set_mode((width, height), flags=pygame.RESIZABLE)
 
     def queue_resize(self, width: int, height: int) -> None:

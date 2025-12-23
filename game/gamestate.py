@@ -54,6 +54,42 @@ class GameState:
 		self.processed_hits = set()  # Track processed player_hit events (by eventid)
 		self.processed_bullets = set()  # Track processed bullet_fired events (by eventid)
 
+	def _iter_tiles_from_index_in_rect(self, tile_index: dict[tuple[int, int], Any], rect: pygame.Rect, *, pad_pixels: int = 0):
+		"""Yield tiles from a {(tile_x,tile_y)->tile} index intersecting rect.
+
+		This avoids scanning every tile sprite for collision checks.
+		"""
+		try:
+			tw = int(self.tile_map.tilewidth)
+			th = int(self.tile_map.tileheight)
+			map_w = int(getattr(self.tile_map, "width", 0))
+			map_h = int(getattr(self.tile_map, "height", 0))
+			if tw <= 0 or th <= 0 or map_w <= 0 or map_h <= 0:
+				return
+			x0 = int(rect.left) - int(pad_pixels)
+			y0 = int(rect.top) - int(pad_pixels)
+			x1 = int(rect.right) + int(pad_pixels) - 1
+			y1 = int(rect.bottom) + int(pad_pixels) - 1
+			# Convert pixel bounds -> tile bounds
+			min_tx = max(0, min(map_w - 1, x0 // tw))
+			min_ty = max(0, min(map_h - 1, y0 // th))
+			max_tx = max(0, min(map_w - 1, x1 // tw))
+			max_ty = max(0, min(map_h - 1, y1 // th))
+		except Exception:
+			return
+
+		for ty in range(min_ty, max_ty + 1):
+			for tx in range(min_tx, max_tx + 1):
+				tile = tile_index.get((tx, ty))
+				if tile is not None:
+					yield tile
+
+	def iter_collidable_in_rect(self, rect: pygame.Rect, *, pad_pixels: int = 0):
+		return self._iter_tiles_from_index_in_rect(self.collidable_by_tile, rect, pad_pixels=pad_pixels)
+
+	def iter_killable_in_rect(self, rect: pygame.Rect, *, pad_pixels: int = 0):
+		return self._iter_tiles_from_index_in_rect(self.killable_by_tile, rect, pad_pixels=pad_pixels)
+
 	def remove_player(self, client_id: str, *, remove_local: bool = False) -> None:
 		"""Remove a player from replicated state and any associated sprites.
 

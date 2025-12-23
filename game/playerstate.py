@@ -65,3 +65,4 @@ class PlayerState:
 		if self.health <= 0:
 			self.killed = True
 		logger.info(f"Player {self.client_name} hit by {attacker_id} for {damage} damage: {old_health} -> {self.health} killed: {self.killed}")
+

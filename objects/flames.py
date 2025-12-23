@@ -64,17 +64,31 @@ class Flame(Sprite):
 			)
 
 			# Killable tiles
-			for tile in game_state.killable_tiles:
-				if flame_area.colliderect(tile.rect) and self.rect.colliderect(tile.rect):
-					await game_state.destroy_block(tile)
-					self.kill()
-					return
+			try:
+				if hasattr(game_state, "iter_killable_in_rect"):
+					killables = game_state.iter_killable_in_rect(flame_area, pad_pixels=0)
+				else:
+					killables = game_state.killable_tiles
+				for tile in killables:
+					if self.rect.colliderect(tile.rect):
+						await game_state.destroy_block(tile)
+						self.kill()
+						return
+			except Exception as e:
+				logger.error(f"flame killable collision error: {e} {type(e)}")
 
 			# Solid walls / collidables
-			for tile in game_state.collidable_tiles:
-				if flame_area.colliderect(tile.rect) and self.rect.colliderect(tile.rect):
-					self.kill()
-					return
+			try:
+				if hasattr(game_state, "iter_collidable_in_rect"):
+					colliders = game_state.iter_collidable_in_rect(flame_area, pad_pixels=0)
+				else:
+					colliders = game_state.collidable_tiles
+				for tile in colliders:
+					if self.rect.colliderect(tile.rect):
+						self.kill()
+						return
+			except Exception as e:
+				logger.error(f"flame collidable collision error: {e} {type(e)}")
 
 		# Update size/appearance for animation
 		self.size -= self.shrink_rate
