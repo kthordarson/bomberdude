@@ -84,12 +84,14 @@ class Bomberdude():
             if hasattr(self, "sock") and self.sock:
                 try:
                     self.sock.shutdown(socket.SHUT_RDWR)
-                except Exception:
+                except OSError:
                     pass
+                except Exception as e:
+                    logger.error(f"Error shutting down socket: {e} {type(e)}")
                 try:
                     self.sock.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Error closing socket: {e} {type(e)}")
         except Exception as e:
             logger.error(f"disconnect error: {e} {type(e)}")
 
@@ -565,13 +567,6 @@ class Bomberdude():
         """Resize the actual OS window. Game renders at base_size and is scaled up/down."""
         width = max(320, int(width))
         height = max(240, int(height))
-        # Scale virtual frame to the actual window and present it
-        # try:
-        #     scaled = pygame.transform.smoothscale(self.screen, self.window.get_size())
-        # except Exception:
-        #     # Fallback if smoothscale fails for some reason
-        #     scaled = pygame.transform.scale(self.screen, self.window.get_size())
-
         self.window = pygame.display.set_mode((width, height), flags=pygame.RESIZABLE)
 
     def queue_resize(self, width: int, height: int) -> None:

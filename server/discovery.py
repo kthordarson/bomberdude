@@ -27,8 +27,8 @@ class ServerDiscovery:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Failed to set SO_REUSEPORT: {e} {type(e)}")
 
         # Receive broadcast packets
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -59,7 +59,8 @@ class ServerDiscovery:
 
                 try:
                     players = len(self.bombserver.server_game_state.playerlist)
-                except Exception:
+                except Exception as e:
+                    logger.error(f"Error getting player count: {e} {type(e)}")
                     players = 0
 
                 response = {
@@ -80,8 +81,8 @@ class ServerDiscovery:
         finally:
             try:
                 sock.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Error closing discovery socket: {e} {type(e)}")
             self._sock = None
             self.running = False
 
@@ -91,6 +92,7 @@ class ServerDiscovery:
         if self._sock is not None:
             try:
                 self._sock.close()
-            except Exception:
+            except Exception as e:
+                logger.error(f"Error closing discovery socket: {e} {type(e)}")
                 pass
             self._sock = None

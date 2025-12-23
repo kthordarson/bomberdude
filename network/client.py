@@ -32,9 +32,9 @@ async def send_game_state(game: Bomberdude) -> None:
 					game_event["playerlist"] = [
 						(p.to_dict() if hasattr(p, "to_dict") else p) for p in ge_playerlist
 					]
-		except Exception:
+		except Exception as e:
 			# Don't let cleanup break networking.
-			pass
+			logger.error(f"Error serializing game_event playerlist: {e} {type(e)}")
 
 		client_keys = json.loads(game.client_game_state.keyspressed.to_json())
 		if game.client_id == 'bdudenotset' or game.client_game_state.client_id == 'gamestatenotset' or game.client_game_state.client_id == 'missingclientid':

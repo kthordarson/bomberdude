@@ -199,8 +199,8 @@ class BombServer:
 		try:
 			if hasattr(self, "discovery_service") and self.discovery_service is not None:
 				self.discovery_service.stop()
-		except Exception:
-			pass
+		except Exception as e:
+			logger.error(f"Error stopping discovery service: {e} {type(e)}")
 
 	def stopped(self):
 		return self._stop.is_set()

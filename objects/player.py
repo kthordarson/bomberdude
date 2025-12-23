@@ -147,8 +147,9 @@ class Bomberplayer(Sprite):
 					self.rect.x = int(prev_x)
 					self.rect.y = int(prev_y)
 					return
-		except Exception:
+		except Exception as e:
 			# Be conservative: if anything unexpected happens, revert movement.
+			logger.error(f"Error in Player.update collision check: {e} {type(e)}")
 			self.position.x, self.position.y = prev_x, prev_y
 			self.rect.x = int(prev_x)
 			self.rect.y = int(prev_y)

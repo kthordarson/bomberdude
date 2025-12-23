@@ -75,7 +75,8 @@ class GameState:
 			min_ty = max(0, min(map_h - 1, y0 // th))
 			max_tx = max(0, min(map_w - 1, x1 // tw))
 			max_ty = max(0, min(map_h - 1, y1 // th))
-		except Exception:
+		except Exception as e:
+			logger.error(f'Error in _iter_tiles_from_index_in_rect: {e} {type(e)}')
 			return
 
 		for ty in range(min_ty, max_ty + 1):
@@ -105,7 +106,8 @@ class GameState:
 		# Be defensive: some older code paths may have inserted non-str keys.
 		try:
 			self.playerlist.pop(int(cid), None)
-		except Exception:
+		except Exception as e:
+			logger.error(f"Error removing player from playerlist {cid}: {e} {type(e)}")
 			pass
 
 		# Remove any sprites for that player.
@@ -121,7 +123,8 @@ class GameState:
 		for d in (self.player_active_bombs, self.active_bombs_per_player, self.last_update_times):
 			try:
 				d.pop(cid, None)
-			except Exception:
+			except Exception as e:
+				logger.error(f"Error cleaning up player data {cid} in {d}: {e} {type(e)}")
 				pass
 
 	def _sync_local_sprite_from_state(self, state: PlayerState) -> None:

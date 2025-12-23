@@ -37,8 +37,8 @@ async def _process_pygame_events(bomberdude_main: Bomberdude) -> None:
 			# the expensive set_mode() until the user releases the mouse.
 			try:
 				bomberdude_main.queue_resize(event.w, event.h)
-			except Exception:
-				pass
+			except Exception as e:
+				logger.error(f"Error in queue_resize: {e} {type(e)}")
 		elif event.type == pygame.KEYDOWN:
 			await bomberdude_main.handle_on_key_press(event.key)
 		elif event.type == pygame.KEYUP:
@@ -47,15 +47,15 @@ async def _process_pygame_events(bomberdude_main: Bomberdude) -> None:
 			x, y = event.pos
 			try:
 				x, y = bomberdude_main.window_to_virtual(x, y)
-			except Exception:
-				pass
+			except Exception as e:
+				logger.error(f"Error in window_to_virtual: {e} {type(e)}")
 			asyncio.create_task(bomberdude_main.handle_on_mouse_press(x, y, event.button))
 		elif event.type == pygame.MOUSEBUTTONUP:
 			# Apply any pending resize after the user finishes dragging.
 			try:
 				bomberdude_main.apply_pending_resize()
-			except Exception:
-				pass
+			except Exception as e:
+				logger.error(f"Error in apply_pending_resize: {e} {type(e)}")
 
 
 async def _run_frame(bomberdude_main: Bomberdude) -> bool:
@@ -77,8 +77,8 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 	# the pending resize after a short debounce.
 	try:
 		bomberdude_main.maybe_apply_pending_resize()
-	except Exception:
-		pass
+	except Exception as e:
+		logger.error(f"Error in maybe_apply_pending_resize: {e} {type(e)}")
 
 	pygame.display.flip()
 	await _process_pygame_events(bomberdude_main)

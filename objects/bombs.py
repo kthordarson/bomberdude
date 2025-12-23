@@ -1,4 +1,5 @@
 import asyncio
+from loguru import logger
 import time
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
@@ -54,7 +55,7 @@ class Bomb(Sprite):
 		try:
 			if hasattr(gamestate, "update_game_event"):
 				await gamestate.update_game_event(explosion_event)
-		except Exception:
-			pass
+		except Exception as e:
+			logger.error(f"Error updating game event: {e} {type(e)}")
 		await gamestate.event_queue.put(explosion_event)
 		self.kill()
