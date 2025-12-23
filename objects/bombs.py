@@ -4,7 +4,7 @@ from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 import pygame
 from utils import gen_randid
-from constants import BLOCK
+from constants import BLOCK, BOMB_SCALING
 
 class Bomb(Sprite):
 	def __init__(self, position, client_id, power=3, speed=10, timer=4, bomb_size=(10,10)):
@@ -18,7 +18,7 @@ class Bomb(Sprite):
 		self.start_time = pygame.time.get_ticks() / 1000
 		# self.rect.center = self.position
 		# Ensure position is centered on a tile
-		tile_size = BLOCK
+		tile_size = BLOCK * BOMB_SCALING
 		tile_x = int(position[0] / tile_size) * tile_size + tile_size // 2
 		tile_y = int(position[1] / tile_size) * tile_size + tile_size // 2
 		self.position = Vec2d(tile_x, tile_y)

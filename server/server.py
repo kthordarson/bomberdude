@@ -179,7 +179,7 @@ class BombServer:
 
 		if not valid_positions:
 			logger.error("No valid spawn positions found!")
-			return {'position': (BLOCK, BLOCK)}  # fallback position
+			return {'position': (1, 1)}  # fallback position
 
 		position = random.choice(valid_positions)
 
