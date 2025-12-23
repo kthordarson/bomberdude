@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import orjson as json
+import json
 import asyncio
 import time
 from loguru import logger
@@ -17,6 +17,19 @@ async def send_game_state(game: Bomberdude) -> None:
 		except Exception as e:
 			logger.error(f"Error: {e} {type(e)}")
 			continue
+
+		# Ensure game_event is JSON-serializable (e.g. nested PlayerState objects).
+		try:
+			if isinstance(game_event, dict):
+				ge_playerlist = game_event.get("playerlist")
+				if isinstance(ge_playerlist, list):
+					game_event["playerlist"] = [
+						(p.to_dict() if hasattr(p, "to_dict") else p) for p in ge_playerlist
+					]
+		except Exception:
+			# Don't let cleanup break networking.
+			pass
+
 		client_keys = json.loads(game.client_game_state.keyspressed.to_json())
 		if game.client_id == 'bdudenotset' or game.client_game_state.client_id == 'gamestatenotset' or game.client_game_state.client_id == 'missingclientid':
 			logger.error(f'client_id not set game: {game}')
@@ -29,7 +42,11 @@ async def send_game_state(game: Bomberdude) -> None:
 				logger.error(f'{e} {type(e)}')
 				await asyncio.sleep(1)
 				continue
-		playerlist = [player for player in game.client_game_state.playerlist.values()]
+		# Convert PlayerState objects to dicts so json.dumps succeeds.
+		playerlist = [
+			(p.to_dict() if hasattr(p, "to_dict") else p)
+			for p in game.client_game_state.playerlist.values()
+		]
 		msg = {
 			'game_event': game_event,
 			'client_id': player_one.client_id,
@@ -43,8 +60,8 @@ async def send_game_state(game: Bomberdude) -> None:
 			'playerlist': playerlist,
 		}
 		try:
-			data_out = json.dumps(msg) + b'\n'
-			await asyncio.get_event_loop().sock_sendall(game.sock, data_out)  # Direct to socket
+			data_out = json.dumps(msg) + '\n'
+			await asyncio.get_event_loop().sock_sendall(game.sock, data_out.encode('utf-8'))  # Direct to socket
 			game.client_game_state.event_queue.task_done()
 		except Exception as e:
 			logger.error(f'{e} {type(e)} msg: {msg}')

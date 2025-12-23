@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from loguru import logger
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
-import orjson as json
+import json
 import pygame
 import time
 from utils import gen_randid, generate_name

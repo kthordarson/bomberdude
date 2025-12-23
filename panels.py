@@ -296,7 +296,7 @@ class ServerDiscoveryPanel():
             self.rect = pygame.Rect(0, 0, surface.get_width(), surface.get_height())
             surface.fill((30, 30, 30), self.rect)
             # Draw title
-            font = pygame.font.Font(None, 48)
+            font = pygame.font.Font(None, 36)
             title = font.render("Find Local Servers", True, (255, 255, 255))
             surface.blit(title, (self.rect.centerx - title.get_width()//2, 20))
 

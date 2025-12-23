@@ -6,7 +6,7 @@ import pygame
 import socket
 import argparse
 from pygame.math import Vector2 as Vec2d
-import orjson as json
+import json
 from loguru import logger
 from utils import gen_randid
 from game.gamestate import GameState
