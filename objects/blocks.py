@@ -1,11 +1,12 @@
 from pygame.sprite import Sprite
 # from pymunk import Vec2d
 import pygame
+from utils import get_cached_image
 
 class Upgrade(Sprite):
 	def __init__(self, upgradetype, image, position, scale, timer=1000):
 		super().__init__()
-		self.image = pygame.image.load(image)
+		self.image = get_cached_image(image, scale=float(scale), convert=True)
 		self.rect = self.image.get_rect()
 		self.upgradetype = upgradetype
 		self.position = position

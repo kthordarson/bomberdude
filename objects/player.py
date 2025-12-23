@@ -5,7 +5,7 @@ from pygame.sprite import Sprite
 import json
 import pygame
 import time
-from utils import gen_randid, generate_name
+from utils import gen_randid, generate_name, get_cached_image
 from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK
 from .bullets import Bullet
 
@@ -71,13 +71,14 @@ class Bomberplayer(Sprite):
 			logger.info(f'Server player image loaded without conversion. {self.client_name=} {self.client_id=}')
 
 	def _set_texture(self, texture_path: str) -> None:
-		loaded_image = pygame.image.load(texture_path)
+		# Cache disk loads globally; convert/scale only when a display surface exists.
 		if self.client_id == 'theserver':
-			self.original_image = loaded_image
-			self.image = loaded_image
+			surf = get_cached_image(texture_path, scale=1.0, convert=False)
+			self.original_image = surf
+			self.image = surf
 			return
-		self.original_image = loaded_image.convert_alpha() if loaded_image.get_alpha() else loaded_image.convert()
-		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.scale), int(self.original_image.get_height() * self.scale)),)
+		self.original_image = get_cached_image(texture_path, scale=1.0, convert=True)
+		self.image = get_cached_image(texture_path, scale=float(self.scale), convert=True)
 
 	def set_dead(self, dead: bool) -> None:
 		"""Swap sprite image based on health/killed state."""
@@ -121,6 +122,7 @@ class Bomberplayer(Sprite):
 	def update(self, collidable_tiles):
 		# Store previous position
 		prev_x, prev_y = self.position.x, self.position.y
+		prev_rect = self.rect.copy()
 
 		# Apply movement
 		self.position.x += self.change_x
@@ -130,13 +132,27 @@ class Bomberplayer(Sprite):
 		self.rect.x = int(self.position.x)
 		self.rect.y = int(self.position.y)
 
-		# Check collisions
-		for tile in collidable_tiles:
-			if self.rect.colliderect(tile.rect):
-				self.position.x, self.position.y = prev_x, prev_y
-				self.rect.x = int(prev_x)
-				self.rect.y = int(prev_y)
-				return
+		# Check collisions (only nearby tiles when possible)
+		# Use a swept rect so fast motion doesn't skip thin obstacles.
+		query_rect = self.rect.union(prev_rect)
+		try:
+			# If a GameState is passed, use its spatial index.
+			if hasattr(collidable_tiles, "iter_collidable_in_rect"):
+				tiles_iter = collidable_tiles.iter_collidable_in_rect(query_rect, pad_pixels=BLOCK)
+			else:
+				tiles_iter = collidable_tiles
+			for tile in tiles_iter:
+				if self.rect.colliderect(tile.rect):
+					self.position.x, self.position.y = prev_x, prev_y
+					self.rect.x = int(prev_x)
+					self.rect.y = int(prev_y)
+					return
+		except Exception:
+			# Be conservative: if anything unexpected happens, revert movement.
+			self.position.x, self.position.y = prev_x, prev_y
+			self.rect.x = int(prev_x)
+			self.rect.y = int(prev_y)
+			return
 
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
@@ -212,9 +228,11 @@ class Bomberplayer(Sprite):
 		self.bombs_left = self.bombs_left - 1
 
 		# Calculate tile-centered position (snap to grid)
+		# Use the player's rect center to choose the tile they are standing on.
+		cx, cy = self.rect.center
 		tile_size = BLOCK
-		tile_x = int(self.position.x / tile_size) * tile_size + tile_size // 2
-		tile_y = int(self.position.y / tile_size) * tile_size + tile_size // 2
+		tile_x = (int(cx) // tile_size) * tile_size + tile_size // 2
+		tile_y = (int(cy) // tile_size) * tile_size + tile_size // 2
 
 		return {
 			"event_time": current_time,

@@ -36,3 +36,4 @@ bomberdude.tiled-session
 bomberdude.tiled-session
 .complexipy_cache/*
 .coverage
+*.prof.*

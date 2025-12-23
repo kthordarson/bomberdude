@@ -8,6 +8,12 @@ from game.bomberdude import Bomberdude
 
 async def send_game_state(game: Bomberdude) -> None:
 	logger.info(f'event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
+	# Avoid writing to the socket before sock_connect completes.
+	try:
+		if hasattr(game, 'socket_connected'):
+			await game.socket_connected.wait()  # type: ignore[attr-defined]
+	except asyncio.CancelledError:
+		return
 	while True:
 		try:
 			game_event = await game.client_game_state.event_queue.get()
@@ -71,6 +77,12 @@ async def send_game_state(game: Bomberdude) -> None:
 
 async def receive_game_state(game: Bomberdude) -> None:
 	logger.info(f'event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
+	# Avoid reading from the socket before sock_connect completes.
+	try:
+		if hasattr(game, 'socket_connected'):
+			await game.socket_connected.wait()  # type: ignore[attr-defined]
+	except asyncio.CancelledError:
+		return
 	buffer = ""
 	while True:
 		try:
@@ -97,10 +109,10 @@ async def receive_game_state(game: Bomberdude) -> None:
 			logger.error(f"Connection refused: {e} {type(e)}")
 			await asyncio.sleep(1)
 			break
-		except Exception as e:
-			logger.error(f"Error in receive_game_state: {e} {type(e)}")
+		except OSError as e:
+			logger.error(f"OSError: {e} {type(e)} game.sock: {game.sock}")
 			await asyncio.sleep(1)
-			if isinstance(e, ConnectionResetError):
-				game._connected = False
-				break
+		except Exception as e:
+			logger.error(f"Error in receive_game_state: {e} {type(e)} game.sock: {game.sock}")
+			await asyncio.sleep(1)
 			continue
