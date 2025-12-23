@@ -240,10 +240,10 @@ class ServerDiscoveryPanel():
                             continue
                         try:
                             server_info = json.loads(data.decode('utf-8'))
-                            if self.args.debug:
-                                logger.debug(f"Discovered server at {addr}: info: {server_info.get('listen')} players: {server_info.get('players')} map: {server_info.get('map')}")
                             if server_info.get('type') == 'server_info':
                                 self.servers[addr[0]] = server_info
+                                if self.args.debug:
+                                    logger.debug(f"Discovered server at {addr}: info: {server_info.get('listen')} players: {server_info.get('players')} map: {server_info.get('map')}")
                         except Exception as e:
                             logger.error(f"Error parsing discovery response from {addr}: {e} {type(e)}")
                             continue
@@ -267,8 +267,14 @@ class ServerDiscoveryPanel():
         self.discovery_running = False
         logger.info(f"Connecting to server {info.get('listen')}")
         # Store selection for the caller and set args.server for convenience.
+        # IMPORTANT: use the sender IP (addr) rather than the server-reported "listen",
+        # which is often 127.0.0.1 and not reachable from other machines.
         try:
-            self.args.server = info.get('listen')
+            self.args.server = addr
+            if isinstance(info, dict):
+                info['host'] = info.get('listen')
+                self.args.server_port = info.get('server_port')
+                self.args.api_port = info.get('api_port')
         except Exception as e:
             logger.error(f"Error setting selected server: {e} {type(e)}")
             pass

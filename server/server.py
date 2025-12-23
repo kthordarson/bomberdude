@@ -112,7 +112,7 @@ class BombServer:
 	async def new_start_server(self):
 		"""Start the game server using asyncio's high-level server API"""
 		# Create the server
-		server = await asyncio.start_server(lambda r, w: self.client_connected_callback(r, w), host=self.args.host, port=9696, reuse_address=True,)
+		server = await asyncio.start_server(lambda r, w: self.client_connected_callback(r, w), host=self.args.listen, port=self.args.server_port, reuse_address=True,)
 
 		addr = server.sockets[0].getsockname()
 
@@ -121,10 +121,16 @@ class BombServer:
 		app.router.add_get('/get_tile_map', self.get_tile_map)
 		runner = web.AppRunner(app)
 		await runner.setup()
-		site = web.TCPSite(runner, self.args.host, 9699)
-		await site.start()
-		logger.info(f'HTTPapi server started on {self.args.host}:9699 addr: {addr}')
-
+		if self.args.debug:
+			logger.debug(f'{app} {runner} API server runner host {self.args.listen} port {self.args.api_port}')
+		site = web.TCPSite(runner, self.args.listen, self.args.server_port+1)
+		try:
+			await site.start()
+			if self.args.debug:
+				logger.info(f'TCPSite started on {self.args.listen}:{self.args.server_port} serveraddr: {addr}')
+		except Exception as e:
+			logger.error(f'Error starting API server on {self.args.listen}:{self.args.server_port}: {e} {type(e)}')
+			return
 		# Ticker task to broadcast game state
 		ticker_task = self.loop.create_task(self.ticker_broadcast())
 

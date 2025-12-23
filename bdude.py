@@ -132,7 +132,12 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 		try:
 			selected = await mainmenu.discovery_panel.run()
 			if selected:
-				args.server = selected.get('host')
+				# Discovery panel should set args.server, but keep this as a safe fallback.
+				args.server = selected.get('host') or selected.get('listen') or args.server
+				sp = selected.get('server_port')
+				args.server_port = sp
+				ap = selected.get('api_port')
+				args.api_port = ap
 				logger.info(f"Selected server: {selected}")
 				await start_game(args)
 		except Exception as e:
@@ -171,7 +176,7 @@ def run_server_process(args_dict):
 
 		server = BombServer(args)
 		server_task = asyncio.create_task(server.new_start_server())
-		api_task = asyncio.create_task(server.apiserver.run(args.api_listen, 9691))
+		api_task = asyncio.create_task(server.apiserver.run(args.listen, args.api_port))
 
 		try:
 			await asyncio.gather(server_task, api_task)
@@ -245,7 +250,8 @@ def get_args():
 	parser.add_argument("--name", action="store", dest="name", default="bdude")
 	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1", help='ip address to listen (server mode)')
 	parser.add_argument("--server", action="store", dest="server", default="127.0.0.1", help='ip address of the server (client mode)')
-	parser.add_argument("--port", action="store", dest="port", default=9696, type=int, help='port number')
+	parser.add_argument("--server_port", action="store", dest="server_port", default=9696, type=int, help='server_port port number')
+	parser.add_argument("--api_port", action="store", dest="api_port", default=9691, type=int, help='API port number')
 	# server
 	parser.add_argument("--host", action="store", dest="host", default="127.0.0.1")
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
@@ -262,6 +268,8 @@ async def start_game(args: argparse.Namespace):
 		logger.error(f"Error: {e} {type(e)}")
 		raise
 
+	# Start networking tasks early so connect() can complete its readiness handshake.
+	# The tasks will wait until the socket is connected before using it.
 	sender_task = asyncio.create_task(send_game_state(bomberdude_main))
 	receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
 

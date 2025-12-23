@@ -45,6 +45,8 @@ class Bomberdude():
         self.background_color = (100, 149, 237)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setblocking(False)  # Make non-blocking
+        # Networking tasks should wait for this before using the socket.
+        self.socket_connected = asyncio.Event()
         self.last_position_update = 0
         self.position_update_interval = 0.05  # 50ms = 20 updates/second
         self.last_frame_time = time.time()
@@ -93,9 +95,10 @@ class Bomberdude():
     async def connect(self):
         self.sock.setblocking(False)
         logger.info(f'connecting to server... event_queue: {self.client_game_state.event_queue.qsize()} ')
-        await asyncio.get_event_loop().sock_connect(self.sock, (self.args.server, 9696))
+        await asyncio.get_event_loop().sock_connect(self.sock, (self.args.server, self.args.server_port))
+        self.socket_connected.set()
         try:
-            resp = requests.get(f"http://{self.args.server}:9699/get_tile_map", timeout=10).text
+            resp = requests.get(f"http://{self.args.server}:{self.args.api_port}/get_tile_map", timeout=10).text
         except Exception as e:
             logger.error(f"Error connecting to server: {e} {type(e)}")
             return 0
