@@ -286,6 +286,11 @@ class Bomberdude():
 		if button == 1:
 			player_one = self.client_game_state.get_playerone()
 			if player_one and player_one.client_id != 'theserver':
+				# Dead players can't shoot.
+				if getattr(player_one, 'killed', False) or getattr(player_one, 'health', 0) <= 0:
+					if self.args.debug_gamestate:
+						logger.debug(f"{player_one} is dead, ignoring mouse press")
+					return
 				# Convert screen coordinates to world coordinates
 				mouse_world_pos = self.camera.reverse_apply(x, y)
 				# player_world_pos = player_one.rect.center
@@ -355,7 +360,7 @@ class Bomberdude():
 			return
 
 		if player_one.killed or player_one.health <= 0:
-			if self.args.debug:
+			if self.args.debug_gamestate:
 				logger.debug(f"{player_one} is dead, ignoring key press {key}")
 			return
 

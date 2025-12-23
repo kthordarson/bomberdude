@@ -19,7 +19,7 @@ class PlayerState:
 	position_updated: bool = False
 	msg_dt: float | None = None
 	timeout: bool | None = None
-	killed: bool | None = None
+	killed: bool = False
 	event_type: str | None = None
 	event_time: int | None = None
 	handled: bool = False
@@ -64,4 +64,4 @@ class PlayerState:
 		self.health = max(0, self.health - damage)
 		if self.health <= 0:
 			self.killed = True
-		logger.info(f"Player {self.client_id} hit by {attacker_id} for {damage} damage: {old_health} -> {self.health} killed: {self.killed}")
+		logger.info(f"Player {self} hit by {attacker_id} for {damage} damage: {old_health} -> {self.health} killed: {self.killed}")

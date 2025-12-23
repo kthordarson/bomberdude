@@ -557,8 +557,8 @@ class GameState:
 		result = handler(event)
 		if inspect.isawaitable(result):
 			await result
-			if self.args.debug:
-				logger.debug(f"Handled et: {et} et_raw: {et_raw} with handler: {handler} result: {result}")
+		if self.args.debug_gamestate:
+			logger.debug(f"Handled et: {et} et_raw: {et_raw} with handler: {handler} result: {result} {type(result)}")
 
 	def _to_pos_tuple(self, pos: Any) -> tuple[int, int]:
 		if isinstance(pos, (list, tuple)) and len(pos) == 2:
@@ -567,89 +567,89 @@ class GameState:
 				return (int(x), int(y))
 		return (100, 100)  # default as tuple
 
-	def _on_player_joined(self, event: dict[str, Any]) -> None:
-		pid_raw = event.get("client_id")
-		if not isinstance(pid_raw, str):
+	def _on_player_joined(self, event: dict[str, Any]) -> str | None:
+		client_id = event.get("client_id")
+		if not isinstance(client_id, str):
 			if self.args.debug:
-				logger.warning(f"Bad player_joined event client_id: {event} pid_raw: {pid_raw}")
+				logger.warning(f"Bad player_joined event client_id: {event} pid_raw: {client_id}")
 			return
-		pid = pid_raw
 		pos_tuple = self._to_pos_tuple(event.get("position"))
-		name_raw = event.get("client_name")
-		client_name = name_raw if isinstance(name_raw, str) and name_raw else 'client_namenotset'
+		client_name = event.get("client_name")
 		player_state = self.ensure_player_state({
-			"client_id": pid,
+			"client_id": client_id,
 			"client_name": client_name,
 			"position": pos_tuple,
 			"health": DEFAULT_HEALTH,
 			"bombs_left": 3,
 			"score": 0,
 		})
-		self.playerlist[pid] = player_state
+		self.playerlist[client_id] = player_state
+		return client_name
 
-	def _on_player_left(self, event: dict[str, Any]) -> None:
-		pid_raw = event.get("client_id")
-		if not isinstance(pid_raw, str) or not pid_raw:
+	def _on_player_left(self, event: dict[str, Any]) -> str | None:
+		client_id = event.get("client_id")
+		if not isinstance(client_id, str) or not client_id:
 			if self.args.debug:
 				logger.warning(f"Bad player_left event client_id: {event}")
-			return
-		self.remove_player(pid_raw, remove_local=False)
+			return None
+		self.remove_player(client_id, remove_local=False)
 		event["handled"] = True
 		event["handledby"] = "gamestate._on_player_left"
+		if self.args.debug:
+			logger.info(f"Player left: {client_id}")
+		return client_id
 
-	def _on_acknewplayer(self, event: dict) -> None:
+	def _on_acknewplayer(self, event: dict) -> str:
 		# Mark client as ready upon ack from server
 		self._ready = True
 		event["handled"] = True
 		# Optionally ensure local player is present
-		pid = event.get("client_id")
-		if isinstance(pid, str) and pid not in self.playerlist:
-			self.playerlist[pid] = PlayerState(client_id=pid, position=(100, 100), health=DEFAULT_HEALTH, initial_bombs=3, score=0)  # type: ignore
+		client_id = event.get("client_id")
+		if isinstance(client_id, str) and client_id not in self.playerlist:
+			self.playerlist[client_id] = PlayerState(client_id=client_id, position=(100, 100), health=DEFAULT_HEALTH, initial_bombs=3, score=0)  # type: ignore
+		return str(client_id)
 
-	async def _on_connection_event(self, event: dict) -> None:
+	async def _on_connection_event(self, event: dict) -> str:
 		# Treat connection_event similarly to ack for clients
 		self._ready = True
 		event["handled"] = True
-		pid = event.get("client_id")
+		client_id = event.get("client_id")
 		pos = self._to_pos_tuple(event.get("position", (100, 100)))
-		name_raw = event.get("client_name")
-		client_name = name_raw if isinstance(name_raw, str) and name_raw else 'client_namenotset'
-		if isinstance(pid, str) and pid not in self.playerlist:
-			self.playerlist[pid] = PlayerState(client_id=pid, client_name=client_name, position=pos, health=DEFAULT_HEALTH, initial_bombs=3, score=0)  # type: ignore
-		elif isinstance(pid, str):
+		client_name = event.get("client_name", "client_namenotset")
+		if isinstance(client_id, str) and client_id not in self.playerlist:
+			self.playerlist[client_id] = PlayerState(client_id=client_id, client_name=client_name, position=pos, health=DEFAULT_HEALTH, initial_bombs=3, score=0)  # type: ignore
+		elif isinstance(client_id, str):
 			# If we already have a player entry, only set name if it's missing/unset.
-			existing = self.playerlist.get(pid)
+			existing = self.playerlist.get(client_id)
 			ps = self.ensure_player_state(existing)
 			if getattr(ps, 'client_name', 'client_namenotset') in ('', 'client_namenotset') and client_name != 'client_namenotset':
 				ps.client_name = client_name
-			self.playerlist[pid] = ps
+			self.playerlist[client_id] = ps
 		# Broadcast ack to the client
 		ack_event = {
 			"event_type": "acknewplayer",
-			"client_id": pid,
+			"client_id": client_id,
 			"event": event
 		}
 		await self.broadcast_event(ack_event)
+		return str(client_id)
 
-	def _on_map_info(self, event: dict) -> None:
+	def _on_map_info(self, event: dict) -> bool:
 		mods = event.get("modified_tiles") or {}
 		self._apply_modifications_dict(mods)
+		return True
 
-	def _on_map_update(self, event: dict[str, Any]) -> None:
+	def _on_map_update(self, event: dict[str, Any]) -> bool:
 		pos_tuple = self._to_pos_tuple(event.get("position"))
 		new_gid = event.get("new_gid")
 		if not isinstance(new_gid, int):
 			logger.warning(f"Bad map_update event (new_gid): {event}")
-			return
+			return False
 		# If the map isn't fully loaded yet, skip applying.
 		if not hasattr(self, "tile_map"):
 			if self.args.debug:
 				logger.warning(f"{self} Skipping _on_map_update: tile_map not ready. event: {event}")
-			return
-		# if not hasattr(self, "static_map_surface"):
-		# 	if self.args.debug:
-		# 		logger.warning(f"{self} Skipping _on_map_update: static_map_surface not ready. event: {event}")
-		# 	# return
+			return False
 
 		# Map updates are expressed in tile coords (x, y)
 		x, y = pos_tuple
@@ -665,29 +665,33 @@ class GameState:
 					logger.debug(f"{self} Skipping _on_map_update broadcast: not server.. self.client_id: {self.client_id}")
 		except RuntimeError as e:
 			logger.error(f"RuntimeError in _on_map_update: {e} {type(e)}")
+		return True
 
-	def _on_bullet_fired(self, event: dict) -> None:
+	def _on_bullet_fired(self, event: dict) -> bool:
 		# De-dupe bullet events so we don't spawn multiple bullets from repeated broadcasts.
 		bid = event.get("eventid") or event.get("event_id")
 		client_id = event.get("client_id")
-		player_one = self.get_playerone()
-
-		if player_one.killed or player_one.health <= 0:
-			# Dead players can't fire bullets
-			if self.args.debug:
-				logger.debug(f"Player {player_one} tried to fire bullet but is killed.")
-			return
 
 		if bid:
 			if bid in self.processed_bullets:
 				if self.args.debug:
-					logger.debug(f"Duplicate {event.get('event_type')} event ignored: {event}")
-				return
+					logger.warning(f"Duplicate {event.get('event_type')} event ignored: {event}")
+				return False
 			self.processed_bullets.add(bid)
 
 		if not isinstance(client_id, str):
-			logger.debug(f"Bad {event.get('event_type')} event client_id: {event}")
-			return
+			logger.warning(f"Bad {event.get('event_type')} event client_id: {event}")
+			return False
+
+		# Gate firing by the shooter's authoritative state (NOT the local player).
+		shooter_entry = self.playerlist.get(client_id)
+		if shooter_entry is not None:
+			shooter_state = self.ensure_player_state(shooter_entry)
+			dead = bool(getattr(shooter_state, 'killed', False)) or int(getattr(shooter_state, 'health', 0) or 0) <= 0
+			if dead:
+				if self.args.debug:
+					logger.debug(f"Shooter {client_id} is dead, ignoring bullet event")
+				return False
 
 		pos_tuple = self._to_pos_tuple(event.get("position"))
 		dir_raw = event.get("direction")
@@ -702,33 +706,28 @@ class GameState:
 
 		# Bullet stores screen_rect but doesn't currently use it for update; provide a sane default.
 		screen_rect = pygame.Rect(0, 0, 0, 0)
-		if player_one:
-			try:
-				screen_rect = player_one.rect
-			except Exception as e:
-				logger.error(f'Error getting playerone for screen_rect: {e} {type(e)}')
+		try:
+			bullet = Bullet(position=pos_tuple, direction=direction, screen_rect=screen_rect, owner_id=client_id)
+			self.bullets.add(bullet)
+		except Exception as e:
+			logger.error(f"Failed to create bullet from event: {e} event:{event}")
+			return False
 
-			try:
-				bullet = Bullet(position=pos_tuple, direction=direction, screen_rect=screen_rect, owner_id=client_id)
-				self.bullets.add(bullet)
-			except Exception as e:
-				logger.error(f"Failed to create bullet from event: {e} event:{event}")
-				return
+		event["handled"] = True
+		event["handledby"] = "gamestate._on_bullet_fired"
+		# Server should rebroadcast bullet events so other clients can spawn the bullet.
+		try:
+			if self.client_id == "theserver":
+				asyncio.create_task(self.broadcast_event(event))
+		except RuntimeError as e:
+			logger.error(f"RuntimeError in _on_bullet_fired: {e} {type(e)}")
+		return True
 
-			event["handled"] = True
-			event["handledby"] = "gamestate._on_bullet_fired"
-			# Server should rebroadcast bullet events so other clients can spawn the bullet.
-			try:
-				if self.client_id == "theserver":
-					asyncio.create_task(self.broadcast_event(event))
-			except RuntimeError as e:
-				logger.error(f"RuntimeError in _on_bullet_fired: {e} {type(e)}")
-
-	def _on_player_drop_bomb(self, event: dict[str, Any]) -> None:
+	def _on_player_drop_bomb(self, event: dict[str, Any]) -> bool:
 		pid_raw = event.get("client_id")
 		if not isinstance(pid_raw, str):
 			logger.debug(f"Bad player_drop_bomb event client_id: {event}")
-			return
+			return False
 		pos = self._to_pos_tuple(event.get("position"))
 		bombs_left = event.get("bombs_left")
 		if isinstance(bombs_left, int):
@@ -752,7 +751,7 @@ class GameState:
 			self.bombs.add(bomb)
 		except Exception as e:
 			logger.error(f"Failed to create bomb from event: {e} event:{event}")
-			return
+			return False
 
 		event["handled"] = True
 		event["handledby"] = "gamestate._on_player_drop_bomb"
@@ -761,13 +760,14 @@ class GameState:
 				asyncio.create_task(self.broadcast_event(event))
 		except RuntimeError as e:
 			logger.error(f"RuntimeError in _on_player_drop_bomb: {e} {type(e)}")
+		return True
 
-	def _on_bomb_exploded(self, event: dict[str, Any]) -> None:
+	def _on_bomb_exploded(self, event: dict[str, Any]) -> bool:
 		# De-dupe explosions so the originating client doesn't double-credit bombs_left
 		explosion_id = event.get("event_id") or event.get("eventid")
 		# if isinstance(explosion_id, str):
 		if explosion_id in self.processed_explosions:
-			return
+			return False
 		self.processed_explosions.add(explosion_id)
 
 		owner_raw = event.get("owner_id") or event.get("client_id")
@@ -806,31 +806,34 @@ class GameState:
 				asyncio.create_task(self.broadcast_event(event))
 		except RuntimeError as e:
 			logger.error(f"RuntimeError in _on_bomb_exploded: {e} {type(e)}")
+		return True
 
-	def _on_noop_event(self, event: dict[str, Any]) -> None:
+	def _on_noop_event(self, event: dict[str, Any]) -> bool:
 		# Intentionally ignore (used for client-side feedback events)
 		event["handled"] = True
 		event["handledby"] = "gamestate._on_noop_event"
+		return True
 
-	def _on_tile_changed(self, event: dict) -> None:
+	def _on_tile_changed(self, event: dict) -> bool:
 		pos_key = event.get("pos")
 		gid = event.get("gid")
 		if not isinstance(gid, int):
-			logger.debug(f"Bad tile_changed event (gid): {event}")
-			return
+			logger.warning(f"Bad tile_changed event (gid): {event}")
+			return False
 		pos = self._parse_pos_key(pos_key)
 		if not isinstance(pos, tuple) or len(pos) != 2:
-			logger.debug(f"Bad tile_changed event (pos): {event}")
-			return
+			logger.warning(f"Bad tile_changed event (pos): {event}")
+			return False
 		x, y = pos
 		self._apply_tile_change(x, y, gid)
+		return True
 
-	def _on_player_update(self, event: dict[str, Any]) -> None:
+	def _on_player_update(self, event: dict[str, Any]) -> bool:
 		# Normalize and update remote/local player state then broadcast
 		pid_raw = event.get("client_id")
 		if not isinstance(pid_raw, str):
-			logger.debug(f"Bad player_update event client_id: {event}")
-			return
+			logger.warning(f"Bad player_update event client_id: {event}")
+			return False
 		pid = pid_raw
 		pos_tuple = self._to_pos_tuple(event.get("position"))
 
@@ -902,19 +905,19 @@ class GameState:
 		except RuntimeError as e:
 			# No running loop (e.g., during tests); skip scheduling
 			logger.error(f"RuntimeError in _on_player_update: {e} {type(e)}")
+		return True
 
-	def _on_player_hit(self, event: dict) -> None:
+	def _on_player_hit(self, event: dict) -> bool:
 		# event: {'event_time': 1766419642.6163907, 'event_type': 'player_hit', 'client_id': 'CrankyBomber172', 'target_id': 'SquishyNuke709', 'damage': 10, 'position': [78.0, 338.0], 'handled': False, 'handledby': 'check_bullet_collisions', 'eventid': 'JitteryBlast784'}
 		# De-dupe by event id when available
 		hit_id = event.get('eventid') or event.get('event_id')
 		if hit_id is not None and hit_id in self.processed_hits:
-			return
+			return False
 
 		if event.get('handled'):
 			if self.args.debug:
-				logger.debug(f"Skipping already handled player_hit event: {event}")
-			return
-
+				logger.warning(f"Skipping already handled player_hit event: {event}")
+			return False
 		# If this is the authoritative server, restrict who can report a hit.
 		# In the current client simulation, only the *victim* reliably has collision geometry
 		# (clients typically only have their own sprite in players_sprites), so accept reports
@@ -931,19 +934,21 @@ class GameState:
 					allowed_reporters.add(target_id)
 				if reported_by not in allowed_reporters:
 					if self.args.debug:
-						logger.debug(
-							f"Ignoring player_hit reported_by={reported_by} shooter={shooter} target={target_id}: {event}"
-						)
-					return
+						logger.warning(f"Ignoring player_hit reported_by={reported_by} shooter={shooter} target={target_id}: {event}")
+					return False
 		target = event.get("target_id")
 		if not isinstance(target, str):
 			logger.warning(f"Bad player_hit event target_id: {event}")
-			return
+			return False
 		target_player_entry = self.playerlist.get(target)
 		if target_player_entry is None:
 			logger.warning(f"player_hit for unknown target {target}: {event}")
-			return
-		old_health = getattr(target_player_entry, "health", None)
+			return False
+		if target_player_entry.health <= 0 or target_player_entry.killed:
+			if self.args.debug_gamestate:
+				logger.info(f"target_player_entry:{target_player_entry} is already dead")
+			return False
+		old_health = target_player_entry.health
 		# Keep event_type as 'player_hit' so receivers handle it consistently.
 		event["handledby"] = "gamestate._on_player_hit"
 		damage = event.get('damage', 0)
@@ -958,13 +963,11 @@ class GameState:
 				target_player_entry.take_damage(damage, attacker_id=event.get("client_id"))
 		except Exception as e:
 			logger.error(f"Failed applying damage in _on_player_hit: {e} {type(e)} event: {event}")
-			return
+			return False
 		self.playerlist[target] = target_player_entry
 		# If we are the target, also sync the local sprite so HUD/debug reflects correct health.
 		if isinstance(target_player_entry, PlayerState):
 			self._sync_local_sprite_from_state(target_player_entry)
-		logger.debug(f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} for {damage} damage at {event.get('position')} health: {old_health} -> {getattr(target_player_entry, 'health', None)}")
-		# logger.info(f"player_entry: {target_player_entry}\nself.playerlist[owner_raw]: {self.playerlist[target]} ")
 
 		# Mark handled locally so we don't reapply if this event loops back.
 		event['handled'] = True
@@ -984,6 +987,9 @@ class GameState:
 		except RuntimeError as e:
 			# No running loop (e.g., during tests); skip scheduling
 			logger.error(f"RuntimeError in _on_player_hit: {e} {type(e)}")
+		logger.debug(f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} for {damage} damage at {event.get('position')} health: {old_health} -> {getattr(target_player_entry, 'health', None)} self.processed_hits: {len(self.processed_hits)}")
+		return True
 
-	def _on_unknown_event(self, event: dict) -> None:
+	def _on_unknown_event(self, event: dict) -> bool:
 		logger.warning(f"Unknown event_type: {event.get('event_type')} event: {event}")
+		return False

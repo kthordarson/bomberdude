@@ -48,6 +48,7 @@ class Bomberplayer(Sprite):
 	client_name: str = 'Noname'
 	position: Vec2d = field(default_factory=lambda: Vec2d(99, 99))
 	health: int = 100
+	killed: bool = False
 	# name: str = 'xnonex'
 
 	def __post_init__(self):
