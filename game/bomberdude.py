@@ -57,6 +57,24 @@ class Bomberdude():
 	def connected(self):
 		return self._connected
 
+	async def disconnect(self, *, return_to_menu: bool = True) -> None:
+		"""Disconnect from server and stop the in-game loop without quitting the app."""
+		self._connected = False
+		self.running = False
+		self.return_to_menu = return_to_menu
+		try:
+			if hasattr(self, "sock") and self.sock:
+				try:
+					self.sock.shutdown(socket.SHUT_RDWR)
+				except Exception:
+					pass
+				try:
+					self.sock.close()
+				except Exception:
+					pass
+		except Exception as e:
+			logger.error(f"disconnect error: {e} {type(e)}")
+
 	async def connect(self):
 		self.sock.setblocking(False)
 		logger.info(f'connecting to server... event_queue: {self.client_game_state.event_queue.qsize()} ')
@@ -353,10 +371,11 @@ class Bomberdude():
 		elif key == pygame.K_F7:
 			pygame.display.toggle_fullscreen()
 		elif key in (pygame.K_ESCAPE, pygame.K_q, 27):
-			self._connected = False
-			self.running = False
-			logger.info("quit")
-			pygame.event.post(pygame.event.Event(pygame.QUIT))
+			await self.disconnect(return_to_menu=True)
+			# self._connected = False
+			# self.running = False
+			logger.info("quit to main menu")
+			# pygame.event.post(pygame.event.Event(pygame.QUIT))
 			return
 
 		if player_one.killed or player_one.health <= 0:

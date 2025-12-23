@@ -83,6 +83,10 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 		if success:
 			mainmenu.server_running = True
 			logger.info("Server started and ready. You can now connect.")
+		# The game recreates the display surface; refresh the menu to use the new surface.
+		mainmenu.screen = pygame.display.get_surface()
+		mainmenu.setup_panel.screen = mainmenu.screen
+		mainmenu.discovery_panel.screen = mainmenu.screen
 		return True
 
 	if action == "Stop Server":
@@ -243,6 +247,11 @@ async def start_game(args: argparse.Namespace):
 		sender_task.cancel()
 		receive_task.cancel()
 		await asyncio.gather(sender_task, receive_task, return_exceptions=True)
+		# Ensure socket is closed so server sees a clean disconnect
+		try:
+			await bomberdude_main.disconnect(return_to_menu=True)
+		except Exception as e:
+			logger.error(f"Error during disconnect: {e} {type(e)}")
 	# pygame.display.quit()
 	# pygame.quit()
 
