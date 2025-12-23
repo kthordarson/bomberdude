@@ -2,6 +2,57 @@ import struct
 import random
 import pygame
 
+_RAW_IMAGE_CACHE: dict[str, pygame.Surface] = {}
+_PROCESSED_IMAGE_CACHE: dict[tuple[str, float, str], pygame.Surface] = {}
+
+
+def load_image_cached(path: str) -> pygame.Surface:
+	"""Load an image from disk once and reuse the same Surface.
+
+	Returns the raw, unconverted Surface (safe even when no video mode is set).
+	"""
+	surf = _RAW_IMAGE_CACHE.get(path)
+	if surf is None:
+		surf = pygame.image.load(path)
+		_RAW_IMAGE_CACHE[path] = surf
+	return surf
+
+
+def get_cached_image(path: str, *, scale: float = 1.0, convert: bool = True) -> pygame.Surface:
+	"""Get a cached image Surface.
+
+	- `convert=True` will use `convert()` / `convert_alpha()` when a display surface exists.
+	- If no video mode is set yet, conversion is skipped automatically.
+	- `scale` caches scaled surfaces keyed by (path, scale, mode).
+	"""
+	mode = "raw"
+	base = load_image_cached(path)
+	if convert and pygame.display.get_init() and pygame.display.get_surface() is not None:
+		mode = "alpha" if base.get_alpha() else "opaque"
+	key = (path, float(scale), mode)
+	cached = _PROCESSED_IMAGE_CACHE.get(key)
+	if cached is not None:
+		return cached
+
+	# Convert only when safe.
+	processed = base
+	if mode == "alpha":
+		processed = base.convert_alpha()
+	elif mode == "opaque":
+		processed = base.convert()
+
+	if scale != 1.0:
+		processed = pygame.transform.scale(
+			processed,
+			(
+				int(processed.get_width() * scale),
+				int(processed.get_height() * scale),
+			),
+		)
+
+	_PROCESSED_IMAGE_CACHE[key] = processed
+	return processed
+
 def gen_randid() -> int:
 	return int(''.join([str(random.randint(0,9)) for k in range(10)]))
 

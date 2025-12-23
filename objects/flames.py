@@ -5,12 +5,13 @@ from pygame.sprite import Sprite
 import pygame
 from constants import FLAME_SPEED, BLOCK
 import math
+from utils import load_image_cached
 
 class Flame(Sprite):
 	def __init__(self, position, direction, client_id, size=1, power=3):
 		super().__init__()
 		self.client_id = client_id
-		self.original_image = pygame.image.load('data/flameball.png')
+		self.original_image = load_image_cached('data/flameball.png')
 		self.size = size
 		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
 		self.rect = self.image.get_rect()

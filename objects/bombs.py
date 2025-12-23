@@ -3,15 +3,15 @@ import time
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 import pygame
-from utils import gen_randid
-from constants import BLOCK, BOMB_SCALING
+from utils import gen_randid, get_cached_image
+from constants import BLOCK
 
 class Bomb(Sprite):
 	def __init__(self, position, client_id, power=3, speed=10, timer=4, bomb_size=(10,10)):
 		super().__init__()
 		self.client_id = client_id
 		# self.image = pygame.Surface(bomb_size)
-		self.image = pygame.image.load('data/bomb5.png')
+		self.image = get_cached_image('data/bomb5.png', convert=True)
 		self.rect = self.image.get_rect()
 		# self.position = Vec2d(position)
 		self.timer = timer

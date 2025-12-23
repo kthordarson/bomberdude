@@ -5,7 +5,7 @@ from pygame.sprite import Sprite
 import json
 import pygame
 import time
-from utils import gen_randid, generate_name
+from utils import gen_randid, generate_name, get_cached_image
 from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK
 from .bullets import Bullet
 
@@ -71,13 +71,14 @@ class Bomberplayer(Sprite):
 			logger.info(f'Server player image loaded without conversion. {self.client_name=} {self.client_id=}')
 
 	def _set_texture(self, texture_path: str) -> None:
-		loaded_image = pygame.image.load(texture_path)
+		# Cache disk loads globally; convert/scale only when a display surface exists.
 		if self.client_id == 'theserver':
-			self.original_image = loaded_image
-			self.image = loaded_image
+			surf = get_cached_image(texture_path, scale=1.0, convert=False)
+			self.original_image = surf
+			self.image = surf
 			return
-		self.original_image = loaded_image.convert_alpha() if loaded_image.get_alpha() else loaded_image.convert()
-		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.scale), int(self.original_image.get_height() * self.scale)),)
+		self.original_image = get_cached_image(texture_path, scale=1.0, convert=True)
+		self.image = get_cached_image(texture_path, scale=float(self.scale), convert=True)
 
 	def set_dead(self, dead: bool) -> None:
 		"""Swap sprite image based on health/killed state."""
