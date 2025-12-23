@@ -217,7 +217,7 @@ class GameState:
 		if connection in self.connections:
 			self.connections.remove(connection)
 			if self.args.debug:
-				logger.info(f"Connection {connection} removed. Total connections: {len(self.connections)}")
+				logger.info(f"Connection removed. Total connections: {len(self.connections)}")
 
 	async def broadcast_event(self, event):
 		# Only broadcast player_update events at a reduced rate
