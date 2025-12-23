@@ -62,6 +62,10 @@ class Bomberdude():
         self.trail_radius = 100      # Radius of trail visibility (smaller than main)
         self.max_trail_points = 100  # Limit trail length for performance
 
+        # Fog-of-war caching: only recompute when inputs change.
+        self._fog_last_center: tuple[int, int] | None = None
+        self._fog_last_radius: int | None = None
+
     def __repr__(self):
         return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} {self.connected()})"
 
@@ -498,13 +502,14 @@ class Bomberdude():
             self._fog_size = (screen_width, screen_height)
             self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
             self._visibility_mask = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
-
-        # Fill with semi-transparent black
-        self.fog_surface.fill((0, 0, 0, 250))
-        # Reset mask to fully opaque black
-        self._visibility_mask.fill((0, 0, 0, 255))
+            # Force a refresh after resize/recreate.
+            self._fog_last_center = None
+            self._fog_last_radius = None
 
         player_one = self.client_game_state.get_playerone()
+        if not player_one:
+            return
+
         # Convert world to screen without extra allocations/calls
         map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
         map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
@@ -515,8 +520,20 @@ class Bomberdude():
         screen_x = int(player_one.position.x - camera_x)
         screen_y = int(player_one.position.y - camera_y)
 
-        pygame.draw.circle(self._visibility_mask, (0, 0, 0, 0), (screen_x, screen_y), self.fog_radius)
-        self.fog_surface.blit(self._visibility_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        # Only recompute the composed fog overlay when the reveal center or radius changed.
+        # This avoids two large Surface fills + a circle draw every frame.
+        center = (screen_x, screen_y)
+        radius = int(self.fog_radius)
+        if center != self._fog_last_center or radius != self._fog_last_radius:
+            # Fill with semi-transparent black
+            self.fog_surface.fill((0, 0, 0, 250))
+            # Reset mask to fully opaque black
+            self._visibility_mask.fill((0, 0, 0, 255))
+            pygame.draw.circle(self._visibility_mask, (0, 0, 0, 0), center, radius)
+            self.fog_surface.blit(self._visibility_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            self._fog_last_center = center
+            self._fog_last_radius = radius
+
         self.screen.blit(self.fog_surface, (0, 0))
 
     def camera_apply_pos(self, world_pos):
