@@ -4,7 +4,31 @@ import argparse
 import socket
 import json
 import pygame
+from collections import OrderedDict
 from loguru import logger
+
+
+# Global text render cache to avoid repeated Font.render() work every frame.
+# Keyed by (font_id, text, antialias, color, background).
+_TEXT_CACHE_MAX = 512
+_TEXT_CACHE: "OrderedDict[tuple[int, str, bool, tuple[int, int, int, int] | tuple[int, int, int], tuple[int, int, int, int] | tuple[int, int, int] | None], pygame.Surface]" = OrderedDict()
+
+
+def _render_text_cached(font: pygame.font.Font, text: str, antialias: bool, color, background=None) -> pygame.Surface:
+    key = (id(font), text, bool(antialias), tuple(color), tuple(background) if background is not None else None)
+    surf = _TEXT_CACHE.get(key)
+    if surf is not None:
+        # LRU refresh
+        _TEXT_CACHE.move_to_end(key)
+        return surf
+    # Render and insert
+    surf = font.render(text, antialias, color, background)
+    _TEXT_CACHE[key] = surf
+    _TEXT_CACHE.move_to_end(key)
+    # Trim
+    while len(_TEXT_CACHE) > _TEXT_CACHE_MAX:
+        _TEXT_CACHE.popitem(last=False)
+    return surf
 
 class MainMenu:
     def __init__(self, screen, args: argparse.Namespace):
@@ -34,7 +58,7 @@ class MainMenu:
             if option == "Start" and self.server_running:
                 option = "Start (Server Running)"
 
-            text = self.font.render(option, True, color)
+            text = _render_text_cached(self.font, option, True, color)
             rect = text.get_rect(center=(self.screen.get_width() // 2, 150 + i * 50))
             self.screen.blit(text, rect)
             self.option_rects.append(rect)
@@ -112,7 +136,7 @@ class SetupMenu:
         self.option_rects = []
         for i, option in enumerate(self.options):
             color = (255, 0, 0) if i == self.selected_option else (255, 255, 255)
-            text = self.font.render(option, True, color)
+            text = _render_text_cached(self.font, option, True, color)
             rect = text.get_rect(center=(self.screen.get_width() // 2, 150 + i * 50))
             self.screen.blit(text, rect)
             self.option_rects.append(rect)
@@ -183,6 +207,7 @@ class ServerDiscoveryPanel():
         self.last_discovery = 0
         self.discovery_interval = 2.0  # seconds between broadcasts
         self.font = pygame.font.Font(None, 26)
+        self.title_font = pygame.font.Font(None, 36)
         self._task: asyncio.Task | None = None
 
     async def discover_servers(self):
@@ -296,17 +321,16 @@ class ServerDiscoveryPanel():
             self.rect = pygame.Rect(0, 0, surface.get_width(), surface.get_height())
             surface.fill((30, 30, 30), self.rect)
             # Draw title
-            font = pygame.font.Font(None, 36)
-            title = font.render("Find Local Servers", True, (255, 255, 255))
+            title = _render_text_cached(self.title_font, "Find Local Servers", True, (255, 255, 255))
             surface.blit(title, (self.rect.centerx - title.get_width()//2, 20))
 
-            hint = self.font.render("Click a server to select, ESC/Q to go back", True, (200, 200, 200))
+            hint = _render_text_cached(self.font, "Click a server to select, ESC/Q to go back", True, (200, 200, 200))
             surface.blit(hint, (self.rect.centerx - hint.get_width()//2, 70))
 
             self.server_rows = []
             y = 120
             if not self.servers:
-                none_text = self.font.render("No servers found yet...", True, (255, 255, 255))
+                none_text = _render_text_cached(self.font, "No servers found yet...", True, (255, 255, 255))
                 surface.blit(none_text, (self.rect.centerx - none_text.get_width()//2, y))
                 return
 
@@ -315,7 +339,7 @@ class ServerDiscoveryPanel():
                 players = info.get('players', '?')
                 m = info.get('map', '')
                 info_string = f"{name} ({addr}) - {players} players - {m}"
-                text = self.font.render(info_string, True, (255, 255, 255))
+                text = _render_text_cached(self.font, info_string, True, (255, 255, 255))
                 rect = text.get_rect(center=(self.rect.centerx, y))
                 # Expand to a click target
                 click_rect = pygame.Rect(rect.left - 10, rect.top - 6, rect.width + 20, rect.height + 12)
@@ -369,13 +393,16 @@ class PlayerInfoPanel:
         # Create a semi-transparent surface for the background
         self.surface = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
 
+        # Cache per-player rendered text (only update when values change)
+        self._player_text_cache: dict[str, tuple[tuple[str, int, int, int], pygame.Surface, pygame.Surface, pygame.Surface, pygame.Surface]] = {}
+
     def draw(self):
         """Draw the player info panel"""
         # Clear the surface with semi-transparent background
         self.surface.fill(self.bg_color)
 
         # Draw panel title
-        title = self.title_font.render("PLAYERS", True, (255, 255, 255))
+        title = _render_text_cached(self.title_font, "PLAYERS", True, (255, 255, 255))
         title_rect = title.get_rect(midtop=(self.rect.width // 2, 5))
         self.surface.blit(title, title_rect)
 
@@ -385,10 +412,10 @@ class PlayerInfoPanel:
         # Get all players to display
         players = list(self.game_state.playerlist.values())
         local_player = self.game_state.get_playerone()
-
-        client_name = self.title_font.render(f"{local_player.client_name}", True, (255, 255, 255))
-        client_name_rect = client_name.get_rect(midtop=(self.rect.width // 3, 5))
-        self.surface.blit(client_name, client_name_rect)
+        if local_player:
+            name_text = _render_text_cached(self.title_font, f"{local_player.client_name}", True, (255, 255, 255))
+            name_rect = name_text.get_rect(midtop=(self.rect.width // 3, 5))
+            self.surface.blit(name_text, name_rect)
 
         # Calculate how many player cards can fit in a row
         cards_per_row = max(1, (self.rect.width - 20) // (self.card_width + self.card_spacing))
@@ -429,20 +456,31 @@ class PlayerInfoPanel:
         pygame.draw.rect(self.surface, color, card_rect, width=2, border_radius=5)
 
         # Get player attributes (safely)
-        client_name = getattr(player, 'client_name', 'unknown')
-
-        health = getattr(player, 'health', 0)
         if isinstance(player, dict):
-            health = player.get('health', 0)
-            score = player.get('score', 0)
-            bombs_left = player.get('bombs_left', 0)
+            player_id = str(player.get('client_id', 'unknown'))
+            client_name = str(player.get('client_name', 'unknown'))
+            health = int(player.get('health', 0) or 0)
+            score = int(player.get('score', 0) or 0)
+            bombs_left = int(player.get('bombs_left', 0) or 0)
         else:
-            health = getattr(player, 'health', 0)
-            score = getattr(player, 'score', 0)
-            bombs_left = getattr(player, 'bombs_left', 0)
+            player_id = str(getattr(player, 'client_id', 'unknown'))
+            client_name = str(getattr(player, 'client_name', 'unknown'))
+            health = int(getattr(player, 'health', 0) or 0)
+            score = int(getattr(player, 'score', 0) or 0)
+            bombs_left = int(getattr(player, 'bombs_left', 0) or 0)
+
+        cache_key = (client_name, health, score, bombs_left)
+        cached = self._player_text_cache.get(player_id)
+        if cached is None or cached[0] != cache_key:
+            id_text = _render_text_cached(self.player_font, f"Player: {client_name}", True, (255, 255, 255))
+            health_text = _render_text_cached(self.stats_font, f"HP: {health}", True, (255, 255, 255))
+            score_text = _render_text_cached(self.stats_font, f"Score: {score}", True, (255, 255, 255))
+            bombs_text = _render_text_cached(self.stats_font, f"Bombs: {bombs_left}", True, (255, 255, 255))
+            self._player_text_cache[player_id] = (cache_key, id_text, health_text, score_text, bombs_text)
+        else:
+            _, id_text, health_text, score_text, bombs_text = cached
 
         # Draw player ID
-        id_text = self.player_font.render(f"Player: {client_name}", True, (255, 255, 255))
         self.surface.blit(id_text, (x + 10, y + 5))
 
         # Draw health bar
@@ -458,15 +496,14 @@ class PlayerInfoPanel:
             pygame.draw.rect(self.surface, self.health_fg, health_fill_rect)
 
         # Draw health text on top of the bar
-        health_text = self.stats_font.render(f"HP: {health}", True, (255, 255, 255))
         health_text_rect = health_text.get_rect(center=health_bar_rect.center)
         self.surface.blit(health_text, health_text_rect)
 
         # Draw score and bombs
-        score_text = self.stats_font.render(f"Score: {score}", True, (255, 255, 255))
+        # score_text cached above
         # self.surface.blit(score_text, (x + 10, y + 47))
 
-        bombs_text = self.stats_font.render(f"Bombs: {bombs_left}", True, (255, 255, 255))
+        # bombs_text cached above
         # self.surface.blit(bombs_text, (x + 10, y + 67))
         # Position score on the left and bombs on the right of the same line
         self.surface.blit(score_text, (x + 10, y + 47))
