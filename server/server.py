@@ -155,7 +155,7 @@ class BombServer:
 					last_broadcast = time.time()
 				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError as e:
-			logger.warning(f"Ticker broadcast task cancelled: {e}")
+			logger.info(f"Ticker broadcast task cancelled {e}")
 		except Exception as e:
 			logger.error(f"Error in ticker broadcast: {e} {type(e)}")
 
