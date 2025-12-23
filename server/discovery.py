@@ -36,10 +36,7 @@ class ServerDiscovery:
 
         # IMPORTANT for LAN: bind to all interfaces by default.
         # If you bind to 127.0.0.1 you will not receive LAN broadcasts.
-        bind_host = self.bombserver.args.listen
-        if bind_host in ("127.0.0.1", "localhost", None, ""):
-            bind_host = "0.0.0.0"
-
+        bind_host = "0.0.0.0"
         sock.bind((bind_host, self.discovery_port))
         logger.info(f"Server discovery listening on {bind_host}:{self.discovery_port}")
 
