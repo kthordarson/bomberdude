@@ -104,6 +104,10 @@ class GameState:
 						sprite.score = state.score
 					if hasattr(sprite, "bombs_left"):
 						sprite.bombs_left = state.bombs_left
+					# Ensure the sprite image reflects killed/dead state.
+					dead = bool(getattr(state, 'killed', False)) or int(getattr(state, 'health', 0) or 0) <= 0
+					if hasattr(sprite, "set_dead"):
+						sprite.set_dead(dead)
 					break
 		except Exception as e:
 			logger.error(f"Error syncing local sprite from state: {e} {type(e)}")
@@ -533,8 +537,7 @@ class GameState:
 			"player_left": self._on_player_left,
 			"map_info": self._on_map_info,
 			"map_update": self._on_map_update,
-			"bullet_fired": self._on_bullet_fired,
-			"bulletfired": self._on_bullet_fired,
+			"on_bullet_fired": self._on_bullet_fired,
 			"tile_changed": self._on_tile_changed,
 			"acknewplayer": self._on_acknewplayer,
 			"connection_event": self._on_connection_event,  # async
@@ -666,14 +669,24 @@ class GameState:
 	def _on_bullet_fired(self, event: dict) -> None:
 		# De-dupe bullet events so we don't spawn multiple bullets from repeated broadcasts.
 		bid = event.get("eventid") or event.get("event_id")
-		if bid is not None:
+		client_id = event.get("client_id")
+		player_one = self.get_playerone()
+
+		if player_one.killed or player_one.health <= 0:
+			# Dead players can't fire bullets
+			if self.args.debug:
+				logger.debug(f"Player {player_one} tried to fire bullet but is killed.")
+			return
+
+		if bid:
 			if bid in self.processed_bullets:
+				if self.args.debug:
+					logger.debug(f"Duplicate {event.get('event_type')} event ignored: {event}")
 				return
 			self.processed_bullets.add(bid)
 
-		pid_raw = event.get("client_id")
-		if not isinstance(pid_raw, str):
-			logger.debug(f"Bad bullet_fired event client_id: {event}")
+		if not isinstance(client_id, str):
+			logger.debug(f"Bad {event.get('event_type')} event client_id: {event}")
 			return
 
 		pos_tuple = self._to_pos_tuple(event.get("position"))
@@ -689,15 +702,14 @@ class GameState:
 
 		# Bullet stores screen_rect but doesn't currently use it for update; provide a sane default.
 		screen_rect = pygame.Rect(0, 0, 0, 0)
-		player_sprite = self.get_playerone()
-		if player_sprite:
+		if player_one:
 			try:
-				screen_rect = player_sprite.rect
+				screen_rect = player_one.rect
 			except Exception as e:
 				logger.error(f'Error getting playerone for screen_rect: {e} {type(e)}')
 
 			try:
-				bullet = Bullet(position=pos_tuple, direction=direction, screen_rect=screen_rect, owner_id=pid_raw)
+				bullet = Bullet(position=pos_tuple, direction=direction, screen_rect=screen_rect, owner_id=client_id)
 				self.bullets.add(bullet)
 			except Exception as e:
 				logger.error(f"Failed to create bullet from event: {e} event:{event}")

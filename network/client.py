@@ -7,7 +7,7 @@ from constants import UPDATE_TICK
 from game.bomberdude import Bomberdude
 
 async def send_game_state(game: Bomberdude) -> None:
-	logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
+	logger.info(f'event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
 	while True:
 		try:
 			game_event = await game.client_game_state.event_queue.get()
@@ -53,6 +53,7 @@ async def send_game_state(game: Bomberdude) -> None:
 			await asyncio.sleep(1 / UPDATE_TICK)
 
 async def receive_game_state(game: Bomberdude) -> None:
+	logger.info(f'event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
 	buffer = ""
 	while True:
 		try:

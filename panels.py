@@ -82,7 +82,7 @@ class MainMenu:
         elif current_option == "Quit":
             self.running = False
             return 'Quit'
-        return None
+        return 'None'
 
     def run(self):
         while self.running:

@@ -37,9 +37,7 @@ async def _process_pygame_events(bomberdude_main: Bomberdude) -> None:
 		elif event.type == pygame.KEYUP:
 			await bomberdude_main.handle_on_key_release(event.key)
 		elif event.type == pygame.MOUSEBUTTONDOWN:
-			asyncio.create_task(
-				bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button)
-			)
+			asyncio.create_task(bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button))
 
 
 async def _run_frame(bomberdude_main: Bomberdude) -> bool:
@@ -249,7 +247,7 @@ async def start_game(args: argparse.Namespace):
 
 async def main(args):
 	pygame.init()
-	screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+	screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags=pygame.RESIZABLE)
 	pygame.display.set_caption(SCREEN_TITLE)
 	mainmenu = MainMenu(screen=screen, args=args)
 	try:

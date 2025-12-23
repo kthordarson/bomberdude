@@ -10,7 +10,7 @@ import orjson as json
 from loguru import logger
 from utils import gen_randid
 from game.gamestate import GameState
-from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT
+from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
 from camera import Camera
 from objects.player import Bomberplayer, MOVE_MAP
 from game.playerstate import PlayerState  # Import PlayerState
@@ -22,7 +22,8 @@ class Bomberdude():
 		self.title = "Bomberdude"
 		self.args = args
 		self.draw_debug = False
-		self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+		self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags=pygame.RESIZABLE)
+		pygame.display.set_caption(SCREEN_TITLE + ' - ' + self.title)
 		self.running = True
 		self.selected_bomb = 1
 		self.client_id = 'bdudenotset'  # str(gen_randid())
@@ -139,9 +140,13 @@ class Bomberdude():
 		try:
 			client_id = getattr(player_data, 'client_id', 'unknown')
 			position = getattr(player_data, 'position', [0, 0])
+			health = getattr(player_data, 'health', 0)
+			killed = getattr(player_data, 'killed', False)
+			is_dead = bool(killed) or (isinstance(health, (int, float)) and health <= 0)
+			texture = "data/netplayerdead.png" if is_dead else "data/player2.png"
 
 			# Create temporary sprite for drawing
-			player_sprite = Bomberplayer(texture="data/player2.png", client_id=client_id)
+			player_sprite = Bomberplayer(texture=texture, client_id=client_id)
 			player_sprite.position = Vec2d(position) if position else Vec2d(0, 0)
 			# player_sprite.rect.topleft = (player_sprite.position.x, player_sprite.position.y)
 			player_sprite.rect.topleft = (int(player_sprite.position.x), int(player_sprite.position.y))
@@ -287,10 +292,7 @@ class Bomberdude():
 				player_world_pos = (player_one.position[0] + player_one.rect.width/2, player_one.position[1] + player_one.rect.height/2)
 
 				# Calculate direction in world space
-				direction_vector = Vec2d(
-					mouse_world_pos[0] - player_world_pos[0],
-					mouse_world_pos[1] - player_world_pos[1]
-				)
+				direction_vector = Vec2d(mouse_world_pos[0] - player_world_pos[0], mouse_world_pos[1] - player_world_pos[1])
 
 				# Normalize direction vector
 				if direction_vector.length() > 0:
@@ -303,7 +305,7 @@ class Bomberdude():
 				# Create the event
 				event = {
 					"event_time": self.timer,
-					"event_type": "bullet_fired",
+					"event_type": "on_bullet_fired",
 					"client_id": self.client_id,
 					"position": (bullet_pos.x, bullet_pos.y),
 					"direction": (direction_vector.x, direction_vector.y),
@@ -350,6 +352,11 @@ class Bomberdude():
 			self.running = False
 			logger.info("quit")
 			pygame.event.post(pygame.event.Event(pygame.QUIT))
+			return
+
+		if player_one.killed or player_one.health <= 0:
+			if self.args.debug:
+				logger.debug(f"{player_one} is dead, ignoring key press {key}")
 			return
 
 		# Movement (table-driven)

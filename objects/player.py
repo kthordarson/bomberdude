@@ -47,17 +47,13 @@ class Bomberplayer(Sprite):
 	client_id: str = 'Bomberplayer'
 	client_name: str = 'Noname'
 	position: Vec2d = field(default_factory=lambda: Vec2d(99, 99))
+	health: int = 100
 	# name: str = 'xnonex'
 
 	def __post_init__(self):
 		super().__init__()
-		loaded_image = pygame.image.load(self.texture)
-		if self.client_id == 'theserver':
-			self.original_image = loaded_image
-			self.image = loaded_image
-		else:
-			self.original_image = loaded_image.convert_alpha() if loaded_image.get_alpha() else loaded_image.convert()
-			self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.scale), int(self.original_image.get_height() * self.scale)))
+		self._alive_texture_path = self.texture
+		self._set_texture(self.texture)
 		self.rect = self.image.get_rect()
 		self.change_x = 0
 		self.change_y = 0
@@ -70,6 +66,27 @@ class Bomberplayer(Sprite):
 		self.lastdrop = 0
 		self.keyspressed = KeysPressed('gamestate')
 		self.client_name = generate_name()
+		if self.client_id == 'theserver':
+			logger.info(f'Server player image loaded without conversion. {self.client_name=} {self.client_id=}')
+
+	def _set_texture(self, texture_path: str) -> None:
+		loaded_image = pygame.image.load(texture_path)
+		if self.client_id == 'theserver':
+			self.original_image = loaded_image
+			self.image = loaded_image
+			return
+		self.original_image = loaded_image.convert_alpha() if loaded_image.get_alpha() else loaded_image.convert()
+		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.scale), int(self.original_image.get_height() * self.scale)),)
+
+	def set_dead(self, dead: bool) -> None:
+		"""Swap sprite image based on health/killed state."""
+		if dead:
+			self.killed = True
+			self._set_texture('data/netplayerdead.png')
+		else:
+			self.killed = False
+			alive_path = getattr(self, '_alive_texture_path', None) or self.texture
+			self._set_texture(alive_path)
 
 	def __hash__(self):
 		return hash((self.client_id))
@@ -130,7 +147,7 @@ class Bomberplayer(Sprite):
 		self.bombs_left = 3
 		self.score = 0
 		self.timeout = False
-		self.image = pygame.image.load('data/playerone.png')
+		self.set_dead(False)
 		logger.info(f'{self} respawned')
 
 	def addscore(self, score):
@@ -146,8 +163,7 @@ class Bomberplayer(Sprite):
 
 	def player_kill(self, attacker):
 		logger.info(f'{self} killed by {attacker}')
-		self.killed = True
-		self.image = pygame.image.load('data/netplayerdead.png')
+		self.set_dead(True)
 
 	def drop_bomb(self):
 		"""Try to drop a bomb and return event"""
