@@ -11,7 +11,7 @@ async def send_game_state(game: Bomberdude) -> None:
 	# Avoid writing to the socket before sock_connect completes.
 	try:
 		if hasattr(game, 'socket_connected'):
-			await game.socket_connected.wait()  # type: ignore[attr-defined]
+			await game.socket_connected.wait()
 	except asyncio.CancelledError:
 		return
 	while True:
@@ -80,7 +80,7 @@ async def receive_game_state(game: Bomberdude) -> None:
 	# Avoid reading from the socket before sock_connect completes.
 	try:
 		if hasattr(game, 'socket_connected'):
-			await game.socket_connected.wait()  # type: ignore[attr-defined]
+			await game.socket_connected.wait()
 	except asyncio.CancelledError:
 		return
 	buffer = ""

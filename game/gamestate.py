@@ -104,7 +104,7 @@ class GameState:
 		self.playerlist.pop(cid, None)
 		# Be defensive: some older code paths may have inserted non-str keys.
 		try:
-			self.playerlist.pop(int(cid), None)  # type: ignore[arg-type]
+			self.playerlist.pop(int(cid), None)
 		except Exception:
 			pass
 
@@ -184,7 +184,7 @@ class GameState:
 		self.killable_tiles.discard(block)
 		self.collidable_by_tile.pop((tile_x, tile_y), None)
 		self.killable_by_tile.pop((tile_x, tile_y), None)
-		layer.data[tile_y][tile_x] = 0  # Set to empty tile  # type: ignore
+		layer.data[tile_y][tile_x] = 0  # type: ignore
 		self.modified_tiles[(tile_x, tile_y)] = 0
 		# Update visual representation
 		self.static_map_surface.blit(self.tile_cache.get(1), (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))  # type: ignore

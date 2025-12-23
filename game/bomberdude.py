@@ -67,6 +67,7 @@ class Bomberdude():
         # Fog-of-war caching: only recompute when inputs change.
         self._fog_last_center: tuple[int, int] | None = None
         self._fog_last_radius: int | None = None
+        self.show_player_info_panel = True
 
     def __repr__(self):
         return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} {self.connected()})"
@@ -201,8 +202,8 @@ class Bomberdude():
         # Draw local player
         player_one = self.client_game_state.get_playerone()
         if player_one.client_id != 'theserver':
-            if player_one.image is not None:  # type: ignore
-                self.screen.blit(player_one.image, self.camera.apply(player_one.rect))  # type: ignore
+            if player_one.image:
+                self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
 
                 # Draw remote players from playerlist
                 for client_id, player in self.client_game_state.playerlist.items():
@@ -232,13 +233,15 @@ class Bomberdude():
         self.client_game_state.explosion_manager.draw(self.screen, self.camera)
 
         # Draw fog of war
-        self.apply_fog_of_war()
+        if self.fog_enabled:
+            self.apply_fog_of_war()
 
         if self.draw_debug:
             draw_debug_info(self.screen, self.client_game_state, self.camera)
         if self.show_minimap:
             self.draw_minimap()
-        self.player_info_panel.draw()
+        if self.show_player_info_panel:
+            self.player_info_panel.draw()
 
         self.window.blit(self.screen, (0, 0))
 
@@ -388,6 +391,8 @@ class Bomberdude():
             logger.debug(f"Fog of war toggled: {self.fog_enabled}")
         elif key == pygame.K_F7:
             pygame.display.toggle_fullscreen()
+        elif key == pygame.K_TAB:
+            self.show_player_info_panel = not self.show_player_info_panel
         elif key in (pygame.K_ESCAPE, pygame.K_q, 27):
             await self.disconnect(return_to_menu=True)
             # self._connected = False
@@ -529,7 +534,7 @@ class Bomberdude():
         radius = int(self.fog_radius)
         if center != self._fog_last_center or radius != self._fog_last_radius:
             # Fill with semi-transparent black
-            self.fog_surface.fill((0, 0, 0, 250))
+            self.fog_surface.fill((0, 0, 0, 220))
             # Reset mask to fully opaque black
             self._visibility_mask.fill((0, 0, 0, 255))
             pygame.draw.circle(self._visibility_mask, (0, 0, 0, 0), center, radius)
