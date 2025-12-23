@@ -12,7 +12,7 @@ from game.gamestate import GameState
 from server.api import ApiServer
 from utils import gen_randid
 from constants import UPDATE_TICK
-# from .discovery import ServerDiscovery
+from .discovery import ServerDiscovery
 
 class BombServer:
 	def __init__(self, args):
@@ -24,8 +24,8 @@ class BombServer:
 		self.connection_to_client_id = {}  # Map connections to client IDs
 		self.loop = asyncio.get_event_loop()
 		self._stop = Event()
-		# self.discovery_service = ServerDiscovery(self)
-		# asyncio.create_task(self.discovery_service.start_discovery_service())
+		self.discovery_service = ServerDiscovery(self)
+		asyncio.create_task(self.discovery_service.start_discovery_service())
 
 	async def client_connected_callback(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 		logger.info(f"New connection from {writer.get_extra_info('peername')[0]} ")
@@ -185,6 +185,11 @@ class BombServer:
 
 	async def stop(self):
 		self._stop.set()
+		try:
+			if hasattr(self, "discovery_service") and self.discovery_service is not None:
+				self.discovery_service.stop()
+		except Exception:
+			pass
 
 	def stopped(self):
 		return self._stop.is_set()

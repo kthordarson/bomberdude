@@ -103,7 +103,7 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 		await start_game(args)
 		return True
 
-	if action == "Start Server":
+	elif action == "Start Server":
 		success = await start_server_background(args)
 		if success:
 			mainmenu.server_running = True
@@ -114,32 +114,41 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 		mainmenu.discovery_panel.screen = mainmenu.screen
 		return True
 
-	if action == "Stop Server":
+	elif action == "Stop Server":
 		success = await stop_server_background()
 		if success:
 			mainmenu.server_running = False
 		return True
 
-	if action == "Back":
+	elif action == "Back":
 		return True
 
-	if action in ["option1", "option2", "option3"]:
+	elif action in ["option1", "option2", "option3"]:
 		logger.info(f"Setup {action} not implemented")
 		return True
 
-	if action == "Find server":
-		logger.info("Find server ....")
-		await asyncio.sleep(1)
+	elif action == "Find server":
+		logger.info("Finding servers on LAN...")
+		try:
+			selected = await mainmenu.discovery_panel.run()
+			if selected:
+				args.server = selected
+				logger.info(f"Selected server: {selected}")
+				await start_game(args)
+		except Exception as e:
+			logger.error(f"Error showing discovery panel: {e} {type(e)}")
 		return True
 
-	if action == "Quit":
+	elif action == "Quit":
 		if mainmenu.server_running:
 			await stop_server_background()
 		logger.info("Quitting...")
 		return False
-
-	logger.warning(f"Unknown action: {action}")
-	await asyncio.sleep(1)
+	elif action == 'noinput':
+		return True
+	else:
+		logger.warning(f"Unknown action: {action}")
+		await asyncio.sleep(1)
 	return True
 
 def run_server_process(args_dict):

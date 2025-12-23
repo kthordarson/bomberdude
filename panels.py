@@ -17,7 +17,7 @@ class MainMenu:
         self.running = True
         self.option_rects = []
         self.setup_panel = SetupMenu(screen, args)
-        self.discovery_panel = ServerDiscoveryPanel(self.screen)
+        self.discovery_panel = ServerDiscoveryPanel(self.screen, args)
         self.server_running = False
 
     def draw(self):
@@ -25,7 +25,7 @@ class MainMenu:
         self.option_rects = []
 
         # Filter options based on server state
-        display_options = [opt for opt in self.options if not (opt == "Stop Server" and not self.server_running) and not (opt == "Start Server" and self.server_running)]
+        display_options = [opt for opt in self.options]
 
         for i, option in enumerate(display_options):
             color = (255, 0, 0) if i == self.selected_option else (255, 255, 255)
@@ -41,6 +41,7 @@ class MainMenu:
         pygame.display.flip()
 
     def handle_input(self):
+        action = 'noinput'
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -50,39 +51,43 @@ class MainMenu:
                 elif event.key in (pygame.K_DOWN, pygame.K_s, 115):
                     self.selected_option = (self.selected_option + 1) % len(self.options)
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                    return self.select_option()
+                    action = self.select_option()
                 elif event.key in (pygame.K_q, pygame.K_ESCAPE):
-                    return 'Quit'
+                    action = 'Quit'
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button
-                    return self.handle_mouse_click(event.pos)
-        return None
+                    action = self.handle_mouse_click(event.pos)
+        if action != 'noinput' and self.args.debug:
+            logger.debug(f"MainMenu action: {action}")
+        return action
 
     def handle_mouse_click(self, mouse_pos):
+        action = 'nomouseaction'
         for i, rect in enumerate(self.option_rects):
             if rect.collidepoint(mouse_pos):
                 self.selected_option = i
-                return self.select_option()
-        return None
+                action = self.select_option()
+        return action
 
     def select_option(self):
         current_option = self.options[self.selected_option]
-
+        action = 'noaction'
         if current_option == "Start":
-            return "Start"
+            action = "Start"
         elif current_option == "Start Server":
-            return "Start Server"
+            action = "Start Server"
         elif current_option == "Stop Server":
-            return "Stop Server"
+            action = "Stop Server"
         elif current_option == "Find server":
-            return "Find server"
+            action = "Find server"
         elif current_option == "Setup":
             action = self.setup_panel.run()
-            return action
         elif current_option == "Quit":
             self.running = False
-            return 'Quit'
-        return 'None'
+            action = 'Quit'
+        if self.args.debug:
+            logger.debug(f"MainMenu action: {action} current_option: {current_option}")
+        return action
 
     def run(self):
         while self.running:
@@ -114,6 +119,7 @@ class SetupMenu:
         pygame.display.flip()
 
     def handle_input(self):
+        action = 'noinput'
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -123,31 +129,37 @@ class SetupMenu:
                 elif event.key in (pygame.K_DOWN, pygame.K_s, 115):
                     self.selected_option = (self.selected_option + 1) % len(self.options)
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                    return self.select_option()
+                    action = self.select_option()
                 elif event.key in (pygame.K_q, pygame.K_ESCAPE):
-                    return 'Back'
+                    action = 'Back'
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button
-                    return self.handle_mouse_click(event.pos)
-        return None
+                    action = self.handle_mouse_click(event.pos)
+        if self.args.debug:
+            logger.debug(f"SetupMenu action: {action}")
+        return action
 
     def handle_mouse_click(self, mouse_pos):
+        action = 'noinput'
         for i, rect in enumerate(self.option_rects):
             if rect.collidepoint(mouse_pos):
                 self.selected_option = i
-                return self.select_option()
-        return None
+                action = self.select_option()
+        if self.args.debug:
+            logger.debug(f"SetupMenu mouse click action: {action}")
+        return action
 
     def select_option(self):
         return self.options[self.selected_option]
 
     def run(self):
+        action = 'noaction'
         while self.running:
             self.draw()
             action = self.handle_input()
             if action:
                 return action
-        return None
+        return action
 
 class Panel:
     def __init__(self, screen, position, size, color):
@@ -160,89 +172,159 @@ class Panel:
         pygame.draw.rect(self.screen, self.color, (*self.position, *self.size))
 
 class ServerDiscoveryPanel():
-    def __init__(self, screen):
+    def __init__(self, screen, args: argparse.Namespace):
         self.screen = screen
+        self.args = args
         self.rect = pygame.Rect(0, 0, screen.get_width(), screen.get_height())
         self.discovery_port = 12345
         self.servers = {}  # {addr: server_info}
-        self.buttons = []
+        self.server_rows: list[tuple[pygame.Rect, str, dict]] = []
         self.discovery_running = False
         self.last_discovery = 0
         self.discovery_interval = 2.0  # seconds between broadcasts
         self.font = pygame.font.Font(None, 26)
+        self._task: asyncio.Task | None = None
 
     async def discover_servers(self):
         """Broadcast discovery packets and collect responses"""
         self.discovery_running = True
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        sock.settimeout(1)
+        sock.setblocking(False)
+        loop = asyncio.get_event_loop()
 
-        while self.discovery_running:
+        try:
+            while self.discovery_running:
+                try:
+                    # Broadcast discovery packet
+                    await loop.sock_sendto(sock, b'BOMBERDUDE_DISCOVERY', ('255.255.255.255', self.discovery_port))
+
+                    # Collect responses for ~1s
+                    end_time = loop.time() + 1.0
+                    while self.discovery_running and loop.time() < end_time:
+                        try:
+                            data, addr = await asyncio.wait_for(loop.sock_recvfrom(sock, 1024), timeout=0.15)
+                        except asyncio.TimeoutError as e:
+                            if self.args.debug:
+                                logger.warning(f"Discovery recv timeout: {e} {type(e)}")
+                            continue
+                        except (OSError, asyncio.CancelledError) as e:
+                            self.discovery_running = False
+                            if self.args.debug:
+                                logger.warning(f"{e} {type(e)}")
+                            break
+                        if not data:
+                            continue
+                        try:
+                            server_info = json.loads(data.decode('utf-8'))
+                            if self.args.debug:
+                                logger.debug(f"Discovered server at {addr}: {server_info}")
+                            if server_info.get('type') == 'server_info':
+                                self.servers[addr[0]] = server_info
+                        except Exception as e:
+                            logger.error(f"Error parsing discovery response from {addr}: {e} {type(e)}")
+                            continue
+
+                    await asyncio.sleep(self.discovery_interval)
+
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error(f"Error in server discovery: {e} {type(e)}")
+                    await asyncio.sleep(1)
+        finally:
             try:
-                # Broadcast discovery packet
-                sock.sendto(b'BOMBERDUDE_DISCOVERY', ('<broadcast>', self.discovery_port))
-
-                # Wait for responses
-                start_time = asyncio.get_event_loop().time()
-                while asyncio.get_event_loop().time() - start_time < 1.0:
-                    try:
-                        data, addr = sock.recvfrom(1024)
-                        server_info = json.loads(data.decode('utf-8'))
-                        if server_info.get('type') == 'server_info':
-                            self.servers[addr[0]] = server_info
-                    except socket.timeout:
-                        pass
-                    await asyncio.sleep(0.1)
-
-                # Update server buttons
-                self.update_server_buttons()
-                await asyncio.sleep(self.discovery_interval)
-
+                sock.close()
             except Exception as e:
-                logger.error(f"Error in server discovery: {e} {type(e)}")
-                await asyncio.sleep(1)
-
-    def update_server_buttons(self):
-        """Update buttons based on discovered servers"""
-        # Remove old server buttons
-        self.buttons = [b for b in self.buttons if not hasattr(b, 'server_addr')]
-
-        # Add button for each server
-        y = 100
-        for addr, info in self.servers.items():
-            info_string = f"{info['name']} ({addr}) - {info['players']} players - {info['map']}"
-            text = self.font.render(info_string, True, (255, 255, 255))
-            rect = text.get_rect(center=(self.screen.get_width() // 2, 150 + y))
-            self.screen.blit(text, rect)
-            y += 50
+                if self.args.debug:
+                    logger.warning(f"Error closing discovery socket: {e} {type(e)}")
 
     def connect_to_server(self, addr, info):
         """Connect to selected server"""
         self.discovery_running = False
-        logger.info(f"Connecting to server {info} at {addr}")
+        logger.info(f"Connecting to server {info.get('listen')}")
+        # Store selection for the caller and set args.server for convenience.
+        try:
+            self.args.server = info.get('listen')
+        except Exception as e:
+            logger.error(f"Error setting selected server: {e} {type(e)}")
+            pass
 
     def show(self):
         # super().show()
         self.servers.clear()
         self.discovery_running = True
-        asyncio.create_task(self.discover_servers())
+        if self._task is None or self._task.done():
+            self._task = asyncio.create_task(self.discover_servers())
 
     def hide(self):
         # super().hide()
         self.discovery_running = False
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+
+    async def run(self) -> str | None:
+        """Show the panel until the user selects a server or exits.
+
+        - Click a server row to select it (sets args.server)
+        - ESC/Q to go back
+        """
+        self.show()
+        selected: str | None = None
+        clock = pygame.time.Clock()
+        while self.discovery_running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.hide()
+                    return None
+                if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_q):
+                    self.hide()
+                    return None
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mx, my = event.pos
+                    for rect, addr, info in self.server_rows:
+                        if rect.collidepoint((mx, my)):
+                            self.connect_to_server(addr, info)
+                            selected = info.get('listen')
+                            break
+            self.draw(self.screen)
+            pygame.display.flip()
+            clock.tick(30)
+            await asyncio.sleep(0)
+        return selected
 
     def draw(self, surface):
         try:
+            self.rect = pygame.Rect(0, 0, surface.get_width(), surface.get_height())
             surface.fill((30, 30, 30), self.rect)
             # Draw title
             font = pygame.font.Font(None, 48)
             title = font.render("Find Local Servers", True, (255, 255, 255))
             surface.blit(title, (self.rect.centerx - title.get_width()//2, 20))
 
-            # Draw buttons
-            for button in self.buttons:
-                button.draw(surface)
+            hint = self.font.render("Click a server to select, ESC/Q to go back", True, (200, 200, 200))
+            surface.blit(hint, (self.rect.centerx - hint.get_width()//2, 70))
+
+            self.server_rows = []
+            y = 120
+            if not self.servers:
+                none_text = self.font.render("No servers found yet...", True, (255, 255, 255))
+                surface.blit(none_text, (self.rect.centerx - none_text.get_width()//2, y))
+                return
+
+            for addr, info in sorted(self.servers.items()):
+                name = info.get('name', 'server')
+                players = info.get('players', '?')
+                m = info.get('map', '')
+                info_string = f"{name} ({addr}) - {players} players - {m}"
+                text = self.font.render(info_string, True, (255, 255, 255))
+                rect = text.get_rect(center=(self.rect.centerx, y))
+                # Expand to a click target
+                click_rect = pygame.Rect(rect.left - 10, rect.top - 6, rect.width + 20, rect.height + 12)
+                pygame.draw.rect(surface, (60, 60, 60), click_rect, border_radius=6)
+                surface.blit(text, rect)
+                self.server_rows.append((click_rect, addr, info))
+                y += 50
         except Exception as e:
             logger.error(f"Error drawing server discovery panel: {e} {type(e)}")
 
