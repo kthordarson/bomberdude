@@ -40,7 +40,12 @@ class BombServer:
 				if not data:
 					await asyncio.sleep(0.01)
 					continue
-				msg = json.loads(data.decode('utf-8'))
+				try:
+					msg = json.loads(data.decode('utf-8'))
+				except (UnicodeDecodeError, json.decoder.JSONDecodeError) as e:
+					logger.error(f"error: {e} {type(e)} Data: {data}")
+					await asyncio.sleep(1)
+					continue
 				# Track which client_id is associated with this connection so we can
 				# clean up player state on disconnect.
 				msg_client_id = msg.get('client_id')

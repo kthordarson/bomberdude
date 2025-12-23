@@ -77,7 +77,7 @@ class ServerDiscovery:
 
                 try:
                     sock.sendto(json.dumps(response).encode("utf-8"), addr)
-                    logger.debug(f"Discovery response sent to {addr}: {response}")
+                    # logger.debug(f"Discovery response sent to {addr}: {response}")
                 except Exception as e:
                     logger.error(f"Failed sending discovery response to {addr}: {e}")
         finally:

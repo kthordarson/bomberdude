@@ -706,7 +706,7 @@ class GameState:
 			if self.client_id == "theserver":
 				asyncio.create_task(self.broadcast_event(event))
 			else:
-				if self.args.debug:
+				if self.args.debug_gamestate:
 					logger.debug(f"{self} Skipping _on_map_update broadcast: not server.. self.client_id: {self.client_id}")
 		except RuntimeError as e:
 			logger.error(f"RuntimeError in _on_map_update: {e} {type(e)}")
