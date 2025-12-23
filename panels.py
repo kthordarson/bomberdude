@@ -204,9 +204,7 @@ class ServerDiscoveryPanel():
                     while self.discovery_running and loop.time() < end_time:
                         try:
                             data, addr = await asyncio.wait_for(loop.sock_recvfrom(sock, 1024), timeout=0.15)
-                        except asyncio.TimeoutError as e:
-                            if self.args.debug:
-                                logger.warning(f"Discovery recv timeout: {e} {type(e)}")
+                        except asyncio.TimeoutError:
                             continue
                         except (OSError, asyncio.CancelledError) as e:
                             self.discovery_running = False
@@ -218,7 +216,7 @@ class ServerDiscoveryPanel():
                         try:
                             server_info = json.loads(data.decode('utf-8'))
                             if self.args.debug:
-                                logger.debug(f"Discovered server at {addr}: {server_info}")
+                                logger.debug(f"Discovered server at {addr}: info: {server_info.get('listen')} players: {server_info.get('players')} map: {server_info.get('map')}")
                             if server_info.get('type') == 'server_info':
                                 self.servers[addr[0]] = server_info
                         except Exception as e:
@@ -263,14 +261,14 @@ class ServerDiscoveryPanel():
         if self._task is not None and not self._task.done():
             self._task.cancel()
 
-    async def run(self) -> str | None:
+    async def run(self) -> dict | None:
         """Show the panel until the user selects a server or exits.
 
         - Click a server row to select it (sets args.server)
         - ESC/Q to go back
         """
         self.show()
-        selected: str | None = None
+        selected: dict | None = None
         clock = pygame.time.Clock()
         while self.discovery_running:
             for event in pygame.event.get():
@@ -285,7 +283,7 @@ class ServerDiscoveryPanel():
                     for rect, addr, info in self.server_rows:
                         if rect.collidepoint((mx, my)):
                             self.connect_to_server(addr, info)
-                            selected = info.get('listen')
+                            selected = info
                             break
             self.draw(self.screen)
             pygame.display.flip()

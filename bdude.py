@@ -132,7 +132,7 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 		try:
 			selected = await mainmenu.discovery_panel.run()
 			if selected:
-				args.server = selected
+				args.server = selected.get('host')
 				logger.info(f"Selected server: {selected}")
 				await start_game(args)
 		except Exception as e:
@@ -171,7 +171,7 @@ def run_server_process(args_dict):
 
 		server = BombServer(args)
 		server_task = asyncio.create_task(server.new_start_server())
-		api_task = asyncio.create_task(server.apiserver.run(args.listen, 9691))
+		api_task = asyncio.create_task(server.apiserver.run(args.api_listen, 9691))
 
 		try:
 			await asyncio.gather(server_task, api_task)

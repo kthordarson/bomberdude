@@ -69,7 +69,7 @@ class ServerDiscovery:
                     "type": "server_info",
                     "name": "bombserver",
                     "host": self.bombserver.args.host,
-                    "listen": self.bombserver.args.listen,
+                    "listen": self.bombserver.args.api_listen,
                     "port": self.bombserver.args.port,
                     "players": players,
                     "map": self.bombserver.args.mapname,
