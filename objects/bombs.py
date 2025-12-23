@@ -17,10 +17,11 @@ class Bomb(Sprite):
 		self.timer = timer
 		self.start_time = pygame.time.get_ticks() / 1000
 		# self.rect.center = self.position
-		# Ensure position is centered on a tile
-		tile_size = BLOCK * BOMB_SCALING
-		tile_x = int(position[0] / tile_size) * tile_size + tile_size // 2
-		tile_y = int(position[1] / tile_size) * tile_size + tile_size // 2
+		# Ensure position is centered on a map tile.
+		# IMPORTANT: snapping must use the actual tile size (BLOCK), not a scaled sprite size.
+		tile_size = BLOCK
+		tile_x = (int(position[0]) // tile_size) * tile_size + tile_size // 2
+		tile_y = (int(position[1]) // tile_size) * tile_size + tile_size // 2
 		self.position = Vec2d(tile_x, tile_y)
 		self.rect.center = (int(self.position.x), int(self.position.y))
 

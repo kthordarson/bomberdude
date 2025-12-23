@@ -227,9 +227,11 @@ class Bomberplayer(Sprite):
 		self.bombs_left = self.bombs_left - 1
 
 		# Calculate tile-centered position (snap to grid)
+		# Use the player's rect center to choose the tile they are standing on.
+		cx, cy = self.rect.center
 		tile_size = BLOCK
-		tile_x = int(self.position.x / tile_size) * tile_size + tile_size // 2
-		tile_y = int(self.position.y / tile_size) * tile_size + tile_size // 2
+		tile_x = (int(cx) // tile_size) * tile_size + tile_size // 2
+		tile_y = (int(cy) // tile_size) * tile_size + tile_size // 2
 
 		return {
 			"event_time": current_time,
