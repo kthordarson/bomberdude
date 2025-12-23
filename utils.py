@@ -2,8 +2,8 @@ import struct
 import random
 import pygame
 
-def gen_randid() -> str:
-	return generate_name()  # int(''.join([str(random.randint(0,9)) for k in range(10)]))
+def gen_randid() -> int:
+	return int(''.join([str(random.randint(0,9)) for k in range(10)]))
 
 def generate_name(style="bomber"):
 	"""

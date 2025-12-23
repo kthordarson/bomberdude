@@ -12,7 +12,7 @@ from game.gamestate import GameState
 from server.api import ApiServer
 from utils import gen_randid
 from constants import UPDATE_TICK
-# from .discovery import ServerDiscovery
+from .discovery import ServerDiscovery
 
 class BombServer:
 	def __init__(self, args):
@@ -24,8 +24,8 @@ class BombServer:
 		self.connection_to_client_id = {}  # Map connections to client IDs
 		self.loop = asyncio.get_event_loop()
 		self._stop = Event()
-		# self.discovery_service = ServerDiscovery(self)
-		# asyncio.create_task(self.discovery_service.start_discovery_service())
+		self.discovery_service = ServerDiscovery(self)
+		asyncio.create_task(self.discovery_service.start_discovery_service())
 
 	async def client_connected_callback(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 		logger.info(f"New connection from {writer.get_extra_info('peername')[0]} ")
@@ -40,27 +40,58 @@ class BombServer:
 				if not data:
 					await asyncio.sleep(0.01)
 					continue
-				msg = json.loads(data.decode('utf-8'))
+				try:
+					msg = json.loads(data.decode('utf-8'))
+				except (UnicodeDecodeError, json.decoder.JSONDecodeError) as e:
+					logger.error(f"error: {e} {type(e)} Data: {data}")
+					await asyncio.sleep(1)
+					continue
+				# Track which client_id is associated with this connection so we can
+				# clean up player state on disconnect.
+				msg_client_id = msg.get('client_id')
+				if not msg_client_id and isinstance(msg.get('game_event'), dict):
+					msg_client_id = msg.get('game_event', {}).get('client_id')
+				if msg_client_id:
+					self.connection_to_client_id[writer] = str(msg_client_id)
 				game_event = msg.get('game_event')
 				if isinstance(game_event, dict):
 					await self.server_game_state.update_game_event(game_event)
 				# Optionally broadcast the current state
 				await self.server_broadcast_state(self.server_game_state.to_json())
 		except (asyncio.IncompleteReadError, ConnectionResetError) as e:
-			logger.warning(f'{e} {type(e)} Connection closed by client')
+			pass  # logger.warning(f'{e} Connection closed by client')
 		except pygame.error as e:
-			logger.error(f"{e} {type(e)} msg: {msg}")
+			logger.error(f"{e} {type(e)} ")
 			raise e
 		except Exception as e:
-			logger.error(f"{e} {type(e)} msg:{locals().get('msg')}")
+			logger.error(f"{e} {type(e)} ")
 			raise e
 		finally:
+			# Best-effort disconnect cleanup: remove player entry from server state
+			# and notify any remaining clients.
+			disconnected_client_id = self.connection_to_client_id.pop(writer, None)
 			try:
 				writer.close()
 				await writer.wait_closed()
+			except (asyncio.IncompleteReadError, ConnectionResetError) as e:
+				logger.warning(f'{e} Connection closed by client')
 			except Exception as e:
 				logger.error(f"Error closing connection: {e} {type(e)}")
 			self.server_game_state.remove_connection(writer)
+			if disconnected_client_id:
+				try:
+					self.server_game_state.remove_player(disconnected_client_id)
+					left_event = {
+						"event_type": "player_left",
+						"client_id": disconnected_client_id,
+						"event_time": time.time(),
+						"handled": False,
+						"handledby": "server.disconnect",
+						"eventid": gen_randid(),
+					}
+					await self.server_game_state.broadcast_event(left_event)
+				except Exception as e:
+					logger.error(f"Error during disconnect cleanup for {disconnected_client_id}: {e} {type(e)}")
 
 	async def get_tile_map(self, request):
 		position = self.get_position()
@@ -118,7 +149,7 @@ class BombServer:
 					last_broadcast = time.time()
 				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError as e:
-			logger.warning(f"Ticker broadcast task cancelled: {e} {type(e)}")
+			logger.warning(f"Ticker broadcast task cancelled: {e}")
 		except Exception as e:
 			logger.error(f"Error in ticker broadcast: {e} {type(e)}")
 
@@ -159,6 +190,11 @@ class BombServer:
 
 	async def stop(self):
 		self._stop.set()
+		try:
+			if hasattr(self, "discovery_service") and self.discovery_service is not None:
+				self.discovery_service.stop()
+		except Exception:
+			pass
 
 	def stopped(self):
 		return self._stop.is_set()
