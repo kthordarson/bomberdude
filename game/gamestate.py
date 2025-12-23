@@ -499,13 +499,58 @@ class GameState:
 				player.interp_time = 0
 				player.position_updated = False
 
+	def check_flame_collisions(self) -> None:
+		"""Check for collisions between bomb flames and players.
+
+		Notes:
+		- In the current client simulation, clients usually only have *their own* sprite in `players_sprites`, so this primarily detects hits on the local player and reports them (similar to bullets).
+		- If a player is touched by a flame, we emit a `player_hit` event and kill the flame.
+		"""
+		players = list(self.players_sprites)
+		# Flames live under the ExplosionManager in this codebase.
+		flames = list(self.explosion_manager.flames)
+
+		for flame in flames:
+			flame_rect = getattr(flame, "rect", None)
+			if flame_rect is None:
+				continue
+
+			for player in players:
+				player_id = getattr(player, "client_id", None)
+				player_rect = getattr(player, "rect", None)
+				if player_id is None or player_rect is None:
+					continue
+
+				# Don't re-hit already-dead players.
+				if bool(getattr(player, "killed", False)) or int(getattr(player, "health", 0) or 0) <= 0:
+					continue
+
+				if flame_rect.colliderect(player_rect):
+					hit_event = {
+						"event_time": time.time(),
+						"event_type": "player_hit",
+						"client_id": getattr(flame, "client_id", None),  # flame owner (bomb owner)
+						"reported_by": self.client_id,  # victim/self report (server allows this)
+						"target_id": player_id,
+						"damage": 10,
+						"position": (int(flame_rect.centerx), int(flame_rect.centery)),
+						"handled": False,
+						"handledby": "check_flame_collisions",
+						"eventid": gen_randid(),
+					}
+					# Queue the hit event and remove the flame so it only damages once.
+					asyncio.create_task(self.event_queue.put(hit_event))
+					try:
+						flame.kill()
+					except Exception as e:
+						logger.error(f"Error killing flame after hit: {e} {type(e)}")
+					return
+
 	def check_bullet_collisions(self):
 		"""Check for collisions between bullets and players"""
 		players = list(self.players_sprites)
 		for bullet in self.bullets:
 			bullet_owner = getattr(bullet, 'owner_id', None)
-			brect = bullet.rect
-			bpos = bullet.position
 			for player in players:
 				player_id = getattr(player, 'client_id', None)
 				if player_id == bullet_owner:
@@ -513,7 +558,7 @@ class GameState:
 				player_rect = getattr(player, 'rect', None)
 				if player_rect is None:
 					continue
-				if brect.colliderect(player_rect):
+				if bullet.rect.colliderect(player_rect):
 					hit_event = {
 						"event_time": time.time(),
 						"event_type": "player_hit",
@@ -521,7 +566,7 @@ class GameState:
 						"reported_by": self.client_id,
 						"target_id": player_id,
 						"damage": 10,
-						"position": (bpos.x, bpos.y),
+						"position": (bullet.position.x, bullet.position.y),
 						"handled": False,
 						"handledby": "check_bullet_collisions",
 						"eventid": gen_randid()

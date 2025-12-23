@@ -434,6 +434,7 @@ class Bomberdude():
 
 			# Use the already calculated delta time
 			await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state, self.delta_time)
+			self.client_game_state.check_flame_collisions()
 
 			self.client_game_state.cleanup_playerlist()
 			playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
