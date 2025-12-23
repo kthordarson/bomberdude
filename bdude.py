@@ -32,12 +32,30 @@ async def _process_pygame_events(bomberdude_main: Bomberdude) -> None:
 		if event.type == pygame.QUIT:
 			bomberdude_main.running = False
 			bomberdude_main._connected = False
+		elif event.type == pygame.VIDEORESIZE:
+			# While dragging the window edge, VIDEORESIZE can spam events; defer
+			# the expensive set_mode() until the user releases the mouse.
+			try:
+				bomberdude_main.queue_resize(event.w, event.h)
+			except Exception:
+				pass
 		elif event.type == pygame.KEYDOWN:
 			await bomberdude_main.handle_on_key_press(event.key)
 		elif event.type == pygame.KEYUP:
 			await bomberdude_main.handle_on_key_release(event.key)
 		elif event.type == pygame.MOUSEBUTTONDOWN:
-			asyncio.create_task(bomberdude_main.handle_on_mouse_press(event.pos[0], event.pos[1], event.button))
+			x, y = event.pos
+			try:
+				x, y = bomberdude_main.window_to_virtual(x, y)
+			except Exception:
+				pass
+			asyncio.create_task(bomberdude_main.handle_on_mouse_press(x, y, event.button))
+		elif event.type == pygame.MOUSEBUTTONUP:
+			# Apply any pending resize after the user finishes dragging.
+			try:
+				bomberdude_main.apply_pending_resize()
+			except Exception:
+				pass
 
 
 async def _run_frame(bomberdude_main: Bomberdude) -> bool:
@@ -54,6 +72,13 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 		logger.error(f"Error in on_draw: {e} {type(e)}")
 		await asyncio.sleep(1)
 		return False
+
+	# If the user finished resizing but we didn't see a mouse-up event, apply
+	# the pending resize after a short debounce.
+	try:
+		bomberdude_main.maybe_apply_pending_resize()
+	except Exception:
+		pass
 
 	pygame.display.flip()
 	await _process_pygame_events(bomberdude_main)
