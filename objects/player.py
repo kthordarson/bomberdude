@@ -54,8 +54,7 @@ class Bomberplayer(Sprite):
 	def __post_init__(self):
 		super().__init__()
 		self._alive_texture_path = self.texture
-		self._set_texture(self.texture)
-		self.rect = self.image.get_rect()
+		# await self._set_texture(self.texture)
 		self.change_x = 0
 		self.change_y = 0
 		self.bombs_left = 3
@@ -70,25 +69,26 @@ class Bomberplayer(Sprite):
 		if self.client_id == 'theserver':
 			logger.info(f'Server player image loaded without conversion. {self.client_name=} {self.client_id=}')
 
-	def _set_texture(self, texture_path: str) -> None:
+	async def _set_texture(self, texture_path: str) -> None:
 		# Cache disk loads globally; convert/scale only when a display surface exists.
 		if self.client_id == 'theserver':
-			surf = get_cached_image(texture_path, scale=1.0, convert=False)
+			surf = await get_cached_image(texture_path, scale=1.0, convert=False)
 			self.original_image = surf
 			self.image = surf
 			return
-		self.original_image = get_cached_image(texture_path, scale=1.0, convert=True)
-		self.image = get_cached_image(texture_path, scale=float(self.scale), convert=True)
+		self.original_image = await get_cached_image(texture_path, scale=1.0, convert=True)
+		self.image = await get_cached_image(texture_path, scale=float(self.scale), convert=True)
+		self.rect = self.image.get_rect()
 
-	def set_dead(self, dead: bool) -> None:
+	async def set_dead(self, dead: bool) -> None:
 		"""Swap sprite image based on health/killed state."""
 		if dead:
 			self.killed = True
-			self._set_texture('data/netplayerdead.png')
+			await self._set_texture('data/netplayerdead.png')
 		else:
 			self.killed = False
 			alive_path = getattr(self, '_alive_texture_path', None) or self.texture
-			self._set_texture(alive_path)
+			await self._set_texture(alive_path)
 
 	def __hash__(self):
 		return hash((self.client_id))
@@ -120,6 +120,8 @@ class Bomberplayer(Sprite):
 			return {}
 
 	def update(self, collidable_tiles):
+		if not self.rect:
+			return
 		# Store previous position
 		prev_x, prev_y = self.position.x, self.position.y
 		prev_rect = self.rect.copy()
@@ -158,32 +160,22 @@ class Bomberplayer(Sprite):
 	def draw(self, screen):
 		screen.blit(self.image, self.rect.topleft)
 
-	def respawn(self):
-		self.killed = False
-		self.health = 100
-		self.position = Vec2d(101, 101)
-		self.bombs_left = 3
-		self.score = 0
-		self.timeout = False
-		self.set_dead(False)
-		logger.info(f'{self} respawned')
-
 	def addscore(self, score):
 		self.score += score
 		logger.info(f'{self} score:{self.score}')
 
-	def take_damage(self, damage, attacker):
+	async def take_damage(self, damage, attacker):
 		self.health -= damage
 		logger.info(f'{self} health:{self.health} {damage=} {attacker=}')
 		if self.health <= 0:
 			self.killed = True
-			self.player_kill(attacker)
+			await self.player_kill(attacker)
 
-	def player_kill(self, attacker):
+	async def player_kill(self, attacker):
 		logger.info(f'{self} killed by {attacker}')
-		self.set_dead(True)
+		await self.set_dead(True)
 
-	def drop_bomb(self):
+	async def drop_bomb(self):
 		"""Try to drop a bomb and return event"""
 		current_time = time.time()
 		cooldown_period = 0.5  # Half-second cooldown between bomb drops

@@ -69,6 +69,8 @@ class Bomberdude():
         self._fog_last_radius: int | None = None
         self.show_player_info_panel = True
 
+        self.remote_player_sprites: dict[str, Bomberplayer] = {}  # Cache for remote players
+
     def __repr__(self):
         return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} {self.connected()})"
 
@@ -132,6 +134,7 @@ class Bomberdude():
         map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
         player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id, position=pos)
+        await player_one._set_texture(player_one.texture)
         self.client_game_state.players_sprites.add(player_one)
         connection_event = {
             "event_time": 0,
@@ -170,39 +173,55 @@ class Bomberdude():
         except Exception as e:
             logger.error(f"Error applying map modifications: {e}")
 
-    def draw_player(self, player_data):
+    async def draw_player(self, player_data):
         """Draw a player sprite based on player data"""
         if not player_data:
             if self.args.debug:
                 logger.warning("draw_player called with None player_data")
             return
+        client_id = getattr(player_data, 'client_id', 'unknown')
         try:
-            client_id = getattr(player_data, 'client_id', 'unknown')
+            if client_id not in self.remote_player_sprites:
+                position = getattr(player_data, 'position', [0, 0])
+                health = getattr(player_data, 'health', 0)
+                killed = getattr(player_data, 'killed', False)
+                is_dead = bool(killed) or (isinstance(health, (int, float)) and health <= 0)
+                texture = "data/netplayerdead.png" if is_dead else "data/player2.png"
+
+                # Create temporary sprite for drawing
+                player_sprite = Bomberplayer(texture=texture, client_id=client_id)
+                await player_sprite._set_texture(texture)
+                self.remote_player_sprites[client_id] = player_sprite
+                player_sprite.position = Vec2d(position) if position else Vec2d(0, 0)
+                # player_sprite.rect.topleft = (player_sprite.position.x, player_sprite.position.y)
+                player_sprite.rect.topleft = (int(player_sprite.position.x), int(player_sprite.position.y))
+            else:
+                player_sprite = self.remote_player_sprites[client_id]
+
             position = getattr(player_data, 'position', [0, 0])
-            health = getattr(player_data, 'health', 0)
-            killed = getattr(player_data, 'killed', False)
-            is_dead = bool(killed) or (isinstance(health, (int, float)) and health <= 0)
-            texture = "data/netplayerdead.png" if is_dead else "data/player2.png"
-
-            # Create temporary sprite for drawing
-            player_sprite = Bomberplayer(texture=texture, client_id=client_id)
             player_sprite.position = Vec2d(position) if position else Vec2d(0, 0)
-            # player_sprite.rect.topleft = (player_sprite.position.x, player_sprite.position.y)
             player_sprite.rect.topleft = (int(player_sprite.position.x), int(player_sprite.position.y))
-
-            # Now we can safely draw the sprite
-            self.screen.blit(player_sprite.image, self.camera.apply(player_sprite.rect))  # type: ignore
+            if player_sprite.image:
+                self.screen.blit(player_sprite.image, self.camera.apply(player_sprite.rect))
+            else:
+                if self.args.debug:
+                    logger.warning(f"Player sprite image not loaded for {client_id}")
+                # Now we can safely draw the sprite
+            # self.screen.blit(player_sprite.image, self.camera.apply(player_sprite.rect))  # type: ignore
 
         except Exception as e:
             logger.error(f"Error drawing player: {e} {type(player_data)}")
 
-    def on_draw(self):
+    async def on_draw(self):
         # Clear virtual screen
         self.screen.fill((0, 0, 0))
 
         self.client_game_state.render_map(self.screen, self.camera)
         # Draw local player
         player_one = self.client_game_state.get_playerone()
+        if not player_one.rect:
+            logger.warning(f"Player one rect not set {player_one=} {self.client_game_state=}")
+            return
         if player_one.client_id != 'theserver':
             if player_one.image:
                 self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
@@ -211,7 +230,7 @@ class Bomberdude():
                 for client_id, player in self.client_game_state.playerlist.items():
                     if client_id != self.client_id:
                         try:
-                            self.draw_player(player)
+                            await self.draw_player(player)
                         except Exception as e:
                             logger.error(f'draw_player {e} {type(e)} player: {player} {type(player)}')
             else:
@@ -229,7 +248,7 @@ class Bomberdude():
             pos = self.camera.apply(bomb.rect)
             self.screen.blit(bomb.image, pos)
 
-        self.client_game_state.bombs.update(self.client_game_state)
+        # self.client_game_state.bombs.update(self.client_game_state)
 
         # Draw explosion particles
         self.client_game_state.explosion_manager.draw(self.screen, self.camera)
@@ -417,7 +436,7 @@ class Bomberdude():
 
         # Actions
         if key == pygame.K_SPACE:
-            drop_bomb_event = player_one.drop_bomb()
+            drop_bomb_event = await player_one.drop_bomb()
             if drop_bomb_event and drop_bomb_event.get("event_type") == "player_drop_bomb":
                 await self.client_game_state.event_queue.put(drop_bomb_event)
             return
@@ -449,8 +468,11 @@ class Bomberdude():
     async def update(self):
         try:
             player_one = self.client_game_state.get_playerone()
-        except AttributeError as e:
+        except Exception as e:
             logger.error(f"{e} {type(e)}")
+            await asyncio.sleep(1)
+            return
+        if not player_one.rect:
             await asyncio.sleep(1)
             return
         current_time = time.time()
@@ -471,6 +493,8 @@ class Bomberdude():
             self.camera.update(player_one)
 
             self.client_game_state.bullets.update(self.client_game_state)
+            for bomb in self.client_game_state.bombs:
+                await bomb.update(self.client_game_state)
             self.client_game_state.check_bullet_collisions()
             # await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
 

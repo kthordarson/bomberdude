@@ -127,7 +127,7 @@ class GameState:
 				logger.error(f"Error cleaning up player data {cid} in {d}: {e} {type(e)}")
 				pass
 
-	def _sync_local_sprite_from_state(self, state: Optional[PlayerState]) -> None:
+	async def _sync_local_sprite_from_state(self, state: Optional[PlayerState]) -> None:
 		"""Keep the local Bomberplayer sprite in sync with authoritative state."""
 		if not isinstance(state, PlayerState):
 			return
@@ -145,7 +145,7 @@ class GameState:
 				# Ensure the sprite image reflects killed/dead state.
 				dead = bool(getattr(state, 'killed', False)) or int(getattr(state, 'health', 0) or 0) <= 0
 				if sprite.set_dead:
-					sprite.set_dead(dead)
+					await sprite.set_dead(dead)
 				break
 
 	def __repr__(self):
@@ -757,7 +757,7 @@ class GameState:
 			asyncio.create_task(self.broadcast_event(event))
 		return True
 
-	def _on_player_drop_bomb(self, event: dict[str, Any]) -> bool:
+	async def _on_player_drop_bomb(self, event: dict[str, Any]) -> bool:
 		pid_raw = event.get("client_id")
 		if not isinstance(pid_raw, str):
 			logger.debug(f"Bad player_drop_bomb event client_id: {event}")
@@ -777,6 +777,7 @@ class GameState:
 				break
 		# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
 		bomb = Bomb(position=pos, client_id=pid_raw)
+		await bomb.async_init()
 		self.bombs.add(bomb)
 
 		event["handled"] = True
@@ -851,7 +852,7 @@ class GameState:
 		self._apply_tile_change(x, y, gid)
 		return True
 
-	def _on_player_update(self, event: dict[str, Any]) -> bool:
+	async def _on_player_update(self, event: dict[str, Any]) -> bool:
 		# Normalize and update remote/local player state then broadcast
 		client_id = event.get("client_id")
 		pos_tuple = self._to_pos_tuple(event.get("position"))
@@ -881,7 +882,7 @@ class GameState:
 			)
 			self.playerlist[client_id] = ps
 			# Keep local sprite in sync (health/score/bombs) with authoritative data.
-			self._sync_local_sprite_from_state(ps)
+			await self._sync_local_sprite_from_state(ps)
 		else:
 			ps = self.ensure_player_state(existing)
 			# if isinstance(pos, (list, tuple)):
@@ -893,7 +894,7 @@ class GameState:
 			ps.bombs_left = bombs_left
 			ps.client_name = client_name
 			self.playerlist[client_id] = ps
-			self._sync_local_sprite_from_state(ps)
+			await self._sync_local_sprite_from_state(ps)
 
 		# Mark handled and schedule broadcast without blocking
 		event["handled"] = True
@@ -917,7 +918,7 @@ class GameState:
 			logger.error(f"RuntimeError in _on_player_update: {e} {type(e)}")
 		return True
 
-	def _on_player_hit(self, event: dict) -> bool:
+	async def _on_player_hit(self, event: dict) -> bool:
 		# event: {'event_time': 1766419642.6163907, 'event_type': 'player_hit', 'client_id': 'CrankyBomber172', 'target_id': 'SquishyNuke709', 'damage': 10, 'position': [78.0, 338.0], 'handled': False, 'handledby': 'check_bullet_collisions', 'event_id': 'JitteryBlast784'}
 		# De-dupe by event id when available
 		hit_id = event.get('event_id') or event.get('event_id')
@@ -959,7 +960,7 @@ class GameState:
 		self.playerlist[target] = target_player_entry
 		# If we are the target, also sync the local sprite so HUD/debug reflects correct health.
 		# if isinstance(target_player_entry, PlayerState):
-		self._sync_local_sprite_from_state(target_player_entry)
+		await self._sync_local_sprite_from_state(target_player_entry)
 
 		# Mark handled locally so we don't reapply if this event loops back.
 		event['handled'] = True

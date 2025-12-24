@@ -1,24 +1,26 @@
 import struct
 import random
 import pygame
+import asyncio
 
 _RAW_IMAGE_CACHE: dict[str, pygame.Surface] = {}
 _PROCESSED_IMAGE_CACHE: dict[tuple[str, float, str], pygame.Surface] = {}
 
 
-def load_image_cached(path: str) -> pygame.Surface:
+async def load_image_cached(path: str) -> pygame.Surface:
 	"""Load an image from disk once and reuse the same Surface.
 
 	Returns the raw, unconverted Surface (safe even when no video mode is set).
 	"""
 	surf = _RAW_IMAGE_CACHE.get(path)
 	if surf is None:
-		surf = pygame.image.load(path)
+		# surf = pygame.image.load(path)
+		surf = await asyncio.to_thread(pygame.image.load, path)
 		_RAW_IMAGE_CACHE[path] = surf
 	return surf
 
 
-def get_cached_image(path: str, *, scale: float = 1.0, convert: bool = True) -> pygame.Surface:
+async def get_cached_image(path: str, *, scale: float = 1.0, convert: bool = True) -> pygame.Surface:
 	"""Get a cached image Surface.
 
 	- `convert=True` will use `convert()` / `convert_alpha()` when a display surface exists.
@@ -26,7 +28,7 @@ def get_cached_image(path: str, *, scale: float = 1.0, convert: bool = True) -> 
 	- `scale` caches scaled surfaces keyed by (path, scale, mode).
 	"""
 	mode = "raw"
-	base = load_image_cached(path)
+	base = await load_image_cached(path)
 	if convert and pygame.display.get_init() and pygame.display.get_surface() is not None:
 		mode = "alpha" if base.get_alpha() else "opaque"
 	key = (path, float(scale), mode)

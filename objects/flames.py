@@ -11,14 +11,11 @@ class Flame(Sprite):
 	def __init__(self, position, direction, client_id, size=1, power=3):
 		super().__init__()
 		self.client_id = client_id
-		self.original_image = load_image_cached('data/flameball.png')
 		self.size = size
-		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
-		self.rect = self.image.get_rect()
 
 		# Give flame an initial offset in its direction to prevent immediate collision
 		self.position = Vec2d(position[0] + direction[0] * 10, position[1] + direction[1] * 10)
-		self.rect.center = (int(self.position.x), int(self.position.y))
+		# self.rect.center = (int(self.position.x), int(self.position.y))
 
 		self.direction = direction
 		self.shrink_rate = 0.002
@@ -31,6 +28,12 @@ class Flame(Sprite):
 		self.distance_traveled = 0
 		# Small grace period before checking collisions
 		self.collision_grace = 8  # pixels
+
+	async def async_init(self):
+		self.original_image = await load_image_cached('data/flameball.png')
+		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
+		self.rect = self.image.get_rect()
+		self.rect.center = (int(self.position.x), int(self.position.y))
 
 	async def flame_update(self, collidable_tiles, game_state) -> None:
 		# Move in smaller steps to avoid missing collisions

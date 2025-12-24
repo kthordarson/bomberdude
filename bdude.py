@@ -67,7 +67,7 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 		return False
 
 	try:
-		bomberdude_main.on_draw()
+		await bomberdude_main.on_draw()
 	except Exception as e:
 		logger.error(f"Error in on_draw: {e} {type(e)}")
 		await asyncio.sleep(1)
