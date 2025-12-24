@@ -197,7 +197,7 @@ class Bomberplayer(Sprite):
 				"position": self.rect.center,
 				"handled": False,
 				"handledby": self.client_id,
-				"eventid": gen_randid(),
+				"event_id": gen_randid(),
 			}
 
 		if self.killed:
@@ -208,7 +208,7 @@ class Bomberplayer(Sprite):
 				"position": self.rect.center,
 				"handled": False,
 				"handledby": self.client_id,
-				"eventid": gen_randid(),
+				"event_id": gen_randid(),
 			}
 
 		# Check if player has any bombs left
@@ -220,7 +220,7 @@ class Bomberplayer(Sprite):
 				"position": self.rect.center,
 				"handled": False,
 				"handledby": self.client_id,
-				"eventid": gen_randid(),
+				"event_id": gen_randid(),
 			}
 
 		# Player has bombs and can drop
@@ -243,5 +243,5 @@ class Bomberplayer(Sprite):
 			"bombs_left": self.bombs_left,
 			"handled": False,
 			"handledby": self.client_id,
-			"eventid": gen_randid(),
+			"event_id": gen_randid(),
 		}

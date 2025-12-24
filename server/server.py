@@ -82,7 +82,7 @@ class BombServer:
 						"event_time": time.time(),
 						"handled": False,
 						"handledby": "server.disconnect",
-						"eventid": gen_randid(),
+						"event_id": gen_randid(),
 					}
 					await self.server_game_state.broadcast_event(left_event)
 				except Exception as e:
@@ -247,7 +247,7 @@ class BombServer:
 			"position": pos,
 			"handled": False,
 			"handledby": "_build_player_joined",
-			"eventid": gen_randid(),
+			"event_id": gen_randid(),
 		}
 
 	def _build_map_info(self, client_id: str, modified_tiles: dict) -> dict:

@@ -144,7 +144,7 @@ class Bomberdude():
             "score": player_one.score,
             "handled": False,
             "handledby": "connection_event",
-            "eventid": gen_randid(),
+            "event_id": gen_randid(),
         }
         connection_attempts = 0
         while not self.client_game_state._ready:
@@ -358,7 +358,7 @@ class Bomberdude():
                     "timer": self.timer,
                     "handled": False,
                     "handledby": self.client_id,
-                    "eventid": gen_randid()
+                    "event_id": gen_randid()
                 }
 
                 await self.client_game_state.event_queue.put(event)
@@ -494,7 +494,7 @@ class Bomberdude():
                 "handled": False,
                 "handledby": "game_update",
                 "playerlist": playerlist,
-                "eventid": gen_randid(),}
+                "event_id": gen_randid(),}
             current_time = time.time()
             if current_time - self.last_position_update > self.position_update_interval:
                 await self.client_game_state.event_queue.put(update_event)

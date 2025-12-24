@@ -25,7 +25,7 @@ class PlayerState:
 	handled: bool = False
 	handledby: str = 'PlayerState'
 	playerlist: list = field(default_factory=list)
-	eventid: str = field(default_factory=gen_randid)
+	event_id: str = field(default_factory=gen_randid)
 
 	def __post_init__(self, initial_bombs):
 		# Initialize the private attribute for the property
