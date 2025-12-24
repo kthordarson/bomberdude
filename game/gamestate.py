@@ -369,8 +369,6 @@ class GameState:
 				if killable:
 					self.killable_tiles.add(sprite)
 					self.killable_by_tile[(x, y)] = sprite
-		if self.args.debug:
-			logger.debug(f'loading {self.mapname} done. Cached {len(self.tile_cache)} unique tiles.')
 
 	def render_map(self, screen, camera):
 		"""Render the map using cached tile images"""
