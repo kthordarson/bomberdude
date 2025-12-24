@@ -34,12 +34,10 @@ class BombServer:
 		asyncio.create_task(self.process_messages(reader, writer))
 
 	async def process_messages(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+		data = None
 		try:
 			while not writer.is_closing():
 				data = await reader.readuntil(b'\n')
-				if not data:
-					await asyncio.sleep(0.01)
-					continue
 				try:
 					msg = json.loads(data.decode('utf-8'))
 				except (UnicodeDecodeError, json.decoder.JSONDecodeError) as e:
@@ -49,10 +47,7 @@ class BombServer:
 				# Track which client_id is associated with this connection so we can
 				# clean up player state on disconnect.
 				msg_client_id = msg.get('client_id')
-				if not msg_client_id and isinstance(msg.get('game_event'), dict):
-					msg_client_id = msg.get('game_event', {}).get('client_id')
-				if msg_client_id:
-					self.connection_to_client_id[writer] = str(msg_client_id)
+				self.connection_to_client_id[writer] = str(msg_client_id)
 				game_event = msg.get('game_event')
 				if isinstance(game_event, dict):
 					await self.server_game_state.update_game_event(game_event)

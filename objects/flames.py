@@ -34,62 +34,47 @@ class Flame(Sprite):
 
 	async def flame_update(self, collidable_tiles, game_state) -> None:
 		# Move in smaller steps to avoid missing collisions
-		steps = 3  # Check position 3 times during movement
-		dx = self.direction[0] * FLAME_SPEED / steps
-		dy = self.direction[1] * FLAME_SPEED / steps
+		# steps = 3  # Check position 3 times during movement
+		dx = self.direction[0] * FLAME_SPEED  # / steps
+		dy = self.direction[1] * FLAME_SPEED  # / steps
 		step_len = math.hypot(dx, dy)
 
-		for _ in range(steps):
-			self.position.x += dx
-			self.position.y += dy
-			self.rect.center = (int(self.position.x), int(self.position.y))
+		# for _ in range(steps):
+		self.position.x += dx
+		self.position.y += dy
+		self.rect.center = (int(self.position.x), int(self.position.y))
 
-			# Accumulate distance with constant step length
-			self.distance_traveled += step_len
+		# Accumulate distance with constant step length
+		self.distance_traveled += step_len
 
-			# Check if max distance reached
-			if self.distance_traveled >= self.max_distance:
+		# Check if max distance reached
+		if self.distance_traveled >= self.max_distance:
+			self.kill()
+			return
+
+		# Skip collision checks during grace period
+		if self.distance_traveled < self.collision_grace:
+			return
+
+		# Check nearby tiles for collisions without allocating lists
+		flame_area = pygame.Rect(
+			self.rect.x - BLOCK//2,
+			self.rect.y - BLOCK//2,
+			self.rect.width + BLOCK,
+			self.rect.height + BLOCK
+		)
+
+		# Killable tiles
+		for tile in game_state.iter_killable_in_rect(flame_area, pad_pixels=0):
+			if self.rect.colliderect(tile.rect):
+				await game_state.destroy_block(tile)
 				self.kill()
 				return
-
-			# Skip collision checks during grace period
-			if self.distance_traveled < self.collision_grace:
-				continue
-
-			# Check nearby tiles for collisions without allocating lists
-			flame_area = pygame.Rect(
-				self.rect.x - BLOCK//2,
-				self.rect.y - BLOCK//2,
-				self.rect.width + BLOCK,
-				self.rect.height + BLOCK
-			)
-
-			# Killable tiles
-			try:
-				if hasattr(game_state, "iter_killable_in_rect"):
-					killables = game_state.iter_killable_in_rect(flame_area, pad_pixels=0)
-				else:
-					killables = game_state.killable_tiles
-				for tile in killables:
-					if self.rect.colliderect(tile.rect):
-						await game_state.destroy_block(tile)
-						self.kill()
-						return
-			except Exception as e:
-				logger.error(f"flame killable collision error: {e} {type(e)}")
-
-			# Solid walls / collidables
-			try:
-				if hasattr(game_state, "iter_collidable_in_rect"):
-					colliders = game_state.iter_collidable_in_rect(flame_area, pad_pixels=0)
-				else:
-					colliders = game_state.collidable_tiles
-				for tile in colliders:
-					if self.rect.colliderect(tile.rect):
-						self.kill()
-						return
-			except Exception as e:
-				logger.error(f"flame collidable collision error: {e} {type(e)}")
+		# Solid walls / collidables
+		for tile in game_state.iter_collidable_in_rect(flame_area, pad_pixels=0):
+			if self.rect.colliderect(tile.rect):
+				self.kill()
+				return
 
 		# Update size/appearance for animation
 		self.size -= self.shrink_rate

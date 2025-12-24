@@ -218,49 +218,40 @@ class ServerDiscoveryPanel():
         sock.setblocking(False)
         loop = asyncio.get_event_loop()
 
-        try:
-            while self.discovery_running:
-                try:
-                    # Broadcast discovery packet
-                    await loop.sock_sendto(sock, b'BOMBERDUDE_DISCOVERY', ('255.255.255.255', self.discovery_port))
-
-                    # Collect responses for ~1s
-                    end_time = loop.time() + 1.0
-                    while self.discovery_running and loop.time() < end_time:
-                        try:
-                            data, addr = await asyncio.wait_for(loop.sock_recvfrom(sock, 1024), timeout=0.15)
-                        except asyncio.TimeoutError:
-                            continue
-                        except (OSError, asyncio.CancelledError) as e:
-                            self.discovery_running = False
-                            if self.args.debug:
-                                logger.warning(f"{e} {type(e)}")
-                            break
-                        if not data:
-                            continue
-                        try:
-                            server_info = json.loads(data.decode('utf-8'))
-                            if server_info.get('type') == 'server_info':
-                                self.servers[addr[0]] = server_info
-                                if self.args.debug:
-                                    logger.debug(f"Discovered server at {addr}: info: {server_info.get('listen')} players: {server_info.get('players')} map: {server_info.get('map')}")
-                        except Exception as e:
-                            logger.error(f"Error parsing discovery response from {addr}: {e} {type(e)}")
-                            continue
-
-                    await asyncio.sleep(self.discovery_interval)
-
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    logger.error(f"Error in server discovery: {e} {type(e)}")
-                    await asyncio.sleep(1)
-        finally:
+        while self.discovery_running:
             try:
+                # Broadcast discovery packet
+                await loop.sock_sendto(sock, b'BOMBERDUDE_DISCOVERY', ('255.255.255.255', self.discovery_port))
+
+                # Collect responses for ~1s
+                end_time = loop.time() + 1.0
+                while self.discovery_running and loop.time() < end_time:
+                    try:
+                        data, addr = await asyncio.wait_for(loop.sock_recvfrom(sock, 1024), timeout=0.15)
+                    except asyncio.TimeoutError:
+                        continue
+                    except (OSError, asyncio.CancelledError) as e:
+                        self.discovery_running = False
+                        logger.warning(f"{e} {type(e)}")
+                        break
+                    if not data:
+                        continue
+                    try:
+                        server_info = json.loads(data.decode('utf-8'))
+                        self.servers[addr[0]] = server_info
+                    except Exception as e:
+                        logger.error(f"Error parsing discovery response from {addr}: {e} {type(e)}")
+                        continue
+
+                await asyncio.sleep(self.discovery_interval)
+
+            except asyncio.CancelledError:
                 sock.close()
+                break
             except Exception as e:
-                if self.args.debug:
-                    logger.warning(f"Error closing discovery socket: {e} {type(e)}")
+                logger.error(f"Error in server discovery: {e} {type(e)}")
+                sock.close()
+                break
 
     def connect_to_server(self, addr, info):
         """Connect to selected server"""
