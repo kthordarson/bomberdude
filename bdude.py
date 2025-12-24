@@ -133,15 +133,11 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 			selected = await mainmenu.discovery_panel.run()
 			if selected:
 				# Discovery panel should set args.server, but keep this as a safe fallback.
-				args.server = selected.get('host') or selected.get('listen') or args.server
-				sp = selected.get('server_port')
-				args.server_port = sp
-				ap = selected.get('api_port')
-				args.api_port = ap
-				logger.info(f"Selected server: {selected}")
+				args = set_args(args, selected)
 				await start_game(args)
 		except Exception as e:
-			logger.error(f"Error showing discovery panel: {e} {type(e)}")
+			logger.error(f"Error in discovery panel: {e} {type(e)}")
+			return False
 		return True
 
 	elif action == "Quit":
@@ -155,6 +151,15 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 		logger.warning(f"Unknown action: {action}")
 		await asyncio.sleep(1)
 	return True
+
+def set_args(args, selected):
+	args.server = selected.get('host') or selected.get('listen') or args.server
+	sp = selected.get('server_port')
+	args.server_port = sp
+	ap = selected.get('api_port')
+	args.api_port = ap
+	logger.info(f"Selected server: {selected}")
+	return args
 
 def run_server_process(args_dict):
 	"""Function to run server in a separate process"""

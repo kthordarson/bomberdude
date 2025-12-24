@@ -418,8 +418,6 @@ class GameState:
 	def _apply_modifications_dict(self, modified_tiles: dict):
 		"""Batch-apply many tile modifications efficiently."""
 		layer = self.tile_map.get_layer_by_name('Blocks')
-		if not layer:
-			return
 		tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
 		floor_tile = self.tile_cache.get(1)
 		positions_to_clear = set()
@@ -432,7 +430,7 @@ class GameState:
 				if new_gid == 0:
 					positions_to_clear.add((x, y))
 
-		if positions_to_clear and floor_tile is not None:
+		if positions_to_clear and floor_tile:
 			for (x, y) in positions_to_clear:
 				self.static_map_surface.blit(floor_tile, (x * tw, y * th))
 		# Remove cleared positions from collision sets and indexes in O(k)
@@ -442,7 +440,7 @@ class GameState:
 				block = self.collidable_by_tile.pop((x, y), None)
 			else:
 				self.collidable_by_tile.pop((x, y), None)
-			if block is not None:
+			if block:
 				self.killable_tiles.discard(block)
 				self.collidable_tiles.discard(block)
 
@@ -508,33 +506,6 @@ class GameState:
 				logger.info(f"Removing player with None position: {client_id}")
 				del self.playerlist[client_id]
 
-	def update_remote_players(self, delta_time):
-		"""Update remote player interpolation"""
-		for client_id, player in list(self.playerlist.items()):
-			if client_id == self.client_id:
-				continue  # Only remote players
-
-			# Normalize dict players into PlayerState so we have one code path
-			if isinstance(player, dict):
-				player = self.ensure_player_state(player)
-				self.playerlist[client_id] = player
-
-			# From here on, treat as PlayerState-like
-			if not hasattr(player, "position") or player.position is None:
-				if self.args.debug:
-					logger.warning(f"Skipping update for player with None position: {client_id}")
-				continue
-
-			if not hasattr(player, 'prev_position') or player.prev_position is None:
-				player.prev_position = player.position
-				player.target_position = player.position
-				player.interp_time = 0
-				player.position_updated = False
-			if getattr(player, 'position_updated', False):
-				player.prev_position = player.position
-				player.interp_time = 0
-				player.position_updated = False
-
 	def check_flame_collisions(self) -> None:
 		"""Check for collisions between bomb flames and players.
 
@@ -548,17 +519,13 @@ class GameState:
 
 		for flame in flames:
 			flame_rect = getattr(flame, "rect", None)
-			if flame_rect is None:
-				continue
 
 			for player in players:
-				player_id = getattr(player, "client_id", None)
-				player_rect = getattr(player, "rect", None)
-				if player_id is None or player_rect is None:
-					continue
+				player_id = player.client_id
+				player_rect = player.rect
 
 				# Don't re-hit already-dead players.
-				if bool(getattr(player, "killed", False)) or int(getattr(player, "health", 0) or 0) <= 0:
+				if player.killed or player.health <= 0:
 					continue
 
 				if flame_rect.colliderect(player_rect):
