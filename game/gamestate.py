@@ -133,23 +133,20 @@ class GameState:
 			return
 		if state.client_id != self.client_id:
 			return
-		try:
-			for sprite in self.players_sprites:
-				if getattr(sprite, "client_id", None) == self.client_id:
-					# Only sync non-positional fields; movement is client-driven.
-					if hasattr(sprite, "health"):
-						sprite.health = state.health
-					if hasattr(sprite, "score"):
-						sprite.score = state.score
-					if hasattr(sprite, "bombs_left"):
-						sprite.bombs_left = state.bombs_left
-					# Ensure the sprite image reflects killed/dead state.
-					dead = bool(getattr(state, 'killed', False)) or int(getattr(state, 'health', 0) or 0) <= 0
-					if hasattr(sprite, "set_dead"):
-						sprite.set_dead(dead)
-					break
-		except Exception as e:
-			logger.error(f"Error syncing local sprite from state: {e} {type(e)}")
+		for sprite in self.players_sprites:
+			if sprite.client_id == self.client_id:
+				# Only sync non-positional fields; movement is client-driven.
+				# if hasattr(sprite, "health"):
+				sprite.health = state.health
+				# if hasattr(sprite, "score"):
+				sprite.score = state.score
+				# if hasattr(sprite, "bombs_left"):
+				sprite.bombs_left = state.bombs_left
+				# Ensure the sprite image reflects killed/dead state.
+				dead = bool(getattr(state, 'killed', False)) or int(getattr(state, 'health', 0) or 0) <= 0
+				if sprite.set_dead:
+					sprite.set_dead(dead)
+				break
 
 	def __repr__(self):
 		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
