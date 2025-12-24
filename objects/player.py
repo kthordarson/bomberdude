@@ -75,10 +75,10 @@ class Bomberplayer(Sprite):
 			surf = await get_cached_image(texture_path, scale=1.0, convert=False)
 			self.original_image = surf
 			self.image = surf
-			return
-		self.original_image = await get_cached_image(texture_path, scale=1.0, convert=True)
-		self.image = await get_cached_image(texture_path, scale=float(self.scale), convert=True)
-		self.rect = self.image.get_rect()
+		else:
+			self.original_image = await get_cached_image(texture_path, scale=1.0, convert=True)
+			self.image = await get_cached_image(texture_path, scale=float(self.scale), convert=True)
+			self.rect = self.image.get_rect()
 
 	async def set_dead(self, dead: bool) -> None:
 		"""Swap sprite image based on health/killed state."""
@@ -179,6 +179,17 @@ class Bomberplayer(Sprite):
 		"""Try to drop a bomb and return event"""
 		current_time = time.time()
 		cooldown_period = 0.5  # Half-second cooldown between bomb drops
+		# Player has bombs and can drop
+
+		# Calculate tile-centered position (snap to grid)
+		# Use the player's rect center to choose the tile they are standing on.
+		self.rect.x = int(self.position.x)
+		self.rect.y = int(self.position.y)
+		cx, cy = self.rect.center
+		tile_size = BLOCK * self.scale
+		tile_x = (int(cx) // tile_size) * tile_size + tile_size // 2
+		tile_y = (int(cy) // tile_size) * tile_size + tile_size // 2
+		bomb_pos = (tile_x, tile_y)
 
 		# Check cooldown first
 		if (current_time - self.lastdrop) < cooldown_period:
@@ -192,7 +203,7 @@ class Bomberplayer(Sprite):
 				"event_id": gen_randid(),
 			}
 
-		if self.killed:
+		elif self.killed:
 			return {
 				"event_time": current_time,
 				"event_type": "nodropbombkill",
@@ -204,7 +215,7 @@ class Bomberplayer(Sprite):
 			}
 
 		# Check if player has any bombs left
-		if self.bombs_left <= 0:
+		elif self.bombs_left <= 0:
 			return {
 				"event_time": current_time,
 				"event_type": "nodropbomb",
@@ -214,26 +225,20 @@ class Bomberplayer(Sprite):
 				"handledby": self.client_id,
 				"event_id": gen_randid(),
 			}
-
-		# Player has bombs and can drop
-		self.lastdrop = current_time  # Set last drop time to prevent spam
-		# Consume one bomb immediately (restored when the bomb explodes)
-		self.bombs_left = self.bombs_left - 1
-
-		# Calculate tile-centered position (snap to grid)
-		# Use the player's rect center to choose the tile they are standing on.
-		cx, cy = self.rect.center
-		tile_size = BLOCK
-		tile_x = (int(cx) // tile_size) * tile_size + tile_size // 2
-		tile_y = (int(cy) // tile_size) * tile_size + tile_size // 2
-
-		return {
-			"event_time": current_time,
-			"event_type": "player_drop_bomb",
-			"client_id": self.client_id,
-			"position": (tile_x, tile_y),  # Snapped to tile center
-			"bombs_left": self.bombs_left,
-			"handled": False,
-			"handledby": self.client_id,
-			"event_id": gen_randid(),
-		}
+		else:
+			if bomb_pos == (16,16):
+				logger.warning(f"{self} Attempted to drop bomb at invalid position (16,16), ignoring. cx={cx} cy={cy} rect={self.rect}")
+			else:
+				self.lastdrop = current_time  # Set last drop time to prevent spam
+				# Consume one bomb immediately (restored when the bomb explodes)
+				self.bombs_left = self.bombs_left - 1
+				return {
+					"event_time": current_time,
+					"event_type": "player_drop_bomb",
+					"client_id": self.client_id,
+					"position": bomb_pos,  # Snapped to tile center
+					"bombs_left": self.bombs_left,
+					"handled": False,
+					"handledby": self.client_id,
+					"event_id": gen_randid(),
+				}

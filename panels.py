@@ -81,8 +81,6 @@ class MainMenu:
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button
                     action = self.handle_mouse_click(event.pos)
-        if action != 'noinput' and self.args.debug:
-            logger.debug(f"MainMenu action: {action}")
         return action
 
     def handle_mouse_click(self, mouse_pos):

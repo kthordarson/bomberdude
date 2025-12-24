@@ -145,7 +145,7 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 			await stop_server_background()
 		logger.info("Quitting...")
 		return False
-	elif action == 'noinput':
+	elif action in ('noinput', 'nomouseaction'):
 		return True
 	else:
 		logger.warning(f"Unknown action: {action}")

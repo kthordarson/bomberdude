@@ -135,6 +135,8 @@ class Bomberdude():
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
         player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id, position=pos)
         await player_one._set_texture(player_one.texture)
+        player_one.rect = player_one.image.get_rect()
+        player_one.rect.topleft = (int(player_one.position.x), int(player_one.position.y))
         self.client_game_state.players_sprites.add(player_one)
         connection_event = {
             "event_time": 0,
@@ -179,7 +181,7 @@ class Bomberdude():
             if self.args.debug:
                 logger.warning("draw_player called with None player_data")
             return
-        client_id = getattr(player_data, 'client_id', 'unknown')
+        client_id = player_data.client_id
         try:
             if client_id not in self.remote_player_sprites:
                 position = getattr(player_data, 'position', [0, 0])
@@ -192,9 +194,6 @@ class Bomberdude():
                 player_sprite = Bomberplayer(texture=texture, client_id=client_id)
                 await player_sprite._set_texture(texture)
                 self.remote_player_sprites[client_id] = player_sprite
-                player_sprite.position = Vec2d(position) if position else Vec2d(0, 0)
-                # player_sprite.rect.topleft = (player_sprite.position.x, player_sprite.position.y)
-                player_sprite.rect.topleft = (int(player_sprite.position.x), int(player_sprite.position.y))
             else:
                 player_sprite = self.remote_player_sprites[client_id]
 
@@ -438,6 +437,11 @@ class Bomberdude():
         if key == pygame.K_SPACE:
             drop_bomb_event = await player_one.drop_bomb()
             if drop_bomb_event and drop_bomb_event.get("event_type") == "player_drop_bomb":
+                if self.args.debug:
+                    logger.debug(f"Dropping bomb: {drop_bomb_event}")
+                if drop_bomb_event.get('position') == (16,16):
+                    logger.warning(f"Attempted to drop bomb at invalid position (16,16), ignoring. bomb event: {drop_bomb_event}")
+                    return
                 await self.client_game_state.event_queue.put(drop_bomb_event)
             return
 
@@ -481,6 +485,8 @@ class Bomberdude():
         self.timer += self.delta_time
         if player_one.client_id != 'theserver':
             player_one.update(self.client_game_state)
+            player_one.rect.x = int(player_one.position.x)
+            player_one.rect.y = int(player_one.position.y)
 
             map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
             map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
