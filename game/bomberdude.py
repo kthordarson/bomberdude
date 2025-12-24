@@ -326,11 +326,9 @@ class Bomberdude():
     async def handle_on_mouse_press(self, x, y, button) -> None:
         if button == 1:
             player_one = self.client_game_state.get_playerone()
-            if player_one and player_one.client_id != 'theserver':
+            if player_one.client_id != 'theserver':
                 # Dead players can't shoot.
-                if getattr(player_one, 'killed', False) or getattr(player_one, 'health', 0) <= 0:
-                    if self.args.debug_gamestate:
-                        logger.debug(f"{player_one} is dead, ignoring mouse press")
+                if player_one.killed or player_one.health <= 0:
                     return
                 # Convert screen coordinates to world coordinates
                 mouse_world_pos = self.camera.reverse_apply(x, y)
