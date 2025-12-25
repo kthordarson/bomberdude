@@ -178,27 +178,29 @@ class GameState:
 		x, y = block.rect.topleft
 		tile_x = x // self.tile_map.tilewidth
 		tile_y = y // self.tile_map.tileheight
-		layer = self.tile_map.get_layer_by_name('Blocks')
+		layer_names = ('Blocks', 'UpgradeBlocks')
+		for layer_name in layer_names:
+			layer = self.tile_map.get_layer_by_name(layer_name)
 
-		self.collidable_tiles.discard(block)
-		self.killable_tiles.discard(block)
-		self.collidable_by_tile.pop((tile_x, tile_y), None)
-		self.killable_by_tile.pop((tile_x, tile_y), None)
-		layer.data[tile_y][tile_x] = 0  # type: ignore
-		self.modified_tiles[(tile_x, tile_y)] = 0
-		# Update visual representation
-		self.static_map_surface.blit(self.tile_cache.get(1), (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))  # type: ignore
+			self.collidable_tiles.discard(block)
+			self.killable_tiles.discard(block)
+			self.collidable_by_tile.pop((tile_x, tile_y), None)
+			self.killable_by_tile.pop((tile_x, tile_y), None)
+			layer.data[tile_y][tile_x] = 0  # type: ignore
+			self.modified_tiles[(tile_x, tile_y)] = 0
+			# Update visual representation
+			self.static_map_surface.blit(self.tile_cache.get(1), (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))  # type: ignore
 
-		# Broadcast the map modification to all clients
-		map_update_event = {
-			"event_type": "map_update",
-			"position": (tile_x, tile_y),
-			"new_gid": 0,  # 0 = removed
-			"event_time": time.time(),
-			"client_id": self.client_id,
-			"handled": False,
-		}
-		await self.event_queue.put(map_update_event)
+			# Broadcast the map modification to all clients
+			map_update_event = {
+				"event_type": "map_update",
+				"position": (tile_x, tile_y),
+				"new_gid": 0,  # 0 = removed
+				"event_time": time.time(),
+				"client_id": self.client_id,
+				"handled": False,
+			}
+			await self.event_queue.put(map_update_event)
 
 	def ready(self):
 		return self._ready
@@ -298,13 +300,8 @@ class GameState:
 		self.mapname = mapname
 		self.tile_map = load_pygame(self.mapname)
 		# Create a cache for tile images
-		tmap = self.tile_map
-		tw, th = tmap.tilewidth, tmap.tileheight
-		self.static_map_surface = pygame.Surface((tmap.width * tw, tmap.height * th))
-		blit = self.static_map_surface.blit
-		tile_cache = self.tile_cache
-		Rect = pygame.Rect
-		SpriteCls = pygame.sprite.Sprite
+		tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
+		self.static_map_surface = pygame.Surface((self.tile_map.width * tw, self.tile_map.height * th))
 
 		# Reset caches and indexes when loading a new map
 		self.collidable_tiles.clear()
@@ -312,37 +309,32 @@ class GameState:
 		self.collidable_by_tile.clear()
 		self.killable_by_tile.clear()
 
-		for layer in tmap.visible_layers:
+		for layer in self.tile_map.visible_layers:
 			collidable = bool(layer.properties.get('collidable'))
+			# if not collidable:
+			# 	continue
 			killable = bool(layer.properties.get('killable'))
 			for x, y, gid in layer:
 				# Skip empty tiles (gid = 0)
 				if gid == 0:
 					continue
 				# Cache the tile image if not already cached
-				tile = tile_cache.get(gid)
+				tile = self.tile_cache.get(gid, None)
 				if tile is None:
-					tile = tmap.get_tile_image_by_gid(gid)
-					tile_cache[gid] = tile
-
-				if not tile:
-					continue
-
-				blit(tile, (x * tw, y * th))
-				if not collidable:
-					continue
-
-				sprite = SpriteCls()
+					self.tile_cache[gid] = self.tile_map.get_tile_image_by_gid(gid)
+				self.static_map_surface.blit(self.tile_cache[gid], (x * tw, y * th))
+				sprite = pygame.sprite.Sprite()
 				sprite: Any = sprite  # or use a Protocol class
-				sprite.image = tile
-				sprite.rect = Rect(x * tw, y * th, tw, th)
+				sprite.image = self.tile_cache[gid]
+				sprite.rect = pygame.Rect(x * tw, y * th, tw, th)
 				sprite.layer = layer.name
 				sprite.tile_pos = (x, y)
-				self.collidable_tiles.add(sprite)
-				self.collidable_by_tile[(x, y)] = sprite
 				if killable:
 					self.killable_tiles.add(sprite)
 					self.killable_by_tile[(x, y)] = sprite
+				if collidable:
+					self.collidable_tiles.add(sprite)
+					self.collidable_by_tile[(x, y)] = sprite
 
 	def render_map(self, screen, camera):
 		"""Render the map using cached tile images"""
@@ -366,55 +358,59 @@ class GameState:
 
 	def _apply_tile_change(self, x, y, new_gid):
 		"""Apply a single tile change and update visuals/collisions/state."""
-		layer = self.tile_map.get_layer_by_name('Blocks')
-		if not layer:
-			return
-		tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
-		if 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):  # type: ignore
-			layer.data[y][x] = new_gid  # type: ignore
-			self.modified_tiles[(x, y)] = new_gid
-			if new_gid == 0:
-				floor_tile = self.tile_cache.get(1)
-				if floor_tile:
+		layers_names = ('Blocks', 'UpgradeBlocks')
+		for layer_name in layers_names:
+			layer = self.tile_map.get_layer_by_name(layer_name)
+			if not layer:
+				return
+			tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
+			if 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):  # type: ignore
+				layer.data[y][x] = new_gid  # type: ignore
+				self.modified_tiles[(x, y)] = new_gid
+				if new_gid == 0:
+					floor_tile = self.tile_cache.get(1)
+					if floor_tile:
+						self.static_map_surface.blit(floor_tile, (x * tw, y * th))
+					# O(1) removals using indexes (no scanning)
+					block = self.killable_by_tile.pop((x, y), None)
+					if block is None:
+						block = self.collidable_by_tile.pop((x, y), None)
+					else:
+						self.collidable_by_tile.pop((x, y), None)
+					if block is not None:
+						self.killable_tiles.discard(block)
+						self.collidable_tiles.discard(block)
+
+	def _apply_modifications_dict(self, modified_tiles: dict):
+		"""Batch-apply many tile modifications efficiently."""
+		layers_names = ('Blocks', 'UpgradeBlocks')
+		for layer_name in layers_names:
+			layer = self.tile_map.get_layer_by_name(layer_name)
+			tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
+			floor_tile = self.tile_cache.get(1)
+			positions_to_clear = set()
+
+			for pos_key, new_gid in modified_tiles.items():
+				x, y = self._parse_pos_key(pos_key)
+				if 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):  # type: ignore
+					layer.data[y][x] = new_gid  # type: ignore
+					self.modified_tiles[(x, y)] = new_gid
+					if new_gid == 0:
+						positions_to_clear.add((x, y))
+
+			if positions_to_clear and floor_tile:
+				for (x, y) in positions_to_clear:
 					self.static_map_surface.blit(floor_tile, (x * tw, y * th))
-				# O(1) removals using indexes (no scanning)
+			# Remove cleared positions from collision sets and indexes in O(k)
+			for (x, y) in positions_to_clear:
 				block = self.killable_by_tile.pop((x, y), None)
 				if block is None:
 					block = self.collidable_by_tile.pop((x, y), None)
 				else:
 					self.collidable_by_tile.pop((x, y), None)
-				if block is not None:
+				if block:
 					self.killable_tiles.discard(block)
 					self.collidable_tiles.discard(block)
-
-	def _apply_modifications_dict(self, modified_tiles: dict):
-		"""Batch-apply many tile modifications efficiently."""
-		layer = self.tile_map.get_layer_by_name('Blocks')
-		tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
-		floor_tile = self.tile_cache.get(1)
-		positions_to_clear = set()
-
-		for pos_key, new_gid in modified_tiles.items():
-			x, y = self._parse_pos_key(pos_key)
-			if 0 <= y < len(layer.data) and 0 <= x < len(layer.data[0]):  # type: ignore
-				layer.data[y][x] = new_gid  # type: ignore
-				self.modified_tiles[(x, y)] = new_gid
-				if new_gid == 0:
-					positions_to_clear.add((x, y))
-
-		if positions_to_clear and floor_tile:
-			for (x, y) in positions_to_clear:
-				self.static_map_surface.blit(floor_tile, (x * tw, y * th))
-		# Remove cleared positions from collision sets and indexes in O(k)
-		for (x, y) in positions_to_clear:
-			block = self.killable_by_tile.pop((x, y), None)
-			if block is None:
-				block = self.collidable_by_tile.pop((x, y), None)
-			else:
-				self.collidable_by_tile.pop((x, y), None)
-			if block:
-				self.killable_tiles.discard(block)
-				self.collidable_tiles.discard(block)
 
 	def update_game_state(self, client_id, msg):
 		msg_event = msg.get('game_event')

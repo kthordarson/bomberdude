@@ -164,8 +164,10 @@ class BombServer:
 		layers = []
 		wall_layer = self.server_game_state.tile_map.get_layer_by_name('Walls')
 		block_layer = self.server_game_state.tile_map.get_layer_by_name('Blocks')
+		upgrade_block_layer = self.server_game_state.tile_map.get_layer_by_name('UpgradeBlocks')
 		layers.append(wall_layer)
 		layers.append(block_layer)
+		layers.append(upgrade_block_layer)
 		for layer in layers:
 			for x, y, gid in layer:
 				if gid != 0:
