@@ -37,8 +37,8 @@ async def _process_pygame_events(bomberdude_main: Bomberdude) -> None:
 			# the expensive set_mode() until the user releases the mouse.
 			try:
 				bomberdude_main.queue_resize(event.w, event.h)
-			except Exception:
-				pass
+			except Exception as e:
+				logger.error(f"Error in queue_resize: {e} {type(e)}")
 		elif event.type == pygame.KEYDOWN:
 			await bomberdude_main.handle_on_key_press(event.key)
 		elif event.type == pygame.KEYUP:
@@ -47,15 +47,15 @@ async def _process_pygame_events(bomberdude_main: Bomberdude) -> None:
 			x, y = event.pos
 			try:
 				x, y = bomberdude_main.window_to_virtual(x, y)
-			except Exception:
-				pass
+			except Exception as e:
+				logger.error(f"Error in window_to_virtual: {e} {type(e)}")
 			asyncio.create_task(bomberdude_main.handle_on_mouse_press(x, y, event.button))
 		elif event.type == pygame.MOUSEBUTTONUP:
 			# Apply any pending resize after the user finishes dragging.
 			try:
 				bomberdude_main.apply_pending_resize()
-			except Exception:
-				pass
+			except Exception as e:
+				logger.error(f"Error in apply_pending_resize: {e} {type(e)}")
 
 
 async def _run_frame(bomberdude_main: Bomberdude) -> bool:
@@ -67,7 +67,7 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 		return False
 
 	try:
-		bomberdude_main.on_draw()
+		await bomberdude_main.on_draw()
 	except Exception as e:
 		logger.error(f"Error in on_draw: {e} {type(e)}")
 		await asyncio.sleep(1)
@@ -77,8 +77,8 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 	# the pending resize after a short debounce.
 	try:
 		bomberdude_main.maybe_apply_pending_resize()
-	except Exception:
-		pass
+	except Exception as e:
+		logger.error(f"Error in maybe_apply_pending_resize: {e} {type(e)}")
 
 	pygame.display.flip()
 	await _process_pygame_events(bomberdude_main)
@@ -133,15 +133,11 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 			selected = await mainmenu.discovery_panel.run()
 			if selected:
 				# Discovery panel should set args.server, but keep this as a safe fallback.
-				args.server = selected.get('host') or selected.get('listen') or args.server
-				sp = selected.get('server_port')
-				args.server_port = sp
-				ap = selected.get('api_port')
-				args.api_port = ap
-				logger.info(f"Selected server: {selected}")
+				args = set_args(args, selected)
 				await start_game(args)
 		except Exception as e:
-			logger.error(f"Error showing discovery panel: {e} {type(e)}")
+			logger.error(f"Error in discovery panel: {e} {type(e)}")
+			return False
 		return True
 
 	elif action == "Quit":
@@ -149,12 +145,21 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 			await stop_server_background()
 		logger.info("Quitting...")
 		return False
-	elif action == 'noinput':
+	elif action in ('noinput', 'nomouseaction'):
 		return True
 	else:
 		logger.warning(f"Unknown action: {action}")
 		await asyncio.sleep(1)
 	return True
+
+def set_args(args, selected):
+	args.server = selected.get('host') or selected.get('listen') or args.server
+	sp = selected.get('server_port')
+	args.server_port = sp
+	ap = selected.get('api_port')
+	args.api_port = ap
+	logger.info(f"Selected server: {selected}")
+	return args
 
 def run_server_process(args_dict):
 	"""Function to run server in a separate process"""

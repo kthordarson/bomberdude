@@ -34,12 +34,10 @@ class BombServer:
 		asyncio.create_task(self.process_messages(reader, writer))
 
 	async def process_messages(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+		data = None
 		try:
 			while not writer.is_closing():
 				data = await reader.readuntil(b'\n')
-				if not data:
-					await asyncio.sleep(0.01)
-					continue
 				try:
 					msg = json.loads(data.decode('utf-8'))
 				except (UnicodeDecodeError, json.decoder.JSONDecodeError) as e:
@@ -49,10 +47,7 @@ class BombServer:
 				# Track which client_id is associated with this connection so we can
 				# clean up player state on disconnect.
 				msg_client_id = msg.get('client_id')
-				if not msg_client_id and isinstance(msg.get('game_event'), dict):
-					msg_client_id = msg.get('game_event', {}).get('client_id')
-				if msg_client_id:
-					self.connection_to_client_id[writer] = str(msg_client_id)
+				self.connection_to_client_id[writer] = str(msg_client_id)
 				game_event = msg.get('game_event')
 				if isinstance(game_event, dict):
 					await self.server_game_state.update_game_event(game_event)
@@ -87,7 +82,7 @@ class BombServer:
 						"event_time": time.time(),
 						"handled": False,
 						"handledby": "server.disconnect",
-						"eventid": gen_randid(),
+						"event_id": gen_randid(),
 					}
 					await self.server_game_state.broadcast_event(left_event)
 				except Exception as e:
@@ -155,7 +150,7 @@ class BombServer:
 					last_broadcast = time.time()
 				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError as e:
-			logger.warning(f"Ticker broadcast task cancelled: {e}")
+			logger.info(f"Ticker broadcast task cancelled {e}")
 		except Exception as e:
 			logger.error(f"Error in ticker broadcast: {e} {type(e)}")
 
@@ -199,8 +194,8 @@ class BombServer:
 		try:
 			if hasattr(self, "discovery_service") and self.discovery_service is not None:
 				self.discovery_service.stop()
-		except Exception:
-			pass
+		except Exception as e:
+			logger.error(f"Error stopping discovery service: {e} {type(e)}")
 
 	def stopped(self):
 		return self._stop.is_set()
@@ -252,7 +247,7 @@ class BombServer:
 			"position": pos,
 			"handled": False,
 			"handledby": "_build_player_joined",
-			"eventid": gen_randid(),
+			"event_id": gen_randid(),
 		}
 
 	def _build_map_info(self, client_id: str, modified_tiles: dict) -> dict:

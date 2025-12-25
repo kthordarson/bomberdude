@@ -5,6 +5,26 @@ from loguru import logger
 
 DISCOVERY_MAGIC = b"BOMBERDUDE_DISCOVERY"
 
+def get_local_ip_addresses():
+    ips = set()
+    for iface in socket.if_nameindex():
+        iface_name = iface[1]
+        try:
+            for fam, _, _, _, sockaddr in socket.getaddrinfo(None, 0, family=socket.AF_INET, proto=socket.IPPROTO_UDP):
+                s = socket.socket(fam, socket.SOCK_DGRAM)
+                try:
+                    s.connect(('8.8.8.8', 80))
+                    ip = s.getsockname()[0]
+                    if not ip.startswith("127."):
+                        ips.add(ip)
+                except Exception:
+                    pass
+                finally:
+                    s.close()
+        except Exception:
+            pass
+    return list(ips)
+
 class ServerDiscovery:
     def __init__(self, bombserver, discovery_port: int = 12345):
         self.bombserver = bombserver
@@ -27,8 +47,8 @@ class ServerDiscovery:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Failed to set SO_REUSEPORT: {e} {type(e)}")
 
         # Receive broadcast packets
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -36,7 +56,7 @@ class ServerDiscovery:
 
         # IMPORTANT for LAN: bind to all interfaces by default.
         # If you bind to 127.0.0.1 you will not receive LAN broadcasts.
-        bind_host = "0.0.0.0"
+        bind_host = get_local_ip_addresses()[0]
         sock.bind((bind_host, self.discovery_port))
         logger.info(f"Server discovery listening on {bind_host}:{self.discovery_port}")
 
@@ -59,7 +79,8 @@ class ServerDiscovery:
 
                 try:
                     players = len(self.bombserver.server_game_state.playerlist)
-                except Exception:
+                except Exception as e:
+                    logger.error(f"Error getting player count: {e} {type(e)}")
                     players = 0
 
                 response = {
@@ -80,8 +101,8 @@ class ServerDiscovery:
         finally:
             try:
                 sock.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.error(f"Error closing discovery socket: {e} {type(e)}")
             self._sock = None
             self.running = False
 
@@ -91,6 +112,7 @@ class ServerDiscovery:
         if self._sock is not None:
             try:
                 self._sock.close()
-            except Exception:
+            except Exception as e:
+                logger.error(f"Error closing discovery socket: {e} {type(e)}")
                 pass
             self._sock = None

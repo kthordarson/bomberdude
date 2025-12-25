@@ -1,3 +1,4 @@
+from loguru import logger
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 # from pymunk import Vec2d
@@ -44,8 +45,8 @@ class Particle(Sprite):
 						self.velocity.x *= -0.8  # Bounce with dampening
 					if abs(self.rect.bottom - tile.rect.top) < 5 or abs(self.rect.top - tile.rect.bottom) < 5:
 						self.velocity.y *= -0.8  # Bounce with dampening
-		except Exception:
-			pass
+		except Exception as e:
+			logger.error(f"Error in Particle.update collision check: {e} {type(e)}")
 
 		# Fade out over time
 		elapsed = pygame.time.get_ticks() / 1000 - self.born_time

@@ -1,3 +1,4 @@
+from loguru import logger
 from pygame.math import Vector2 as Vec2d
 import pygame
 
@@ -41,6 +42,7 @@ class Bullet(pygame.sprite.Sprite):
 				if self.rect.colliderect(tile.rect):
 					self.kill()
 					return
-		except Exception:
+		except Exception as e:
 			# Don't crash the game loop on collision errors.
+			logger.error(f"Error in Bullet.update collision check: {e} {type(e)}")
 			return

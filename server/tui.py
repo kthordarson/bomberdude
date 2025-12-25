@@ -13,7 +13,7 @@ class ServerTUI():
 		self.loop = asyncio.get_event_loop()
 
 	def __repr__(self):
-		return f"ServerTUI (s:{self.stopped()})"
+		return f"ServerTUI (stopped:{self.stopped()})"
 
 	async def stop(self):
 		self._stop.set()

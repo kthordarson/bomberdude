@@ -67,6 +67,9 @@ class Bomberdude():
         # Fog-of-war caching: only recompute when inputs change.
         self._fog_last_center: tuple[int, int] | None = None
         self._fog_last_radius: int | None = None
+        self.show_player_info_panel = True
+
+        self.remote_player_sprites: dict[str, Bomberplayer] = {}  # Cache for remote players
 
     def __repr__(self):
         return f"Bomberdude( {self.title} playerlist: {len(self.client_game_state.playerlist)} players_sprites: {len(self.client_game_state.players_sprites)} {self.connected()})"
@@ -83,12 +86,14 @@ class Bomberdude():
             if hasattr(self, "sock") and self.sock:
                 try:
                     self.sock.shutdown(socket.SHUT_RDWR)
-                except Exception:
+                except OSError:
                     pass
+                except Exception as e:
+                    logger.error(f"Error shutting down socket: {e} {type(e)}")
                 try:
                     self.sock.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.error(f"Error closing socket: {e} {type(e)}")
         except Exception as e:
             logger.error(f"disconnect error: {e} {type(e)}")
 
@@ -129,6 +134,9 @@ class Bomberdude():
         map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
         player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id, position=pos)
+        await player_one._set_texture(player_one.texture)
+        player_one.rect = player_one.image.get_rect()
+        player_one.rect.topleft = (int(player_one.position.x), int(player_one.position.y))
         self.client_game_state.players_sprites.add(player_one)
         connection_event = {
             "event_time": 0,
@@ -141,7 +149,7 @@ class Bomberdude():
             "score": player_one.score,
             "handled": False,
             "handledby": "connection_event",
-            "eventid": gen_randid(),
+            "event_id": gen_randid(),
         }
         connection_attempts = 0
         while not self.client_game_state._ready:
@@ -167,48 +175,61 @@ class Bomberdude():
         except Exception as e:
             logger.error(f"Error applying map modifications: {e}")
 
-    def draw_player(self, player_data):
+    async def draw_player(self, player_data):
         """Draw a player sprite based on player data"""
         if not player_data:
             if self.args.debug:
                 logger.warning("draw_player called with None player_data")
             return
+        client_id = player_data.client_id
         try:
-            client_id = getattr(player_data, 'client_id', 'unknown')
+            if client_id not in self.remote_player_sprites:
+                position = getattr(player_data, 'position', [0, 0])
+                health = getattr(player_data, 'health', 0)
+                killed = getattr(player_data, 'killed', False)
+                is_dead = bool(killed) or (isinstance(health, (int, float)) and health <= 0)
+                texture = "data/netplayerdead.png" if is_dead else "data/player2.png"
+
+                # Create temporary sprite for drawing
+                player_sprite = Bomberplayer(texture=texture, client_id=client_id)
+                await player_sprite._set_texture(texture)
+                self.remote_player_sprites[client_id] = player_sprite
+            else:
+                player_sprite = self.remote_player_sprites[client_id]
+
             position = getattr(player_data, 'position', [0, 0])
-            health = getattr(player_data, 'health', 0)
-            killed = getattr(player_data, 'killed', False)
-            is_dead = bool(killed) or (isinstance(health, (int, float)) and health <= 0)
-            texture = "data/netplayerdead.png" if is_dead else "data/player2.png"
-
-            # Create temporary sprite for drawing
-            player_sprite = Bomberplayer(texture=texture, client_id=client_id)
             player_sprite.position = Vec2d(position) if position else Vec2d(0, 0)
-            # player_sprite.rect.topleft = (player_sprite.position.x, player_sprite.position.y)
             player_sprite.rect.topleft = (int(player_sprite.position.x), int(player_sprite.position.y))
-
-            # Now we can safely draw the sprite
-            self.screen.blit(player_sprite.image, self.camera.apply(player_sprite.rect))  # type: ignore
+            if player_sprite.image:
+                self.screen.blit(player_sprite.image, self.camera.apply(player_sprite.rect))
+            else:
+                if self.args.debug:
+                    logger.warning(f"Player sprite image not loaded for {client_id}")
+                # Now we can safely draw the sprite
+            # self.screen.blit(player_sprite.image, self.camera.apply(player_sprite.rect))  # type: ignore
 
         except Exception as e:
             logger.error(f"Error drawing player: {e} {type(player_data)}")
 
-    def on_draw(self):
+    async def on_draw(self):
         # Clear virtual screen
         self.screen.fill((0, 0, 0))
 
         self.client_game_state.render_map(self.screen, self.camera)
         # Draw local player
         player_one = self.client_game_state.get_playerone()
+        if not player_one.rect:
+            logger.warning(f"Player one rect not set {player_one=} {self.client_game_state=}")
+            return
         if player_one.client_id != 'theserver':
-            if player_one.image is not None:  # type: ignore
-                self.screen.blit(player_one.image, self.camera.apply(player_one.rect))  # type: ignore
+            if player_one.image:
+                self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
 
                 # Draw remote players from playerlist
                 for client_id, player in self.client_game_state.playerlist.items():
                     if client_id != self.client_id:
                         try:
-                            self.draw_player(player)
+                            await self.draw_player(player)
                         except Exception as e:
                             logger.error(f'draw_player {e} {type(e)} player: {player} {type(player)}')
             else:
@@ -226,19 +247,21 @@ class Bomberdude():
             pos = self.camera.apply(bomb.rect)
             self.screen.blit(bomb.image, pos)
 
-        self.client_game_state.bombs.update(self.client_game_state)
+        # self.client_game_state.bombs.update(self.client_game_state)
 
         # Draw explosion particles
         self.client_game_state.explosion_manager.draw(self.screen, self.camera)
 
         # Draw fog of war
-        self.apply_fog_of_war()
+        if self.fog_enabled:
+            self.apply_fog_of_war()
 
         if self.draw_debug:
             draw_debug_info(self.screen, self.client_game_state, self.camera)
         if self.show_minimap:
             self.draw_minimap()
-        self.player_info_panel.draw()
+        if self.show_player_info_panel:
+            self.player_info_panel.draw()
 
         self.window.blit(self.screen, (0, 0))
 
@@ -321,11 +344,9 @@ class Bomberdude():
     async def handle_on_mouse_press(self, x, y, button) -> None:
         if button == 1:
             player_one = self.client_game_state.get_playerone()
-            if player_one and player_one.client_id != 'theserver':
+            if player_one.client_id != 'theserver':
                 # Dead players can't shoot.
-                if getattr(player_one, 'killed', False) or getattr(player_one, 'health', 0) <= 0:
-                    if self.args.debug_gamestate:
-                        logger.debug(f"{player_one} is dead, ignoring mouse press")
+                if player_one.killed or player_one.health <= 0:
                     return
                 # Convert screen coordinates to world coordinates
                 mouse_world_pos = self.camera.reverse_apply(x, y)
@@ -353,7 +374,7 @@ class Bomberdude():
                     "timer": self.timer,
                     "handled": False,
                     "handledby": self.client_id,
-                    "eventid": gen_randid()
+                    "event_id": gen_randid()
                 }
 
                 await self.client_game_state.event_queue.put(event)
@@ -388,6 +409,8 @@ class Bomberdude():
             logger.debug(f"Fog of war toggled: {self.fog_enabled}")
         elif key == pygame.K_F7:
             pygame.display.toggle_fullscreen()
+        elif key == pygame.K_TAB:
+            self.show_player_info_panel = not self.show_player_info_panel
         elif key in (pygame.K_ESCAPE, pygame.K_q, 27):
             await self.disconnect(return_to_menu=True)
             # self._connected = False
@@ -412,8 +435,13 @@ class Bomberdude():
 
         # Actions
         if key == pygame.K_SPACE:
-            drop_bomb_event = player_one.drop_bomb()
+            drop_bomb_event = await player_one.drop_bomb()
             if drop_bomb_event and drop_bomb_event.get("event_type") == "player_drop_bomb":
+                if self.args.debug:
+                    logger.debug(f"Dropping bomb: {drop_bomb_event}")
+                if drop_bomb_event.get('position') == (16,16):
+                    logger.warning(f"Attempted to drop bomb at invalid position (16,16), ignoring. bomb event: {drop_bomb_event}")
+                    return
                 await self.client_game_state.event_queue.put(drop_bomb_event)
             return
 
@@ -444,8 +472,11 @@ class Bomberdude():
     async def update(self):
         try:
             player_one = self.client_game_state.get_playerone()
-        except AttributeError as e:
+        except Exception as e:
             logger.error(f"{e} {type(e)}")
+            await asyncio.sleep(1)
+            return
+        if not player_one.rect:
             await asyncio.sleep(1)
             return
         current_time = time.time()
@@ -454,6 +485,8 @@ class Bomberdude():
         self.timer += self.delta_time
         if player_one.client_id != 'theserver':
             player_one.update(self.client_game_state)
+            player_one.rect.x = int(player_one.position.x)
+            player_one.rect.y = int(player_one.position.y)
 
             map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth
             map_height = self.client_game_state.tile_map.height * self.client_game_state.tile_map.tileheight
@@ -466,6 +499,8 @@ class Bomberdude():
             self.camera.update(player_one)
 
             self.client_game_state.bullets.update(self.client_game_state)
+            for bomb in self.client_game_state.bombs:
+                await bomb.update(self.client_game_state)
             self.client_game_state.check_bullet_collisions()
             # await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
 
@@ -487,7 +522,7 @@ class Bomberdude():
                 "handled": False,
                 "handledby": "game_update",
                 "playerlist": playerlist,
-                "eventid": gen_randid(),}
+                "event_id": gen_randid(),}
             current_time = time.time()
             if current_time - self.last_position_update > self.position_update_interval:
                 await self.client_game_state.event_queue.put(update_event)
@@ -529,7 +564,7 @@ class Bomberdude():
         radius = int(self.fog_radius)
         if center != self._fog_last_center or radius != self._fog_last_radius:
             # Fill with semi-transparent black
-            self.fog_surface.fill((0, 0, 0, 250))
+            self.fog_surface.fill((0, 0, 0, 220))
             # Reset mask to fully opaque black
             self._visibility_mask.fill((0, 0, 0, 255))
             pygame.draw.circle(self._visibility_mask, (0, 0, 0, 0), center, radius)
@@ -560,13 +595,6 @@ class Bomberdude():
         """Resize the actual OS window. Game renders at base_size and is scaled up/down."""
         width = max(320, int(width))
         height = max(240, int(height))
-        # Scale virtual frame to the actual window and present it
-        # try:
-        #     scaled = pygame.transform.smoothscale(self.screen, self.window.get_size())
-        # except Exception:
-        #     # Fallback if smoothscale fails for some reason
-        #     scaled = pygame.transform.scale(self.screen, self.window.get_size())
-
         self.window = pygame.display.set_mode((width, height), flags=pygame.RESIZABLE)
 
     def queue_resize(self, width: int, height: int) -> None:
