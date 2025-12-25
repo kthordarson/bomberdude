@@ -33,13 +33,8 @@ class Bullet(pygame.sprite.Sprite):
 		self.rect.center = (int(self.world_position.x), int(self.world_position.y))
 
 		# Check collisions with tiles
-		try:
-			tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
-			for tile in tiles_iter:
-				if self.rect.colliderect(tile.rect):
-					self.kill()
-					return
-		except Exception as e:
-			# Don't crash the game loop on collision errors.
-			logger.error(f"Error in Bullet.update collision check: {e} {type(e)}")
-			return
+		tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
+		for tile in tiles_iter:
+			if self.rect.colliderect(tile.rect):
+				self.kill()
+				return

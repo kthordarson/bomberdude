@@ -471,33 +471,13 @@ class Bomberdude():
         # --- Upgrade block pickup logic ---
         # Use a copy to avoid modifying the set during iteration
         for upgrade_block in list(self.client_game_state.upgrade_blocks):
-            if player_one.rect.colliderect(upgrade_block.rect):
-                # Apply upgrade effect based on type
-                if self.args.debug:
-                    logger.debug(f'Player {player_one.client_id} picked up upgrade: {upgrade_block.upgradetype}')
-                if upgrade_block.upgradetype == 'default':
-                    player_one.score += 10  # Example: add score
-                elif upgrade_block.upgradetype == 'health':
-                    player_one.health = min(player_one.health + 25, 100)
-                elif upgrade_block.upgradetype == 'bomb':
-                    player_one.bombs_left = min(player_one.bombs_left + 1, 3)
-                elif upgrade_block.upgradetype == 'speed':
-                    pass
-
-                # Remove the upgrade block
-                self.client_game_state.upgrade_blocks.discard(upgrade_block)
-                if hasattr(self.client_game_state, 'upgrade_by_tile'):
-                    # Ensure position is a tuple of ints (x, y)
-                    pos = getattr(upgrade_block, 'position', None)
-                    if isinstance(pos, (tuple, list)) and len(pos) == 2:
-                        key = (int(pos[0]), int(pos[1]))
-                        self.client_game_state.upgrade_by_tile.pop(key, None)
-                upgrade_block.kill()
+            upgrade_block.update()
 
         self.client_game_state.bullets.update(self.client_game_state)
         for bomb in self.client_game_state.bombs:
             await bomb.update(self.client_game_state)
         self.client_game_state.check_bullet_collisions()
+        self.client_game_state.check_upgrade_collisions(self.client_game_state)
         # await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
 
         # Use the already calculated delta time

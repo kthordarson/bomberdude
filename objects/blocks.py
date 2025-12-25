@@ -4,14 +4,16 @@ import pygame
 from utils import get_cached_image
 
 class Upgrade(Sprite):
-	def __init__(self, upgradetype, image, position, scale, timer=1000, client_id='UpgradeBlock'):
+	def __init__(self, upgradetype, image, position, scale, life=1.0, client_id='UpgradeBlock'):
 		super().__init__()
 		self.image_name = image
 		self.upgradetype = upgradetype
 		self.position = position
-		self.timer = timer
 		self.scale = scale
 		self.client_id = client_id
+		self.life = life
+		self.original_life = life
+		self.born_time = pygame.time.get_ticks() / 1000
 
 	async def async_init(self):
 		self.image = await get_cached_image(self.image_name, scale=float(self.scale), convert=True)
@@ -19,7 +21,8 @@ class Upgrade(Sprite):
 		self.rect.topleft = self.position
 
 	def update(self):
-		if self.timer <= 0:
+		elapsed = pygame.time.get_ticks() / 1000 - self.born_time
+		# Kill if lifetime is over
+		if elapsed > self.life:
 			self.kill()
-		else:
-			self.timer -= 1
+

@@ -202,10 +202,12 @@ class GameState:
 				image = 'data/newbomb.png'  # or another upgrade image
 				scale = 1.0
 				# Create and add the Upgrade block
-				upgrade_block = Upgrade(upgradetype, image, (x, y), scale)
+				upgrade_block = Upgrade(upgradetype, image, (x, y), scale, life=3.0)
 				await upgrade_block.async_init()
 				self.upgrade_blocks.add(upgrade_block)
 				self.upgrade_by_tile[(x, y)] = upgrade_block
+				if self.args.debug:
+					logger.debug(f'Spawned upgrade block of type {upgradetype} at tile ({tile_x}, {tile_y}) self.upgrade_blocks: {len(self.upgrade_blocks)}')
 
 			# Broadcast the map modification to all clients
 			map_update_event = {
@@ -529,6 +531,26 @@ class GameState:
 						logger.error(f"Error killing flame after hit: {e} {type(e)}")
 					return
 
+	def check_upgrade_collisions(self, game_state):
+		players = list(self.players_sprites)
+		for upgrade_block in game_state.upgrade_blocks:
+			for player in players:
+				if player.rect.colliderect(upgrade_block.rect):
+					# Apply upgrade effect based on type
+					logger.debug(f'{player} picked up upgrade: {upgrade_block.upgradetype}')
+					current_time = time.time()
+					upgrade_event = {
+						"event_time": current_time,
+						"event_type": "upgrade_block_collected",
+						"client_id": player.client_id,
+						"position": upgrade_block.position,
+						"handled": False,
+						"handledby": player.client_id,
+						"event_id": gen_randid(),
+					}
+					asyncio.create_task(game_state.event_queue.put(upgrade_event))
+					upgrade_block.kill()
+
 	def check_bullet_collisions(self):
 		"""Check for collisions between bullets and players"""
 		players = list(self.players_sprites)
@@ -577,6 +599,7 @@ class GameState:
 			"bomb_exploded": self._on_bomb_exploded,
 			"player_hit": self._on_player_hit,
 			"on_player_hit": self._on_player_hit,
+			"upgrade_block_collected": self._on_upgrade_pickup,
 		}
 
 		et_raw = event.get("event_type")
@@ -960,6 +983,12 @@ class GameState:
 			asyncio.create_task(self.broadcast_event(out_event))
 		if self.args.debug_gamestate:
 			logger.debug(f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} for {damage} damage at {event.get('position')} health: {old_health} -> {getattr(target_player_entry, 'health', None)} self.processed_hits: {len(self.processed_hits)}")
+		return True
+
+	async def _on_upgrade_pickup(self, event: dict) -> bool:
+		# Handle upgrade pickup events (not implemented yet)
+		event["handled"] = True
+		event["handledby"] = "gamestate._on_upgrade_pickup"
 		return True
 
 	def _on_unknown_event(self, event: dict) -> bool:
