@@ -67,7 +67,7 @@ class Bomberdude():
         # Fog-of-war caching: only recompute when inputs change.
         self._fog_last_center: tuple[int, int] | None = None
         self._fog_last_radius: int | None = None
-        self.show_player_info_panel = True
+        self.draw_player_info_panel = True
 
         self.remote_player_sprites: dict[str, Bomberplayer] = {}  # Cache for remote players
 
@@ -212,15 +212,18 @@ class Bomberdude():
         # Clear virtual screen
         self.screen.fill((0, 0, 0))
 
-        # self.client_game_state.render_map(self.screen, self.camera)
+        # draw map
         self.screen.blit(self.client_game_state.static_map_surface, self.camera.apply(pygame.Rect(0, 0, self.client_game_state.static_map_surface.get_width(), self.client_game_state.static_map_surface.get_height())))
+
+        # Draw upgrade blocks
+        for upgrade_block in self.client_game_state.upgrade_blocks:
+            self.screen.blit(upgrade_block.image, self.camera.apply(upgrade_block.rect))
+
         # Draw local player
         player_one = self.client_game_state.get_playerone()
-        if not player_one.rect or not player_one.image:
-            logger.warning(f"player_one image or rect not set {player_one=} {self.client_game_state=}")
-            return
         if player_one.image:
             self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
+
         # Draw remote players from playerlist
         for client_id, player in self.client_game_state.playerlist.items():
             if client_id != self.client_id:
@@ -235,8 +238,6 @@ class Bomberdude():
             pos = self.camera.apply(bomb.rect)
             self.screen.blit(bomb.image, pos)
 
-        # self.client_game_state.bombs.update(self.client_game_state)
-
         # Draw explosion particles
         self.client_game_state.explosion_manager.draw(self.screen, self.camera)
 
@@ -248,7 +249,7 @@ class Bomberdude():
             draw_debug_info(self.screen, self.client_game_state, self.camera)
         if self.show_minimap:
             self.draw_minimap()
-        if self.show_player_info_panel:
+        if self.draw_player_info_panel:
             self.player_info_panel.draw()
 
         self.window.blit(self.screen, (0, 0))
@@ -275,7 +276,7 @@ class Bomberdude():
 
         # Draw map blocks
         for tile in self.client_game_state.collidable_tiles:
-            if tile.layer == 'Blocks':
+            if tile.layer in ('Blocks', 'UpgradeBlocks'):
                 mini_x = minimap_x + int(tile.rect.x * scale)
                 mini_y = minimap_y + int(tile.rect.y * scale)
                 mini_w = max(2, int(tile.rect.width * scale))
@@ -370,13 +371,7 @@ class Bomberdude():
             await self.client_game_state.event_queue.put(event)
 
     async def handle_on_key_press(self, key):
-        try:
-            player_one = self.client_game_state.get_playerone()
-        except AttributeError as e:
-            logger.error(f"{e} {type(e)}")
-            return
-        if not player_one:
-            return
+        player_one = self.client_game_state.get_playerone()
         if key == pygame.K_1:
             self.selected_bomb = 1
         elif key == pygame.K_2:
@@ -400,7 +395,7 @@ class Bomberdude():
         elif key == pygame.K_F7:
             pygame.display.toggle_fullscreen()
         elif key == pygame.K_TAB:
-            self.show_player_info_panel = not self.show_player_info_panel
+            self.draw_player_info_panel = not self.draw_player_info_panel
         elif key in (pygame.K_ESCAPE, pygame.K_q, 27):
             await self.disconnect(return_to_menu=True)
             # self._connected = False
@@ -434,11 +429,7 @@ class Bomberdude():
             return
 
     async def handle_on_key_release(self, key):
-        try:
-            player_one = self.client_game_state.get_playerone()
-        except AttributeError as e:
-            logger.error(f"{e} {type(e)}")
-            return
+        player_one = self.client_game_state.get_playerone()
         if key in (pygame.K_UP, pygame.K_w):
             player_one.change_y = 0
             self.client_game_state.keyspressed.keys[key] = False
@@ -458,15 +449,7 @@ class Bomberdude():
         self.client_game_state.keyspressed.keys[key] = False
 
     async def update(self):
-        try:
-            player_one = self.client_game_state.get_playerone()
-        except Exception as e:
-            logger.error(f"{e} {type(e)}")
-            await asyncio.sleep(1)
-            return
-        if not player_one.rect:
-            await asyncio.sleep(1)
-            return
+        player_one = self.client_game_state.get_playerone()
         current_time = time.time()
         self.delta_time = current_time - self.last_frame_time
         self.last_frame_time = current_time
@@ -484,6 +467,32 @@ class Bomberdude():
         player_one.rect.y = int(player_one.position.y)
 
         self.camera.update(player_one)
+
+        # --- Upgrade block pickup logic ---
+        # Use a copy to avoid modifying the set during iteration
+        for upgrade_block in list(self.client_game_state.upgrade_blocks):
+            if player_one.rect.colliderect(upgrade_block.rect):
+                # Apply upgrade effect based on type
+                if self.args.debug:
+                    logger.debug(f'Player {player_one.client_id} picked up upgrade: {upgrade_block.upgradetype}')
+                if upgrade_block.upgradetype == 'default':
+                    player_one.score += 10  # Example: add score
+                elif upgrade_block.upgradetype == 'health':
+                    player_one.health = min(player_one.health + 25, 100)
+                elif upgrade_block.upgradetype == 'bomb':
+                    player_one.bombs_left = min(player_one.bombs_left + 1, 3)
+                elif upgrade_block.upgradetype == 'speed':
+                    pass
+
+                # Remove the upgrade block
+                self.client_game_state.upgrade_blocks.discard(upgrade_block)
+                if hasattr(self.client_game_state, 'upgrade_by_tile'):
+                    # Ensure position is a tuple of ints (x, y)
+                    pos = getattr(upgrade_block, 'position', None)
+                    if isinstance(pos, (tuple, list)) and len(pos) == 2:
+                        key = (int(pos[0]), int(pos[1]))
+                        self.client_game_state.upgrade_by_tile.pop(key, None)
+                upgrade_block.kill()
 
         self.client_game_state.bullets.update(self.client_game_state)
         for bomb in self.client_game_state.bombs:
@@ -532,8 +541,6 @@ class Bomberdude():
             self._fog_last_radius = None
 
         player_one = self.client_game_state.get_playerone()
-        if not player_one:
-            return
 
         # Convert world to screen without extra allocations/calls
         map_width = self.client_game_state.tile_map.width * self.client_game_state.tile_map.tilewidth

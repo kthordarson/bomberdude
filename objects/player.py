@@ -113,7 +113,7 @@ class Bomberplayer(Sprite):
 			logger.error(f"Error converting player to dict: {e}")
 			return {}
 
-	def update(self, collidable_tiles):
+	def update(self, game_state):
 		if not self.rect:
 			return
 		# Store previous position
@@ -131,28 +131,13 @@ class Bomberplayer(Sprite):
 		# Check collisions (only nearby tiles when possible)
 		# Use a swept rect so fast motion doesn't skip thin obstacles.
 		query_rect = self.rect.union(prev_rect)
-		try:
-			# If a GameState is passed, use its spatial index.
-			if hasattr(collidable_tiles, "iter_collidable_in_rect"):
-				tiles_iter = collidable_tiles.iter_collidable_in_rect(query_rect, pad_pixels=BLOCK)
-			else:
-				tiles_iter = collidable_tiles
-			for tile in tiles_iter:
-				if self.rect.colliderect(tile.rect):
-					self.position.x, self.position.y = prev_x, prev_y
-					self.rect.x = int(prev_x)
-					self.rect.y = int(prev_y)
-					return
-		except Exception as e:
-			# Be conservative: if anything unexpected happens, revert movement.
-			logger.error(f"Error in Player.update collision check: {e} {type(e)}")
-			self.position.x, self.position.y = prev_x, prev_y
-			self.rect.x = int(prev_x)
-			self.rect.y = int(prev_y)
-			return
-
-	def draw(self, screen):
-		pass  # screen.blit(self.image, self.rect.topleft)
+		# If a GameState is passed, use its spatial index.
+		for tile in game_state.iter_collidable_in_rect(query_rect, pad_pixels=BLOCK):
+			if self.rect.colliderect(tile.rect):
+				self.position.x, self.position.y = prev_x, prev_y
+				self.rect.x = int(prev_x)
+				self.rect.y = int(prev_y)
+				return
 
 	def addscore(self, score):
 		self.score += score

@@ -1,4 +1,5 @@
 import asyncio
+import random
 from typing import Any, Callable, cast, Optional
 import ast
 import pygame
@@ -13,6 +14,7 @@ from objects.player import KeysPressed, Bomberplayer
 from objects.bullets import Bullet
 from objects.bombs import Bomb
 from objects.explosionmanager import ExplosionManager
+from objects.blocks import Upgrade
 from constants import DEFAULT_HEALTH, UPDATE_TICK, GLOBAL_RATE_LIMIT, BLOCK
 import pytmx
 from pytmx import load_pygame
@@ -35,9 +37,11 @@ class GameState:
 		# Use sets for O(1) add/remove; these are iterated frequently for collision checks.
 		self.collidable_tiles = set()
 		self.killable_tiles = set()
+		self.upgrade_blocks = set()
 		# Index tiles by (tile_x, tile_y) to avoid linear scans on removal.
 		self.collidable_by_tile: dict[tuple[int, int], Any] = {}
 		self.killable_by_tile: dict[tuple[int, int], Any] = {}
+		self.upgrade_by_tile: dict[tuple[int, int], Any] = {}
 		self.connections = set()
 		self.client_queue = asyncio.Queue()
 		self.playerlist = {}  # dict = field(default_factory=dict)
@@ -191,6 +195,18 @@ class GameState:
 			# Update visual representation
 			self.static_map_surface.blit(self.tile_cache.get(1), (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))  # type: ignore
 
+			# If this was an UpgradeBlocks layer, spawn an Upgrade block
+			if layer_name == 'UpgradeBlocks':
+				# You can randomize upgradetype and image as needed
+				upgradetype = random.choice(['default', 'speed', 'power', 'range'])
+				image = 'data/newbomb.png'  # or another upgrade image
+				scale = 1.0
+				# Create and add the Upgrade block
+				upgrade_block = Upgrade(upgradetype, image, (x, y), scale)
+				await upgrade_block.async_init()
+				self.upgrade_blocks.add(upgrade_block)
+				self.upgrade_by_tile[(x, y)] = upgrade_block
+
 			# Broadcast the map modification to all clients
 			map_update_event = {
 				"event_type": "map_update",
@@ -308,6 +324,7 @@ class GameState:
 		self.killable_tiles.clear()
 		self.collidable_by_tile.clear()
 		self.killable_by_tile.clear()
+		self.upgrade_by_tile.clear()
 
 		for layer in self.tile_map.visible_layers:
 			collidable = bool(layer.properties.get('collidable'))

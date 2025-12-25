@@ -43,12 +43,7 @@ async def send_game_state(game: Bomberdude) -> None:
 			await asyncio.sleep(1)
 			continue
 		else:
-			try:
-				player_one = game.client_game_state.get_playerone()
-			except AttributeError as e:
-				logger.error(f'{e} {type(e)}')
-				await asyncio.sleep(1)
-				continue
+			player_one = game.client_game_state.get_playerone()
 
 		# Cache keyspressed serialization
 		client_keys = loads(game.client_game_state.keyspressed.to_json())

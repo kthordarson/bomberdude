@@ -34,10 +34,7 @@ class Bullet(pygame.sprite.Sprite):
 
 		# Check collisions with tiles
 		try:
-			if hasattr(collidable_tiles, "iter_collidable_in_rect"):
-				tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
-			else:
-				tiles_iter = collidable_tiles
+			tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
 			for tile in tiles_iter:
 				if self.rect.colliderect(tile.rect):
 					self.kill()

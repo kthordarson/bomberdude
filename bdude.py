@@ -62,7 +62,9 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 	try:
 		await bomberdude_main.update()
 	except Exception as e:
+		import traceback
 		logger.error(f"Error in update: {e} {type(e)}")
+		traceback.print_exc()
 		await asyncio.sleep(1)
 		return False
 
