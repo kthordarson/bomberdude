@@ -336,11 +336,6 @@ class GameState:
 					self.collidable_tiles.add(sprite)
 					self.collidable_by_tile[(x, y)] = sprite
 
-	def render_map(self, screen, camera):
-		"""Render the map using cached tile images"""
-		self.explosion_manager.draw(screen, camera)
-		screen.blit(self.static_map_surface, camera.apply(pygame.Rect(0, 0, self.static_map_surface.get_width(), self.static_map_surface.get_height())))
-
 	# ---------- Helpers for map updates ----------
 	def _parse_pos_key(self, key):
 		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
@@ -946,7 +941,8 @@ class GameState:
 			out_event["handledby"] = "server.broadcast_player_hit"
 			out_event["target_health"] = getattr(target_player_entry, 'health', None)
 			asyncio.create_task(self.broadcast_event(out_event))
-		logger.debug(f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} for {damage} damage at {event.get('position')} health: {old_health} -> {getattr(target_player_entry, 'health', None)} self.processed_hits: {len(self.processed_hits)}")
+		if self.args.debug_gamestate:
+			logger.debug(f"event_type: {event.get('event_type')} from {event.get('client_id')} hit {event.get('target_id')} for {damage} damage at {event.get('position')} health: {old_health} -> {getattr(target_player_entry, 'health', None)} self.processed_hits: {len(self.processed_hits)}")
 		return True
 
 	def _on_unknown_event(self, event: dict) -> bool:

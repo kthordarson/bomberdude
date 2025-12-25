@@ -212,7 +212,8 @@ class Bomberdude():
         # Clear virtual screen
         self.screen.fill((0, 0, 0))
 
-        self.client_game_state.render_map(self.screen, self.camera)
+        # self.client_game_state.render_map(self.screen, self.camera)
+        self.screen.blit(self.client_game_state.static_map_surface, self.camera.apply(pygame.Rect(0, 0, self.client_game_state.static_map_surface.get_width(), self.client_game_state.static_map_surface.get_height())))
         # Draw local player
         player_one = self.client_game_state.get_playerone()
         if not player_one.rect or not player_one.image:
