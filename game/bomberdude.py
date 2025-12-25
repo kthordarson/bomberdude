@@ -182,19 +182,20 @@ class Bomberdude():
             return
         client_id = player_data.client_id
         try:
-            if client_id not in self.remote_player_sprites:
-                position = player_data.position
-                health = player_data.health
-                killed = player_data.killed
-                is_dead = bool(killed) or (isinstance(health, (int, float)) and health <= 0)
-                texture = "data/netplayerdead.png" if is_dead else "data/player2.png"
+            # Determine if player is dead
+            health = player_data.health
+            killed = player_data.killed
+            is_dead = bool(killed) or (isinstance(health, (int, float)) and health <= 0)
 
-                # Create temporary sprite for drawing
+            if client_id not in self.remote_player_sprites:
+                texture = "data/netplayerdead.png" if is_dead else "data/player2.png"
                 player_sprite = Bomberplayer(texture=texture, client_id=client_id)
                 await player_sprite._set_texture(texture)
                 self.remote_player_sprites[client_id] = player_sprite
             else:
                 player_sprite = self.remote_player_sprites[client_id]
+                # Always update dead/alive state and texture if needed
+                await player_sprite.set_dead(is_dead)
 
             position = player_data.position
             player_sprite.position = Vec2d(position)
