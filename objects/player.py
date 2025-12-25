@@ -66,19 +66,13 @@ class Bomberplayer(Sprite):
 		self.lastdrop = 0
 		self.keyspressed = KeysPressed('gamestate')
 		self.client_name = generate_name()
-		if self.client_id == 'theserver':
-			logger.info(f'Server player image loaded without conversion. {self.client_name=} {self.client_id=}')
 
 	async def _set_texture(self, texture_path: str) -> None:
 		# Cache disk loads globally; convert/scale only when a display surface exists.
-		if self.client_id == 'theserver':
-			surf = await get_cached_image(texture_path, scale=1.0, convert=False)
-			self.original_image = surf
-			self.image = surf
-		else:
-			self.original_image = await get_cached_image(texture_path, scale=1.0, convert=True)
-			self.image = await get_cached_image(texture_path, scale=float(self.scale), convert=True)
-			self.rect = self.image.get_rect()
+		self.original_image = await get_cached_image(texture_path, scale=1.0, convert=True)
+		self.image = await get_cached_image(texture_path, scale=float(self.scale), convert=True)
+		self.rect = self.image.get_rect()
+		self.rect.topleft = (int(self.position.x), int(self.position.y))
 
 	async def set_dead(self, dead: bool) -> None:
 		"""Swap sprite image based on health/killed state."""
@@ -158,7 +152,7 @@ class Bomberplayer(Sprite):
 			return
 
 	def draw(self, screen):
-		screen.blit(self.image, self.rect.topleft)
+		pass  # screen.blit(self.image, self.rect.topleft)
 
 	def addscore(self, score):
 		self.score += score

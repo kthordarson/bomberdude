@@ -287,37 +287,11 @@ class GameState:
 
 	def get_playerone(self) -> Bomberplayer | None:
 		"""Always return a Bomberplayer instance"""
-		if self.client_id == 'theserver':
-			player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
-			self.players_sprites.add(player)
-			return player
-		# Try to find player in sprites
 		for player in self.players_sprites:
 			if player.client_id == self.client_id:
 				return player
-
-		# If not found in sprites but in playerlist, create sprite from data
-		target_id = self.client_id
-		if target_id in self.playerlist:
-			player_data = self.playerlist[target_id]
-			# Convert to Bomberplayer
-			pos = getattr(player_data, 'position', None)
-			if isinstance(player_data, dict):
-				pos = player_data.get('position')
-
-			player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
-			if pos:
-				player.position = Vec2d(pos)
-				player.rect.topleft = (int(player.position.x), int(player.position.y))
-
-			# Add to sprites collection
-			self.players_sprites.add(player)
-			return player
-
-		# Create default player as last resort
-		# logger.warning(f"Creating default player - no player found! target_id: {target_id} playerlist keys: {list(self.playerlist.keys())}")
-		# player = Bomberplayer(texture="data/playerone.png", client_id=self.client_id)
-		# self.players_sprites.add(player)
+		if self.args.debug:
+			logger.warning(f'get_playerone: No local player found for client_id: {self.client_id}')
 		return None
 
 	def load_tile_map(self, mapname):
@@ -950,8 +924,8 @@ class GameState:
 		event["handledby"] = "gamestate._on_player_hit"
 		damage = event.get('damage', 0)
 		# If server attached an authoritative target_health, apply it directly on clients.
-		auth_health = event.get("target_health")
-		if self.client_id != "theserver" and isinstance(auth_health, int):
+		auth_health = int(event.get("target_health",0))
+		if self.client_id != "theserver":
 			target_player_entry.health = max(0, auth_health)
 			if target_player_entry.health <= 0:
 				target_player_entry.killed = True
