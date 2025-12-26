@@ -165,10 +165,6 @@ def set_args(args, selected):
 
 def run_server_process(args_dict):
 	"""Function to run server in a separate process"""
-	import asyncio
-	import sys
-	from loguru import logger
-	from bombserver import async_start_server
 
 	# Convert args_dict back to Namespace
 	args = argparse.Namespace(**args_dict)
@@ -212,11 +208,7 @@ async def start_server_background(args: argparse.Namespace):
 	args_dict = vars(args)
 
 	# Start server in a separate process
-	server_process = multiprocessing.Process(
-		target=run_server_process,
-		args=(args_dict,),
-		daemon=True
-	)
+	server_process = multiprocessing.Process(target=run_server_process, args=(args_dict,), daemon=True)
 	server_process.start()
 
 	# Wait for server to initialize

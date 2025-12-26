@@ -30,15 +30,15 @@ class ServerTUI():
 		"""Get current server state information"""
 		state = self.server.server_game_state.to_json()
 		playerlist = cast(list[dict[str, Any]], state.get('playerlist') or [])
-		logger.debug(f"players: {len(playerlist)}  event_queue: {self.server.server_game_state.event_queue.qsize()}  client_queue: {self.server.server_game_state.client_queue.qsize()}")
+		logger.debug(f"playerlist: {len(playerlist)} players_sprites: {len(self.server.server_game_state.players_sprites)} upgrade_blocks: {len(self.server.server_game_state.upgrade_blocks)}")
+		logger.debug(f'explosions: {len(self.server.server_game_state.processed_explosions)} hits: {len(self.server.server_game_state.processed_hits)} bullets: {len(self.server.server_game_state.processed_bullets)} upgrades: {len(self.server.server_game_state.processed_upgrades)}')
+		logger.debug(f"event_queue: {self.server.server_game_state.event_queue.qsize()}  client_queue: {self.server.server_game_state.client_queue.qsize()} server_game_state connections: {len(self.server.server_game_state.connections)} server connections: {len(self.server.connections)}")
 		logger.debug(f"modified_tiles: {state.get('modified_tiles')}")
+		logger.debug(f"gamestate: {self.server.server_game_state} ")
 
 		for player in playerlist:
 			# Fix nested quotes in the f-string
 			logger.debug(f"player: {player.get('client_id')} {player.get('position')} {player.get('health')}")
-
-	def server_game_state(self):
-		logger.debug(f"gamestate: {self.server.server_game_state} ")
 
 	def printhelp(self):
 		print("""
@@ -71,7 +71,7 @@ class ServerTUI():
 		elif cmd[:1] == "l":
 			pass  # self.dump_players()
 		elif cmd[:1] == "e":
-			self.server_game_state()
+			pass
 		elif cmd[:2] == "ec":
 			pass  # self.cleargameevents()
 		elif cmd[:1] == "q":

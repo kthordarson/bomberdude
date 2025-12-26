@@ -219,12 +219,8 @@ class GameState:
 			self.modified_tiles[(tile_x, tile_y)] = 0
 			# Update visual representation
 			self.static_map_surface.blit(self.tile_cache.get(1), (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))  # type: ignore
-
-			# Debug: log block destruction context
-			logger.debug(f"destroy_block: layer={layer_name} tile=({tile_x},{tile_y}) client_id={self.client_id} UpgradeBlocks? {layer_name == 'UpgradeBlocks'}")
-
-			# Only the server should spawn and broadcast upgrades
-			logger.debug(f"destroy_block (server): layer={layer_name} tile=({tile_x},{tile_y}) _upgrade_spawned_tiles={self._upgrade_spawned_tiles}")
+			if self.args.debug_gamestate:
+				logger.debug(f"client_id={self.client_id} destroy_block : layer={layer_name} tile=({tile_x},{tile_y}) _upgrade_spawned_tiles={len(self._upgrade_spawned_tiles)}")
 			if (tile_x, tile_y) not in self._upgrade_spawned_tiles and layer_name == 'UpgradeBlocks':
 				self._upgrade_spawned_tiles.add((tile_x, tile_y))
 				upgradetype = random.choice(['default', 'speed', 'power', 'range'])
@@ -239,7 +235,7 @@ class GameState:
 					"handled": False,
 					"event_id": gen_randid(),
 				}
-				logger.debug(f"Spawning upgrade: {event_upgrade}")
+
 				# Spawn upgrade block locally on the server only
 				upgrade = Upgrade(upgrade_pos, upgradetype=upgradetype, client_id=str(upgrade_id))
 				self.upgrade_blocks.add(upgrade)
