@@ -3,16 +3,16 @@ from loguru import logger
 from pygame.sprite import Sprite
 # from pymunk import Vec2d
 import pygame
-from utils import get_cached_image
+from utils import get_cached_image, gen_randid
 
 class Upgrade(Sprite):
-	def __init__(self, position, life=10.0, client_id='UpgradeBlock', upgradetype=None):
+	def __init__(self, position, life=10.0):
 		super().__init__()
 		self.image_name = 'data/newbomb.png'
-		self.upgradetype = upgradetype or random.choice(['default', 'speed', 'power', 'range'])
+		self.upgradetype = random.choice(['default', 'speed', 'power', 'range', 'extra_bomb'])
 		self.position = position
 		self.scale = 1.0
-		self.client_id = client_id
+		self.client_id = gen_randid()
 		self.life = life
 		self.original_life = life
 		self.born_time = pygame.time.get_ticks() / 1000

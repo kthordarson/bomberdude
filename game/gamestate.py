@@ -223,24 +223,14 @@ class GameState:
 				logger.debug(f"client_id={self.client_id} destroy_block : layer={layer_name} tile=({tile_x},{tile_y}) _upgrade_spawned_tiles={len(self._upgrade_spawned_tiles)}")
 			if (tile_x, tile_y) not in self._upgrade_spawned_tiles and layer_name == 'UpgradeBlocks':
 				self._upgrade_spawned_tiles.add((tile_x, tile_y))
-				upgradetype = random.choice(['default', 'speed', 'power', 'range'])
-				upgrade_id = gen_randid()
 				upgrade_pos = (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight)
-				event_upgrade = {
-					"event_type": "upgrade_spawned",
-					"position": upgrade_pos,
-					"upgradetype": upgradetype,
-					"client_id": upgrade_id,
-					"event_time": time.time(),
-					"handled": False,
-					"event_id": gen_randid(),
-				}
-
-				# Spawn upgrade block locally on the server only
-				upgrade = Upgrade(upgrade_pos, upgradetype=upgradetype, client_id=str(upgrade_id))
+				upgrade = Upgrade(upgrade_pos)
 				self.upgrade_blocks.add(upgrade)
 				await upgrade.async_init()
 				self.upgrade_by_tile[(tile_x, tile_y)] = upgrade
+				event_upgrade = {"event_type": "upgrade_spawned", "position": upgrade_pos, "upgradetype": upgrade.upgradetype, "client_id": self.client_id, "upgrade_id": upgrade.client_id, "event_time": time.time(), "handled": False, "event_id": gen_randid(),}
+
+				# Spawn upgrade block locally on the server only
 				asyncio.create_task(self.broadcast_event(event_upgrade))
 				if self.args.debug_gamestate:
 					logger.info(f'server upgrade_spawned: {upgrade} layer: {layer_name} self.upgrade_blocks: {len(self.upgrade_blocks)}')
@@ -583,7 +573,7 @@ class GameState:
 					current_time = time.time()
 					tile_x = upgrade_block.rect.x // self.tile_map.tilewidth
 					tile_y = upgrade_block.rect.y // self.tile_map.tileheight
-					upgrade_event = {"event_time": current_time, 'event_type': "upgrade_block_collected", "client_id": player.client_id, "position": upgrade_block.position, "handled": False, "handledby": player.client_id, "event_id": gen_randid(),}
+					upgrade_event = {'event_type': "upgrade_block_collected", "client_id": player.client_id, "position": upgrade_block.position, "upgradetype": upgrade_block.upgradetype, "handled": False, "handledby": player.client_id, "event_id": gen_randid(),"event_time": current_time, }
 
 					if self.args.debug_gamestate:
 						logger.info(f'{player.client_id} {player.client_name} picked up: {upgrade_block}')
@@ -792,10 +782,9 @@ class GameState:
 		bombs_left = int(event.get("bombs_left",0))
 		# Keep replicated state in sync with the event
 		player_entry = self.playerlist.get(client_id)
-		if isinstance(player_entry, dict):
-			player_entry["bombs_left"] = bombs_left
-		elif isinstance(player_entry, PlayerState):
-			player_entry.bombs_left = bombs_left
+		player_entry.bombs_left = bombs_left
+		if self.args.debug_gamestate:
+			logger.debug(f"_on_player_drop_bomb: Updated PlayerState bombs_left for {client_id} to {bombs_left}")
 		# Also update local sprite if this is us
 		for sprite in self.players_sprites:
 			if sprite.client_id == client_id:
@@ -831,9 +820,6 @@ class GameState:
 		player_entry = self.playerlist.get(owner_raw)
 		if player_entry:
 			player_entry.bombs_left = min(3, player_entry.bombs_left + 1)
-			if self.args.debug_gamestate:
-				logger.info(f"_on_bomb_exploded: Restored bomb to {owner_raw}, now has {player_entry.bombs_left} bombs left.")
-
 			# Also update local sprite if present
 			for sprite in self.players_sprites:
 				if sprite.client_id == owner_raw:
@@ -1005,46 +991,7 @@ class GameState:
 				logger.warning(f"Duplicate upgrade pickup event ignored: {event} self.processed_upgrades: {len(self.processed_upgrades)}")
 			return False
 		self.processed_upgrades.add(event_id)
-		position = event.get('position')
-		tile_x = int(position[0]) // self.tile_map.tilewidth
-		tile_y = int(position[1]) // self.tile_map.tileheight
-		# Remove all upgrade blocks at this position, matching both tile and pixel positions
-		to_remove = []
-		for upgrade in list(self.upgrade_blocks):
-			upos = upgrade.rect.topleft
-			upos_tile_x = int(upos[0]) // self.tile_map.tilewidth
-			upos_tile_y = int(upos[1]) // self.tile_map.tileheight
-			# Remove if either pixel or tile position matches
-			if (
-				(int(upos[0]), int(upos[1])) == (int(position[0]), int(position[1]))
-				or (upos_tile_x, upos_tile_y) == (tile_x, tile_y)
-			):
-				to_remove.append(upgrade)
-		for upgrade in to_remove:
-			upgrade.kill()
-			self.upgrade_blocks.discard(upgrade)
-			upos = upgrade.rect.topleft
-			upos_tile_x = int(upos[0]) // self.tile_map.tilewidth
-			upos_tile_y = int(upos[1]) // self.tile_map.tileheight
-			self.upgrade_by_tile.pop((upos_tile_x, upos_tile_y), None)
-			# Use the robust tile update method to clear the tile for all players
-			await self._apply_tile_change(upos_tile_x, upos_tile_y, 0)
-			# Broadcast a map update event so all clients clear the tile
-			map_update_event = {
-				'event_type': "map_update_event",
-				"position": (upos_tile_x, upos_tile_y),
-				"new_gid": 0,
-				"event_time": time.time(),
-				"client_id": self.client_id,
-				"handled": False,
-			}
-			if self.args.debug_gamestate:
-				logger.debug(f'Upgrade block picked up: {upgrade} at {position} type: {upgrade.upgradetype} self.upgrade_blocks: {len(self.upgrade_blocks)}')
-			# Only the server should broadcast, but allow for robustness
-			if self.client_id == "theserver":
-				asyncio.create_task(self.broadcast_event(map_update_event))
-		event["handled"] = True
-		event["handledby"] = "gamestate._on_upgrade_pickup"
+		logger.debug(f"_on_upgrade_pickup event: {event}")
 		return True
 
 	async def _on_upgrade_spawned(self, event: dict) -> bool:
@@ -1058,14 +1005,14 @@ class GameState:
 				logger.warning(f'Upgrade already exists at {(tile_x, tile_y)}, ignoring spawn: {event}')
 			await asyncio.sleep(0)
 			return False
-		upgrade = Upgrade(pos, upgradetype=event.get('upgradetype'), client_id=str(event.get('client_id')))
-		await upgrade.async_init()
-		self.upgrade_blocks.add(upgrade)
-		self.upgrade_by_tile[(tile_x, tile_y)] = upgrade
+		# upgrade = Upgrade(position=pos, upgradetype=event.get('upgradetype', 'unknown'))
+		# await upgrade.async_init()
+		# self.upgrade_blocks.add(upgrade)
+		# self.upgrade_by_tile[(tile_x, tile_y)] = upgrade
 		event['handled'] = True
 		event['handledby'] = 'gamestate._on_upgrade_spawned'
 		if self.args.debug_gamestate:
-			logger.debug(f"_on_upgrade_spawned created {upgrade} self.upgrade_blocks: {len(self.upgrade_blocks)}")
+			logger.debug(f"_on_upgrade_spawned self.upgrade_blocks: {len(self.upgrade_blocks)}")
 		await asyncio.sleep(0)
 		return True
 
