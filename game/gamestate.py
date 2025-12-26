@@ -584,12 +584,14 @@ class GameState:
 					tile_x = upgrade_block.rect.x // self.tile_map.tilewidth
 					tile_y = upgrade_block.rect.y // self.tile_map.tileheight
 					upgrade_event = {"event_time": current_time, 'event_type': "upgrade_block_collected", "client_id": player.client_id, "position": upgrade_block.position, "handled": False, "handledby": player.client_id, "event_id": gen_randid(),}
-					map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 0, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
+
 					if self.args.debug_gamestate:
 						logger.info(f'{player.client_id} {player.client_name} picked up: {upgrade_block}')
+					asyncio.create_task(self.broadcast_event(upgrade_event))
 					asyncio.create_task(self.event_queue.put(upgrade_event))
-					asyncio.create_task(self.event_queue.put(map_update_event))
-					break  # Only allow one pickup per block per frame
+
+					# asyncio.create_task(self.event_queue.put(map_update_event))
+					# break  # Only allow one pickup per block per frame
 		# Remove picked up blocks from all players' state
 		for upgrade_block in picked_up_blocks:
 			upgrade_block.kill()
@@ -597,6 +599,8 @@ class GameState:
 			tile_x = upgrade_block.rect.x // self.tile_map.tilewidth
 			tile_y = upgrade_block.rect.y // self.tile_map.tileheight
 			self.upgrade_by_tile.pop((tile_x, tile_y), None)
+			map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 0, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
+			asyncio.create_task(self.broadcast_event(map_update_event))
 		await asyncio.sleep(0)
 
 	async def check_bullet_collisions(self):

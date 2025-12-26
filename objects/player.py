@@ -165,7 +165,7 @@ class Bomberplayer(Sprite):
 		self.rect.x = int(self.position.x)
 		self.rect.y = int(self.position.y)
 		cx, cy = self.rect.center
-		tile_size = BLOCK * self.scale
+		tile_size = BLOCK
 		tile_x = (int(cx) // tile_size) * tile_size + tile_size // 2
 		tile_y = (int(cy) // tile_size) * tile_size + tile_size // 2
 		bomb_pos = (tile_x, tile_y)
