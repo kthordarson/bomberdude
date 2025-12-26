@@ -45,7 +45,7 @@ class Bomb(Sprite):
 
 	async def explode(self, gamestate):
 		explosion_event = {
-			"event_type": "bomb_exploded",
+			'event_type': "bomb_exploded",
 			"owner_id": self.client_id,
 			"client_id": self.client_id,
 			"position": self.rect.center,  # Use center instead of top-left

@@ -49,8 +49,15 @@ class BombServer:
 				msg_client_id = msg.get('client_id')
 				self.connection_to_client_id[writer] = str(msg_client_id)
 				game_event = msg.get('game_event')
-				if isinstance(game_event, dict):
-					await self.server_game_state.update_game_event(game_event)
+				await self.server_game_state.update_game_event(game_event)
+				# send_tasks = []
+				# for w in self.connections:
+				# 	send_tasks.append(self._send_to_client(w, game_event))
+				# if send_tasks:
+				# 	try:
+				# 		await asyncio.gather(*send_tasks, return_exceptions=True)
+				# 	except Exception as e:
+				# 		logger.error(f"Error rebroadcasting map_update_event: {e}")
 				# Optionally broadcast the current state
 				await self.server_broadcast_state(self.server_game_state.to_json())
 		except (asyncio.IncompleteReadError, ConnectionResetError) as e:
@@ -77,7 +84,7 @@ class BombServer:
 				try:
 					self.server_game_state.remove_player(disconnected_client_id)
 					left_event = {
-						"event_type": "player_left",
+						'event_type': "player_left",
 						"client_id": disconnected_client_id,
 						"event_time": time.time(),
 						"handled": False,
@@ -233,7 +240,7 @@ class BombServer:
 
 	def _build_ack_event(self, client_id: str) -> dict:
 		return {
-			"event_type": "acknewplayer",
+			'event_type': "acknewplayer",
 			"client_id": client_id,
 			"handled": False,
 			"handledby": "_build_ack_event",
@@ -244,7 +251,7 @@ class BombServer:
 		pos = msg.get('position') or msg.get('game_event', {}).get('position', [100, 100])
 		return {
 			"event_time": time.time(),
-			"event_type": "player_joined",
+			'event_type': "player_joined",
 			"client_id": client_id,
 			"position": pos,
 			"handled": False,
@@ -255,7 +262,7 @@ class BombServer:
 	def _build_map_info(self, client_id: str, modified_tiles: dict) -> dict:
 		return {
 			"event_time": time.time(),
-			"event_type": "map_info",
+			'event_type': "map_info",
 			"mapname": self.server_game_state.mapname,
 			"modified_tiles": modified_tiles,
 			"client_id": client_id,

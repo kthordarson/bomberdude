@@ -82,8 +82,7 @@ class Bomberplayer(Sprite):
 			await self._set_texture('data/netplayerdead.png')
 		else:
 			self.killed = False
-			alive_path = getattr(self, '_alive_texture_path', None) or self.texture
-			await self._set_texture(alive_path)
+			await self._set_texture(self._alive_texture_path)
 
 	def __hash__(self):
 		return hash((self.client_id))
@@ -175,7 +174,7 @@ class Bomberplayer(Sprite):
 		if (current_time - self.lastdrop) < cooldown_period:
 			return {
 				"event_time": current_time,
-				"event_type": "dropcooldown",
+				'event_type': "dropcooldown",
 				"client_id": self.client_id,
 				"position": self.rect.center,
 				"handled": False,
@@ -186,7 +185,7 @@ class Bomberplayer(Sprite):
 		elif self.killed:
 			return {
 				"event_time": current_time,
-				"event_type": "nodropbombkill",
+				'event_type': "nodropbombkill",
 				"client_id": self.client_id,
 				"position": self.rect.center,
 				"handled": False,
@@ -198,7 +197,7 @@ class Bomberplayer(Sprite):
 		elif self.bombs_left <= 0:
 			return {
 				"event_time": current_time,
-				"event_type": "nodropbomb",
+				'event_type': "nodropbomb",
 				"client_id": self.client_id,
 				"position": self.rect.center,
 				"handled": False,
@@ -214,7 +213,7 @@ class Bomberplayer(Sprite):
 				self.bombs_left = self.bombs_left - 1
 				return {
 					"event_time": current_time,
-					"event_type": "player_drop_bomb",
+					'event_type': "player_drop_bomb",
 					"client_id": self.client_id,
 					"position": bomb_pos,  # Snapped to tile center
 					"bombs_left": self.bombs_left,

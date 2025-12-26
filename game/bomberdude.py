@@ -140,7 +140,7 @@ class Bomberdude():
         self.client_game_state.players_sprites.add(player_one)
         connection_event = {
             "event_time": 0,
-            "event_type": "connection_event",
+            'event_type': "connection_event",
             "client_id": str(player_one.client_id),
             "client_name": str(getattr(player_one, "client_name", "client_namenotset")),
             "position": (player_one.position.x, player_one.position.y),
@@ -192,6 +192,8 @@ class Bomberdude():
                 player_sprite = Bomberplayer(texture=texture, client_id=client_id)
                 await player_sprite._set_texture(texture)
                 self.remote_player_sprites[client_id] = player_sprite
+                if self.args.debug:
+                    logger.debug(f"Created new remote player sprite for {client_id} (dead: {is_dead}) player_sprite: {player_sprite} self.remote_player_sprites: {len(self.remote_player_sprites)}")
             else:
                 player_sprite = self.remote_player_sprites[client_id]
                 # Always update dead/alive state and texture if needed
@@ -358,7 +360,7 @@ class Bomberdude():
             # Create the event
             event = {
                 "event_time": self.timer,
-                "event_type": "on_bullet_fired",
+                'event_type': "on_bullet_fired",
                 "client_id": self.client_id,
                 "position": (bullet_pos.x, bullet_pos.y),
                 "direction": (direction_vector.x, direction_vector.y),
@@ -421,7 +423,7 @@ class Bomberdude():
         # Actions
         if key == pygame.K_SPACE:
             drop_bomb_event = await player_one.drop_bomb()
-            if drop_bomb_event and drop_bomb_event.get("event_type") == "player_drop_bomb":
+            if drop_bomb_event and drop_bomb_event.get('event_type') == "player_drop_bomb":
                 if drop_bomb_event.get('position') == (16,16):
                     logger.warning(f"Attempted to drop bomb at invalid position (16,16), ignoring. bomb event: {drop_bomb_event}")
                 else:
@@ -476,8 +478,8 @@ class Bomberdude():
         self.client_game_state.bullets.update(self.client_game_state)
         for bomb in self.client_game_state.bombs:
             await bomb.update(self.client_game_state)
-        self.client_game_state.check_bullet_collisions()
-        self.client_game_state.check_upgrade_collisions(self.client_game_state)
+        await self.client_game_state.check_bullet_collisions()
+        await self.client_game_state.check_upgrade_collisions()
         # await self.client_game_state.explosion_manager.update(self.client_game_state.collidable_tiles, self.client_game_state)
 
         # Use the already calculated delta time
@@ -488,7 +490,7 @@ class Bomberdude():
         playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in self.client_game_state.playerlist.values()]
         update_event = {
             "event_time": self.timer,
-            "event_type": "player_update",
+            'event_type': "player_update",
             "client_id": str(player_one.client_id),
             "client_name": str(getattr(player_one, "client_name", "client_namenotset")),
             "position": (player_one.position.x, player_one.position.y),

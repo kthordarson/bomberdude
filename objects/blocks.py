@@ -1,15 +1,16 @@
+import random
 from pygame.sprite import Sprite
 # from pymunk import Vec2d
 import pygame
 from utils import get_cached_image
 
 class Upgrade(Sprite):
-	def __init__(self, upgradetype, image, position, scale, life=1.0, client_id='UpgradeBlock'):
+	def __init__(self, position, life=1.0, client_id='UpgradeBlock', upgradetype=None):
 		super().__init__()
-		self.image_name = image
-		self.upgradetype = upgradetype
+		self.image_name = 'data/newbomb.png'
+		self.upgradetype = upgradetype or random.choice(['default', 'speed', 'power', 'range'])
 		self.position = position
-		self.scale = scale
+		self.scale = 1.0
 		self.client_id = client_id
 		self.life = life
 		self.original_life = life
