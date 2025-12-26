@@ -713,6 +713,12 @@ class GameState:
 
 		# Do not spawn upgrades on the client; only the server broadcasts upgrade_spawned events.
 		await self._apply_tile_change(x, y, new_gid)
+		# Always remove any upgrade block at this tile (in case of desync)
+		upgrade_block = self.upgrade_by_tile.pop((x, y), None)
+		if upgrade_block is not None:
+			self.upgrade_blocks.discard(upgrade_block)
+			upgrade_block.kill()
+
 		# event["handled"] = True
 		# event["handledby"] = "gamestate._on_map_update"
 
@@ -810,6 +816,7 @@ class GameState:
 		# De-dupe explosions so the originating client doesn't double-credit bombs_left
 		explosion_id = event.get("event_id")
 		if event.get("handled"):
+			self.processed_explosions.add(explosion_id)
 			if self.args.debug_gamestate:
 				logger.warning(f"_on_bomb_exploded: explosion_id {explosion_id}, already handled ignoring. self.processed_explosions: {len(self.processed_explosions)} event: {event}")
 			await asyncio.sleep(0)
@@ -822,23 +829,28 @@ class GameState:
 		self.processed_explosions.add(explosion_id)
 		owner_raw = event.get("owner_id") or event.get("client_id")
 		player_entry = self.playerlist.get(owner_raw)
-		player_entry.bombs_left = min(3, player_entry.bombs_left + 1)
-		if self.args.debug_gamestate:
-			logger.info(f"_on_bomb_exploded: Restored bomb to {owner_raw}, now has {player_entry.bombs_left} bombs left.")
-
-		# Also update local sprite if present
-		for sprite in self.players_sprites:
-			if sprite.client_id == owner_raw:
-				sprite.bombs_left = min(3, sprite.bombs_left + 1)
-				break
-
-		event["handled"] = True
-		event["handledby"] = "gamestate._on_bomb_exploded"
-		if self.client_id == "theserver":
-			asyncio.create_task(self.broadcast_event(event))
+		if player_entry:
+			player_entry.bombs_left = min(3, player_entry.bombs_left + 1)
 			if self.args.debug_gamestate:
-				logger.debug(f"{self} _on_bomb_exploded: event: {event}")
-		await asyncio.sleep(0)
+				logger.info(f"_on_bomb_exploded: Restored bomb to {owner_raw}, now has {player_entry.bombs_left} bombs left.")
+
+			# Also update local sprite if present
+			for sprite in self.players_sprites:
+				if sprite.client_id == owner_raw:
+					sprite.bombs_left = min(3, sprite.bombs_left + 1)
+					break
+
+			event["handled"] = True
+			event["handledby"] = "gamestate._on_bomb_exploded"
+			if self.client_id == "theserver":
+				asyncio.create_task(self.broadcast_event(event))
+				if self.args.debug_gamestate:
+					logger.debug(f"{self} _on_bomb_exploded: event: {event}")
+			await asyncio.sleep(0)
+		else:
+			if self.args.debug_gamestate:
+				logger.warning(f"_on_bomb_exploded: No player entry for owner_id/client_id: {owner_raw} event: {event}")
+			await asyncio.sleep(0)
 		return True
 
 	async def _on_noop_event(self, event: dict[str, Any]) -> bool:
