@@ -122,9 +122,6 @@ class Bomberdude():
         # Apply map modifications
         if modified_tiles:
             self.apply_map_modifications(modified_tiles)
-        else:
-            if self.args.debug:
-                logger.debug(f'no modified_tiles {len(modified_tiles)}')
         pixel_x = tile_x * self.client_game_state.tile_map.tilewidth
         pixel_y = tile_y * self.client_game_state.tile_map.tileheight
 
@@ -167,8 +164,6 @@ class Bomberdude():
         """Apply map modifications received from the server"""
         if not modified_tiles:
             return
-        if self.args.debug:
-            logger.info(f"Applying {len(modified_tiles)} map modifications from server")
         try:
             # Reuse the GameState batch applier (parses "(x,y)" keys and updates visuals/collisions)
             self.client_game_state._apply_modifications_dict(modified_tiles)
@@ -474,6 +469,10 @@ class Bomberdude():
         # Use a copy to avoid modifying the set during iteration
         for upgrade_block in list(self.client_game_state.upgrade_blocks):
             upgrade_block.update()
+            if upgrade_block.killed:
+                self.client_game_state.upgrade_blocks.discard(upgrade_block)
+                if self.args.debug_gamestate:
+                    logger.debug(f'Removed expired upgrade block: {upgrade_block} remaining: {len(self.client_game_state.upgrade_blocks)}')
 
         self.client_game_state.bullets.update(self.client_game_state)
         for bomb in self.client_game_state.bombs:

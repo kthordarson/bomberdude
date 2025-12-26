@@ -107,8 +107,6 @@ class MainMenu:
         elif current_option == "Quit":
             self.running = False
             action = 'Quit'
-        if self.args.debug:
-            logger.debug(f"MainMenu action: {action} current_option: {current_option}")
         return action
 
     def run(self):
@@ -157,8 +155,6 @@ class SetupMenu:
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button
                     action = self.handle_mouse_click(event.pos)
-        if self.args.debug:
-            logger.debug(f"SetupMenu action: {action}")
         return action
 
     def handle_mouse_click(self, mouse_pos):
@@ -167,8 +163,6 @@ class SetupMenu:
             if rect.collidepoint(mouse_pos):
                 self.selected_option = i
                 action = self.select_option()
-        if self.args.debug:
-            logger.debug(f"SetupMenu mouse click action: {action}")
         return action
 
     def select_option(self):

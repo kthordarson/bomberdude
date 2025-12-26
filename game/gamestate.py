@@ -39,6 +39,7 @@ class GameState:
 		self.killable_tiles = set()
 		self.upgrade_blocks = set()
 		self._map_update_emitted = set()
+		self._upgrade_spawned_tiles = set()
 		# Index tiles by (tile_x, tile_y) to avoid linear scans on removal.
 		self.collidable_by_tile: dict[tuple[int, int], Any] = {}
 		self.killable_by_tile: dict[tuple[int, int], Any] = {}
@@ -220,8 +221,6 @@ class GameState:
 
 			# Spawn an upgrade once per destroyed tile (avoid duplicate spawns)
 			# Only the server should decide and announce upgrades
-			if not hasattr(self, '_upgrade_spawned_tiles'):
-				self._upgrade_spawned_tiles = set()
 			if (tile_x, tile_y) not in self._upgrade_spawned_tiles and layer_name in ('UpgradeBlocks'):
 				self._upgrade_spawned_tiles.add((tile_x, tile_y))
 				upgradetype = random.choice(['default', 'speed', 'power', 'range'])
@@ -244,23 +243,26 @@ class GameState:
 				# Server should immediately broadcast upgrade spawns to all clients; clients enqueue for server if they generate one
 				if self.client_id == 'theserver':
 					asyncio.create_task(self.broadcast_event(event_upgrade))
+					if self.args.debug_gamestate:
+						logger.info(f'server upgrade_spawned: {upgrade} layer: {layer_name} upgrade: {upgrade} self.upgrade_blocks: {len(self.upgrade_blocks)}')
 				else:
 					await self.event_queue.put(event_upgrade)
-				if self.args.debug_gamestate:
-					logger.info(f'upgrade_spawned: {event_upgrade} layer: {layer_name} upgrade: {upgrade} self.upgrade_blocks: {len(self.upgrade_blocks)}')
-				return
+					if self.args.debug_gamestate:
+						logger.debug(f'client upgrade_spawned: {upgrade} layer: {layer_name} upgrade: {upgrade} self.upgrade_blocks: {len(self.upgrade_blocks)}')
 
 			# Emit only a single map_update_event per destroyed tile
 
-			if (tile_x, tile_y) not in self._map_update_emitted:
+			elif (tile_x, tile_y) not in self._map_update_emitted and layer_name not in ('UpgradeBlocks'):
 				self._map_update_emitted.add((tile_x, tile_y))
 				map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 0, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
 				if self.client_id == 'theserver':
 					asyncio.create_task(self.broadcast_event(map_update_event))
+					if self.args.debug_gamestate:
+						logger.info(f'server map_update_event: {map_update_event} layer: {layer_name}')
 				else:
 					await self.event_queue.put(map_update_event)
-				if self.args.debug_gamestate:
-					logger.debug(f'map_update_event: {map_update_event} layer: {layer_name}')
+					if self.args.debug_gamestate:
+						logger.debug(f'client map_update_event: {map_update_event} layer: {layer_name}')
 
 	def ready(self):
 		return self._ready
@@ -293,7 +295,8 @@ class GameState:
 			# Use debug level instead of warning for rate limiting
 			if self.args.debug:
 				logger.warning(f'Rate limiting {client_id}: {timediff:.5f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT} last_time: {last_time}')
-			do_send = False
+			await asyncio.sleep(0.1)
+			# do_send = False
 
 		try:
 			if do_send:
@@ -605,16 +608,20 @@ class GameState:
 					map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 0, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
 					# asyncio.create_task(self.event_queue.put(map_update_event))
 
+					logger.info(f'{player} picked up: {upgrade_block}')
+					asyncio.create_task(self.event_queue.put(upgrade_event))
+					asyncio.create_task(self.event_queue.put(map_update_event))
+
 					# Only the server should broadcast these events
-					if self.client_id == "theserver":
-						logger.debug(f'{player} picked up: {upgrade_block}')
-						asyncio.create_task(self.broadcast_event(upgrade_event))
-						asyncio.create_task(self.broadcast_event(map_update_event))
-					else:
-						# Clients just update local state, do not broadcast
-						logger.info(f'{player} picked up: {upgrade_block}')
-						asyncio.create_task(self.event_queue.put(upgrade_event))
-						asyncio.create_task(self.event_queue.put(map_update_event))
+					# if self.client_id == "theserver":
+					# 	logger.debug(f'{player} picked up: {upgrade_block}')
+					# 	asyncio.create_task(self.broadcast_event(upgrade_event))
+					# 	asyncio.create_task(self.broadcast_event(map_update_event))
+					# else:
+					# 	# Clients just update local state, do not broadcast
+					# 	logger.info(f'{player} picked up: {upgrade_block}')
+					# 	asyncio.create_task(self.event_queue.put(upgrade_event))
+					# 	asyncio.create_task(self.event_queue.put(map_update_event))
 
 					# if self.client_id == "theserver":
 					# 	asyncio.create_task(self.broadcast_event(map_update_event))
@@ -670,7 +677,7 @@ class GameState:
 		event["handled"] = True
 		event["handledby"] = "gamestate._on_player_left"
 		if self.args.debug:
-			logger.info(f"Player left: {client_id}")
+			logger.info(f"Player left: {client_id} {event.get('client_name')}")
 		await asyncio.sleep(0)
 		return client_id
 
@@ -753,7 +760,7 @@ class GameState:
 
 		if bid in self.processed_bullets:
 			if self.args.debug_gamestate:
-				logger.warning(f"_on_bullet_fired: Duplicate bullet event_id {bid}, ignoring.")
+				logger.warning(f"_on_bullet_fired: Duplicate bullet event_id {bid}, ignoring. self.processed_bullets: {len(self.processed_bullets)}")
 			await asyncio.sleep(0)
 			return False
 		self.processed_bullets.add(bid)

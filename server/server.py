@@ -125,13 +125,14 @@ class BombServer:
 		await runner.setup()
 		if self.args.debug:
 			logger.debug(f'{app} {runner} API server runner host {self.args.listen} port {self.args.api_port}')
-		site = web.TCPSite(runner, self.args.listen, self.args.server_port+1)
+		tcp_port = self.args.server_port+1
+		site = web.TCPSite(runner, self.args.listen, tcp_port)
 		try:
 			await site.start()
 			if self.args.debug:
-				logger.info(f'TCPSite started on {self.args.listen}:{self.args.server_port} serveraddr: {addr}')
+				logger.info(f'TCPSite started on {self.args.listen}:{tcp_port} serveraddr: {addr}')
 		except Exception as e:
-			logger.error(f'Error starting API server on {self.args.listen}:{self.args.server_port}: {e} {type(e)}')
+			logger.error(f'Error starting API server on {self.args.listen}:{tcp_port}: {e} {type(e)}')
 			return
 		# Ticker task to broadcast game state
 		ticker_task = self.loop.create_task(self.ticker_broadcast())
@@ -192,10 +193,6 @@ class BombServer:
 			return {'position': (1, 1)}  # fallback position
 
 		position = random.choice(valid_positions)
-
-		if self.args.debug:
-			logger.debug(f'Generated valid position: {position}')
-
 		return {'position': position}
 
 	async def stop(self):
