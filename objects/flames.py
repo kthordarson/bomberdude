@@ -73,6 +73,7 @@ class Flame(Sprite):
 				await game_state.destroy_block(tile)
 				self.kill()
 				return
+
 		# Solid walls / collidables
 		for tile in game_state.iter_collidable_in_rect(flame_area, pad_pixels=0):
 			if self.rect.colliderect(tile.rect):

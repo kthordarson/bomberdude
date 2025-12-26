@@ -1,11 +1,12 @@
 import random
+from loguru import logger
 from pygame.sprite import Sprite
 # from pymunk import Vec2d
 import pygame
 from utils import get_cached_image
 
 class Upgrade(Sprite):
-	def __init__(self, position, life=1.0, client_id='UpgradeBlock', upgradetype=None):
+	def __init__(self, position, life=10.0, client_id='UpgradeBlock', upgradetype=None):
 		super().__init__()
 		self.image_name = 'data/newbomb.png'
 		self.upgradetype = upgradetype or random.choice(['default', 'speed', 'power', 'range'])
@@ -16,6 +17,9 @@ class Upgrade(Sprite):
 		self.original_life = life
 		self.born_time = pygame.time.get_ticks() / 1000
 
+	def __repr__(self):
+		return f'Upgrade {self.client_id} (type: {self.upgradetype} pos: {self.position} life: {self.life}  original_life: {self.original_life} born_time: {self.born_time})'
+
 	async def async_init(self):
 		self.image = await get_cached_image(self.image_name, scale=float(self.scale), convert=True)
 		self.rect = self.image.get_rect()
@@ -25,5 +29,6 @@ class Upgrade(Sprite):
 		elapsed = pygame.time.get_ticks() / 1000 - self.born_time
 		# Kill if lifetime is over
 		if elapsed > self.life:
-			self.kill()
+			logger.debug(f'Upgrade expired: {self} elapsed: {elapsed} > life: {self.life}')
+			# self.kill()
 
