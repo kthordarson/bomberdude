@@ -420,7 +420,7 @@ class Bomberdude():
                     await self.game_state.event_queue.put(drop_bomb_event)
             else:
                 if self.args.debug_gamestate:
-                    logger.debug(f"{player_one} drop bomb ignored, event: {drop_bomb_event}")
+                    logger.debug(f"{player_one.client_name} has {player_one.bombs_left} bombs. drop bomb ignored, event: {drop_bomb_event.get('event_type')}")
             return
 
     async def handle_on_key_release(self, key):
@@ -482,22 +482,22 @@ class Bomberdude():
         self.game_state.check_flame_collisions()
 
         self.game_state.cleanup_playerlist()
-        playerlist = [player.to_dict() for player in self.game_state.playerlist.values()]
-        update_event = {
-            "event_time": self.timer,
-            'event_type': "player_update",
-            "client_id": str(player_one.client_id),
-            "client_name": player_one.client_name,
-            "position": (player_one.position.x, player_one.position.y),
-            "health": player_one.health,
-            "score": player_one.score,
-            "bombs_left": player_one.bombs_left,
-            "handled": False,
-            "handledby": "game_update",
-            "playerlist": playerlist,
-            "event_id": gen_randid(),}
         current_time = time.time()
         if current_time - self.last_position_update > self.position_update_interval:
+            playerlist = [player.to_dict() for player in self.game_state.playerlist.values()]
+            update_event = {
+                "event_time": self.timer,
+                'event_type': "player_update",
+                "client_id": str(player_one.client_id),
+                "client_name": player_one.client_name,
+                "position": (player_one.position.x, player_one.position.y),
+                "health": player_one.health,
+                "score": player_one.score,
+                "bombs_left": player_one.bombs_left,
+                "handled": False,
+                "handledby": "game_update",
+                "playerlist": playerlist,
+                "event_id": gen_randid(),}
             await self.game_state.event_queue.put(update_event)
             self.last_position_update = current_time
             await asyncio.sleep(1 / UPDATE_TICK)

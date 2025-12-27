@@ -10,6 +10,8 @@ from game.bomberdude import Bomberdude
 # To optimize, install orjson and replace json.dumps with orjson.dumps, json.loads with orjson.loads
 # orjson.dumps returns bytes, so adjust encoding accordingly
 
+DEBUG_INTERVAL = UPDATE_TICK * 2
+
 async def send_game_state(game: Bomberdude) -> None:
 	# Log less frequently to reduce overhead
 	log_counter = 0
@@ -64,8 +66,8 @@ async def send_game_state(game: Bomberdude) -> None:
 
 		# Log periodically
 		log_counter += 1
-		if log_counter % 60 == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
-			logger.info(f'send_counter: {send_counter} event_queue: {game.game_state.event_queue.qsize()} client_queue: {game.game_state.client_queue.qsize()}')
+		# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
+		# 	logger.info(f'send_counter: {send_counter} event_queue: {game.game_state.event_queue.qsize()} client_queue: {game.game_state.client_queue.qsize()}')
 
 async def receive_game_state(game: Bomberdude) -> None:
 	# Log less frequently
@@ -97,8 +99,8 @@ async def receive_game_state(game: Bomberdude) -> None:
 
 			# Log periodically
 			log_counter += 1
-			if log_counter % 60 == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
-				logger.info(f'receive: processed {messages_processed} messages, buffer size: {len(buffer)}')
+			# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
+			# 	logger.info(f'receive: processed {messages_processed} messages, buffer size: {len(buffer)}')
 
 		except (BlockingIOError, InterruptedError) as e:
 			await asyncio.sleep(0.1)  # Shorter sleep

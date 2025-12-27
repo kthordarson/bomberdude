@@ -60,6 +60,7 @@ class GameState:
 		self.processed_hits = set()  # Track processed player_hit events (by event_id)
 		self.processed_bullets = set()  # Track processed bullet_fired events (by event_id)
 		self.processed_upgrades = set()  # Track processed upgrade pickups (by event_id)
+		self.broadcast_counter = 0
 		# lots of if/elif event_type == ...
 		self.handlers: dict[str, Callable[[dict[str, Any]], Any]] = {
 			"player_joined": self._on_player_joined,
@@ -82,7 +83,7 @@ class GameState:
 		}
 
 	def __repr__(self):
-		return f'Gamestate ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)})'
+		return f'Gamestate {self.client_id} ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)} broadcast_counter:{self.broadcast_counter} )'
 
 	def _iter_tiles_from_index_in_rect(self, tile_index: dict[tuple[int, int], Any], rect: pygame.Rect, *, pad_pixels: int = 0):
 		"""Yield tiles from a {(tile_x,tile_y)->tile} index intersecting rect.
@@ -106,7 +107,7 @@ class GameState:
 			max_tx = max(0, min(map_w - 1, x1 // tw))
 			max_ty = max(0, min(map_h - 1, y1 // th))
 		except Exception as e:
-			logger.error(f'Error in _iter_tiles_from_index_in_rect: {e} {type(e)}')
+			logger.error(f'{self} Error in _iter_tiles_from_index_in_rect: {e} {type(e)}')
 			return
 
 		for ty in range(min_ty, max_ty + 1):
@@ -137,7 +138,7 @@ class GameState:
 		try:
 			self.playerlist.pop(int(cid), None)
 		except Exception as e:
-			logger.error(f"Error removing player from playerlist {cid}: {e} {type(e)}")
+			logger.error(f"{self} Error removing player from playerlist {cid}: {e} {type(e)}")
 			pass
 
 		# Remove any sprites for that player.
@@ -147,14 +148,14 @@ class GameState:
 					sprite.kill()
 					self.players_sprites.remove(sprite)
 		except Exception as e:
-			logger.error(f"Error removing player sprite {cid}: {e} {type(e)}")
+			logger.error(f"{self} Error removing player sprite {cid}: {e} {type(e)}")
 
 		# Clean up per-player bookkeeping if present.
 		for d in (self.player_active_bombs, self.active_bombs_per_player, self.last_update_times):
 			try:
 				d.pop(cid, None)
 			except Exception as e:
-				logger.error(f"Error cleaning up player data {cid} in {d}: {e} {type(e)}")
+				logger.error(f"{self} Error cleaning up player data {cid} in {d}: {e} {type(e)}")
 				pass
 
 	async def _sync_local_sprite_from_state(self, state: Optional[PlayerState]) -> None:
@@ -207,8 +208,6 @@ class GameState:
 			layer.data[tile_y][tile_x] = 0  # type: ignore
 			# Update visual representation
 			self.static_map_surface.blit(self.tile_cache.get(1), (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))  # type: ignore
-			if self.args.debug_gamestate:
-				logger.debug(f"client_id={self.client_id} destroy_block : layer={layer_name} tile=({tile_x},{tile_y}) _upgrade_spawned_tiles={len(self._upgrade_spawned_tiles)}")
 
 			# Emit only a single map_update_event per destroyed tile
 			if (tile_x, tile_y) not in self._map_update_emitted:
@@ -216,7 +215,7 @@ class GameState:
 				map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 0, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
 				asyncio.create_task(self.broadcast_event(map_update_event))
 				if self.args.debug_gamestate:
-					logger.info(f'map_update_event: {map_update_event} layer: {layer_name}')
+					logger.info(f'{self} layer: {layer_name} tile=({tile_x},{tile_y}) _upgrade_spawned_tiles={len(self._upgrade_spawned_tiles)} ')
 
 			# if (tile_x, tile_y) not in self._upgrade_spawned_tiles and random.random() < 0.5:
 			# 	self._upgrade_spawned_tiles.add((tile_x, tile_y))
@@ -271,11 +270,12 @@ class GameState:
 		try:
 			if do_send:
 				await self.broadcast_state({'event_type': "broadcast_event", "event": event})
+				self.broadcast_counter += 1
 				# Track last time we sent an update for this specific client
 				if event.get('event_type') == 'player_update':
 					self.last_update_times[event.get('client_id')] = time.time()
 		except Exception as e:
-			logger.error(f"Error in broadcast_event: {e} {type(e)}")
+			logger.error(f"{self} Error in broadcast_event: {e} {type(e)}")
 
 	async def broadcast_state(self, game_state):
 		"""Broadcast game state to all connected clients"""
@@ -294,7 +294,7 @@ class GameState:
 				await asyncio.gather(*tasks, return_exceptions=True)
 
 		except Exception as e:
-			logger.error(f"Error in broadcast_state: {e} {type(e)}")
+			logger.error(f"{self} Error in broadcast_state: {e} {type(e)}")
 
 	async def send_to_client(self, connection, data):
 		"""Send data to specific client connection"""
@@ -313,7 +313,7 @@ class GameState:
 			else:  # Socket
 				await loop.sock_sendall(connection, data_out)
 		except Exception as e:
-			logger.error(f"Error sending to client: {e}")
+			logger.error(f"{self} Error sending to client: {e}")
 			self.remove_connection(connection)
 
 	def get_playerone(self) -> Bomberplayer | None:
@@ -371,7 +371,7 @@ class GameState:
 			try:
 				return tuple(ast.literal_eval(key))  # type: ignore
 			except Exception as e:
-				logger.error(f'Error parsing position key {key}: {e} {type(e)}')
+				logger.error(f'{self} Error parsing position key {key}: {e} {type(e)}')
 				s = key.strip().strip('()')
 				x_s, y_s = s.split(',')
 				return (int(x_s), int(y_s))
@@ -380,7 +380,7 @@ class GameState:
 	async def _apply_tile_change(self, x, y, new_gid):
 		"""Apply a single tile change and update visuals/collisions/state."""
 		if self.args.debug_gamestate:
-			logger.debug(f"_apply_tile_change: Changing tile at ({x},{y}) to GID {new_gid}")
+			logger.debug(f"{self} _apply_tile_change: Changing tile at ({x},{y}) to GID {new_gid}")
 		layers_names = ('Blocks',)
 		for layer_name in layers_names:
 			layer = self.tile_map.get_layer_by_name(layer_name)
@@ -411,7 +411,7 @@ class GameState:
 	def _apply_modifications_dict(self, modified_tiles: dict):
 		"""Batch-apply many tile modifications efficiently."""
 		if self.args.debug_gamestate:
-			logger.debug(f"_apply_modifications_dict: Applying {len(modified_tiles)} tile modifications")
+			logger.debug(f"{self} _apply_modifications_dict: Applying {len(modified_tiles)} tile modifications")
 		layers_names = ('Blocks',)
 		for layer_name in layers_names:
 			layer = self.tile_map.get_layer_by_name(layer_name)
@@ -513,7 +513,7 @@ class GameState:
 					try:
 						flame.kill()
 					except Exception as e:
-						logger.error(f"Error killing flame after hit: {e} {type(e)}")
+						logger.error(f"{self} Error killing flame after hit: {e} {type(e)}")
 					return
 
 	async def check_upgrade_collisions(self):
@@ -531,12 +531,10 @@ class GameState:
 					upgrade_event = {'event_type': "upgrade_block_collected", "client_id": player.client_id, "position": upgrade_block.position, "upgradetype": upgrade_block.upgradetype, "handled": False, "handledby": player.client_id, "event_id": gen_randid(),"event_time": current_time, }
 
 					if self.args.debug_gamestate:
-						logger.info(f'{player.client_id} {player.client_name} picked up: {upgrade_block}')
+						logger.info(f'{self} {player.client_id} {player.client_name} picked up: {upgrade_block} picked_up_blocks: {len(picked_up_blocks)} tile=({tile_x},{tile_y}) upgrade_type: {upgrade_block.upgradetype} ')
 					asyncio.create_task(self.broadcast_event(upgrade_event))
 					asyncio.create_task(self.event_queue.put(upgrade_event))
 
-					# asyncio.create_task(self.event_queue.put(map_update_event))
-					# break  # Only allow one pickup per block per frame
 		# Remove picked up blocks from all players' state
 		for upgrade_block in picked_up_blocks:
 			upgrade_block.kill()
@@ -546,6 +544,9 @@ class GameState:
 			self.upgrade_by_tile.pop((tile_x, tile_y), None)
 			map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 0, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
 			asyncio.create_task(self.broadcast_event(map_update_event))
+			# asyncio.create_task(self.event_queue.put(map_update_event))
+			if self.args.debug_gamestate:
+				logger.info(f'{self} picked_up_blocks: {len(picked_up_blocks)} upgrade_blocks: {len(self.upgrade_blocks)}  ')
 		await asyncio.sleep(0)
 
 	async def check_bullet_collisions(self):
@@ -630,6 +631,8 @@ class GameState:
 			"client_id": client_id,
 			"event": event
 		}
+		if self.args.debug_gamestate:
+			logger.info(f"{self} _on_connection_event: Broadcasting acknewplayer for {client_id}")
 		await self.broadcast_event(ack_event)
 		return str(client_id)
 
@@ -637,7 +640,7 @@ class GameState:
 		pos_tuple = self._to_pos_tuple(event.get("position"))
 		new_gid = event.get("new_gid")
 		if not isinstance(new_gid, int):
-			logger.warning(f"Bad map_update event (new_gid): {event}")
+			logger.warning(f"{self} Bad map_update event (new_gid): {event}")
 			return False
 		# If the map isn't fully loaded yet, skip applying.
 		if not self.tile_map:
@@ -664,7 +667,7 @@ class GameState:
 
 		if bid in self.processed_bullets:
 			if self.args.debug_gamestate:
-				logger.warning(f"_on_bullet_fired: Duplicate bullet event_id {bid}, ignoring. self.processed_bullets: {len(self.processed_bullets)}")
+				logger.warning(f"{self} _on_bullet_fired: Duplicate bullet event_id {bid}, ignoring. self.processed_bullets: {len(self.processed_bullets)}")
 			await asyncio.sleep(0)
 			return False
 		self.processed_bullets.add(bid)
@@ -674,7 +677,7 @@ class GameState:
 		dead = bool(getattr(shooter_entry, 'killed', False)) or int(getattr(shooter_entry, 'health', 0) or 0) <= 0
 		if dead:
 			if self.args.debug_gamestate:
-				logger.warning(f"_on_bullet_fired: Shooter {client_id} is dead/killed, ignoring bullet fire.")
+				logger.warning(f"{self} _on_bullet_fired: Shooter {client_id} is dead/killed, ignoring bullet fire.")
 			await asyncio.sleep(0)
 			return False
 
@@ -699,20 +702,20 @@ class GameState:
 		# Server should rebroadcast bullet events so other clients can spawn the bullet.
 		if self.client_id == "theserver":
 			asyncio.create_task(self.broadcast_event(event))
+		else:
+			if self.args.debug_gamestate:
+				pass  # logger.warning(f"{self} skipping broadcast_event bullet event from {client_id}: {event}")
 		await asyncio.sleep(0)
 		return True
 
 	async def _on_player_drop_bomb(self, event: dict[str, Any]) -> bool:
 		client_id = event.get("client_id")
-		if not isinstance(client_id, str):
-			logger.debug(f"Bad player_drop_bomb event client_id: {event}")
-			return False
 		pos = self._to_pos_tuple(event.get("position"))
 		# Keep replicated state in sync with the event
 		player_entry = self.playerlist.get(client_id)
 		player_entry.bombs_left -= 1
 		if self.args.debug_gamestate:
-			logger.debug(f"_on_player_drop_bomb: Updated PlayerState bombs_left for {client_id} to {player_entry.bombs_left}")
+			logger.debug(f"{self} _on_player_drop_bomb: Updated PlayerState bombs_left for {client_id} to {player_entry.bombs_left}")
 		# Also update local sprite if this is us
 		for sprite in self.players_sprites:
 			if sprite.client_id == client_id:
@@ -727,6 +730,9 @@ class GameState:
 		event["handledby"] = "_on_player_drop_bomb"
 		if self.client_id == "theserver":
 			asyncio.create_task(self.broadcast_event(event))
+		else:
+			if self.args.debug_gamestate:
+				pass  # logger.warning(f"{self} skipping broadcast_event bomb drop event from {client_id}: {event}")
 		return True
 
 	async def _on_bomb_exploded(self, event: dict[str, Any]) -> bool:
@@ -735,12 +741,12 @@ class GameState:
 		if event.get("handled"):
 			self.processed_explosions.add(explosion_id)
 			if self.args.debug_gamestate:
-				logger.warning(f"_on_bomb_exploded: explosion_id {explosion_id}, already handled ignoring. self.processed_explosions: {len(self.processed_explosions)} event: {event}")
+				logger.warning(f"{self} _on_bomb_exploded: explosion_id {explosion_id}, already handled ignoring. self.processed_explosions: {len(self.processed_explosions)} event: {event}")
 			await asyncio.sleep(0)
 			return False
 		if explosion_id in self.processed_explosions:
 			if self.args.debug_gamestate:
-				logger.warning(f"_on_bomb_exploded: Duplicate explosion_id {explosion_id}, ignoring. self.processed_explosions: {len(self.processed_explosions)} event: {event}")
+				logger.warning(f"{self} _on_bomb_exploded: Duplicate explosion_id {explosion_id}, ignoring. self.processed_explosions: {len(self.processed_explosions)} event: {event}")
 			await asyncio.sleep(0)
 			return False
 		self.processed_explosions.add(explosion_id)
@@ -763,7 +769,7 @@ class GameState:
 			await asyncio.sleep(0)
 		else:
 			if self.args.debug_gamestate:
-				logger.warning(f"_on_bomb_exploded: No player entry for owner_id/client_id: {owner_raw} event: {event}")
+				logger.warning(f"{self} _on_bomb_exploded: No player entry for owner_id/client_id: {owner_raw} event: {event}")
 			await asyncio.sleep(0)
 		return True
 
@@ -839,10 +845,12 @@ class GameState:
 			out_event["score"] = ps.score
 			out_event["bombs_left"] = ps.bombs_left
 			out_event["health"] = ps.health
-			out_event["client_name"] = getattr(ps, 'client_name', 'client_namenotset')
+			out_event["client_name"] = ps.client_name
 			asyncio.create_task(self.broadcast_event(out_event))
 		else:
-			asyncio.create_task(self.broadcast_event(event))
+			if self.args.debug_gamestate:
+				pass  # logger.warning(f"{self} skipping broadcast_event for player_update on client.")
+			# asyncio.create_task(self.broadcast_event(event))
 		await asyncio.sleep(0)
 		return True
 
@@ -851,7 +859,7 @@ class GameState:
 		hit_id = event.get('event_id') or event.get('event_id')
 		if hit_id is not None and hit_id in self.processed_hits or event.get('handled'):
 			if self.args.debug_gamestate:
-				logger.warning(f"Duplicate player_hit event ignored: {event} self.processed_hits: {len(self.processed_hits)}")
+				logger.warning(f"{self} Duplicate player_hit event ignored: {event} self.processed_hits: {len(self.processed_hits)}")
 			await asyncio.sleep(0)
 			return False
 
@@ -863,15 +871,12 @@ class GameState:
 			shooter = event.get("client_id", "")
 			reported_by = event.get("reported_by")
 			target_id = event.get("target_id", "")
-			# if isinstance(reported_by, str):
 			allowed_reporters = {"theserver"}
-			# if isinstance(shooter, str):
 			allowed_reporters.add(shooter)
-			# if isinstance(target_id, str):
 			allowed_reporters.add(target_id)
 			if reported_by not in allowed_reporters:
 				if self.args.debug_gamestate:
-					logger.warning(f"Rejected unauthorized player_hit report: {event} reported_by: {reported_by} allowed_reporters: {allowed_reporters}")
+					logger.warning(f"{self} Rejected unauthorized player_hit report: {event} reported_by: {reported_by} allowed_reporters: {allowed_reporters}")
 				await asyncio.sleep(0)
 				return False
 
@@ -887,8 +892,12 @@ class GameState:
 			target_player_entry.health = max(0, auth_health)
 			if target_player_entry.health <= 0:
 				target_player_entry.killed = True
-		else:
+			if self.args.debug_gamestate:
+				logger.debug(f"{self} target {target}: {old_health} -> {target_player_entry.health} damage: {damage}")
+		if self.client_id == "theserver":
 			target_player_entry.take_damage(damage, attacker_id=event.get("client_id"))
+			if self.args.debug_gamestate:
+				logger.info(f"{self} _on_player_hit for {target}: {old_health} -> {target_player_entry.health} damage: {damage} from attacker: {event.get('client_id')} {event.get('client_name')}")
 		self.playerlist[target] = target_player_entry
 		# If we are the target, also sync the local sprite so HUD/debug reflects correct health.
 		# if isinstance(target_player_entry, PlayerState):
@@ -908,6 +917,9 @@ class GameState:
 			out_event["handledby"] = "server.broadcast_player_hit"
 			out_event["target_health"] = getattr(target_player_entry, 'health', None)
 			asyncio.create_task(self.broadcast_event(out_event))
+		else:
+			if self.args.debug_gamestate:
+				pass  # logger.warning(f"{self} skipping broadcast_event for player_hit on client.")
 		await asyncio.sleep(0)
 		return True
 
@@ -916,10 +928,10 @@ class GameState:
 		event_id = event.get("event_id")
 		if event_id in self.processed_upgrades:
 			if self.args.debug_gamestate:
-				logger.warning(f"Duplicate upgrade pickup event ignored: {event} self.processed_upgrades: {len(self.processed_upgrades)}")
+				logger.warning(f"{self} Duplicate upgrade pickup event ignored: {event} self.processed_upgrades: {len(self.processed_upgrades)}")
 			return False
 		self.processed_upgrades.add(event_id)
-		logger.debug(f"_on_upgrade_pickup event: {event}")
+		logger.debug(f"{self} _on_upgrade_pickup event: {event}")
 		return True
 
 	async def _on_upgrade_spawned(self, event: dict) -> bool:
@@ -930,7 +942,7 @@ class GameState:
 		# Avoid duplicate spawns
 		if (tile_x, tile_y) in self.upgrade_by_tile:
 			if self.args.debug_gamestate:
-				logger.warning(f'Upgrade already exists at {(tile_x, tile_y)}, ignoring spawn: {event}')
+				logger.warning(f'{self} Upgrade already exists at {(tile_x, tile_y)}, ignoring spawn: {event}')
 			await asyncio.sleep(0)
 			return False
 		# upgrade = Upgrade(position=pos, upgradetype=event.get('upgradetype', 'unknown'))
@@ -940,11 +952,11 @@ class GameState:
 		event['handled'] = True
 		event['handledby'] = '_on_upgrade_spawned'
 		if self.args.debug_gamestate:
-			logger.debug(f"_on_upgrade_spawned self.upgrade_blocks: {len(self.upgrade_blocks)}")
+			logger.debug(f"{self} _on_upgrade_spawned self.upgrade_blocks: {len(self.upgrade_blocks)}")
 		await asyncio.sleep(0)
 		return True
 
 	async def _on_unknown_event(self, event: dict) -> bool:
-		logger.warning(f"Unknown event_type: {event.get('event_type')} event: {event}")
+		logger.warning(f"{self} Unknown event_type: {event.get('event_type')} event: {event}")
 		await asyncio.sleep(0)
 		return False
