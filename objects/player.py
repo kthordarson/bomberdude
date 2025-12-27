@@ -63,7 +63,6 @@ class Bomberplayer(Sprite):
 		self.killed = False
 		self.timeout = False
 		self.score = 0
-		self.candrop = True
 		self.lastdrop = 0
 		self.keyspressed = KeysPressed('bomberplayer')
 		self.client_name = generate_name()
@@ -169,55 +168,15 @@ class Bomberplayer(Sprite):
 		tile_x = (int(cx) // tile_size) * tile_size + tile_size // 2
 		tile_y = (int(cy) // tile_size) * tile_size + tile_size // 2
 		bomb_pos = (tile_x, tile_y)
-
+		event = {"event_time": current_time, 'event_type': "notset", "client_id": self.client_id, "position": bomb_pos, "bombs_left": self.bombs_left, "handled": False, "handledby": self.client_id, "event_id": gen_randid(),}
 		# Check cooldown first
-		if (current_time - self.lastdrop) < cooldown_period:
-			return {
-				"event_time": current_time,
-				'event_type': "dropcooldown",
-				"client_id": self.client_id,
-				"position": self.rect.center,
-				"handled": False,
-				"handledby": self.client_id,
-				"event_id": gen_randid(),
-			}
-
-		elif self.killed:
-			return {
-				"event_time": current_time,
-				'event_type': "nodropbombkill",
-				"client_id": self.client_id,
-				"position": self.rect.center,
-				"handled": False,
-				"handledby": self.client_id,
-				"event_id": gen_randid(),
-			}
-
-		# Check if player has any bombs left
-		elif self.bombs_left <= 0:
-			return {
-				"event_time": current_time,
-				'event_type': "nodropbomb",
-				"client_id": self.client_id,
-				"position": self.rect.center,
-				"handled": False,
-				"handledby": self.client_id,
-				"event_id": gen_randid(),
-			}
+		if (current_time - self.lastdrop) < cooldown_period or self.killed or self.bombs_left <= 0:
+			event['event_type'] = "nodrop"
 		else:
 			if bomb_pos == (16,16):
 				logger.warning(f"{self} Attempted to drop bomb at invalid position (16,16), ignoring. cx={cx} cy={cy} rect={self.rect}")
-			else:
-				self.lastdrop = current_time  # Set last drop time to prevent spam
-				# Consume one bomb immediately (restored when the bomb explodes)
-				self.bombs_left = self.bombs_left - 1
-				return {
-					"event_time": current_time,
-					'event_type': "player_drop_bomb",
-					"client_id": self.client_id,
-					"position": bomb_pos,  # Snapped to tile center
-					"bombs_left": self.bombs_left,
-					"handled": False,
-					"handledby": self.client_id,
-					"event_id": gen_randid(),
-				}
+			self.lastdrop = current_time  # Set last drop time to prevent spam
+			# Consume one bomb immediately (restored when the bomb explodes)
+			self.bombs_left = self.bombs_left - 1
+			event['event_type'] = "player_drop_bomb"
+		return event

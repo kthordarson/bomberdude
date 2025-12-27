@@ -13,6 +13,7 @@ from game.bomberdude import Bomberdude
 async def send_game_state(game: Bomberdude) -> None:
 	# Log less frequently to reduce overhead
 	log_counter = 0
+	send_counter = 0
 	# Avoid writing to the socket before sock_connect completes.
 	if game.socket_connected:
 		await game.socket_connected.wait()
@@ -54,6 +55,7 @@ async def send_game_state(game: Bomberdude) -> None:
 			data_out = (json.dumps(msg) + '\n').encode('utf-8')
 			await asyncio.get_event_loop().sock_sendall(game.sock, data_out)  # Direct to socket
 			game.game_state.event_queue.task_done()
+			send_counter += 1
 		except Exception as e:
 			logger.error(f'Send error: {e} {type(e)}')
 			break
@@ -62,8 +64,8 @@ async def send_game_state(game: Bomberdude) -> None:
 
 		# Log periodically
 		log_counter += 1
-		# if log_counter % 60 == 0:  # Log every second at 60 FPS
-		# 	logger.info(f'event_queue: {game.game_state.event_queue.qsize()} client_queue: {game.game_state.client_queue.qsize()}')
+		if log_counter % 60 == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
+			logger.info(f'send_counter: {send_counter} event_queue: {game.game_state.event_queue.qsize()} client_queue: {game.game_state.client_queue.qsize()}')
 
 async def receive_game_state(game: Bomberdude) -> None:
 	# Log less frequently
@@ -72,6 +74,7 @@ async def receive_game_state(game: Bomberdude) -> None:
 	if game.socket_connected:
 		await game.socket_connected.wait()
 	buffer = ""
+	messages_processed = 0
 	while True:
 		try:
 			data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
@@ -81,7 +84,6 @@ async def receive_game_state(game: Bomberdude) -> None:
 			buffer += data.decode('utf-8')
 
 			# Process multiple messages at once if available
-			messages_processed = 0
 			while '\n' in buffer:
 				message, buffer = buffer.split('\n', 1)
 				if not message.strip():
@@ -95,8 +97,8 @@ async def receive_game_state(game: Bomberdude) -> None:
 
 			# Log periodically
 			log_counter += 1
-			# if log_counter % 60 == 0:
-			# 	logger.info(f'receive: processed {messages_processed} messages, buffer size: {len(buffer)}')
+			if log_counter % 60 == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
+				logger.info(f'receive: processed {messages_processed} messages, buffer size: {len(buffer)}')
 
 		except (BlockingIOError, InterruptedError) as e:
 			await asyncio.sleep(0.1)  # Shorter sleep

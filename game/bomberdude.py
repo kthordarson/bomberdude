@@ -413,11 +413,14 @@ class Bomberdude():
         # Actions
         if key == pygame.K_SPACE:
             drop_bomb_event = await player_one.drop_bomb()
-            if drop_bomb_event and drop_bomb_event.get('event_type') == "player_drop_bomb":
+            if drop_bomb_event.get('event_type') == "player_drop_bomb":
                 if drop_bomb_event.get('position') == (16,16):
                     logger.warning(f"Attempted to drop bomb at invalid position (16,16), ignoring. bomb event: {drop_bomb_event}")
                 else:
                     await self.game_state.event_queue.put(drop_bomb_event)
+            else:
+                if self.args.debug_gamestate:
+                    logger.debug(f"{player_one} drop bomb ignored, event: {drop_bomb_event}")
             return
 
     async def handle_on_key_release(self, key):
@@ -436,8 +439,6 @@ class Bomberdude():
             self.game_state.keyspressed.keys[key] = False
         if key == pygame.K_SPACE:
             pass
-            # drop_bomb_event = player_one.drop_bomb()
-            # await self.game_state.event_queue.put(drop_bomb_event)
         self.game_state.keyspressed.keys[key] = False
 
     async def update(self):

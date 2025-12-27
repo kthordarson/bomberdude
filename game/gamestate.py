@@ -499,7 +499,7 @@ class GameState:
 					hit_event = {
 						"event_time": time.time(),
 						'event_type': "player_hit",
-						"client_id": getattr(flame, "client_id", None),  # flame owner (bomb owner)
+						"client_id": flame.client_id,
 						"reported_by": self.client_id,  # victim/self report (server allows this)
 						"target_id": player_id,
 						"damage": 10,
@@ -708,16 +708,15 @@ class GameState:
 			logger.debug(f"Bad player_drop_bomb event client_id: {event}")
 			return False
 		pos = self._to_pos_tuple(event.get("position"))
-		bombs_left = int(event.get("bombs_left",0))
 		# Keep replicated state in sync with the event
 		player_entry = self.playerlist.get(client_id)
-		player_entry.bombs_left = bombs_left
+		player_entry.bombs_left -= 1
 		if self.args.debug_gamestate:
-			logger.debug(f"_on_player_drop_bomb: Updated PlayerState bombs_left for {client_id} to {bombs_left}")
+			logger.debug(f"_on_player_drop_bomb: Updated PlayerState bombs_left for {client_id} to {player_entry.bombs_left}")
 		# Also update local sprite if this is us
 		for sprite in self.players_sprites:
 			if sprite.client_id == client_id:
-				sprite.bombs_left = bombs_left
+				sprite.bombs_left = player_entry.bombs_left
 				break
 		# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
 		bomb = Bomb(position=pos, client_id=client_id)
