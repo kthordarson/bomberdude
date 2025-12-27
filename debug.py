@@ -92,11 +92,6 @@ def draw_debug_info(screen, game_state, camera):
         p1_line = f"player_one: {player_one.client_id} {player_one.position} {player_one.health}"
         debug_text = _render_line(font, "player_one", p1_line, True, (55, 255, 55))
         screen.blit(debug_text, (10, 60))
-    # y_pos = 80
-    # font = pygame.font.Font(None, 16)
-    # for player in game_state.playerlist.values():
-    #     debug_text = font.render(f"netplayer: {player.client_id} {player.position}", True, (155, 125, 125))
-    #     screen.blit(debug_text, player.position)
 
     draw_bullet_debug(screen, game_state, camera)
     draw_other_player_id(screen, game_state, camera)
@@ -183,8 +178,7 @@ def draw_blocks_around_player(screen, game_state, camera):
 
             # Show block position/ID
             pos_text = f"({tile_x},{tile_y})"
-            if hasattr(tile, 'id'):
-                pos_text = f"ID:{tile.id}"
+            pos_text = f"ID:{tile.id}"
 
             text_surf = _render_text_cached(font, pos_text, True, (255, 255, 255))
             screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))

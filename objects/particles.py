@@ -33,20 +33,14 @@ class Particle(Sprite):
 		self.velocity.y += PARTICLE_GRAVITY
 
 		# Handle wall collisions
-		try:
-			if hasattr(collidable_tiles, "iter_collidable_in_rect"):
-				tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
-			else:
-				tiles_iter = collidable_tiles
-			for tile in tiles_iter:
-				if self.rect.colliderect(tile.rect):
-					# Simple bounce physics
-					if abs(self.rect.right - tile.rect.left) < 5 or abs(self.rect.left - tile.rect.right) < 5:
-						self.velocity.x *= -0.8  # Bounce with dampening
-					if abs(self.rect.bottom - tile.rect.top) < 5 or abs(self.rect.top - tile.rect.bottom) < 5:
-						self.velocity.y *= -0.8  # Bounce with dampening
-		except Exception as e:
-			logger.error(f"Error in Particle.update collision check: {e} {type(e)}")
+		tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
+		for tile in tiles_iter:
+			if self.rect.colliderect(tile.rect):
+				# Simple bounce physics
+				if abs(self.rect.right - tile.rect.left) < 5 or abs(self.rect.left - tile.rect.right) < 5:
+					self.velocity.x *= -0.8  # Bounce with dampening
+				if abs(self.rect.bottom - tile.rect.top) < 5 or abs(self.rect.top - tile.rect.bottom) < 5:
+					self.velocity.y *= -0.8  # Bounce with dampening
 
 		# Fade out over time
 		elapsed = pygame.time.get_ticks() / 1000 - self.born_time

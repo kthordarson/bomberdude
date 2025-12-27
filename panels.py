@@ -107,8 +107,6 @@ class MainMenu:
         elif current_option == "Quit":
             self.running = False
             action = 'Quit'
-        if self.args.debug:
-            logger.debug(f"MainMenu action: {action} current_option: {current_option}")
         return action
 
     def run(self):
@@ -157,8 +155,6 @@ class SetupMenu:
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:  # Left mouse button
                     action = self.handle_mouse_click(event.pos)
-        if self.args.debug:
-            logger.debug(f"SetupMenu action: {action}")
         return action
 
     def handle_mouse_click(self, mouse_pos):
@@ -167,8 +163,6 @@ class SetupMenu:
             if rect.collidepoint(mouse_pos):
                 self.selected_option = i
                 action = self.select_option()
-        if self.args.debug:
-            logger.debug(f"SetupMenu mouse click action: {action}")
         return action
 
     def select_option(self):
@@ -405,7 +399,6 @@ class PlayerInfoPanel:
         pygame.draw.line(self.surface, (200, 200, 200), (10, self.header_height), (self.rect.width - 10, self.header_height), 1)
 
         # Get all players to display
-        players = list(self.game_state.playerlist.values())
         local_player = self.game_state.get_playerone()
         if local_player:
             name_text = _render_text_cached(self.title_font, f"{local_player.client_name}", True, (255, 255, 255))
@@ -422,7 +415,7 @@ class PlayerInfoPanel:
 
             # Draw remote players
             card_index = 1
-            for player in players:
+            for player in list(self.game_state.playerlist.values()):
                 # Skip local player as it's already drawn
                 if player.client_id == local_player.client_id:
                     continue

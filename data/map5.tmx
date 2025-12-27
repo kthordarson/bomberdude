@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.11" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="23" tilewidth="32" tileheight="32" infinite="0" nextlayerid="10" nextobjectid="1">
+<map version="1.11" tiledversion="1.11.2" orientation="orthogonal" renderorder="right-down" width="32" height="23" tilewidth="32" tileheight="32" infinite="0" nextlayerid="11" nextobjectid="1">
  <tileset firstgid="1" source="map2tiles.tsx"/>
  <layer id="1" name="Background" width="32" height="23">
   <data encoding="csv">
@@ -58,7 +58,7 @@
 6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6
 </data>
  </layer>
- <layer id="3" name="Blocks" width="32" height="23">
+ <layer id="10" name="Blocks" width="32" height="23">
   <properties>
    <property name="collidable" type="bool" value="true"/>
   </properties>

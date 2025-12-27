@@ -45,7 +45,7 @@ class Bomb(Sprite):
 
 	async def explode(self, gamestate):
 		explosion_event = {
-			"event_type": "bomb_exploded",
+			'event_type': "bomb_exploded",
 			"owner_id": self.client_id,
 			"client_id": self.client_id,
 			"position": self.rect.center,  # Use center instead of top-left
@@ -54,10 +54,5 @@ class Bomb(Sprite):
 			"event_id": gen_randid(),
 		}
 		# Apply locally so the owner immediately gets bomb capacity back
-		try:
-			if hasattr(gamestate, "update_game_event"):
-				await gamestate.update_game_event(explosion_event)
-		except Exception as e:
-			logger.error(f"Error updating game event: {e} {type(e)}")
-		await gamestate.event_queue.put(explosion_event)
+		await gamestate.update_game_event(explosion_event)
 		self.kill()

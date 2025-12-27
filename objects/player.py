@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from loguru import logger
 from pygame.math import Vector2 as Vec2d
@@ -62,23 +63,16 @@ class Bomberplayer(Sprite):
 		self.killed = False
 		self.timeout = False
 		self.score = 0
-		self.candrop = True
 		self.lastdrop = 0
-		self.keyspressed = KeysPressed('gamestate')
+		self.keyspressed = KeysPressed('bomberplayer')
 		self.client_name = generate_name()
-		if self.client_id == 'theserver':
-			logger.info(f'Server player image loaded without conversion. {self.client_name=} {self.client_id=}')
 
 	async def _set_texture(self, texture_path: str) -> None:
 		# Cache disk loads globally; convert/scale only when a display surface exists.
-		if self.client_id == 'theserver':
-			surf = await get_cached_image(texture_path, scale=1.0, convert=False)
-			self.original_image = surf
-			self.image = surf
-		else:
-			self.original_image = await get_cached_image(texture_path, scale=1.0, convert=True)
-			self.image = await get_cached_image(texture_path, scale=float(self.scale), convert=True)
-			self.rect = self.image.get_rect()
+		self.original_image = await get_cached_image(texture_path, scale=1.0, convert=True)
+		self.image = await get_cached_image(texture_path, scale=float(self.scale), convert=True)
+		self.rect = self.image.get_rect()
+		self.rect.topleft = (int(self.position.x), int(self.position.y))
 
 	async def set_dead(self, dead: bool) -> None:
 		"""Swap sprite image based on health/killed state."""
@@ -87,8 +81,7 @@ class Bomberplayer(Sprite):
 			await self._set_texture('data/netplayerdead.png')
 		else:
 			self.killed = False
-			alive_path = getattr(self, '_alive_texture_path', None) or self.texture
-			await self._set_texture(alive_path)
+			await self._set_texture(self._alive_texture_path)
 
 	def __hash__(self):
 		return hash((self.client_id))
@@ -119,7 +112,7 @@ class Bomberplayer(Sprite):
 			logger.error(f"Error converting player to dict: {e}")
 			return {}
 
-	def update(self, collidable_tiles):
+	def update(self, game_state):
 		if not self.rect:
 			return
 		# Store previous position
@@ -137,28 +130,13 @@ class Bomberplayer(Sprite):
 		# Check collisions (only nearby tiles when possible)
 		# Use a swept rect so fast motion doesn't skip thin obstacles.
 		query_rect = self.rect.union(prev_rect)
-		try:
-			# If a GameState is passed, use its spatial index.
-			if hasattr(collidable_tiles, "iter_collidable_in_rect"):
-				tiles_iter = collidable_tiles.iter_collidable_in_rect(query_rect, pad_pixels=BLOCK)
-			else:
-				tiles_iter = collidable_tiles
-			for tile in tiles_iter:
-				if self.rect.colliderect(tile.rect):
-					self.position.x, self.position.y = prev_x, prev_y
-					self.rect.x = int(prev_x)
-					self.rect.y = int(prev_y)
-					return
-		except Exception as e:
-			# Be conservative: if anything unexpected happens, revert movement.
-			logger.error(f"Error in Player.update collision check: {e} {type(e)}")
-			self.position.x, self.position.y = prev_x, prev_y
-			self.rect.x = int(prev_x)
-			self.rect.y = int(prev_y)
-			return
-
-	def draw(self, screen):
-		screen.blit(self.image, self.rect.topleft)
+		# If a GameState is passed, use its spatial index.
+		for tile in game_state.iter_collidable_in_rect(query_rect, pad_pixels=BLOCK):
+			if self.rect.colliderect(tile.rect):
+				self.position.x, self.position.y = prev_x, prev_y
+				self.rect.x = int(prev_x)
+				self.rect.y = int(prev_y)
+				return
 
 	def addscore(self, score):
 		self.score += score
@@ -186,59 +164,19 @@ class Bomberplayer(Sprite):
 		self.rect.x = int(self.position.x)
 		self.rect.y = int(self.position.y)
 		cx, cy = self.rect.center
-		tile_size = BLOCK * self.scale
+		tile_size = BLOCK
 		tile_x = (int(cx) // tile_size) * tile_size + tile_size // 2
 		tile_y = (int(cy) // tile_size) * tile_size + tile_size // 2
 		bomb_pos = (tile_x, tile_y)
-
+		event = {"event_time": current_time, 'event_type': "notset", "client_id": self.client_id, "position": bomb_pos, "bombs_left": self.bombs_left, "handled": False, "handledby": self.client_id, "event_id": gen_randid(),}
 		# Check cooldown first
-		if (current_time - self.lastdrop) < cooldown_period:
-			return {
-				"event_time": current_time,
-				"event_type": "dropcooldown",
-				"client_id": self.client_id,
-				"position": self.rect.center,
-				"handled": False,
-				"handledby": self.client_id,
-				"event_id": gen_randid(),
-			}
-
-		elif self.killed:
-			return {
-				"event_time": current_time,
-				"event_type": "nodropbombkill",
-				"client_id": self.client_id,
-				"position": self.rect.center,
-				"handled": False,
-				"handledby": self.client_id,
-				"event_id": gen_randid(),
-			}
-
-		# Check if player has any bombs left
-		elif self.bombs_left <= 0:
-			return {
-				"event_time": current_time,
-				"event_type": "nodropbomb",
-				"client_id": self.client_id,
-				"position": self.rect.center,
-				"handled": False,
-				"handledby": self.client_id,
-				"event_id": gen_randid(),
-			}
+		if (current_time - self.lastdrop) < cooldown_period or self.killed or self.bombs_left <= 0:
+			event['event_type'] = "nodrop"
 		else:
 			if bomb_pos == (16,16):
 				logger.warning(f"{self} Attempted to drop bomb at invalid position (16,16), ignoring. cx={cx} cy={cy} rect={self.rect}")
-			else:
-				self.lastdrop = current_time  # Set last drop time to prevent spam
-				# Consume one bomb immediately (restored when the bomb explodes)
-				self.bombs_left = self.bombs_left - 1
-				return {
-					"event_time": current_time,
-					"event_type": "player_drop_bomb",
-					"client_id": self.client_id,
-					"position": bomb_pos,  # Snapped to tile center
-					"bombs_left": self.bombs_left,
-					"handled": False,
-					"handledby": self.client_id,
-					"event_id": gen_randid(),
-				}
+			self.lastdrop = current_time  # Set last drop time to prevent spam
+			# Consume one bomb immediately (restored when the bomb explodes)
+			self.bombs_left = self.bombs_left - 1
+			event['event_type'] = "player_drop_bomb"
+		return event
