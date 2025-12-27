@@ -30,7 +30,6 @@ class Upgrade(Sprite):
 		elapsed = pygame.time.get_ticks() / 1000 - self.born_time
 		# Kill if lifetime is over
 		if elapsed > self.life:
-			logger.debug(f'Upgrade expired: {self} elapsed: {elapsed} > life: {self.life}')
 			self.killed = True
 			self.kill()
 

@@ -65,7 +65,7 @@ class Bomberplayer(Sprite):
 		self.score = 0
 		self.candrop = True
 		self.lastdrop = 0
-		self.keyspressed = KeysPressed('gamestate')
+		self.keyspressed = KeysPressed('bomberplayer')
 		self.client_name = generate_name()
 
 	async def _set_texture(self, texture_path: str) -> None:

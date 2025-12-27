@@ -17,8 +17,8 @@ from .discovery import ServerDiscovery
 class BombServer:
 	def __init__(self, args):
 		self.args = args
-		self.server_game_state = GameState(args=self.args, mapname=args.mapname, client_id='theserver')
-		self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.server_game_state)
+		self.game_state = GameState(args=self.args, mapname=args.mapname, client_id='theserver')
+		self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.game_state)
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
@@ -29,7 +29,7 @@ class BombServer:
 
 	async def client_connected_callback(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 		logger.info(f"New connection from {writer.get_extra_info('peername')[0]} ")
-		self.server_game_state.add_connection(writer)
+		self.game_state.add_connection(writer)
 		# Start a per-connection message loop
 		asyncio.create_task(self.process_messages(reader, writer))
 
@@ -49,17 +49,8 @@ class BombServer:
 				msg_client_id = msg.get('client_id')
 				self.connection_to_client_id[writer] = str(msg_client_id)
 				game_event = msg.get('game_event')
-				await self.server_game_state.update_game_event(game_event)
-				# send_tasks = []
-				# for w in self.connections:
-				# 	send_tasks.append(self._send_to_client(w, game_event))
-				# if send_tasks:
-				# 	try:
-				# 		await asyncio.gather(*send_tasks, return_exceptions=True)
-				# 	except Exception as e:
-				# 		logger.error(f"Error rebroadcasting map_update_event: {e}")
-				# Optionally broadcast the current state
-				await self.server_broadcast_state(self.server_game_state.to_json())
+				await self.game_state.update_game_event(game_event)
+				await self.server_broadcast_state(self.game_state.to_json())
 		except (asyncio.IncompleteReadError, ConnectionResetError) as e:
 			pass  # logger.warning(f'{e} Connection closed by client')
 		except pygame.error as e:
@@ -79,10 +70,10 @@ class BombServer:
 				logger.warning(f'{e} Connection closed by client')
 			except Exception as e:
 				logger.error(f"Error closing connection: {e} {type(e)}")
-			self.server_game_state.remove_connection(writer)
+			self.game_state.remove_connection(writer)
 			if disconnected_client_id:
 				try:
-					self.server_game_state.remove_player(disconnected_client_id)
+					self.game_state.remove_player(disconnected_client_id)
 					left_event = {
 						'event_type': "player_left",
 						"client_id": disconnected_client_id,
@@ -91,7 +82,7 @@ class BombServer:
 						"handledby": "server.disconnect",
 						"event_id": gen_randid(),
 					}
-					await self.server_game_state.broadcast_event(left_event)
+					await self.game_state.broadcast_event(left_event)
 				except Exception as e:
 					logger.error(f"Error during disconnect cleanup for {disconnected_client_id}: {e} {type(e)}")
 
@@ -99,7 +90,7 @@ class BombServer:
 		position = self.get_position()
 
 		modified_tiles = {}
-		for pos, gid in self.server_game_state.modified_tiles.items():
+		for pos, gid in self.game_state.modified_tiles.items():
 			modified_tiles[str(pos)] = gid
 
 		map_data = {
@@ -108,7 +99,7 @@ class BombServer:
 			"modified_tiles": modified_tiles,
 			"client_id": str(gen_randid())}
 		if self.args.debug:
-			logger.debug(f'get_tile_map request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified')
+			logger.debug(f'get_tile_map request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified_tiles')
 		return web.json_response(map_data)
 
 	async def new_start_server(self):
@@ -153,7 +144,7 @@ class BombServer:
 			while not self.stopped():
 				# Broadcast player states (at a sensible rate)
 				if time.time() - last_broadcast > 0.05:  # 20 updates per second
-					game_state = self.server_game_state.to_json()
+					game_state = self.game_state.to_json()
 					await self.server_broadcast_state(game_state)
 					last_broadcast = time.time()
 				await asyncio.sleep(1 / UPDATE_TICK)
@@ -164,14 +155,14 @@ class BombServer:
 
 	def get_position(self, retas="int"):
 		# Get map dimensions in tiles
-		map_width = self.server_game_state.tile_map.width
-		map_height = self.server_game_state.tile_map.height
+		map_width = self.game_state.tile_map.width
+		map_height = self.game_state.tile_map.height
 
 		# Get all collidable tiles
 		collidable_positions = set()
 		layers = []
-		wall_layer = self.server_game_state.tile_map.get_layer_by_name('Walls')
-		block_layer = self.server_game_state.tile_map.get_layer_by_name('Blocks')
+		wall_layer = self.game_state.tile_map.get_layer_by_name('Walls')
+		block_layer = self.game_state.tile_map.get_layer_by_name('Blocks')
 		layers.append(wall_layer)
 		layers.append(block_layer)
 		for layer in layers:
@@ -196,7 +187,7 @@ class BombServer:
 	async def stop(self):
 		self._stop.set()
 		try:
-			if hasattr(self, "discovery_service") and self.discovery_service is not None:
+			if self.discovery_service:
 				self.discovery_service.stop()
 		except Exception as e:
 			logger.error(f"Error stopping discovery service: {e} {type(e)}")
@@ -252,14 +243,4 @@ class BombServer:
 			"handled": False,
 			"handledby": "_build_player_joined",
 			"event_id": gen_randid(),
-		}
-
-	def _build_map_info(self, client_id: str, modified_tiles: dict) -> dict:
-		return {
-			"event_time": time.time(),
-			'event_type': "map_info",
-			"mapname": self.server_game_state.mapname,
-			"modified_tiles": modified_tiles,
-			"client_id": client_id,
-			"handled": False,
 		}

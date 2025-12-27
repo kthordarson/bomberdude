@@ -19,7 +19,7 @@ class ServerTUI():
 		self._stop.set()
 
 		# Make sure we don't try to await None
-		if hasattr(self, 'server') and self.server is not None:
+		if self.server:
 			await self.server.stop()
 		return True  # Return a value so it's awaitable
 
@@ -28,24 +28,24 @@ class ServerTUI():
 
 	async def get_serverinfo(self):
 		"""Get current server state information"""
-		state = self.server.server_game_state.to_json()
-		playerlist = cast(list[dict[str, Any]], state.get('playerlist') or [])
-		logger.debug(f"playerlist: {len(playerlist)} players_sprites: {len(self.server.server_game_state.players_sprites)} upgrade_blocks: {len(self.server.server_game_state.upgrade_blocks)}")
-		logger.debug(f'explosions: {len(self.server.server_game_state.processed_explosions)} hits: {len(self.server.server_game_state.processed_hits)} bullets: {len(self.server.server_game_state.processed_bullets)} upgrades: {len(self.server.server_game_state.processed_upgrades)}')
-		logger.debug(f"event_queue: {self.server.server_game_state.event_queue.qsize()}  client_queue: {self.server.server_game_state.client_queue.qsize()} server_game_state connections: {len(self.server.server_game_state.connections)} server connections: {len(self.server.connections)}")
-		logger.debug(f"modified_tiles: {state.get('modified_tiles')}")
-		logger.debug(f"gamestate: {self.server.server_game_state} ")
+		state_json = self.server.game_state.to_json()
+		playerlist = cast(list[dict[str, Any]], state_json.get('playerlist') or [])
+		print(f'server: {self.server}')
+		print(f"playerlist: {len(playerlist)} players_sprites: {len(self.server.game_state.players_sprites)} upgrade_blocks: {len(self.server.game_state.upgrade_blocks)}")
+		print(f'explosions: {len(self.server.game_state.processed_explosions)} hits: {len(self.server.game_state.processed_hits)} bullets: {len(self.server.game_state.processed_bullets)} upgrades: {len(self.server.game_state.processed_upgrades)}')
+		print(f"event_queue: {self.server.game_state.event_queue.qsize()}  client_queue: {self.server.game_state.client_queue.qsize()} game_state connections: {len(self.server.game_state.connections)} server connections: {len(self.server.connections)}")
+		print(f"state_json modified_tiles: {len(state_json.get('modified_tiles'))}")
+		print(f"server gamestate: {self.server.game_state} ")
+		print(f"statejsonkeys: {state_json.keys()} ")
 
-		for player in playerlist:
-			# Fix nested quotes in the f-string
-			logger.debug(f"player: {player.get('client_id')} {player.get('position')} {player.get('health')}")
+		for player in self.server.game_state.playerlist.values():
+			print(f"player ({type(player)}): {player.client_name}: {player.client_id} {player.position} {player.health} bombs_left: {player.bombs_left}")
 
 	def printhelp(self):
 		print("""
 		cmds:
 		s = show server info
-		l = dump player list
-		e = show game events
+		q = quit
 		""")
 
 	async def input_handler(self):

@@ -78,7 +78,7 @@ class ServerDiscovery:
                     continue
 
                 try:
-                    players = len(self.bombserver.server_game_state.playerlist)
+                    players = len(self.bombserver.game_state.playerlist)
                 except Exception as e:
                     logger.error(f"Error getting player count: {e} {type(e)}")
                     players = 0

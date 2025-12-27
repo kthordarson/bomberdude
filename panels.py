@@ -399,7 +399,6 @@ class PlayerInfoPanel:
         pygame.draw.line(self.surface, (200, 200, 200), (10, self.header_height), (self.rect.width - 10, self.header_height), 1)
 
         # Get all players to display
-        players = list(self.game_state.playerlist.values())
         local_player = self.game_state.get_playerone()
         if local_player:
             name_text = _render_text_cached(self.title_font, f"{local_player.client_name}", True, (255, 255, 255))
@@ -416,7 +415,7 @@ class PlayerInfoPanel:
 
             # Draw remote players
             card_index = 1
-            for player in players:
+            for player in list(self.game_state.playerlist.values()):
                 # Skip local player as it's already drawn
                 if player.client_id == local_player.client_id:
                     continue
