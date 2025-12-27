@@ -1,13 +1,14 @@
 import pygame
 from loguru import logger
 from dataclasses import dataclass, field, InitVar
-from utils import gen_randid
+from utils import gen_randid, generate_name
 from constants import DEFAULT_HEALTH, BLOCK
 
 @dataclass
 class PlayerState:
 	position: tuple
-	client_id: str = 'notset'
+	client_id: int = -1
+	client_name: str = 'client_namenotset'
 	score: int = 0
 	# bombs_left: InitVar[int] = 3  # Use InitVar for constructor param
 	initial_bombs: InitVar[int] = 3  # Use InitVar for constructor param
@@ -18,13 +19,13 @@ class PlayerState:
 	position_updated: bool = False
 	msg_dt: float | None = None
 	timeout: bool | None = None
-	killed: bool | None = None
+	killed: bool = False
 	event_type: str | None = None
 	event_time: int | None = None
 	handled: bool = False
 	handledby: str = 'PlayerState'
 	playerlist: list = field(default_factory=list)
-	eventid: str = field(default_factory=gen_randid)
+	event_id: str = field(default_factory=gen_randid)
 
 	def __post_init__(self, initial_bombs):
 		# Initialize the private attribute for the property
@@ -47,6 +48,7 @@ class PlayerState:
 	def to_dict(self):
 		return {
 			'client_id': self.client_id,
+			'client_name': self.client_name,
 			'position': self.position,
 			'health': self.health,
 			'bombs_left': self.bombs_left,
@@ -56,9 +58,11 @@ class PlayerState:
 			'killed': self.killed,
 			'event_type': self.event_type}
 
-	def take_damage(self, damage, attacker_id=None):
+	def take_damage(self, damage, attacker_id):
 		"""Handle damage to player state"""
+		old_health = self.health
 		self.health = max(0, self.health - damage)
 		if self.health <= 0:
 			self.killed = True
-			logger.info(f"Player {self.client_id} killed by {attacker_id}")
+		logger.info(f"Player {self.client_name} hit by {attacker_id} for {damage} damage: {old_health} -> {self.health} killed: {self.killed}")
+

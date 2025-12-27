@@ -1,3 +1,4 @@
+from loguru import logger
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 import pygame
@@ -24,20 +25,21 @@ class Particle(Sprite):
 		self.position.x += self.velocity.x
 		self.position.y += self.velocity.y
 
+		# Update rect position early (collision checks need the new position)
+		self.rect.center = (int(self.position.x), int(self.position.y))
+
 		# Apply gravity
 		self.velocity.y += PARTICLE_GRAVITY
 
 		# Handle wall collisions
-		for tile in collidable_tiles:
+		tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
+		for tile in tiles_iter:
 			if self.rect.colliderect(tile.rect):
 				# Simple bounce physics
 				if abs(self.rect.right - tile.rect.left) < 5 or abs(self.rect.left - tile.rect.right) < 5:
 					self.velocity.x *= -0.8  # Bounce with dampening
 				if abs(self.rect.bottom - tile.rect.top) < 5 or abs(self.rect.top - tile.rect.bottom) < 5:
 					self.velocity.y *= -0.8  # Bounce with dampening
-
-		# Update rect position
-		self.rect.center = (int(self.position.x), int(self.position.y))
 
 		# Fade out over time
 		elapsed = pygame.time.get_ticks() / 1000 - self.born_time

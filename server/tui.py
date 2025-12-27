@@ -1,6 +1,7 @@
 import asyncio
 from loguru import logger
 from threading import Event
+from typing import Any, cast
 
 class ServerTUI():
 	def __init__(self, server, debug=False, gq=None):
@@ -12,13 +13,13 @@ class ServerTUI():
 		self.loop = asyncio.get_event_loop()
 
 	def __repr__(self):
-		return f"ServerTUI (s:{self.stopped()})"
+		return f"ServerTUI (stopped:{self.stopped()})"
 
 	async def stop(self):
 		self._stop.set()
 
 		# Make sure we don't try to await None
-		if hasattr(self, 'server') and self.server is not None:
+		if self.server:
 			await self.server.stop()
 		return True  # Return a value so it's awaitable
 
@@ -27,21 +28,24 @@ class ServerTUI():
 
 	async def get_serverinfo(self):
 		"""Get current server state information"""
-		state = self.server.server_game_state.to_json()
-		logger.debug(f"players: {len(state.get('playerlist'))} event_queue: {self.server.server_game_state.event_queue.qsize()} client_queue: {self.server.server_game_state.client_queue.qsize()}")
-		logger.debug(f'modified_tiles: {state.get("modified_tiles")}')
-		for player in state.get('playerlist'):
-			logger.debug(f'player: {player.get('client_id')} {player.get('position')}')
-		logger.info(f'status: {state}')
+		state_json = self.server.game_state.to_json()
+		playerlist = cast(list[dict[str, Any]], state_json.get('playerlist') or [])
+		print(f'server: {self.server}')
+		print(f"playerlist: {len(playerlist)} players_sprites: {len(self.server.game_state.players_sprites)} upgrade_blocks: {len(self.server.game_state.upgrade_blocks)}")
+		print(f'explosions: {len(self.server.game_state.processed_explosions)} hits: {len(self.server.game_state.processed_hits)} bullets: {len(self.server.game_state.processed_bullets)} upgrades: {len(self.server.game_state.processed_upgrades)}')
+		print(f"event_queue: {self.server.game_state.event_queue.qsize()}  client_queue: {self.server.game_state.client_queue.qsize()} game_state connections: {len(self.server.game_state.connections)} server connections: {len(self.server.connections)}")
+		print(f"state_json modified_tiles: {len(state_json.get('modified_tiles'))}")
+		print(f"server gamestate: {self.server.game_state} ")
+		print(f"statejsonkeys: {state_json.keys()} ")
 
-	def dumpgameevents(self):
-		logger.debug(f"gamestate: {self.server.server_game_state} ")
+		for player in self.server.game_state.playerlist.values():
+			print(f"player ({type(player)}): {player.client_name}: {player.client_id} {player.position} {player.health} bombs_left: {player.bombs_left}")
 
 	def printhelp(self):
 		print("""
 		cmds:
 		s = show server info
-		l = dump player list
+		q = quit
 		""")
 
 	async def input_handler(self):
@@ -67,7 +71,7 @@ class ServerTUI():
 		elif cmd[:1] == "l":
 			pass  # self.dump_players()
 		elif cmd[:1] == "e":
-			self.dumpgameevents()
+			pass
 		elif cmd[:2] == "ec":
 			pass  # self.cleargameevents()
 		elif cmd[:1] == "q":

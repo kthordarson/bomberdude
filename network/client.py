@@ -1,37 +1,46 @@
 #!/usr/bin/python
-import orjson as json
+import json
 import asyncio
 import time
 from loguru import logger
 from constants import UPDATE_TICK
 from game.bomberdude import Bomberdude
 
-async def send_game_state(game: Bomberdude):
-	game_event = {}
-	logger.info(f'pushstarting event_queue: {game.client_game_state.event_queue.qsize()} client_queue: {game.client_game_state.client_queue.qsize()}')
+# Use orjson for faster serialization if available
+# To optimize, install orjson and replace json.dumps with orjson.dumps, json.loads with orjson.loads
+# orjson.dumps returns bytes, so adjust encoding accordingly
+
+DEBUG_INTERVAL = UPDATE_TICK * 2
+
+async def send_game_state(game: Bomberdude) -> None:
+	# Log less frequently to reduce overhead
+	log_counter = 0
+	send_counter = 0
+	# Avoid writing to the socket before sock_connect completes.
+	if game.socket_connected:
+		await game.socket_connected.wait()
 	while True:
 		try:
-			game_event = await game.client_game_state.event_queue.get()
+			game_event = await game.game_state.event_queue.get()
 		except asyncio.QueueEmpty:
 			await asyncio.sleep(1 / UPDATE_TICK)
-			pass
-		except Exception as e:
-			logger.error(f"Error: {e} {type(e)}")
 			continue
-		client_keys = json.loads(game.client_game_state.keyspressed.to_json())
-		if game.client_id == 'bdudenotset' or game.client_game_state.client_id == 'gamestatenotset' or game.client_game_state.client_id == 'missingclientid':
+		except Exception as e:
+			logger.error(f"Error getting event: {e} {type(e)}")
+			continue
+
+		if game.client_id == 'bdudenotset' or game.game_state.client_id == 'gamestatenotset' or game.game_state.client_id == 'missingclientid':
 			logger.error(f'client_id not set game: {game}')
 			await asyncio.sleep(1)
 			continue
 		else:
-			try:
-				player_one = game.client_game_state.get_playerone()
-			except AttributeError as e:
-				logger.error(f'{e} {type(e)}')
-				await asyncio.sleep(1)
-				continue
-		# playerlist = [player.to_dict() if hasattr(player, 'to_dict') else player for player in game.client_game_state.playerlist.values()]
-		playerlist = [player for player in game.client_game_state.playerlist.values()]
+			player_one = game.game_state.get_playerone()
+
+		# Cache keyspressed serialization
+		client_keys = json.loads(game.game_state.keyspressed.to_json())
+
+		# Convert PlayerState objects to dicts so dumps succeeds.
+		playerlist = [p.to_dict() for p in game.game_state.playerlist.values()]
 		msg = {
 			'game_event': game_event,
 			'client_id': player_one.client_id,
@@ -45,52 +54,64 @@ async def send_game_state(game: Bomberdude):
 			'playerlist': playerlist,
 		}
 		try:
-			data_out = json.dumps(msg) + b'\n'
+			data_out = (json.dumps(msg) + '\n').encode('utf-8')
 			await asyncio.get_event_loop().sock_sendall(game.sock, data_out)  # Direct to socket
-			game.client_game_state.event_queue.task_done()
+			game.game_state.event_queue.task_done()
+			send_counter += 1
 		except Exception as e:
-			logger.error(f'{e} {type(e)} msg: {msg}')
+			logger.error(f'Send error: {e} {type(e)}')
 			break
-		finally:
-			await asyncio.sleep(1 / UPDATE_TICK)
+		# Remove sleep to send as fast as possible, or adjust
+		# await asyncio.sleep(1 / UPDATE_TICK)
+
+		# Log periodically
+		log_counter += 1
+		# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
+		# 	logger.info(f'send_counter: {send_counter} event_queue: {game.game_state.event_queue.qsize()} client_queue: {game.game_state.client_queue.qsize()}')
 
 async def receive_game_state(game: Bomberdude) -> None:
+	# Log less frequently
+	log_counter = 0
+	# Avoid reading from the socket before sock_connect completes.
+	if game.socket_connected:
+		await game.socket_connected.wait()
 	buffer = ""
+	messages_processed = 0
 	while True:
 		try:
 			data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
-			# if not data:
-			# 	if game.sock._closed:
-			# 		logger.warning(f'Connection closed {game.sock._closed}')
-			# 		break
-			# 	else:
-			# 		await asyncio.sleep(1 / UPDATE_TICK)
-			# 		continue
+			if not data:
+				# Connection closed
+				break
 			buffer += data.decode('utf-8')
 
 			# Process multiple messages at once if available
 			while '\n' in buffer:
 				message, buffer = buffer.split('\n', 1)
 				if not message.strip():
-					logger.warning(f'no message in buffer: {buffer}')
 					continue
 				game_state_json = json.loads(message)
-				if game_state_json.get('event_type') == 'broadcast_event':
-					asyncio.create_task(game.client_game_state.update_game_event(game_state_json["event"]))
-				else:
-					await game.client_game_state.from_json(game_state_json)
+				event = game_state_json.get("event")
+				if event:
+					# update_game_event is async now; schedule it without blocking receive loop
+					asyncio.create_task(game.game_state.update_game_event(event))
+					messages_processed += 1
+
+			# Log periodically
+			log_counter += 1
+			# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
+			# 	logger.info(f'receive: processed {messages_processed} messages, buffer size: {len(buffer)}')
+
 		except (BlockingIOError, InterruptedError) as e:
-			await asyncio.sleep(1)
-			logger.error(f'{e} {type(e)}')
+			await asyncio.sleep(0.1)  # Shorter sleep
 			continue
 		except ConnectionRefusedError as e:
-			logger.error(f"Connection refused: {e} {type(e)}")
-			await asyncio.sleep(1)
+			logger.error(f"Connection refused: {e}")
+			break
+		except OSError as e:
+			logger.error(f"OSError: {e}")
 			break
 		except Exception as e:
-			logger.error(f"Error in receive_game_state: {e} {type(e)}")
-			await asyncio.sleep(1)
-			if isinstance(e, ConnectionResetError):
-				game._connected = False
-				break
+			logger.error(f"Error in receive_game_state: {e}")
+			await asyncio.sleep(0.1)
 			continue

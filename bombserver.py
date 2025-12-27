@@ -12,7 +12,7 @@ async def async_start_server(args: argparse.Namespace) -> None:
 	# apiserver = ApiServer("bombapi", server)
 	tui = ServerTUI(server, args.debug)
 
-	api_task = asyncio.create_task(server.apiserver.run(args.listen, 9691))
+	api_task = asyncio.create_task(server.apiserver.run(args.listen, args.api_port))
 	tui_task = asyncio.create_task(tui.start())
 	new_server_start_task = asyncio.create_task(server.new_start_server())
 
@@ -24,18 +24,17 @@ async def async_start_server(args: argparse.Namespace) -> None:
 		api_task.cancel()
 		tui_task.cancel()
 		new_server_start_task.cancel()
-		# server.ticker_broadcast.cancel()
 		await asyncio.gather(api_task, tui_task, return_exceptions=True)
 
 if __name__ == "__main__":
 	if sys.platform == "win32":
 		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 	parser = ArgumentParser(description="server")
-	parser.add_argument("--host", action="store", dest="host", default="127.0.0.1")
 	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1")
-	parser.add_argument("--port", action="store", dest="port", default=9696, type=int)
+	parser.add_argument("--server_port", action="store", dest="server_port", default=9696, type=int)
+	parser.add_argument("--api_port", action="store", dest="api_port", default=9691, type=int)
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
-	parser.add_argument("-dp", "--debugpacket", action="store_true", dest="debugpacket", default=False,)
+	parser.add_argument("-g", "--debug_gamestate", action="store_true", dest="debug_gamestate", default=False)
 	parser.add_argument("--map", action="store", dest="mapname", default="data/maptest5.tmx")
 	parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
 	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='server.prof')

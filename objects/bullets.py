@@ -1,3 +1,4 @@
+from loguru import logger
 from pygame.math import Vector2 as Vec2d
 import pygame
 
@@ -32,7 +33,8 @@ class Bullet(pygame.sprite.Sprite):
 		self.rect.center = (int(self.world_position.x), int(self.world_position.y))
 
 		# Check collisions with tiles
-		for tile in collidable_tiles:
+		tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
+		for tile in tiles_iter:
 			if self.rect.colliderect(tile.rect):
 				self.kill()
 				return

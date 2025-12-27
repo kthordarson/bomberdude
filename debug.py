@@ -3,11 +3,55 @@ import pygame
 import time
 from loguru import logger
 import math
-from constants import BLOCK
+from collections import OrderedDict
+from constants import BLOCK, PLAYER_SCALING
 
 # Store the last few frame times for smoothing
 frame_times = []
 last_frame_time = time.time()
+
+# Cache Font objects (creating fonts repeatedly is expensive)
+_DEBUG_FONTS: dict[int, pygame.font.Font] = {}
+
+
+def _get_font(size: int) -> pygame.font.Font:
+    font = _DEBUG_FONTS.get(size)
+    if font is None:
+        font = pygame.font.Font(None, size)
+        _DEBUG_FONTS[size] = font
+    return font
+
+
+# Small global text render cache.
+_TEXT_CACHE_MAX = 512
+_TEXT_CACHE: "OrderedDict[tuple[int, str, bool, tuple[int, int, int, int] | tuple[int, int, int], tuple[int, int, int, int] | tuple[int, int, int] | None], pygame.Surface]" = OrderedDict()
+
+
+def _render_text_cached(font: pygame.font.Font, text: str, antialias: bool, color, background=None) -> pygame.Surface:
+    key = (id(font), text, bool(antialias), tuple(color), tuple(background) if background is not None else None)
+    surf = _TEXT_CACHE.get(key)
+    if surf is not None:
+        _TEXT_CACHE.move_to_end(key)
+        return surf
+    surf = font.render(text, antialias, color, background)
+    _TEXT_CACHE[key] = surf
+    _TEXT_CACHE.move_to_end(key)
+    while len(_TEXT_CACHE) > _TEXT_CACHE_MAX:
+        _TEXT_CACHE.popitem(last=False)
+    return surf
+
+
+# Per-line cache for dynamic debug strings (avoids render when text unchanged)
+_LINE_CACHE: dict[str, tuple[str, pygame.Surface]] = {}
+
+
+def _render_line(font: pygame.font.Font, cache_key: str, text: str, antialias: bool, color) -> pygame.Surface:
+    cached = _LINE_CACHE.get(cache_key)
+    if cached is not None and cached[0] == text:
+        return cached[1]
+    surf = _render_text_cached(font, text, antialias, color)
+    _LINE_CACHE[cache_key] = (text, surf)
+    return surf
 
 def update_fps():
     """Calculate current FPS based on frame times"""
@@ -30,22 +74,24 @@ def update_fps():
     return 0
 
 def draw_debug_info(screen, game_state, camera):
-    font = pygame.font.Font(None, 20)
+    font = _get_font(20)
     fps = update_fps()
-    fps_text = font.render(f"FPS: {fps}", True, (0, 255, 0))
+    fps_text = _render_line(font, "fps", f"FPS: {fps}", True, (0, 255, 0))
     screen.blit(fps_text, (screen.get_width() - 100, 10))
 
-    debug_text = font.render(f"Players: {len(game_state.playerlist)}/{len(game_state.players_sprites)} eq: {game_state.event_queue.qsize()} cq: {game_state.client_queue.qsize()}", True, (255, 255, 255))
+    player_one = game_state.get_playerone()
+    players_line = f"Players: {len(game_state.playerlist)}/{len(game_state.players_sprites)} eq: {game_state.event_queue.qsize()} cq: {game_state.client_queue.qsize()}"
+    debug_text = _render_line(font, "players", players_line, True, (255, 255, 255))
     screen.blit(debug_text, (10, 10))
-    debug_text = font.render(f"bullets: {len(game_state.bullets)} bombs: {len(game_state.bombs)}", True, (255, 255, 255))
+
+    bullets_line = f"bullets: {len(game_state.bullets)} bombs: {len(game_state.bombs)}"
+    debug_text = _render_line(font, "projectiles", bullets_line, True, (255, 255, 255))
     screen.blit(debug_text, (10, 30))
-    debug_text = font.render(f"player_one: {game_state.get_playerone().client_id} {game_state.get_playerone().position} {game_state.get_playerone().health} ", True, (55, 255, 55))
-    screen.blit(debug_text, (10, 60))
-    # y_pos = 80
-    # font = pygame.font.Font(None, 16)
-    # for player in game_state.playerlist.values():
-    #     debug_text = font.render(f"netplayer: {player.client_id} {player.position}", True, (155, 125, 125))
-    #     screen.blit(debug_text, player.position)
+
+    if player_one:
+        p1_line = f"player_one: {player_one.client_id} {player_one.position} {player_one.health}"
+        debug_text = _render_line(font, "player_one", p1_line, True, (55, 255, 55))
+        screen.blit(debug_text, (10, 60))
 
     draw_bullet_debug(screen, game_state, camera)
     draw_other_player_id(screen, game_state, camera)
@@ -53,21 +99,21 @@ def draw_debug_info(screen, game_state, camera):
 
 def draw_other_player_id(screen, game_state, camera):
     # Draw player one's ID above their sprite
-    font = pygame.font.Font(None, 16)
+    font = _get_font(16)
     player_one = game_state.get_playerone()
     player_one_screen_pos = camera.apply(player_one.rect).topleft
-    player_text = font.render(f"{player_one.health}", True, (50, 255, 50))
+    player_text = _render_text_cached(font, f"{player_one.health}", True, (50, 255, 50))
     screen.blit(player_text, (player_one_screen_pos[0], player_one_screen_pos[1] - 20))
 
     # Draw network players' IDs above their sprites
     for player in game_state.playerlist.values():
         if player.client_id != game_state.get_playerone().client_id:
             try:
-                player_rect = pygame.Rect(player.position[0], player.position[1], BLOCK, BLOCK)
+                player_rect = pygame.Rect(player.position[0], player.position[1], BLOCK * PLAYER_SCALING, BLOCK * PLAYER_SCALING)
                 # Convert world position to screen position
                 screen_pos = camera.apply(player_rect).topleft
                 # Generate and draw the player ID text above the sprite
-                player_text = font.render(f"{player.health}", True, (255, 150, 150))
+                player_text = _render_text_cached(font, f"{player.health}", True, (255, 150, 150))
                 text_x = screen_pos[0] + (player_rect.width // 2) - (player_text.get_width() // 2)
                 text_y = screen_pos[1] - 20  # Position above the player sprite
 
@@ -108,7 +154,7 @@ def draw_blocks_around_player(screen, game_state, camera):
     highlight_range = 3
 
     # Create a font for block IDs
-    font = pygame.font.Font(None, 14)
+    font = _get_font(14)
 
     # Highlight blocks around player
     for tile in game_state.collidable_tiles:
@@ -124,7 +170,7 @@ def draw_blocks_around_player(screen, game_state, camera):
 
             # Draw highlight
             highlight_color = (255, 255, 0, 128)  # Yellow semi-transparent
-            if hasattr(tile, 'layer') and tile.layer == 'Blocks':
+            if tile.layer == 'Blocks':
                 highlight_color = (0, 255, 255, 128)  # Cyan for destructible blocks
 
             # Draw outline around block
@@ -132,10 +178,9 @@ def draw_blocks_around_player(screen, game_state, camera):
 
             # Show block position/ID
             pos_text = f"({tile_x},{tile_y})"
-            if hasattr(tile, 'id'):
-                pos_text = f"ID:{tile.id}"
+            pos_text = f"ID:{tile.id}"
 
-            text_surf = font.render(pos_text, True, (255, 255, 255))
+            text_surf = _render_text_cached(font, pos_text, True, (255, 255, 255))
             screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))
 
             # Draw line from player to this block

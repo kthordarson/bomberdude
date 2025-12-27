@@ -66,7 +66,8 @@ class ExplosionManager:
 		self.flames.add(flame)
 
 	async def update(self, collidable_tiles, game_state, delta_time=1/10):
-		self.particles.update(collidable_tiles)
+		# Pass game_state so particles can query nearby colliders efficiently.
+		self.particles.update(game_state)
 		for flame in self.flames:
 			await flame.flame_update(collidable_tiles, game_state)
 		# Update shockwaves and remove dead ones
@@ -86,10 +87,11 @@ class ExplosionManager:
 		for shockwave in self.shockwaves:
 			shockwave.draw(screen, camera)
 
-	def create_flames(self, owner):
+	async def create_flames(self, owner):
 		directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]  # Right, Left, Down, Up
 		for direction in directions:
 			# Start from exact bomb center
 			flame_position = Vec2d(owner.rect.center)
 			flame = Flame(flame_position, direction, owner.client_id, power=owner.power)
+			await flame.async_init()
 			self.add_flame(flame)
