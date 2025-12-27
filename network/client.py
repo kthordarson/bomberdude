@@ -102,7 +102,7 @@ async def receive_game_state(game: Bomberdude) -> None:
 			# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
 			# 	logger.info(f'receive: processed {messages_processed} messages, buffer size: {len(buffer)}')
 
-		except (BlockingIOError, InterruptedError) as e:
+		except (BlockingIOError, InterruptedError):
 			await asyncio.sleep(0.1)  # Shorter sleep
 			continue
 		except ConnectionRefusedError as e:

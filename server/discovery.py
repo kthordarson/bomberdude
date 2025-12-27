@@ -8,7 +8,6 @@ DISCOVERY_MAGIC = b"BOMBERDUDE_DISCOVERY"
 def get_local_ip_addresses():
     ips = set()
     for iface in socket.if_nameindex():
-        iface_name = iface[1]
         try:
             for fam, _, _, _, sockaddr in socket.getaddrinfo(None, 0, family=socket.AF_INET, proto=socket.IPPROTO_UDP):
                 s = socket.socket(fam, socket.SOCK_DGRAM)
@@ -45,10 +44,11 @@ class ServerDiscovery:
 
         # Allow quick restarts / multiple listeners on some platforms
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except Exception as e:
-            logger.error(f"Failed to set SO_REUSEPORT: {e} {type(e)}")
+        if hasattr(socket, "SO_REUSEPORT"):
+            try:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)  # type: ignore
+            except Exception as e:
+                logger.error(f"Failed to set SO_REUSEPORT: {e} {type(e)}")
 
         # Receive broadcast packets
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)

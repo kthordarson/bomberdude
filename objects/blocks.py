@@ -1,5 +1,4 @@
 import random
-from loguru import logger
 from pygame.sprite import Sprite
 import pygame
 from utils import get_cached_image, gen_randid

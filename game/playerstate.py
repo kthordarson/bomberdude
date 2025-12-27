@@ -1,7 +1,7 @@
 import pygame
 from loguru import logger
 from dataclasses import dataclass, field, InitVar
-from utils import gen_randid, generate_name
+from utils import gen_randid
 from constants import DEFAULT_HEALTH, BLOCK
 
 @dataclass
@@ -25,7 +25,7 @@ class PlayerState:
 	handled: bool = False
 	handledby: str = 'PlayerState'
 	playerlist: list = field(default_factory=list)
-	event_id: str = field(default_factory=gen_randid)
+	event_id: int = field(default_factory=gen_randid)
 
 	def __post_init__(self, initial_bombs):
 		# Initialize the private attribute for the property

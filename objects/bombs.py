@@ -1,5 +1,4 @@
 import asyncio
-from loguru import logger
 import time
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
@@ -33,7 +32,7 @@ class Bomb(Sprite):
 	def __repr__(self):
 		return f'Bomb (pos: {self.position} )'
 
-	async def update(self, game_state):
+	async def update(self, game_state):  # type: ignore
 		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:
 			# Create explosion particles if manager is provided
 			if not self.exploded:

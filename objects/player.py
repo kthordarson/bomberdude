@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass, field
 from loguru import logger
 from pygame.math import Vector2 as Vec2d
@@ -8,7 +7,6 @@ import pygame
 import time
 from utils import gen_randid, generate_name, get_cached_image
 from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK
-from .bullets import Bullet
 
 MOVE_MAP = {
 	pygame.K_UP: (0, -PLAYER_MOVEMENT_SPEED),

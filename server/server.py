@@ -6,7 +6,6 @@ import json
 from threading import Event
 from loguru import logger
 import random
-from constants import BLOCK
 from aiohttp import web
 from game.gamestate import GameState
 from server.api import ApiServer
@@ -56,7 +55,7 @@ class BombServer:
 				await self.game_state.update_game_event(game_event)
 				await self.server_broadcast_state(self.game_state.to_json())
 				self.message_counter += 1
-		except (asyncio.IncompleteReadError, ConnectionResetError) as e:
+		except (asyncio.IncompleteReadError, ConnectionResetError):
 			pass  # logger.warning(f'{e} Connection closed by client')
 		except pygame.error as e:
 			logger.error(f"{e} {type(e)} ")
