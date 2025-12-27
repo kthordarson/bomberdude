@@ -273,7 +273,7 @@ class Bomberdude():
 
         # Draw map blocks
         for tile in self.client_game_state.collidable_tiles:
-            if tile.layer in ('Blocks', 'UpgradeBlocks'):
+            if tile.layer in ('Blocks',):
                 mini_x = minimap_x + int(tile.rect.x * scale)
                 mini_y = minimap_y + int(tile.rect.y * scale)
                 mini_w = max(2, int(tile.rect.width * scale))

@@ -206,7 +206,7 @@ class GameState:
 		x, y = block.rect.topleft
 		tile_x = x // self.tile_map.tilewidth
 		tile_y = y // self.tile_map.tileheight
-		layer_names = ('Blocks', 'UpgradeBlocks')
+		layer_names = ('Blocks',)
 
 		for layer_name in layer_names:
 			layer = self.tile_map.get_layer_by_name(layer_name)
@@ -221,26 +221,26 @@ class GameState:
 			self.static_map_surface.blit(self.tile_cache.get(1), (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight))  # type: ignore
 			if self.args.debug_gamestate:
 				logger.debug(f"client_id={self.client_id} destroy_block : layer={layer_name} tile=({tile_x},{tile_y}) _upgrade_spawned_tiles={len(self._upgrade_spawned_tiles)}")
-			if (tile_x, tile_y) not in self._upgrade_spawned_tiles and layer_name == 'UpgradeBlocks':
-				self._upgrade_spawned_tiles.add((tile_x, tile_y))
-				upgrade_pos = (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight)
-				upgrade = Upgrade(upgrade_pos)
-				self.upgrade_blocks.add(upgrade)
-				await upgrade.async_init()
-				self.upgrade_by_tile[(tile_x, tile_y)] = upgrade
-				event_upgrade = {"event_type": "upgrade_spawned", "position": upgrade_pos, "upgradetype": upgrade.upgradetype, "client_id": self.client_id, "upgrade_id": upgrade.client_id, "event_time": time.time(), "handled": False, "event_id": gen_randid(),}
+		if (tile_x, tile_y) not in self._upgrade_spawned_tiles:
+			self._upgrade_spawned_tiles.add((tile_x, tile_y))
+			upgrade_pos = (tile_x * self.tile_map.tilewidth, tile_y * self.tile_map.tileheight)
+			upgrade = Upgrade(upgrade_pos)
+			self.upgrade_blocks.add(upgrade)
+			await upgrade.async_init()
+			self.upgrade_by_tile[(tile_x, tile_y)] = upgrade
+			event_upgrade = {"event_type": "upgrade_spawned", "position": upgrade_pos, "upgradetype": upgrade.upgradetype, "client_id": self.client_id, "upgrade_id": upgrade.client_id, "event_time": time.time(), "handled": False, "event_id": gen_randid(),}
 
-				# Spawn upgrade block locally on the server only
-				asyncio.create_task(self.broadcast_event(event_upgrade))
-				if self.args.debug_gamestate:
-					logger.info(f'server upgrade_spawned: {upgrade} layer: {layer_name} self.upgrade_blocks: {len(self.upgrade_blocks)}')
-			# Emit only a single map_update_event per destroyed tile
-			if (tile_x, tile_y) not in self._map_update_emitted and layer_name == 'Blocks':
-				self._map_update_emitted.add((tile_x, tile_y))
-				map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 0, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
-				asyncio.create_task(self.broadcast_event(map_update_event))
-				if self.args.debug_gamestate:
-					logger.info(f'server map_update_event: {map_update_event} layer: {layer_name}')
+			# Spawn upgrade block locally on the server only
+			asyncio.create_task(self.broadcast_event(event_upgrade))
+			if self.args.debug_gamestate:
+				logger.info(f'server upgrade_spawned: {upgrade} layer: {layer_name} self.upgrade_blocks: {len(self.upgrade_blocks)}')
+		# Emit only a single map_update_event per destroyed tile
+		if (tile_x, tile_y) not in self._map_update_emitted:
+			self._map_update_emitted.add((tile_x, tile_y))
+			map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 0, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
+			asyncio.create_task(self.broadcast_event(map_update_event))
+			if self.args.debug_gamestate:
+				logger.info(f'map_update_event: {map_update_event} layer: {layer_name}')
 
 	def ready(self):
 		return self._ready
@@ -393,7 +393,7 @@ class GameState:
 
 	async def _apply_tile_change(self, x, y, new_gid):
 		"""Apply a single tile change and update visuals/collisions/state."""
-		layers_names = ('Blocks', 'UpgradeBlocks')
+		layers_names = ('Blocks',)
 		for layer_name in layers_names:
 			layer = self.tile_map.get_layer_by_name(layer_name)
 			tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
@@ -422,7 +422,7 @@ class GameState:
 
 	def _apply_modifications_dict(self, modified_tiles: dict):
 		"""Batch-apply many tile modifications efficiently."""
-		layers_names = ('Blocks', 'UpgradeBlocks')
+		layers_names = ('Blocks',)
 		for layer_name in layers_names:
 			layer = self.tile_map.get_layer_by_name(layer_name)
 			tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
