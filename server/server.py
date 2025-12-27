@@ -136,10 +136,12 @@ class BombServer:
 			# Run the server
 			async with server:
 				await server.serve_forever()
+		except Exception as e:
+			logger.error(f'{self} Server error: {e} {type(e)}')
 		finally:
 			# Clean up
 			ticker_task.cancel()
-			await runner.cleanup()
+			# await runner.cleanup()
 
 	async def ticker_broadcast(self):
 		"""Broadcast game state at regular intervals"""
@@ -154,6 +156,8 @@ class BombServer:
 				await asyncio.sleep(1 / UPDATE_TICK)
 		except asyncio.CancelledError as e:
 			logger.info(f"Ticker broadcast task cancelled {e}")
+		except RuntimeError as e:
+			logger.error(f"Error in ticker broadcast: {e} {type(e)}")
 		except Exception as e:
 			logger.error(f"Error in ticker broadcast: {e} {type(e)}")
 

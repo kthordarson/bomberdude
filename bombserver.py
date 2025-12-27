@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import traceback
 import asyncio
 import sys
 import argparse
@@ -11,24 +12,30 @@ async def async_start_server(args: argparse.Namespace) -> None:
 	server = BombServer(args)
 	# apiserver = ApiServer("bombapi", server)
 	tui = ServerTUI(server, args.debug)
-
-	api_task = asyncio.create_task(server.apiserver.run(args.listen, args.api_port))
-	tui_task = asyncio.create_task(tui.start())
-	new_server_start_task = asyncio.create_task(server.new_start_server())
-
-	logger.debug(f'{server=} {tui=} {server.apiserver=}')
+	tasks = [asyncio.create_task(server.apiserver.run(args.listen, args.api_port)), asyncio.create_task(tui.start()), asyncio.create_task(server.new_start_server())]
+	# api_task = asyncio.create_task(server.apiserver.run(args.listen, args.api_port))
+	# tui_task = asyncio.create_task(tui.start())
+	# new_server_start_task = asyncio.create_task(server.new_start_server())
 	try:
-		await asyncio.wait([api_task, tui_task, new_server_start_task], return_when=asyncio.FIRST_COMPLETED)
-	except (asyncio.CancelledError, KeyboardInterrupt) as e:
-		logger.info(f'{e} {type(e)}')
-		api_task.cancel()
-		tui_task.cancel()
-		new_server_start_task.cancel()
-		await asyncio.gather(api_task, tui_task, return_exceptions=True)
+		logger.debug(f'{server=} {tui=} {server.apiserver=}')
+		try:
+			# await asyncio.wait([api_task, tui_task, new_server_start_task], return_when=asyncio.FIRST_COMPLETED)
+			await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+		except (asyncio.CancelledError, KeyboardInterrupt, OSError, Exception) as e:
+			logger.info(f'{e} {type(e)}')
+			# api_task.cancel()
+			# tui_task.cancel()
+			# new_server_start_task.cancel()
+			# await asyncio.gather(api_task, tui_task, return_exceptions=True)
+		finally:
+			for task in tasks:
+				task.cancel()
+			await asyncio.gather(*tasks, return_exceptions=True)
+	except Exception as e:
+		logger.error(f"Error starting server: {e} {type(e)}")
+
 
 if __name__ == "__main__":
-	if sys.platform == "win32":
-		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 	parser = ArgumentParser(description="server")
 	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1")
 	parser.add_argument("--server_port", action="store", dest="server_port", default=9696, type=int)
@@ -56,4 +63,8 @@ if __name__ == "__main__":
 		# Optionally save results to a file
 		stats.dump_stats(args.cprofile_file)
 	else:
-		asyncio.run(async_start_server(args))
+		try:
+			asyncio.run(async_start_server(args))
+		except Exception as e:
+			logger.error(f"Fatal server error: {e} {type(e)}")
+			traceback.print_exc()

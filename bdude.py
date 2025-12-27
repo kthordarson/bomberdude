@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import traceback
 import sys
 import asyncio
 import time
@@ -62,7 +63,6 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 	try:
 		await bomberdude_main.update()
 	except Exception as e:
-		import traceback
 		logger.error(f"Error in update: {e} {type(e)}")
 		traceback.print_exc()
 		await asyncio.sleep(1)
@@ -86,7 +86,6 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 	await _process_pygame_events(bomberdude_main)
 	return True
 
-
 async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None:
 	while bomberdude_main.running:
 		frame_start = time.time()
@@ -99,10 +98,12 @@ async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None
 				logger.warning(f"Sleep time: {sleep_time}")
 			await asyncio.sleep(sleep_time)
 
-
 async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argparse.Namespace) -> bool:
 	if action == "Start":
-		await start_game(args)
+		try:
+			await start_game(args)
+		except Exception as e:
+			logger.error(f"Error starting game: {e} {type(e)}")
 		return True
 
 	elif action == "Start Server":
@@ -168,10 +169,6 @@ def run_server_process(args_dict):
 
 	# Convert args_dict back to Namespace
 	args = argparse.Namespace(**args_dict)
-
-	# Set Windows event loop policy if needed
-	if sys.platform == "win32":
-		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 	# Create a headless version of the server startup
 	async def run_headless_server():
@@ -319,8 +316,6 @@ async def main(args):
 		pygame.quit()
 
 if __name__ == "__main__":
-	if sys.platform == "win32":
-		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 	args = get_args()
 	if args.cprofile:
 		import cProfile
@@ -338,4 +333,8 @@ if __name__ == "__main__":
 		# Optionally save results to a file
 		stats.dump_stats(args.cprofile_file)
 	else:
-		asyncio.run(main(args))
+		try:
+			asyncio.run(main(args))
+		except Exception as e:
+			logger.error(f"Fatal error: {e} {type(e)}")
+			traceback.print_exc()

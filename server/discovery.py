@@ -70,6 +70,9 @@ class ServerDiscovery:
                     continue
                 except (OSError, asyncio.CancelledError):
                     break
+                except Exception as e:
+                    logger.error(f"Error receiving discovery packet: {e} {type(e)}")
+                    continue
 
                 if not data:
                     continue
@@ -98,6 +101,8 @@ class ServerDiscovery:
                     # logger.debug(f"Discovery response sent to {addr}: {response}")
                 except Exception as e:
                     logger.error(f"Failed sending discovery response to {addr}: {e}")
+        except Exception as e:
+            logger.error(f"Server discovery error: {e} {type(e)}")
         finally:
             try:
                 sock.close()
