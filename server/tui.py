@@ -35,7 +35,7 @@ class ServerTUI():
 		print(f'self.server.game_state.client_id: {self.server.game_state.client_id}')
 		print(f"playerlist: {len(playerlist)} players_sprites: {len(self.server.game_state.players_sprites)} upgrade_blocks: {len(self.server.game_state.upgrade_blocks)}")
 		print(f'explosions: {len(self.server.game_state.processed_explosions)} hits: {len(self.server.game_state.processed_hits)} bullets: {len(self.server.game_state.processed_bullets)} upgrades: {len(self.server.game_state.processed_upgrades)}')
-		print(f"event_queue: {self.server.game_state.event_queue.qsize()}  client_queue: {self.server.game_state.client_queue.qsize()} game_state connections: {len(self.server.game_state.connections)} server connections: {len(self.server.connections)}")
+		print(f"event_queue: {self.server.game_state.event_queue.qsize()}  client_queue: {self.server.game_state.client_queue.qsize()} game_state connections: {len(self.server.game_state.connections)} ")
 		print(f"state_json modified_tiles: {len(state_json.get('modified_tiles'))}")
 		print(f"server gamestate: {self.server.game_state} ")
 		print(f"statejsonkeys: {state_json.keys()} ")

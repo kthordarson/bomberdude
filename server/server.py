@@ -20,7 +20,6 @@ class BombServer:
 		self.args = args
 		self.game_state = GameState(args=self.args, mapname=args.mapname, client_id='theserver')
 		# self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.game_state)
-		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
 		self._stop = Event()
@@ -29,7 +28,7 @@ class BombServer:
 		# Do NOT create or set event loop here. Schedule tasks in main async entry point.
 
 	def __repr__(self):
-		return f"<BombServer clients={len(self.connections)} messages={self.message_counter} client_id={self.game_state.client_id}>"
+		return f"<BombServer game_state connections={len(self.game_state.connections)} messages={self.message_counter} client_id={self.game_state.client_id}>"
 
 	async def client_connected_callback(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 		logger.info(f"{self} New connection from {writer.get_extra_info('peername')[0]} ")
@@ -233,8 +232,8 @@ class BombServer:
 		data = json.dumps(state).encode('utf-8') + b'\n'
 		# Use gather for concurrent sending
 		send_tasks = []
-		for writer in self.connections:
-			send_tasks.append(self._send_to_client(writer, data))
+		# for writer in self.connections:
+		# 	send_tasks.append(self._send_to_client(writer, data))
 		# Wait for all sends to complete
 		if send_tasks:
 			try:
@@ -251,8 +250,10 @@ class BombServer:
 		except (ConnectionResetError, BrokenPipeError) as e:
 			logger.warning(f"{self} Connection error while sending: {e}")
 			# Connection is dead, remove it
-			if writer in self.connections:
-				self.connections.remove(writer)
+			# if writer in self.connections:
+			# 	if self.args.debug:
+			# 		logger.debug(f"{self} Removing dead connection {writer} connections: {len(self.connections)}")
+			# 	self.connections.remove(writer)
 			return False
 		except Exception as e:
 			logger.error(f"{self} Error sending to client: {e}")

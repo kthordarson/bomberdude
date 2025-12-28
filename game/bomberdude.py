@@ -219,7 +219,7 @@ class Bomberdude():
 
         # Draw remote players from playerlist
         try:
-            for client_id, player in self.game_state.playerlist.items():
+            for client_id, player in list(self.game_state.playerlist.items()):
                 if client_id != self.client_id:
                     await self.draw_player(player)
         except Exception as e:
