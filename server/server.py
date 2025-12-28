@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import sys
 import pygame
 import time
 import asyncio
@@ -22,15 +23,10 @@ class BombServer:
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
-		# self.loop = asyncio.get_event_loop()
-		try:
-			self.loop = asyncio.get_running_loop()
-		except RuntimeError:
-			self.loop = asyncio.get_event_loop()
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0
-		asyncio.create_task(self.discovery_service.start_discovery_service())
+		# Do NOT create or set event loop here. Schedule tasks in main async entry point.
 
 	def __repr__(self):
 		return f"<BombServer clients={len(self.connections)} messages={self.message_counter} client_id={self.game_state.client_id}>"
@@ -126,6 +122,9 @@ class BombServer:
 		return web.json_response(resp)
 
 	async def new_start_server(self):
+		# Schedule background tasks on the current running loop
+		loop = asyncio.get_running_loop()
+		discovery_task = loop.create_task(self.discovery_service.start_discovery_service())
 		"""Start the game server using asyncio's high-level server API"""
 		# Create the server
 		server = await asyncio.start_server(lambda r, w: self.client_connected_callback(r, w), host=self.args.listen, port=self.args.server_port, reuse_address=True,)
@@ -152,7 +151,7 @@ class BombServer:
 			logger.error(f'{self} Error starting API server on {self.args.listen}:{tcp_port}: {e} {type(e)}')
 			return
 		# Ticker task to broadcast game state
-		ticker_task = self.loop.create_task(self.ticker_broadcast())
+		ticker_task = loop.create_task(self.ticker_broadcast())
 
 		try:
 			# Run the server
@@ -161,6 +160,15 @@ class BombServer:
 		finally:
 			# Clean up
 			ticker_task.cancel()
+			discovery_task.cancel()
+			try:
+				await ticker_task
+			except asyncio.CancelledError:
+				pass
+			try:
+				await discovery_task
+			except asyncio.CancelledError:
+				pass
 			await runner.cleanup()
 
 	async def ticker_broadcast(self):
