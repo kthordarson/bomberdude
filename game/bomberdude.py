@@ -352,7 +352,7 @@ class Bomberdude():
             # Use player's center as bullet start position
             bullet_pos = Vec2d(player_world_pos)
             # Create the event
-            event = {
+            on_bullet_fired_event = {
                 "event_time": self.timer,
                 'event_type': "on_bullet_fired",
                 "client_id": self.client_id,
@@ -364,7 +364,7 @@ class Bomberdude():
                 "event_id": gen_randid()
             }
 
-            await self.game_state.event_queue.put(event)
+            await self.game_state.event_queue.put(on_bullet_fired_event)
 
     async def handle_on_key_press(self, key):
         player_one = self.game_state.get_playerone()

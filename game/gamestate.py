@@ -511,8 +511,8 @@ class GameState:
 						"event_id": gen_randid(),
 					}
 					# Queue the hit event and remove the flame so it only damages once.
-					# asyncio.create_task(self.event_queue.put(hit_event))
-					asyncio.create_task(self.broadcast_event(hit_event))
+					asyncio.create_task(self.event_queue.put(hit_event))
+					# asyncio.create_task(self.broadcast_event(hit_event))
 					try:
 						flame.kill()
 					except Exception as e:
@@ -562,6 +562,7 @@ class GameState:
 				if bullet.rect.colliderect(player.rect):
 					hit_event = {"event_time": time.time(), 'event_type': "player_hit", "client_id": bullet.owner_id, "reported_by": self.client_id, "target_id": player.client_id, "damage": 10, "position": (bullet.position.x, bullet.position.y), "handled": False, "handledby": "check_bullet_collisions", "event_id": gen_randid()}
 					asyncio.create_task(self.event_queue.put(hit_event))
+					# asyncio.create_task(self.broadcast_event(hit_event))
 					bullet.kill()
 		await asyncio.sleep(0)
 
@@ -703,6 +704,7 @@ class GameState:
 		event["handledby"] = "_on_bullet_fired"
 		# Server should rebroadcast bullet events so other clients can spawn the bullet.
 		asyncio.create_task(self.broadcast_event(event))
+		# asyncio.create_task(self.event_queue.put(event))
 		if self.client_id == "theserver":
 			pass  # asyncio.create_task(self.broadcast_event(event))
 		else:
