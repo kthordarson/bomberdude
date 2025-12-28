@@ -18,7 +18,7 @@ from debug import draw_debug_info
 from panels import PlayerInfoPanel
 
 class Bomberdude():
-    def __init__(self, args: argparse.Namespace):
+    def __init__(self, args: argparse.Namespace, client_id: str, mapname: str):
         self.title = "Bomberdude"
         self.args = args
         self.draw_debug = False
@@ -37,8 +37,9 @@ class Bomberdude():
 
         self.running = True
         self.selected_bomb = 1
-        self.client_id = 'bdudenotset'  # str(gen_randid())
-        self.game_state = GameState(args=self.args, client_id=self.client_id)
+        self.client_id = client_id
+        self.mapname = mapname
+        self.game_state = GameState(args=self.args, client_id=self.client_id, mapname=self.mapname)
         self._connected = False
         self.timer = 0
         self.mouse_pos = Vec2d(x=0, y=0)
@@ -109,16 +110,16 @@ class Bomberdude():
             return 0
         try:
             resp = json.loads(resp)
-            mapname = resp.get("mapname")
-            self.client_id = resp.get("client_id")
-            self.game_state.client_id = resp.get("client_id")
+            # mapname = resp.get("mapname")
+            # self.client_id = resp.get("client_id")
+            # self.game_state.client_id = resp.get("client_id")
             tile_x = resp.get('position').get('position')[0]
             tile_y = resp.get('position').get('position')[1]
             modified_tiles = resp.get('modified_tiles', {})  # Get map modifications
         except Exception as e:
             logger.error(f"{type(e)} {e=} {resp}")
             raise e
-        self.game_state.load_tile_map(mapname)
+        self.game_state.load_tile_map(self.mapname)
         # Apply map modifications
         if modified_tiles:
             if self.args.debug:

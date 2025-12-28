@@ -167,7 +167,7 @@ def draw_blocks_around_player(screen, game_state, camera):
         # Calculate tile coordinates
         tile_x = tile.rect.x // tile_width
         tile_y = tile.rect.y // tile_height
-
+        width = 2
         # Check if within range of player
         if (abs(tile_x - player_tile_x) <= highlight_range and abs(tile_y - player_tile_y) <= highlight_range):
 
@@ -178,9 +178,11 @@ def draw_blocks_around_player(screen, game_state, camera):
             highlight_color = (255, 255, 0, 128)  # Yellow semi-transparent
             if tile.layer == 'Blocks':
                 highlight_color = (0, 255, 255, 128)  # Cyan for destructible blocks
-
+            if tile.layer == 'Walls':
+                highlight_color = (255, 55, 110, 128)
+                width = 1
             # Draw outline around block
-            pygame.draw.rect(screen, highlight_color, screen_rect, 2)
+            pygame.draw.rect(surface=screen, color=highlight_color, rect=screen_rect, width=width)
 
             # Show block position/ID
             pos_text = f"({tile_x},{tile_y})"

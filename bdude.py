@@ -1,5 +1,7 @@
 #!/usr/bin/python
 import traceback
+import requests
+import json
 import sys
 import asyncio
 import time
@@ -263,7 +265,11 @@ def get_args():
 
 async def start_game(args: argparse.Namespace):
 	try:
-		bomberdude_main = Bomberdude(args=args)
+		resptext = requests.get(f"http://{args.server}:{args.api_port}/get_tile_map", timeout=10).text
+		resp = json.loads(resptext)
+		mapname = resp.get("mapname")
+		client_id = resp.get("client_id")
+		bomberdude_main = Bomberdude(args=args, client_id=client_id, mapname=mapname)
 	except Exception as e:
 		logger.error(f"Error: {e} {type(e)}")
 		raise
