@@ -164,6 +164,7 @@ class Bomberdude():
             connection_attempts += 1
         if self.args.debug:
             logger.info(f'connected after {connection_attempts} attempts: {self.connected()} game_state.ready {self.game_state.ready()} event_queue: {self.game_state.event_queue.qsize()} self.client_id: {self.client_id}')
+        pygame.display.set_caption(player_one.client_name + ' - ' + self.title)
         return True
 
     async def draw_player(self, player_data) -> None:
@@ -217,9 +218,12 @@ class Bomberdude():
             self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
 
         # Draw remote players from playerlist
-        for client_id, player in self.game_state.playerlist.items():
-            if client_id != self.client_id:
-                await self.draw_player(player)
+        try:
+            for client_id, player in self.game_state.playerlist.items():
+                if client_id != self.client_id:
+                    await self.draw_player(player)
+        except Exception as e:
+            logger.error(f"Error drawing remote players: {e} {type(e)}")
 
         # Draw bullets, bombs, etc.
         for bullet in self.game_state.bullets:

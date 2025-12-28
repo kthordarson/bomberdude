@@ -400,10 +400,10 @@ class PlayerInfoPanel:
 
         # Get all players to display
         local_player = self.game_state.get_playerone()
-        if local_player:
-            name_text = _render_text_cached(self.title_font, f"{local_player.client_name}", True, (255, 255, 255))
-            name_rect = name_text.get_rect(midtop=(self.rect.width // 3, 5))
-            self.surface.blit(name_text, name_rect)
+        # if local_player:
+        #     name_text = _render_text_cached(self.title_font, f"{local_player.client_name}", True, (255, 255, 255))
+        #     name_rect = name_text.get_rect(midtop=(self.rect.width // 3, 5))
+        #     self.surface.blit(name_text, name_rect)
 
         # Calculate how many player cards can fit in a row
         cards_per_row = max(1, (self.rect.width - 20) // (self.card_width + self.card_spacing))
