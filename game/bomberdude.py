@@ -101,7 +101,7 @@ class Bomberdude():
     async def connect(self) -> bool:
         self.sock.setblocking(False)
         logger.info(f'connecting to server... event_queue: {self.game_state.event_queue.qsize()} ')
-        await asyncio.get_event_loop().sock_connect(self.sock, (self.args.server, self.args.server_port))
+        await asyncio.get_running_loop().sock_connect(self.sock, (self.args.server, self.args.server_port))
         self.socket_connected.set()
         try:
             resp = requests.get(f"http://{self.args.server}:{self.args.api_port}/get_tile_map", timeout=10).text

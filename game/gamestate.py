@@ -216,7 +216,7 @@ class GameState:
 				# asyncio.create_task(self.broadcast_event(map_update_event))
 				asyncio.create_task(self.event_queue.put(map_update_event))
 				if self.args.debug_gamestate:
-					logger.info(f'{self} layer: {layer_name} tile=({tile_x},{tile_y}) _upgrade_spawned_tiles={len(self._upgrade_spawned_tiles)} ')
+					pass  # logger.info(f'{self} layer: {layer_name} tile=({tile_x},{tile_y}) _upgrade_spawned_tiles={len(self._upgrade_spawned_tiles)} ')
 
 			# if (tile_x, tile_y) not in self._upgrade_spawned_tiles and random.random() < 0.5:
 			# 	self._upgrade_spawned_tiles.add((tile_x, tile_y))
@@ -300,7 +300,8 @@ class GameState:
 	async def send_to_client(self, connection, data):
 		"""Send data to specific client connection"""
 		try:
-			loop = asyncio.get_event_loop()
+			# loop = asyncio.get_event_loop()
+			loop = asyncio.get_running_loop()
 			if isinstance(data, dict):
 				data_out = json.dumps(data).encode('utf-8') + b'\n'
 			elif isinstance(data, bytes):
@@ -717,7 +718,7 @@ class GameState:
 		player_entry = self.playerlist.get(client_id)
 		player_entry.bombs_left -= 1
 		if self.args.debug_gamestate:
-			logger.debug(f"{self} Updated PlayerState bombs_left for {client_id} to {player_entry.bombs_left}")
+			pass  # logger.debug(f"{self} Updated PlayerState bombs_left for {client_id} to {player_entry.bombs_left}")
 		# Also update local sprite if this is us
 		for sprite in self.players_sprites:
 			if sprite.client_id == client_id:
@@ -773,7 +774,7 @@ class GameState:
 			await asyncio.sleep(0)
 		else:
 			if self.args.debug_gamestate:
-				logger.warning(f"{self} _on_bomb_exploded: No player entry for owner_id/client_id: {owner_raw} event: {event}")
+				pass  # logger.warning(f"{self} _on_bomb_exploded: No player entry for owner_id/client_id: {owner_raw} event: {event}")
 			await asyncio.sleep(0)
 		return True
 

@@ -22,7 +22,8 @@ class BombServer:
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
-		self.loop = asyncio.get_event_loop()
+		# self.loop = asyncio.get_event_loop()
+		self.loop = asyncio.get_running_loop()
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0

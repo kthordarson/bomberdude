@@ -10,7 +10,8 @@ class ServerTUI():
 		self.server = server
 		self.debug = debug
 		self._stop = Event()
-		self.loop = asyncio.get_event_loop()
+		# self.loop = asyncio.get_event_loop()
+		self.loop = asyncio.get_running_loop()
 
 	def __repr__(self):
 		return f"ServerTUI (stopped:{self.stopped()})"
