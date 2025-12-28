@@ -179,10 +179,12 @@ def run_server_process(args_dict):
 	# Create a headless version of the server startup
 	async def run_headless_server():
 		from server.server import BombServer
+		from server.api import ApiServer
 
 		server = BombServer(args)
 		server_task = asyncio.create_task(server.new_start_server())
-		api_task = asyncio.create_task(server.apiserver.run(args.listen, args.api_port))
+		apiserver = ApiServer(name="bombapi", server=server, game_state=server.game_state)
+		api_task = asyncio.create_task(apiserver.run(args.listen, args.api_port))
 
 		try:
 			await asyncio.gather(server_task, api_task)

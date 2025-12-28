@@ -18,12 +18,15 @@ class BombServer:
 	def __init__(self, args):
 		self.args = args
 		self.game_state = GameState(args=self.args, mapname=args.mapname, client_id='theserver')
-		self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.game_state)
+		# self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.game_state)
 		self.connections = set()  # Track active connections
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
 		# self.loop = asyncio.get_event_loop()
-		self.loop = asyncio.get_running_loop()
+		try:
+			self.loop = asyncio.get_running_loop()
+		except RuntimeError:
+			self.loop = asyncio.get_event_loop()
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0

@@ -5,18 +5,19 @@ import argparse
 from argparse import ArgumentParser
 from loguru import logger
 from server.server import BombServer
+from server.api import ApiServer
 from server.tui import ServerTUI
 
 async def async_start_server(args: argparse.Namespace) -> None:
 	server = BombServer(args)
 	# apiserver = ApiServer("bombapi", server)
 	tui = ServerTUI(server, args.debug)
-
-	api_task = asyncio.create_task(server.apiserver.run(args.listen, args.api_port))
+	apiserver = ApiServer(name="bombapi", server=server, game_state=server.game_state)
+	api_task = asyncio.create_task(apiserver.run(args.listen, args.api_port))
 	tui_task = asyncio.create_task(tui.start())
 	new_server_start_task = asyncio.create_task(server.new_start_server())
 
-	logger.debug(f'{server=} {tui=} {server.apiserver=}')
+	logger.debug(f'{server=} {tui=} {apiserver=}')
 	try:
 		await asyncio.wait([api_task, tui_task, new_server_start_task], return_when=asyncio.FIRST_COMPLETED)
 	except (asyncio.CancelledError, KeyboardInterrupt) as e:
@@ -26,9 +27,7 @@ async def async_start_server(args: argparse.Namespace) -> None:
 		new_server_start_task.cancel()
 		await asyncio.gather(api_task, tui_task, return_exceptions=True)
 
-if __name__ == "__main__":
-	if sys.platform == "win32":
-		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+def get_server_args() -> argparse.Namespace:
 	parser = ArgumentParser(description="server")
 	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1")
 	parser.add_argument("--server_port", action="store", dest="server_port", default=9696, type=int)
@@ -39,6 +38,12 @@ if __name__ == "__main__":
 	parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
 	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='server.prof')
 	args = parser.parse_args()
+	return args
+
+if __name__ == "__main__":
+	args = get_server_args()
+	if sys.platform == "win32":
+		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 	if args.cprofile:
 		import cProfile
