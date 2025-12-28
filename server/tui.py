@@ -31,6 +31,7 @@ class ServerTUI():
 		state_json = self.server.game_state.to_json()
 		playerlist = cast(list[dict[str, Any]], state_json.get('playerlist') or [])
 		print(f'server: {self.server}')
+		print(f'self.server.game_state.client_id: {self.server.game_state.client_id}')
 		print(f"playerlist: {len(playerlist)} players_sprites: {len(self.server.game_state.players_sprites)} upgrade_blocks: {len(self.server.game_state.upgrade_blocks)}")
 		print(f'explosions: {len(self.server.game_state.processed_explosions)} hits: {len(self.server.game_state.processed_hits)} bullets: {len(self.server.game_state.processed_bullets)} upgrades: {len(self.server.game_state.processed_upgrades)}')
 		print(f"event_queue: {self.server.game_state.event_queue.qsize()}  client_queue: {self.server.game_state.client_queue.qsize()} game_state connections: {len(self.server.game_state.connections)} server connections: {len(self.server.connections)}")

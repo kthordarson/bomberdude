@@ -105,7 +105,7 @@ async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None
 
 async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argparse.Namespace) -> bool:
 	if action == "Start":
-		await start_game(args)
+		started = await start_game(args)
 		return True
 
 	elif action == "Start Server":
@@ -263,16 +263,27 @@ def get_args():
 	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude.prof')
 	return parser.parse_args()
 
-async def start_game(args: argparse.Namespace):
+async def start_game(args: argparse.Namespace) -> bool:
+	resptext = ''
 	try:
-		resptext = requests.get(f"http://{args.server}:{args.api_port}/get_tile_map", timeout=10).text
+		resptext = requests.get(f"http://{args.server}:{args.api_port}/get_client_id", timeout=10).text
+		resp = json.loads(resptext)
+		client_id = resp.get("client_id")
+	except Exception as e:
+		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
+		raise e
+	try:
+		resptext = requests.get(f"http://{args.server}:{args.api_port}/get_map_name", timeout=10).text
 		resp = json.loads(resptext)
 		mapname = resp.get("mapname")
-		client_id = resp.get("client_id")
+	except Exception as e:
+		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
+		raise e
+	try:
 		bomberdude_main = Bomberdude(args=args, client_id=client_id, mapname=mapname)
 	except Exception as e:
-		logger.error(f"Error: {e} {type(e)}")
-		raise
+		logger.error(f"Error creating Bomberdude instance: {e} {type(e)}")
+		raise e
 
 	# Start networking tasks early so connect() can complete its readiness handshake.
 	# The tasks will wait until the socket is connected before using it.
@@ -285,7 +296,7 @@ async def start_game(args: argparse.Namespace):
 		connected = await _connect_with_timeout(bomberdude_main, connection_timeout)
 		if not connected:
 			logger.error("Failed to establish connection")
-			return
+			return False
 
 		# Calculate frame time in seconds
 		frame_time = 1.0 / UPDATE_TICK
@@ -300,6 +311,7 @@ async def start_game(args: argparse.Namespace):
 			await bomberdude_main.disconnect(return_to_menu=True)
 		except Exception as e:
 			logger.error(f"Error during disconnect: {e} {type(e)}")
+	return True
 	# pygame.display.quit()
 	# pygame.quit()
 

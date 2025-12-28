@@ -911,6 +911,9 @@ class GameState:
 			target_player_entry.take_damage(damage, attacker_id=event.get("client_id"))
 			if self.args.debug_gamestate:
 				logger.info(f"{self} _on_player_hit for {target}: {old_health} -> {target_player_entry.health} damage: {damage} from attacker: {event.get('client_id')} {event.get('client_name')}")
+		else:
+			if self.args.debug_gamestate:
+				logger.debug(f"{self} _on_player_hit for {target}: {old_health} -> {target_player_entry.health} damage: {damage} from attacker: {event.get('client_id')} {event.get('client_name')}")
 		self.playerlist[target] = target_player_entry
 		# If we are the target, also sync the local sprite so HUD/debug reflects correct health.
 		# if isinstance(target_player_entry, PlayerState):

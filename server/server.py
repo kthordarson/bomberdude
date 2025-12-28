@@ -104,8 +104,22 @@ class BombServer:
 			"modified_tiles": modified_tiles,
 			"client_id": str(gen_randid())}
 		if self.args.debug:
-			logger.debug(f'{self} get_tile_map request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified_tiles')
+			logger.debug(f'{self} request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified_tiles')
 		return web.json_response(map_data)
+
+	async def get_client_id(self, request):
+		client_id = str(gen_randid())
+		if self.args.debug:
+			logger.debug(f'{self} request: {request} Assigning client_id: {client_id}')
+		resp = {"client_id": client_id}
+		return web.json_response(resp)
+
+	async def get_map_name(self, request):
+		mapname = str(self.args.mapname)
+		if self.args.debug:
+			logger.debug(f'{self} request: {request} mapname: {mapname}')
+		resp = {"mapname": mapname}
+		return web.json_response(resp)
 
 	async def new_start_server(self):
 		"""Start the game server using asyncio's high-level server API"""
@@ -117,6 +131,9 @@ class BombServer:
 		# Create the HTTP server for map requests
 		app = web.Application()
 		app.router.add_get('/get_tile_map', self.get_tile_map)
+		app.router.add_get('/get_client_id', self.get_client_id)
+		app.router.add_get('/get_map_name', self.get_map_name)
+
 		runner = web.AppRunner(app)
 		await runner.setup()
 		if self.args.debug:

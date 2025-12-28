@@ -98,7 +98,7 @@ class Bomberdude():
         except Exception as e:
             logger.error(f"disconnect error: {e} {type(e)}")
 
-    async def connect(self):
+    async def connect(self) -> bool:
         self.sock.setblocking(False)
         logger.info(f'connecting to server... event_queue: {self.game_state.event_queue.qsize()} ')
         await asyncio.get_event_loop().sock_connect(self.sock, (self.args.server, self.args.server_port))
@@ -107,7 +107,7 @@ class Bomberdude():
             resp = requests.get(f"http://{self.args.server}:{self.args.api_port}/get_tile_map", timeout=10).text
         except Exception as e:
             logger.error(f"Error connecting to server: {e} {type(e)}")
-            return 0
+            return False
         try:
             resp = json.loads(resp)
             # mapname = resp.get("mapname")
@@ -166,7 +166,7 @@ class Bomberdude():
             logger.info(f'connected after {connection_attempts} attempts: {self.connected()} game_state.ready {self.game_state.ready()} event_queue: {self.game_state.event_queue.qsize()} self.client_id: {self.client_id}')
         return True
 
-    async def draw_player(self, player_data):
+    async def draw_player(self, player_data) -> None:
         """Draw a player sprite based on player data"""
         if not player_data:
             logger.warning("draw_player called with None player_data")
@@ -197,9 +197,9 @@ class Bomberdude():
                 self.screen.blit(player_sprite.image, self.camera.apply(player_sprite.rect))
             else:
                 logger.warning(f"Player sprite image not loaded for {client_id}")
-
         except Exception as e:
             logger.error(f"Error drawing player: {e} {type(player_data)}")
+        await asyncio.sleep(0)  # Yield control to event loop
 
     async def on_draw(self):
         # Clear virtual screen
