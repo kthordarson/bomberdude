@@ -1,4 +1,5 @@
 # debug.py
+import traceback
 import pygame
 import time
 from loguru import logger
@@ -95,7 +96,11 @@ def draw_debug_info(screen, game_state, camera):
 
     draw_bullet_debug(screen, game_state, camera)
     draw_other_player_id(screen, game_state, camera)
-    draw_blocks_around_player(screen, game_state, camera)
+    try:
+        draw_blocks_around_player(screen, game_state, camera)
+    except AttributeError as e:
+        logger.error(f"Error drawing blocks around player: {e} {type(e)}")
+        traceback.print_exc()
 
 def draw_other_player_id(screen, game_state, camera):
     # Draw player one's ID above their sprite
@@ -123,6 +128,7 @@ def draw_other_player_id(screen, game_state, camera):
                 screen.blit(player_text, (text_x, text_y))
             except Exception as e:
                 logger.error(f"Error drawing player ID: {e} {type(e)}")
+                traceback.print_exc()
 
 def draw_bullet_debug(screen, game_state, camera):
     # Draw debug lines for all bullets
@@ -178,7 +184,7 @@ def draw_blocks_around_player(screen, game_state, camera):
 
             # Show block position/ID
             pos_text = f"({tile_x},{tile_y})"
-            pos_text = f"ID:{tile.id}"
+            # pos_text = f"ID:{tile.id}"
 
             text_surf = _render_text_cached(font, pos_text, True, (255, 255, 255))
             screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))

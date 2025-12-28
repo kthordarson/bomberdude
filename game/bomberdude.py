@@ -203,7 +203,6 @@ class Bomberdude():
     async def on_draw(self):
         # Clear virtual screen
         self.screen.fill((0, 0, 0))
-
         # draw map
         self.screen.blit(self.game_state.static_map_surface, self.camera.apply(pygame.Rect(0, 0, self.game_state.static_map_surface.get_width(), self.game_state.static_map_surface.get_height())))
 
