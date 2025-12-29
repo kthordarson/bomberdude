@@ -124,7 +124,7 @@ class Bomberdude():
         if modified_tiles:
             if self.args.debug:
                 logger.debug(f"Applying {len(modified_tiles)} modified_tiles from server.")
-            self.game_state._apply_modifications_dict(modified_tiles)
+            # self.game_state._apply_modifications_dict(modified_tiles)
         else:
             if self.args.debug:
                 logger.debug("No modified_tiles received from server.")
@@ -469,6 +469,8 @@ class Bomberdude():
         # Use a copy to avoid modifying the set during iteration
         for upgrade_block in list(self.game_state.upgrade_blocks):
             upgrade_block.update()
+            if self.args.debug_gamestate:
+                logger.info(f'updated upgrade block: {upgrade_block} remaining: {len(self.game_state.upgrade_blocks)}')
             if upgrade_block.killed:
                 self.game_state.upgrade_blocks.discard(upgrade_block)
                 if self.args.debug_gamestate:
