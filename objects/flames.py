@@ -70,7 +70,7 @@ class Flame(Sprite):
 		# Killable tiles
 		for tile in game_state.iter_killable_in_rect(flame_area, pad_pixels=0):
 			if self.rect.colliderect(tile.rect):
-				await game_state.destroy_block(tile)
+				await game_state.destroy_block(tile, create_upgrade=True)
 				self.kill()
 				return
 

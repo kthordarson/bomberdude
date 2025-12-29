@@ -469,8 +469,6 @@ class Bomberdude():
         # Use a copy to avoid modifying the set during iteration
         for upgrade_block in list(self.game_state.upgrade_blocks):
             upgrade_block.update()
-            if self.args.debug_gamestate:
-                logger.info(f'updated upgrade block: {upgrade_block} remaining: {len(self.game_state.upgrade_blocks)}')
             if upgrade_block.killed:
                 self.game_state.upgrade_blocks.discard(upgrade_block)
                 if self.args.debug_gamestate:

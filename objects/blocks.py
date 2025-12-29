@@ -6,7 +6,7 @@ import pygame
 from utils import get_cached_image, gen_randid
 
 class Upgrade(Sprite):
-	def __init__(self, position, life=10.0):
+	def __init__(self, position, upgrade_id, life=10.0):
 		super().__init__()
 		self.image_name = 'data/newbomb.png'
 		self.upgradetype = random.choice(['default', 'speed', 'power', 'range', 'extra_bomb'])
