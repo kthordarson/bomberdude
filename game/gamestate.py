@@ -512,13 +512,6 @@ class GameState:
 		await asyncio.sleep(0)
 
 	async def check_upgrade_collisions(self):
-		"""Detect players picking up upgrade blocks.
-
-		Checks both local Bomberplayer sprites and replicated PlayerState entries
-		(servers usually only have PlayerState entries). Skips upgrades that
-		have no rect yet (async_init not completed) or are still within a small
-		spawn grace period to avoid immediate pickup on spawn.
-		"""
 		# Collect both sprite objects (client local sprites) and authoritative PlayerState entries
 		sprite_players = list(self.players_sprites)
 		ps_players = [p for p in self.playerlist.values() if isinstance(p, PlayerState)]
@@ -539,10 +532,6 @@ class GameState:
 					# if self.args.debug_gamestate:
 					# 	logger.info(f"{self} {upgrade_block} picked by sprite player {player.client_id} picked_up_blocks: {len(picked_up_blocks)}")
 					break
-
-			# If already picked by a sprite, skip checking PlayerState entries
-			# if any(upgrade_block is ub for ub, _ in picked_up_blocks):
-			# 	continue
 
 			# Check PlayerState entries (server authoritative state)
 			for ps in ps_players:
@@ -830,8 +819,8 @@ class GameState:
 			ps.position_updated = True  # helps interpolation
 			if accept_health_update:
 				ps.health = int(health)
-			ps.score = score
 			ps.bombs_left = bombs_left
+			ps.score = score
 			ps.client_name = client_name
 			self.playerlist[client_id] = ps
 			self._sync_local_sprite_from_state(ps)
@@ -875,10 +864,6 @@ class GameState:
 			await asyncio.sleep(0)
 			return False
 
-		# If this is the authoritative server, restrict who can report a hit.
-		# In the current client simulation, only the *victim* reliably has collision geometry
-		# (clients typically only have their own sprite in players_sprites), so accept reports
-		# from the victim (reported_by == target_id), and also allow shooter/server for future.
 		if self.client_id == "theserver":
 			shooter = event.get("client_id", "")
 			reported_by = event.get("reported_by")
@@ -952,16 +937,9 @@ class GameState:
 				logger.warning(f"{self} Duplicate upgrade pickup event ignored: {event} self.processed_upgrades: {len(self.processed_upgrades)}")
 			return False
 		self.processed_upgrades.add(event_id)
-		# logger.debug(f"{self} _on_upgrade_pickup event: {event}")
-		# event: {'event_type': 'upgrade_pickup', 'client_id': '731614597', 'position': [768, 1088], 'upgradetype': 'range', 'handled': False, 'handledby': '731614597', 'event_id': 5857889296, 'event_time': 1767046605.908763}
 		pos = event.get('position', (0, 0))
 		tile_x = int(pos[0]) // self.tile_map.tilewidth
 		tile_y = int(pos[1]) // self.tile_map.tileheight
-		# Remove the Upgrade block locally
-		# self.modified_tiles[(tile_x, tile_y)] = 1
-		# self.tile_map.get_layer_by_name('Blocks').data[tile_y][tile_x] = 1  # type: ignore
-		# self.upgrade_by_tile[(tile_x, tile_y)] = None
-		# Remove all upgrades at this tile (to match server behavior and avoid desync)
 		upgrades_to_remove = []
 		for uid, upgrade in list(self.upgrade_by_id.items()):
 			# Upgrades may store tile as .tile or .position (in tile coords)
@@ -982,8 +960,25 @@ class GameState:
 				self.upgrade_by_tile.pop((tile_x, tile_y), None)
 				if upgrade in self.upgrade_blocks:
 					self.upgrade_blocks.discard(upgrade)
-				if self.args.debug_gamestate:
-					logger.debug(f"{self} Removed {upgrade} at tile {(tile_x, tile_y)} pos: {pos} upgrade: {upgrade} self.upgrade_blocks: {len(self.upgrade_blocks)} self.upgrade_by_tile: {len(self.upgrade_by_tile)}")
+				if self.client_id == 'theserver':
+					picker_id = event.get('client_id')
+					player = self.playerlist.get(picker_id)
+					if player:
+						if upgrade.upgradetype == 20:
+							if isinstance(player, dict):
+								player['health'] = min(DEFAULT_HEALTH, player.get('health', 0) + 10)
+							else:
+								player.health = min(DEFAULT_HEALTH, player.health + 10)
+						if self.args.debug_gamestate:
+							logger.debug(f"{self} {upgrade} at tile {(tile_x, tile_y)} pos: {pos} for {player} picked up by {picker_id}")
+					for sprite in self.players_sprites:
+						if sprite.client_id == picker_id:
+							# Only sync non-positional fields; movement is client-driven.
+							sprite.health = min(DEFAULT_HEALTH, sprite.health + 10)
+							if self.args.debug_gamestate:
+								logger.info(f"{self} {upgrade} at tile {(tile_x, tile_y)} pos: {pos} for {player} picked up by {picker_id}")
+							break
+
 				await self._apply_tile_change(tile_x, tile_y, 1)
 				upgrade.kill()
 		event['handled'] = True

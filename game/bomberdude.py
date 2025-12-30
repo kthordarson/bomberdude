@@ -486,6 +486,7 @@ class Bomberdude():
                 await self.game_state._apply_tile_change(tile_x, tile_y, 1)
                 if self.args.debug_gamestate:
                     logger.debug(f'Removed expired upgrade block: {upgrade_block} remaining: {len(self.game_state.upgrade_blocks)}')
+                self.game_state.upgrade_blocks.remove(upgrade_block)
 
         self.game_state.bullets.update(self.game_state)
         for bomb in self.game_state.bombs:
