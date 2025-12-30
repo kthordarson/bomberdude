@@ -518,8 +518,8 @@ class GameState:
 			for player in sprite_players:
 				if player.rect.colliderect(upgrade_block.rect):
 					picked_up_blocks.add((upgrade_block, player.client_id))
-					if self.args.debug_gamestate:
-						logger.info(f"{self} {upgrade_block} picked by sprite player {player.client_id} picked_up_blocks: {len(picked_up_blocks)}")
+					# if self.args.debug_gamestate:
+					# 	logger.info(f"{self} {upgrade_block} picked by sprite player {player.client_id} picked_up_blocks: {len(picked_up_blocks)}")
 					break
 
 			# If already picked by a sprite, skip checking PlayerState entries
@@ -530,8 +530,8 @@ class GameState:
 			for ps in ps_players:
 				if ps.rect.colliderect(upgrade_block.rect):
 					picked_up_blocks.add((upgrade_block, ps.client_id))
-					if self.args.debug_gamestate:
-						logger.info(f"{self} {upgrade_block} picked by PlayerState {ps.client_id} picked_up_blocks: {len(picked_up_blocks)}")
+					# if self.args.debug_gamestate:
+					# 	logger.info(f"{self} {upgrade_block} picked by PlayerState {ps.client_id} picked_up_blocks: {len(picked_up_blocks)}")
 					break
 
 		# Process pickups
@@ -554,8 +554,8 @@ class GameState:
 
 			# map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 1, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
 			# asyncio.create_task(self.event_queue.put(map_update_event))
-			if self.args.debug_gamestate:
-				logger.info(f'{self} upgrade_pickup event for {upgrade_block} picked by {picker_id} at ({tile_x},{tile_y}) self.upgrade_blocks: {len(self.upgrade_blocks)} self.upgrade_by_tile: {len(self.upgrade_by_tile)}')
+			# if self.args.debug_gamestate:
+			# 	logger.info(f'{self} upgrade_pickup event for {upgrade_block} picked by {picker_id} at ({tile_x},{tile_y}) self.upgrade_blocks: {len(self.upgrade_blocks)} self.upgrade_by_tile: {len(self.upgrade_by_tile)}')
 
 			# Kill local sprite
 			# try:
@@ -976,23 +976,33 @@ class GameState:
 		# self.modified_tiles[(tile_x, tile_y)] = 1
 		# self.tile_map.get_layer_by_name('Blocks').data[tile_y][tile_x] = 1  # type: ignore
 		# self.upgrade_by_tile[(tile_x, tile_y)] = None
-		upgrade_id = str(event.get('upgrade_id'))
-		upgrade_object = self.upgrade_by_id.pop(upgrade_id, None)
-		upgrade_object = self.upgrade_by_tile.pop((tile_x, tile_y), None)
-		if upgrade_object:
-			for tile, upg in list(self.upgrade_by_tile.items()):
-				if upg is upgrade_object:
-					self.upgrade_by_tile.pop(tile, None)
-					break
-
-			map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 1, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
-			asyncio.create_task(self.event_queue.put(map_update_event))
-			if self.args.debug_gamestate:
-				logger.debug(f"{self} Removed {upgrade_object} at tile {(tile_x, tile_y)} pos: {pos} upgrade: {upgrade_object} self.upgrade_blocks: {len(self.upgrade_blocks)} self.upgrade_by_tile: {len(self.upgrade_by_tile)}")
-			await self.destroy_block(upgrade_object, create_upgrade=False)
-			upgrade_object.kill()
-			self.upgrade_blocks.discard(upgrade_object)
-		else:
+		# Remove all upgrades at this tile (to match server behavior and avoid desync)
+		upgrades_to_remove = []
+		for uid, upgrade in list(self.upgrade_by_id.items()):
+			# Upgrades may store tile as .tile or .position (in tile coords)
+			upgrade_tile = getattr(upgrade, 'tile', None)
+			if upgrade_tile is None:
+				# Try to infer from .position if it's in tile coords
+				pos_attr = getattr(upgrade, 'position', None)
+				if pos_attr == (tile_x, tile_y):
+					upgrade_tile = (tile_x, tile_y)
+			if upgrade_tile == (tile_x, tile_y):
+				upgrades_to_remove.append(uid)
+		removed_any = False
+		for uid in upgrades_to_remove:
+			upgrade = self.upgrade_by_id.pop(uid, None)
+			if upgrade:
+				self.upgrade_by_tile.pop((tile_x, tile_y), None)
+				if upgrade in self.upgrade_blocks:
+					self.upgrade_blocks.discard(upgrade)
+				map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 1, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
+				asyncio.create_task(self.event_queue.put(map_update_event))
+				if self.args.debug_gamestate:
+					logger.debug(f"{self} Removed {upgrade} at tile {(tile_x, tile_y)} pos: {pos} upgrade: {upgrade} self.upgrade_blocks: {len(self.upgrade_blocks)} self.upgrade_by_tile: {len(self.upgrade_by_tile)}")
+				await self.destroy_block(upgrade, create_upgrade=False)
+				upgrade.kill()
+				removed_any = True
+		if not removed_any:
 			if self.args.debug_gamestate:
 				logger.warning(f"{self} No upgrade found at tile {(tile_x, tile_y)} pos: {pos} to remove. self.upgrade_blocks: {len(self.upgrade_blocks)} self.upgrade_by_tile: {len(self.upgrade_by_tile)}")
 		event['handled'] = True
