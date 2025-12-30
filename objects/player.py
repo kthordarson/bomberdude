@@ -51,6 +51,9 @@ class Bomberplayer(Sprite):
 	killed: bool = False
 	# name: str = 'xnonex'
 
+	def __repr__(self) -> str:
+		return f'Bomberplayer {self.client_name} (id: {self.client_id} pos: {self.position} health: {self.health} score: {self.score} bombs_left: {self.bombs_left} killed: {self.killed})'
+
 	def __post_init__(self):
 		super().__init__()
 		self._alive_texture_path = self.texture
@@ -193,7 +196,6 @@ class Bomberplayer(Sprite):
 				if bomb_pos == (16,16):
 					logger.warning(f"{self} Attempted to drop bomb at invalid position (16,16), ignoring. cx={cx} cy={cy} rect={self.rect}")
 				self.lastdrop = current_time  # Set last drop time to prevent spam
-				# Consume one bomb immediately (restored when the bomb explodes)
-				self.bombs_left = self.bombs_left - 1
+				# Bomb count is decremented in the authoritative game state handler
 				event['event_type'] = "player_drop_bomb"
 			return event

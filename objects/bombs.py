@@ -61,4 +61,6 @@ class Bomb(Sprite):
 		}
 		# Apply locally so the owner immediately gets bomb capacity back
 		await gamestate.update_game_event(explosion_event)
+		explosion_event['handled'] = False
+		await gamestate.event_queue.put(explosion_event)
 		self.kill()
