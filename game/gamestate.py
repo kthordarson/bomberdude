@@ -369,6 +369,7 @@ class GameState:
 		if self.args.debug_gamestate:
 			logger.debug(f"{self} _apply_tile_change: Changing tile at ({x},{y}) to GID {new_gid}")
 		# layer.data[y][x] = new_gid  # type: ignore
+		self.tile_map.get_layer_by_name('Blocks').data[y][x] = new_gid  # type: ignore
 		self.modified_tiles[(x, y)] = new_gid
 		if new_gid == 1:
 			floor_tile = self.tile_cache.get(new_gid)
@@ -401,7 +402,12 @@ class GameState:
 				# asyncio.create_task(self.event_queue.put(upgrade_event))
 
 				if tile_pos not in self.upgrade_by_tile:
-					self.upgrade_by_tile[tile_pos] = new_gid
+					# self.upgrade_by_tile[tile_pos] = new_gid
+					# asyncio.create_task(self.broadcast_event(upgrade_event))
+					upgrade = Upgrade(position=upgrade_pos, upgrade_id=new_gid)
+					await upgrade.async_init()
+					self.upgrade_blocks.add(upgrade)
+					self.upgrade_by_tile[tile_pos] = upgrade
 					asyncio.create_task(self.broadcast_event(upgrade_event))
 					if self.args.debug_gamestate:
 						logger.info(f"{self} upgrade_spawned: GID {new_gid} at ({x},{y}) self.upgrade_blocks: {len(self.upgrade_blocks)} self.upgrade_by_tile: {len(self.upgrade_by_tile)}")
@@ -542,17 +548,16 @@ class GameState:
 				self.upgrade_blocks.discard(upgrade_block)
 				self.upgrade_by_tile.pop((tile_x, tile_y), None)
 
-				# Emit upgrade collected event and a map update event so clients remove tile
+				# Emit upgrade collected event and enqueue a map update so the networking task sends it to the server.
 				current_time = time.time()
 				upgrade_event = {'event_type': "upgrade_pickup", "client_id": picker_id, "position": upgrade_block.position, "upgradetype": getattr(upgrade_block, "upgradetype", "unknown"), "handled": False, "handledby": picker_id, "event_id": gen_randid(), "event_time": current_time,}
-				# asyncio.create_task(self.broadcast_event(upgrade_event))
+				# enqueue only; server will authoritatively remove the tile and broadcast map update
 				asyncio.create_task(self.event_queue.put(upgrade_event))
 				map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 1, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
-				# asyncio.create_task(self.broadcast_event(map_update_event))
 				asyncio.create_task(self.event_queue.put(map_update_event))
 				if self.args.debug_gamestate:
 					logger.info(f'{self} Upgrade picked by {picker_id} at ({tile_x},{tile_y}) removed upgrades: {len(self.upgrade_blocks)}')
-				# Kill local sprite (no local destroy_block call here — server/_on_upgrade_pickup will handle map removal)
+				# Kill local sprite
 				try:
 					upgrade_block.kill()
 				except Exception as e:
@@ -963,9 +968,12 @@ class GameState:
 		tile_y = int(pos[1]) // self.tile_map.tileheight
 		# Remove the Upgrade block locally
 		self.modified_tiles[(tile_x, tile_y)] = 1
+		self.tile_map.get_layer_by_name('Blocks').data[tile_y][tile_x] = 1  # type: ignore
 		# self.upgrade_by_tile[(tile_x, tile_y)] = None
 		block = self.collidable_by_tile.pop((tile_x, tile_y), None)
 		if block:
+			if self.args.debug_gamestate:
+				logger.debug(f"{self} Removed collidable block at tile {(tile_x, tile_y)} pos: {pos} collidable block: {block} self.upgrade_blocks: {len(self.upgrade_blocks)} self.upgrade_by_tile: {len(self.upgrade_by_tile)}")
 			await self.destroy_block(block, create_upgrade=False)
 			self.collidable_tiles.discard(block)
 		upgrade_object = self.upgrade_by_tile.pop((tile_x, tile_y), None)
@@ -980,6 +988,7 @@ class GameState:
 					logger.error(f"{self} Error killing upgrade at tile {(tile_x, tile_y)} pos: {pos} upgrade: {upgrade_object}: {e} {type(e)}")
 			self.upgrade_blocks.discard(upgrade_object)
 		elif isinstance(upgrade_object, int):
+			self.upgrade_by_tile[(tile_x, tile_y)] = None
 			if self.args.debug_gamestate:
 				logger.warning(f"{self} Upgrade at tile {(tile_x, tile_y)} pos: {pos} is an int gid: {upgrade_object}, expected Upgrade object. self.upgrade_blocks: {len(self.upgrade_blocks)} self.upgrade_by_tile: {len(self.upgrade_by_tile)}")
 		else:
@@ -1011,6 +1020,9 @@ class GameState:
 		self.upgrade_by_tile[(tile_x, tile_y)] = upgrade
 		# self.collidable_by_tile[(tile_x, tile_y)] = None  # Upgrades are collidable
 		block = self.collidable_by_tile.pop((tile_x, tile_y), None)
+		self.collidable_tiles.discard(block)
+		self.modified_tiles[(tile_x, tile_y)] = upgradetype
+		self.tile_map.get_layer_by_name('Blocks').data[tile_y][tile_x] = upgradetype  # type: ignore
 		if self.args.debug_gamestate:
 			logger.debug(f"{self} {upgrade} self.upgrade_blocks: {len(self.upgrade_blocks)} at {(tile_x, tile_y)}, pos: {pos} upgrade_pos: {upgrade_pos} upgradetype: {upgradetype} popped block: {block} event: {event}")
 		await asyncio.sleep(0)
