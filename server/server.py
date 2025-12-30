@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import sys
 import pygame
 import time
 import asyncio
@@ -18,18 +19,16 @@ class BombServer:
 	def __init__(self, args):
 		self.args = args
 		self.game_state = GameState(args=self.args, mapname=args.mapname, client_id='theserver')
-		self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.game_state)
-		self.connections = set()  # Track active connections
+		# self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.game_state)
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
-		self.loop = asyncio.get_event_loop()
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0
-		asyncio.create_task(self.discovery_service.start_discovery_service())
+		# Do NOT create or set event loop here. Schedule tasks in main async entry point.
 
 	def __repr__(self):
-		return f"<BombServer clients={len(self.connections)} messages={self.message_counter} client_id={self.game_state.client_id}>"
+		return f"<BombServer game_state connections={len(self.game_state.connections)} messages={self.message_counter} client_id={self.game_state.client_id}>"
 
 	async def client_connected_callback(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 		logger.info(f"{self} New connection from {writer.get_extra_info('peername')[0]} ")
@@ -39,6 +38,7 @@ class BombServer:
 
 	async def process_messages(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 		data = None
+		msg = None
 		try:
 			while not writer.is_closing():
 				data = await reader.readuntil(b'\n')
@@ -56,6 +56,8 @@ class BombServer:
 				await self.game_state.update_game_event(game_event)
 				await self.server_broadcast_state(self.game_state.to_json())
 				self.message_counter += 1
+		except TypeError as e:
+			logger.error(f"{e} {type(e)} in process_messages. data: {data} msg: {msg}")
 		except (asyncio.IncompleteReadError, ConnectionResetError) as e:
 			pass  # logger.warning(f'{e} Connection closed by client')
 		except pygame.error as e:
@@ -104,10 +106,27 @@ class BombServer:
 			"modified_tiles": modified_tiles,
 			"client_id": str(gen_randid())}
 		if self.args.debug:
-			logger.debug(f'{self} get_tile_map request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified_tiles')
+			logger.debug(f'{self} request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified_tiles')
 		return web.json_response(map_data)
 
+	async def get_client_id(self, request):
+		client_id = str(gen_randid())
+		if self.args.debug:
+			logger.debug(f'{self} request: {request} Assigning client_id: {client_id}')
+		resp = {"client_id": client_id}
+		return web.json_response(resp)
+
+	async def get_map_name(self, request):
+		mapname = str(self.args.mapname)
+		if self.args.debug:
+			logger.debug(f'{self} request: {request} mapname: {mapname}')
+		resp = {"mapname": mapname}
+		return web.json_response(resp)
+
 	async def new_start_server(self):
+		# Schedule background tasks on the current running loop
+		loop = asyncio.get_running_loop()
+		discovery_task = loop.create_task(self.discovery_service.start_discovery_service())
 		"""Start the game server using asyncio's high-level server API"""
 		# Create the server
 		server = await asyncio.start_server(lambda r, w: self.client_connected_callback(r, w), host=self.args.listen, port=self.args.server_port, reuse_address=True,)
@@ -117,6 +136,9 @@ class BombServer:
 		# Create the HTTP server for map requests
 		app = web.Application()
 		app.router.add_get('/get_tile_map', self.get_tile_map)
+		app.router.add_get('/get_client_id', self.get_client_id)
+		app.router.add_get('/get_map_name', self.get_map_name)
+
 		runner = web.AppRunner(app)
 		await runner.setup()
 		if self.args.debug:
@@ -131,7 +153,7 @@ class BombServer:
 			logger.error(f'{self} Error starting API server on {self.args.listen}:{tcp_port}: {e} {type(e)}')
 			return
 		# Ticker task to broadcast game state
-		ticker_task = self.loop.create_task(self.ticker_broadcast())
+		ticker_task = loop.create_task(self.ticker_broadcast())
 
 		try:
 			# Run the server
@@ -140,6 +162,15 @@ class BombServer:
 		finally:
 			# Clean up
 			ticker_task.cancel()
+			discovery_task.cancel()
+			try:
+				await ticker_task
+			except asyncio.CancelledError:
+				pass
+			try:
+				await discovery_task
+			except asyncio.CancelledError:
+				pass
 			await runner.cleanup()
 
 	async def ticker_broadcast(self):
@@ -171,9 +202,10 @@ class BombServer:
 		layers.append(wall_layer)
 		layers.append(block_layer)
 		for layer in layers:
-			for x, y, gid in layer:
-				if gid != 0:
-					collidable_positions.add((x, y))
+			if isinstance(layer, tuple) and len(layer) == 3:
+				for x, y, gid in layer:
+					if gid != 0:
+						collidable_positions.add((x, y))
 
 		# Generate list of all possible positions excluding collidable tiles
 		valid_positions = []
@@ -204,8 +236,8 @@ class BombServer:
 		data = json.dumps(state).encode('utf-8') + b'\n'
 		# Use gather for concurrent sending
 		send_tasks = []
-		for writer in self.connections:
-			send_tasks.append(self._send_to_client(writer, data))
+		# for writer in self.connections:
+		# 	send_tasks.append(self._send_to_client(writer, data))
 		# Wait for all sends to complete
 		if send_tasks:
 			try:
@@ -222,8 +254,10 @@ class BombServer:
 		except (ConnectionResetError, BrokenPipeError) as e:
 			logger.warning(f"{self} Connection error while sending: {e}")
 			# Connection is dead, remove it
-			if writer in self.connections:
-				self.connections.remove(writer)
+			# if writer in self.connections:
+			# 	if self.args.debug:
+			# 		logger.debug(f"{self} Removing dead connection {writer} connections: {len(self.connections)}")
+			# 	self.connections.remove(writer)
 			return False
 		except Exception as e:
 			logger.error(f"{self} Error sending to client: {e}")

@@ -16,8 +16,10 @@ _TEXT_CACHE: "OrderedDict[tuple[int, str, bool, tuple[int, int, int, int] | tupl
 
 def _render_text_cached(font: pygame.font.Font, text: str, antialias: bool, color, background=None) -> pygame.Surface:
     key = (id(font), text, bool(antialias), tuple(color), tuple(background) if background is not None else None)
-    surf = _TEXT_CACHE.get(key)
-    if surf is not None:
+    surf = None
+    if key:
+        surf = _TEXT_CACHE.get(key)
+    if surf:
         # LRU refresh
         _TEXT_CACHE.move_to_end(key)
         return surf
@@ -208,7 +210,8 @@ class ServerDiscoveryPanel():
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         sock.setblocking(False)
-        loop = asyncio.get_event_loop()
+        # loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         while self.discovery_running:
             try:
@@ -400,10 +403,10 @@ class PlayerInfoPanel:
 
         # Get all players to display
         local_player = self.game_state.get_playerone()
-        if local_player:
-            name_text = _render_text_cached(self.title_font, f"{local_player.client_name}", True, (255, 255, 255))
-            name_rect = name_text.get_rect(midtop=(self.rect.width // 3, 5))
-            self.surface.blit(name_text, name_rect)
+        # if local_player:
+        #     name_text = _render_text_cached(self.title_font, f"{local_player.client_name}", True, (255, 255, 255))
+        #     name_rect = name_text.get_rect(midtop=(self.rect.width // 3, 5))
+        #     self.surface.blit(name_text, name_rect)
 
         # Calculate how many player cards can fit in a row
         cards_per_row = max(1, (self.rect.width - 20) // (self.card_width + self.card_spacing))

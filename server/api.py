@@ -10,6 +10,8 @@ class ApiServer:
 		self.site = None
 		self._ready = asyncio.Event()
 		self.add_url_rule("/get_tile_map", view_func=server.get_tile_map, methods=["GET"])
+		self.add_url_rule("/get_client_id", view_func=server.get_client_id, methods=["GET"])
+		self.add_url_rule("/get_map_name", view_func=server.get_map_name, methods=["GET"])
 		self.add_url_rule("/get_position", view_func=server.get_position, methods=["GET"])
 		self.game_state = game_state
 

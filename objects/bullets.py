@@ -14,9 +14,11 @@ class Bullet(pygame.sprite.Sprite):
 		self.direction = Vec2d(direction)
 		if self.direction.length() > 0:
 			self.direction = self.direction.normalize()
-		self.rect = self.image.get_rect(center=(int(self.world_position.x), int(self.world_position.y)))
-		self.rect.center = (int(self.world_position.x), int(self.world_position.y))
-		self.image.fill((255, 0, 0))
+		if self.image:
+			self.rect = self.image.get_rect(center=(int(self.world_position.x), int(self.world_position.y)))
+			self.image.fill((255, 0, 0))
+		if self.rect:
+			self.rect.center = (int(self.world_position.x), int(self.world_position.y))
 		self.screen_rect = screen_rect
 		self.bounce_count = bounce_count
 		self.speed = speed
@@ -25,16 +27,23 @@ class Bullet(pygame.sprite.Sprite):
 	def __repr__(self):
 		return f'Bullet (pos: {self.position} direction: {self.direction} )'
 
-	def update(self, collidable_tiles):
+	def update(self, *args, **kwargs):
+		collidable_tiles = None
+		if args:
+			collidable_tiles = args[0]
+		elif 'collidable_tiles' in kwargs:
+			collidable_tiles = kwargs['collidable_tiles']
 		self.world_position.x += self.direction.x * self.speed
 		self.world_position.y += self.direction.y * self.speed
 
 		# Then update rect position (for collision and rendering)
-		self.rect.center = (int(self.world_position.x), int(self.world_position.y))
+		if self.rect:
+			self.rect.center = (int(self.world_position.x), int(self.world_position.y))
 
 		# Check collisions with tiles
-		tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
-		for tile in tiles_iter:
-			if self.rect.colliderect(tile.rect):
-				self.kill()
-				return
+		if collidable_tiles and self.rect:
+			tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
+			for tile in tiles_iter:
+				if self.rect.colliderect(tile.rect):
+					self.kill()
+					return

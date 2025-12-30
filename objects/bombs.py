@@ -4,7 +4,7 @@ import time
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 import pygame
-from utils import gen_randid, get_cached_image
+from utils import gen_randid, get_cached_image, async_get_cached_image
 from constants import BLOCK
 
 class Bomb(Sprite):
@@ -26,29 +26,35 @@ class Bomb(Sprite):
 		self.power = power
 
 	async def async_init(self):
-		self.image = await get_cached_image('data/bomb5.png', convert=True)
-		self.rect = self.image.get_rect()
-		self.rect.center = (int(self.position.x), int(self.position.y))
+		self.image = await async_get_cached_image('data/bomb5.png', convert=True)
+		if self.image:
+			self.rect = self.image.get_rect()
+		if self.rect:
+			self.rect.center = (int(self.position.x), int(self.position.y))
 
 	def __repr__(self):
 		return f'Bomb (pos: {self.position} )'
 
-	async def update(self, game_state):
+	def update(self, *args, **kwargs):
+		game_state = None
+		if args:
+			game_state = args[0]
+		elif 'game_state' in kwargs:
+			game_state = kwargs['game_state']
 		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:
 			# Create explosion particles if manager is provided
-			if not self.exploded:
+			if not self.exploded and game_state and game_state.explosion_manager and self.rect:
 				game_state.explosion_manager.create_explosion(self.rect.center, count=2)
-				await game_state.explosion_manager.create_flames(self)
+				game_state.explosion_manager.create_flames(self)
 				self.exploded = True
 			asyncio.create_task(self.explode(game_state))
-		await asyncio.sleep(0)  # Yield control to event loop
 
 	async def explode(self, gamestate):
 		explosion_event = {
 			'event_type': "bomb_exploded",
 			"owner_id": self.client_id,
 			"client_id": self.client_id,
-			"position": self.rect.center,  # Use center instead of top-left
+			"position": self.rect.center if self.rect else (int(self.position.x), int(self.position.y)),  # Use center instead of top-left
 			"event_time": time.time(),
 			"handled": False,
 			"event_id": gen_randid(),

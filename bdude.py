@@ -1,4 +1,7 @@
 #!/usr/bin/python
+import traceback
+import requests
+import json
 import sys
 import asyncio
 import time
@@ -62,7 +65,6 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 	try:
 		await bomberdude_main.update()
 	except Exception as e:
-		import traceback
 		logger.error(f"Error in update: {e} {type(e)}")
 		traceback.print_exc()
 		await asyncio.sleep(1)
@@ -72,6 +74,7 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 		await bomberdude_main.on_draw()
 	except Exception as e:
 		logger.error(f"Error in on_draw: {e} {type(e)}")
+		traceback.print_exc()
 		await asyncio.sleep(1)
 		return False
 
@@ -93,7 +96,7 @@ async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None
 		await _run_frame(bomberdude_main)
 
 		elapsed = time.time() - frame_start
-		sleep_time = max(0, frame_time - elapsed)
+		sleep_time = max(0.0, frame_time - elapsed)
 		if sleep_time > 0:
 			if sleep_time > 0.05:
 				logger.warning(f"Sleep time: {sleep_time}")
@@ -102,7 +105,7 @@ async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None
 
 async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argparse.Namespace) -> bool:
 	if action == "Start":
-		await start_game(args)
+		started = await start_game(args)
 		return True
 
 	elif action == "Start Server":
@@ -176,10 +179,12 @@ def run_server_process(args_dict):
 	# Create a headless version of the server startup
 	async def run_headless_server():
 		from server.server import BombServer
+		from server.api import ApiServer
 
 		server = BombServer(args)
 		server_task = asyncio.create_task(server.new_start_server())
-		api_task = asyncio.create_task(server.apiserver.run(args.listen, args.api_port))
+		apiserver = ApiServer(name="bombapi", server=server, game_state=server.game_state)
+		api_task = asyncio.create_task(apiserver.run(args.listen, args.api_port))
 
 		try:
 			await asyncio.gather(server_task, api_task)
@@ -260,12 +265,27 @@ def get_args():
 	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude.prof')
 	return parser.parse_args()
 
-async def start_game(args: argparse.Namespace):
+async def start_game(args: argparse.Namespace) -> bool:
+	resptext = ''
 	try:
-		bomberdude_main = Bomberdude(args=args)
+		resptext = requests.get(f"http://{args.server}:{args.api_port}/get_client_id", timeout=10).text
+		resp = json.loads(resptext)
+		client_id = resp.get("client_id")
 	except Exception as e:
-		logger.error(f"Error: {e} {type(e)}")
-		raise
+		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
+		raise e
+	try:
+		resptext = requests.get(f"http://{args.server}:{args.api_port}/get_map_name", timeout=10).text
+		resp = json.loads(resptext)
+		mapname = resp.get("mapname")
+	except Exception as e:
+		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
+		raise e
+	try:
+		bomberdude_main = Bomberdude(args=args, client_id=client_id, mapname=mapname)
+	except Exception as e:
+		logger.error(f"Error creating Bomberdude instance: {e} {type(e)}")
+		raise e
 
 	# Start networking tasks early so connect() can complete its readiness handshake.
 	# The tasks will wait until the socket is connected before using it.
@@ -278,7 +298,7 @@ async def start_game(args: argparse.Namespace):
 		connected = await _connect_with_timeout(bomberdude_main, connection_timeout)
 		if not connected:
 			logger.error("Failed to establish connection")
-			return
+			return False
 
 		# Calculate frame time in seconds
 		frame_time = 1.0 / UPDATE_TICK
@@ -293,6 +313,7 @@ async def start_game(args: argparse.Namespace):
 			await bomberdude_main.disconnect(return_to_menu=True)
 		except Exception as e:
 			logger.error(f"Error during disconnect: {e} {type(e)}")
+	return True
 	# pygame.display.quit()
 	# pygame.quit()
 

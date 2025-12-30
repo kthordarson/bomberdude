@@ -55,7 +55,7 @@ async def send_game_state(game: Bomberdude) -> None:
 		}
 		try:
 			data_out = (json.dumps(msg) + '\n').encode('utf-8')
-			await asyncio.get_event_loop().sock_sendall(game.sock, data_out)  # Direct to socket
+			await asyncio.get_running_loop().sock_sendall(game.sock, data_out)  # Direct to socket
 			game.game_state.event_queue.task_done()
 			send_counter += 1
 		except Exception as e:
@@ -79,7 +79,7 @@ async def receive_game_state(game: Bomberdude) -> None:
 	messages_processed = 0
 	while True:
 		try:
-			data = await asyncio.get_event_loop().sock_recv(game.sock, 4096)
+			data = await asyncio.get_running_loop().sock_recv(game.sock, 4096)
 			if not data:
 				# Connection closed
 				break
