@@ -44,6 +44,7 @@ class GameState:
 		self.collidable_by_tile: dict[tuple[int, int], Any] = {}
 		self.killable_by_tile: dict[tuple[int, int], Any] = {}
 		self.upgrade_by_tile: dict[tuple[int, int], Any] = {}
+		self.upgrade_by_id: dict[str, Any] = {}
 		self.connections = set()
 		self.client_queue = asyncio.Queue()
 		self.playerlist = {}  # dict = field(default_factory=dict)
@@ -975,8 +976,15 @@ class GameState:
 		# self.modified_tiles[(tile_x, tile_y)] = 1
 		# self.tile_map.get_layer_by_name('Blocks').data[tile_y][tile_x] = 1  # type: ignore
 		# self.upgrade_by_tile[(tile_x, tile_y)] = None
+		upgrade_id = str(event.get('upgrade_id'))
+		upgrade_object = self.upgrade_by_id.pop(upgrade_id, None)
 		upgrade_object = self.upgrade_by_tile.pop((tile_x, tile_y), None)
 		if upgrade_object:
+			for tile, upg in list(self.upgrade_by_tile.items()):
+				if upg is upgrade_object:
+					self.upgrade_by_tile.pop(tile, None)
+					break
+
 			map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 1, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
 			asyncio.create_task(self.event_queue.put(map_update_event))
 			if self.args.debug_gamestate:
@@ -1000,17 +1008,25 @@ class GameState:
 		upgrade_pos = (pos[0] * tw, pos[1] * th)
 		tile_x = int(pos[0])
 		tile_y = int(pos[1])
-		# Avoid duplicate spawns
-		if (tile_x, tile_y) in self.upgrade_by_tile:
+		# Use upgrade_id for uniqueness
+		upgrade_id = event.get('upgrade_id')
+		if upgrade_id is None:
+			# Fallback for legacy events
+			upgrade_id = gen_randid()
+		elif not isinstance(upgrade_id, int):
+			upgrade_id = int(upgrade_id)
+		# Avoid duplicate spawns by upgrade_id or tile
+		if (tile_x, tile_y) in self.upgrade_by_tile or upgrade_id in self.upgrade_by_id:
 			if self.args.debug_gamestate:
-				logger.warning(f'{self} Upgrade already exists at {(tile_x, tile_y)}, pos: {pos} upgrade_pos: {upgrade_pos} ignoring upgrade_by_tile: {self.upgrade_by_tile[(tile_x, tile_y)]} event: {event}')
+				logger.warning(f'{self} Upgrade already exists at {(tile_x, tile_y)}, pos: {pos} upgrade_pos: {upgrade_pos} ignoring upgrade_by_tile: {self.upgrade_by_tile.get((tile_x, tile_y))} event: {event}')
 			await asyncio.sleep(0)
 			return False
-		upgradetype = event.get('upgradetype',20)
-		upgrade = Upgrade(position=upgrade_pos, upgrade_id=upgradetype)
+		upgradetype = 20  # event.get('upgradetype', 20)
+		upgrade = Upgrade(position=upgrade_pos, upgrade_id=upgrade_id, upgradetype=upgradetype)
 		await upgrade.async_init()
 		self.upgrade_blocks.add(upgrade)
 		self.upgrade_by_tile[(tile_x, tile_y)] = upgrade
+		self.upgrade_by_id[str(upgrade_id)] = upgrade
 
 		block = self.collidable_by_tile.pop((tile_x, tile_y), None)
 		self.collidable_tiles.discard(block)

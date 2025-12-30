@@ -6,10 +6,10 @@ import pygame
 from utils import get_cached_image, gen_randid, async_get_cached_image
 
 class Upgrade(Sprite):
-	def __init__(self, position, upgrade_id, life=10.0):
+	def __init__(self, position, upgrade_id, upgradetype, life=10.0):
 		super().__init__()
 		self.image_name = 'data/heart.png'
-		self.upgradetype = upgrade_id  # random.choice(['default', 'speed', 'power', 'range', 'extra_bomb'])
+		self.upgradetype = upgradetype  # random.choice(['default', 'speed', 'power', 'range', 'extra_bomb'])
 		self.position = position
 		self.scale = 1.0
 		self.client_id = gen_randid()
@@ -17,7 +17,7 @@ class Upgrade(Sprite):
 		self.original_life = life
 		self.born_time = pygame.time.get_ticks() / 1000
 		self.killed = False
-		self.id = upgrade_id
+		self.upgrade_id = upgrade_id
 
 	def __repr__(self):
 		return f'Upgrade {self.client_id} (type: {self.upgradetype} pos: {self.position} life: {self.life}  original_life: {self.original_life} born_time: {self.born_time})'
