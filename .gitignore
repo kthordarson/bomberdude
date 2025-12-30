@@ -37,3 +37,4 @@ bomberdude.tiled-session
 .complexipy_cache/*
 .coverage
 *.prof.*
+pyrefly.toml

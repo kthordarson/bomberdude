@@ -5,7 +5,7 @@ from pygame.sprite import Sprite
 import pygame
 from constants import FLAME_SPEED, BLOCK
 import math
-from utils import load_image_cached
+from utils import load_image_cached, async_load_image_cached
 
 class Flame(Sprite):
 	def __init__(self, position, direction, client_id, size=1, power=3):
@@ -30,10 +30,20 @@ class Flame(Sprite):
 		self.collision_grace = 8  # pixels
 
 	async def async_init(self):
-		self.original_image = await load_image_cached('data/flameball.png')
+		self.original_image = await async_load_image_cached('data/flameball.png')
 		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
-		self.rect = self.image.get_rect()
-		self.rect.center = (int(self.position.x), int(self.position.y))
+		if self.image:
+			self.rect = self.image.get_rect()
+		if self.rect:
+			self.rect.center = (int(self.position.x), int(self.position.y))
+
+	def flame_init(self):
+		self.original_image = load_image_cached('data/flameball.png')
+		self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
+		if self.image:
+			self.rect = self.image.get_rect()
+		if self.rect:
+			self.rect.center = (int(self.position.x), int(self.position.y))
 
 	async def flame_update(self, collidable_tiles, game_state) -> None:
 		# Move in smaller steps to avoid missing collisions
@@ -45,10 +55,11 @@ class Flame(Sprite):
 		# for _ in range(steps):
 		self.position.x += dx
 		self.position.y += dy
-		self.rect.center = (int(self.position.x), int(self.position.y))
+		if self.rect:
+			self.rect.center = (int(self.position.x), int(self.position.y))
 
 		# Accumulate distance with constant step length
-		self.distance_traveled += step_len
+		self.distance_traveled += int(step_len)
 
 		# Check if max distance reached
 		if self.distance_traveled >= self.max_distance:
@@ -60,32 +71,34 @@ class Flame(Sprite):
 			return
 
 		# Check nearby tiles for collisions without allocating lists
-		flame_area = pygame.Rect(
-			self.rect.x - BLOCK//2,
-			self.rect.y - BLOCK//2,
-			self.rect.width + BLOCK,
-			self.rect.height + BLOCK
-		)
+		if self.rect:
+			flame_area = pygame.Rect(
+				self.rect.x - BLOCK//2,
+				self.rect.y - BLOCK//2,
+				self.rect.width + BLOCK,
+				self.rect.height + BLOCK
+			)
 
-		# Killable tiles
-		for tile in game_state.iter_killable_in_rect(flame_area, pad_pixels=0):
-			if self.rect.colliderect(tile.rect):
-				await game_state.destroy_block(tile, create_upgrade=True)
+			# Killable tiles
+			for tile in game_state.iter_killable_in_rect(flame_area, pad_pixels=0):
+				if self.rect.colliderect(tile.rect):
+					await game_state.destroy_block(tile, create_upgrade=True)
+					self.kill()
+					return
+
+			# Solid walls / collidables
+			for tile in game_state.iter_collidable_in_rect(flame_area, pad_pixels=0):
+				if self.rect.colliderect(tile.rect):
+					self.kill()
+					return
+
+			# Update size/appearance for animation
+			self.size -= self.shrink_rate
+			if self.size <= self.min_size:
 				self.kill()
-				return
-
-		# Solid walls / collidables
-		for tile in game_state.iter_collidable_in_rect(flame_area, pad_pixels=0):
-			if self.rect.colliderect(tile.rect):
-				self.kill()
-				return
-
-		# Update size/appearance for animation
-		self.size -= self.shrink_rate
-		if self.size <= self.min_size:
-			self.kill()
-		else:
-			self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
-			self.rect = self.image.get_rect()
-			self.rect.center = (int(self.position.x), int(self.position.y))
-
+			else:
+				self.image = pygame.transform.scale(self.original_image, (int(self.original_image.get_width() * self.size), int(self.original_image.get_height() * self.size)))
+				if self.image:
+					self.rect = self.image.get_rect()
+					if self.rect:
+						self.rect.center = (int(self.position.x), int(self.position.y))

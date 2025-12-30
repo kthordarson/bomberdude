@@ -29,9 +29,11 @@ _TEXT_CACHE: "OrderedDict[tuple[int, str, bool, tuple[int, int, int, int] | tupl
 
 
 def _render_text_cached(font: pygame.font.Font, text: str, antialias: bool, color, background=None) -> pygame.Surface:
+    surf = None
     key = (id(font), text, bool(antialias), tuple(color), tuple(background) if background is not None else None)
-    surf = _TEXT_CACHE.get(key)
-    if surf is not None:
+    if key:
+        surf = _TEXT_CACHE.get(key)
+    if surf:
         _TEXT_CACHE.move_to_end(key)
         return surf
     surf = font.render(text, antialias, color, background)

@@ -38,6 +38,7 @@ class BombServer:
 
 	async def process_messages(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 		data = None
+		msg = None
 		try:
 			while not writer.is_closing():
 				data = await reader.readuntil(b'\n')
@@ -55,6 +56,8 @@ class BombServer:
 				await self.game_state.update_game_event(game_event)
 				await self.server_broadcast_state(self.game_state.to_json())
 				self.message_counter += 1
+		except TypeError as e:
+			logger.error(f"{e} {type(e)} in process_messages. data: {data} msg: {msg}")
 		except (asyncio.IncompleteReadError, ConnectionResetError) as e:
 			pass  # logger.warning(f'{e} Connection closed by client')
 		except pygame.error as e:
@@ -199,9 +202,10 @@ class BombServer:
 		layers.append(wall_layer)
 		layers.append(block_layer)
 		for layer in layers:
-			for x, y, gid in layer:
-				if gid != 0:
-					collidable_positions.add((x, y))
+			if isinstance(layer, tuple) and len(layer) == 3:
+				for x, y, gid in layer:
+					if gid != 0:
+						collidable_positions.add((x, y))
 
 		# Generate list of all possible positions excluding collidable tiles
 		valid_positions = []

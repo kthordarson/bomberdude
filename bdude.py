@@ -96,7 +96,7 @@ async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None
 		await _run_frame(bomberdude_main)
 
 		elapsed = time.time() - frame_start
-		sleep_time = max(0, frame_time - elapsed)
+		sleep_time = max(0.0, frame_time - elapsed)
 		if sleep_time > 0:
 			if sleep_time > 0.05:
 				logger.warning(f"Sleep time: {sleep_time}")

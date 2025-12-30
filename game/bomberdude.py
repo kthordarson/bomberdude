@@ -41,17 +41,17 @@ class Bomberdude():
         self.mapname = mapname
         self.game_state = GameState(args=self.args, client_id=self.client_id, mapname=self.mapname)
         self._connected = False
-        self.timer = 0
+        self.timer = 0.0
         self.mouse_pos = Vec2d(x=0, y=0)
         self.background_color = (100, 149, 237)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setblocking(False)  # Make non-blocking
         # Networking tasks should wait for this before using the socket.
         self.socket_connected = asyncio.Event()
-        self.last_position_update = 0
+        self.last_position_update = 0.0
         self.position_update_interval = 0.05  # 50ms = 20 updates/second
         self.last_frame_time = time.time()
-        self.delta_time = 0
+        self.delta_time = 0.0
         self.show_minimap = False
         self.player_info_panel = PlayerInfoPanel(self.screen, self.game_state)
 
@@ -137,9 +137,11 @@ class Bomberdude():
         map_height = self.game_state.tile_map.height * self.game_state.tile_map.tileheight
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
         player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id, position=pos)
-        await player_one._set_texture(player_one.texture)
-        player_one.rect = player_one.image.get_rect()
-        player_one.rect.topleft = (int(player_one.position.x), int(player_one.position.y))
+        player_one._set_texture(player_one.texture)
+        if player_one.image:
+            player_one.rect = player_one.image.get_rect()
+            if player_one.rect:
+                player_one.rect.topleft = (int(player_one.position.x), int(player_one.position.y))
         self.game_state.players_sprites.add(player_one)
         connection_event = {
             "event_time": 0,
@@ -182,18 +184,19 @@ class Bomberdude():
             if client_id not in self.remote_player_sprites:
                 texture = "data/netplayerdead.png" if is_dead else "data/player2.png"
                 player_sprite = Bomberplayer(texture=texture, client_id=client_id)
-                await player_sprite._set_texture(texture)
+                player_sprite._set_texture(texture)
                 self.remote_player_sprites[client_id] = player_sprite
                 if self.args.debug:
                     logger.debug(f"Created new remote player sprite for {client_id} (dead: {is_dead}) player_sprite: {player_sprite} self.remote_player_sprites: {len(self.remote_player_sprites)}")
             else:
                 player_sprite = self.remote_player_sprites[client_id]
                 # Always update dead/alive state and texture if needed
-                await player_sprite.set_dead(is_dead)
+                player_sprite.set_dead(is_dead)
 
             position = player_data.position
             player_sprite.position = Vec2d(position)
-            player_sprite.rect.topleft = (int(player_sprite.position.x), int(player_sprite.position.y))
+            if player_sprite.rect:
+                player_sprite.rect.topleft = (int(player_sprite.position.x), int(player_sprite.position.y))
             if player_sprite.image:
                 self.screen.blit(player_sprite.image, self.camera.apply(player_sprite.rect))
             else:
@@ -204,7 +207,7 @@ class Bomberdude():
 
     async def on_draw(self):
         # Clear virtual screen
-        self.screen.fill((0, 0, 0))
+        # self.screen.fill((0, 0, 0))
         # draw map
         self.screen.blit(self.game_state.static_map_surface, self.camera.apply(pygame.Rect(0, 0, self.game_state.static_map_surface.get_width(), self.game_state.static_map_surface.get_height())))
 
@@ -214,7 +217,7 @@ class Bomberdude():
 
         # Draw local player
         player_one = self.game_state.get_playerone()
-        if player_one.image:
+        if player_one and player_one.image:
             self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
 
         # Draw remote players from playerlist
@@ -293,8 +296,8 @@ class Bomberdude():
             center_y = player_one.position.y - SCREEN_HEIGHT/2
 
             # Clamp to map boundaries
-            center_x = max(0, min(center_x, map_width - SCREEN_WIDTH))
-            center_y = max(0, min(center_y, map_height - SCREEN_HEIGHT))
+            center_x = max(0.0, min(center_x, map_width - SCREEN_WIDTH))
+            center_y = max(0.0, min(center_y, map_height - SCREEN_HEIGHT))
 
             # Draw view rectangle on minimap
             view_x = minimap_x + int(center_x * scale)
@@ -338,10 +341,16 @@ class Bomberdude():
             # Convert screen coordinates to world coordinates
             mouse_world_pos = self.camera.reverse_apply(x, y)
             # player_world_pos = player_one.rect.center
-            player_world_pos = (player_one.position.x + player_one.rect.width/2, player_one.position.y + player_one.rect.height/2)
+            if player_one.rect:
+                player_world_pos = (player_one.position.x + player_one.rect.width/2, player_one.position.y + player_one.rect.height/2)
+            else:
+                return
 
             # Calculate direction in world space
-            direction_vector = Vec2d(mouse_world_pos[0] - player_world_pos[0], mouse_world_pos[1] - player_world_pos[1])
+            if player_world_pos:
+                direction_vector = Vec2d(mouse_world_pos[0] - player_world_pos[0], mouse_world_pos[1] - player_world_pos[1])
+            else:
+                return
 
             # Normalize direction vector
             if direction_vector.length() > 0:
@@ -417,14 +426,15 @@ class Bomberdude():
         # Actions
         if key == pygame.K_SPACE:
             drop_bomb_event = await player_one.drop_bomb()
-            if drop_bomb_event.get('event_type') == "player_drop_bomb":
-                if drop_bomb_event.get('position') == (16,16):
-                    logger.warning(f"Attempted to drop bomb at invalid position (16,16), ignoring. bomb event: {drop_bomb_event}")
+            if drop_bomb_event:
+                if drop_bomb_event.get('event_type','noevent') == "player_drop_bomb":
+                    if drop_bomb_event.get('position') == (16,16):
+                        logger.warning(f"Attempted to drop bomb at invalid position (16,16), ignoring. bomb event: {drop_bomb_event}")
+                    else:
+                        await self.game_state.event_queue.put(drop_bomb_event)
                 else:
-                    await self.game_state.event_queue.put(drop_bomb_event)
-            else:
-                if self.args.debug_gamestate:
-                    logger.debug(f"{player_one.client_name} has {player_one.bombs_left} bombs. drop bomb ignored, event: {drop_bomb_event.get('event_type')}")
+                    if self.args.debug_gamestate:
+                        logger.debug(f"{player_one.client_name} has {player_one.bombs_left} bombs. drop bomb ignored, event: {drop_bomb_event.get('event_type')}")
             return
 
     async def handle_on_key_release(self, key):
@@ -452,16 +462,17 @@ class Bomberdude():
         self.last_frame_time = current_time
         self.timer += self.delta_time
         player_one.update(self.game_state)
-        player_one.rect.x = int(player_one.position.x)
-        player_one.rect.y = int(player_one.position.y)
+        if player_one.rect:
+            player_one.rect.x = int(player_one.position.x)
+            player_one.rect.y = int(player_one.position.y)
 
-        map_width = self.game_state.tile_map.width * self.game_state.tile_map.tilewidth
-        map_height = self.game_state.tile_map.height * self.game_state.tile_map.tileheight
-        player_one.position.x = max(0, min(player_one.position.x, map_width - player_one.rect.width))
-        player_one.position.y = max(0, min(player_one.position.y, map_height - player_one.rect.height))
+            map_width = self.game_state.tile_map.width * self.game_state.tile_map.tilewidth
+            map_height = self.game_state.tile_map.height * self.game_state.tile_map.tileheight
+            player_one.position.x = max(0.0, min(player_one.position.x, map_width - player_one.rect.width))
+            player_one.position.y = max(0.0, min(player_one.position.y, map_height - player_one.rect.height))
 
-        player_one.rect.x = int(player_one.position.x)
-        player_one.rect.y = int(player_one.position.y)
+            player_one.rect.x = int(player_one.position.x)
+            player_one.rect.y = int(player_one.position.y)
 
         self.camera.update(player_one)
 
@@ -476,7 +487,7 @@ class Bomberdude():
 
         self.game_state.bullets.update(self.game_state)
         for bomb in self.game_state.bombs:
-            await bomb.update(self.game_state)
+            bomb.update(self.game_state)
         await self.game_state.check_bullet_collisions()
         await self.game_state.check_upgrade_collisions()
 
@@ -527,8 +538,8 @@ class Bomberdude():
         map_height = self.game_state.tile_map.height * self.game_state.tile_map.tileheight
         camera_x = player_one.position.x - SCREEN_WIDTH / 2
         camera_y = player_one.position.y - SCREEN_HEIGHT / 2
-        camera_x = max(0, min(camera_x, map_width - SCREEN_WIDTH))
-        camera_y = max(0, min(camera_y, map_height - SCREEN_HEIGHT))
+        camera_x = max(0.0, min(camera_x, map_width - SCREEN_WIDTH))
+        camera_y = max(0.0, min(camera_y, map_height - SCREEN_HEIGHT))
         screen_x = int(player_one.position.x - camera_x)
         screen_y = int(player_one.position.y - camera_y)
 
@@ -557,8 +568,8 @@ class Bomberdude():
         # Clamp camera to map boundaries
         map_width = self.game_state.tile_map.width * self.game_state.tile_map.tilewidth
         map_height = self.game_state.tile_map.height * self.game_state.tile_map.tileheight
-        camera_x = max(0, min(camera_x, map_width - SCREEN_WIDTH))
-        camera_y = max(0, min(camera_y, map_height - SCREEN_HEIGHT))
+        camera_x = max(0.0, min(camera_x, map_width - SCREEN_WIDTH))
+        camera_y = max(0.0, min(camera_y, map_height - SCREEN_HEIGHT))
 
         # Convert world to screen
         screen_x = int(world_pos[0] - camera_x)
