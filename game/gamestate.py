@@ -545,9 +545,11 @@ class GameState:
 				# Emit upgrade collected event and a map update event so clients remove tile
 				current_time = time.time()
 				upgrade_event = {'event_type': "upgrade_pickup", "client_id": picker_id, "position": upgrade_block.position, "upgradetype": getattr(upgrade_block, "upgradetype", "unknown"), "handled": False, "handledby": picker_id, "event_id": gen_randid(), "event_time": current_time,}
-				asyncio.create_task(self.broadcast_event(upgrade_event))
+				# asyncio.create_task(self.broadcast_event(upgrade_event))
+				asyncio.create_task(self.event_queue.put(upgrade_event))
 				map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": 1, "event_time": time.time(), "client_id": self.client_id, "handled": False,}
-				asyncio.create_task(self.broadcast_event(map_update_event))
+				# asyncio.create_task(self.broadcast_event(map_update_event))
+				asyncio.create_task(self.event_queue.put(map_update_event))
 				if self.args.debug_gamestate:
 					logger.info(f'{self} Upgrade picked by {picker_id} at ({tile_x},{tile_y}) removed upgrades: {len(self.upgrade_blocks)}')
 				# Kill local sprite (no local destroy_block call here — server/_on_upgrade_pickup will handle map removal)
