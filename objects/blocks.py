@@ -21,7 +21,7 @@ class Upgrade(Sprite):
 		self.id = upgrade_id
 
 	def __repr__(self):
-		return f'Upgrade {self.client_id} (type: {self.upgradetype} pos: {self.position} life: {self.life}  original_life: {self.original_life} born_time: {self.born_time})'
+		return f'Upgrade {self.client_id} (type: {self.upgradetype} pos: {self.position} life: {self.life}  original_life: {self.original_life} born_time: {self.born_time} killed: {self.killed})'
 
 	async def async_init(self):
 		self.image = await async_get_cached_image(self.image_name, scale=float(self.scale), convert=True)

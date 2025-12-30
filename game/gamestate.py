@@ -966,15 +966,35 @@ class GameState:
 					if player:
 						if upgrade.upgradetype == 20:
 							if isinstance(player, dict):
-								player['health'] = min(DEFAULT_HEALTH, player.get('health', 0) + 10)
+								player['health'] = player.get('health', 0) + 10
 							else:
-								player.health = min(DEFAULT_HEALTH, player.health + 10)
+								player.health = player.health + 10
+
+							# Broadcast the health update immediately
+							p_health = player['health'] if isinstance(player, dict) else player.health
+							p_score = player.get('score', 0) if isinstance(player, dict) else player.score
+							p_bombs = player.get('bombs_left', 3) if isinstance(player, dict) else player.bombs_left
+							p_pos = player.get('position') if isinstance(player, dict) else player.position
+							p_name = player.get('client_name') if isinstance(player, dict) else player.client_name
+							out_event = {
+								'event_type': 'player_update',
+								'client_id': picker_id,
+								'health': p_health,
+								'score': p_score,
+								'bombs_left': p_bombs,
+								'position': p_pos,
+								'client_name': p_name,
+								'handled': False,
+								'handledby': 'server.upgrade_pickup'
+							}
+							asyncio.create_task(self.broadcast_event(out_event))
+
 						if self.args.debug_gamestate:
 							logger.debug(f"{self} {upgrade} at tile {(tile_x, tile_y)} pos: {pos} for {player} picked up by {picker_id}")
 					for sprite in self.players_sprites:
 						if sprite.client_id == picker_id:
 							# Only sync non-positional fields; movement is client-driven.
-							sprite.health = min(DEFAULT_HEALTH, sprite.health + 10)
+							sprite.health = sprite.health + 10
 							if self.args.debug_gamestate:
 								logger.info(f"{self} {upgrade} at tile {(tile_x, tile_y)} pos: {pos} for {player} picked up by {picker_id}")
 							break
@@ -1021,7 +1041,7 @@ class GameState:
 				event['handledby'] = f'{self.client_id}_on_upgrade_spawned'
 				out_event = event.copy()
 				out_event['handled'] = False
-				asyncio.create_task(self.broadcast_event(out_event))
+				# asyncio.create_task(self.broadcast_event(out_event))
 			else:
 				event['handledby'] = '_on_upgrade_spawned'
 				# asyncio.create_task(self.event_queue.put(event))
