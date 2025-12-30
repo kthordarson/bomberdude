@@ -479,7 +479,6 @@ class Bomberdude():
             await bomb.update(self.game_state)
         await self.game_state.check_bullet_collisions()
         await self.game_state.check_upgrade_collisions()
-        # await self.game_state.explosion_manager.update(self.game_state.collidable_tiles, self.game_state)
 
         # Use the already calculated delta time
         await self.game_state.explosion_manager.update(self.game_state.collidable_tiles, self.game_state, self.delta_time)
