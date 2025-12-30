@@ -372,13 +372,15 @@ class GameState:
 		self.tile_map.get_layer_by_name('Blocks').data[y][x] = new_gid  # type: ignore
 		self.modified_tiles[(x, y)] = new_gid
 		if new_gid == 1:
-			floor_tile = self.tile_cache.get(new_gid)
-			if floor_tile:
-				if isinstance(floor_tile, tuple):
-					floor_tile = pygame.image.load(floor_tile[0])
-					self.tile_cache[new_gid] = floor_tile
-			if floor_tile:
-				pass  # self.static_map_surface.blit(floor_tile, (x * tw, y * th))
+			# floor_tile = self.tile_cache.get(new_gid)
+			# if floor_tile:
+			# 	if isinstance(floor_tile, tuple):
+			# 		floor_tile = pygame.image.load(floor_tile[0])
+			# 		self.tile_cache[new_gid] = floor_tile
+			# 	self.static_map_surface.blit(floor_tile, (x * tw, y * th))
+			# if not floor_tile:
+			# 	if self.args.debug_gamestate:
+			# 		logger.error(f"{self} _apply_tile_change: No floor tile found for GID {new_gid} at ({x},{y})")
 
 			block = self.killable_by_tile.pop((x, y), None)
 			if block:
