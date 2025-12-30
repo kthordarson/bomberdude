@@ -205,9 +205,6 @@ class GameState:
 		map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": new_gid, "event_time": time.time(), "client_id": self.client_id, "handled": False, 'handledby': 'destroy_block',}
 		# asyncio.create_task(self.broadcast_event(map_update_event))
 		asyncio.create_task(self.event_queue.put(map_update_event))
-		if self.args.debug_gamestate and new_gid == 1 and not create_upgrade:
-			logger.debug(f'{self} new_gid: {new_gid} tile=({tile_x},{tile_y})')
-			# map_update_event: {'event_type': 'map_update_event', 'position': (14, 53), 'new_gid': 20, 'event_time': 1767078826.0444207, 'client_id': '4093086018', 'handled': False}
 
 	def ready(self):
 		return self._ready
@@ -231,17 +228,18 @@ class GameState:
 		client_id = event.get('client_id')
 		current_time = time.time()
 		# Use per-client rate limiting
-		# Get last update time for this client (default to 0)
-		last_time = self.last_update_times.get(client_id, 0)
-		timediff = current_time - last_time
+		if event.get('event_type') == 'player_update':
+			# Get last update time for this client (default to 0)
+			last_time = self.last_update_times.get(client_id, 0)
+			timediff = current_time - last_time
 
-		# Rate limit
-		if timediff < GLOBAL_RATE_LIMIT and last_time > 0:
-			# Use debug level instead of warning for rate limiting
-			if self.args.debug:
-				logger.warning(f'Rate limiting {client_id}: {timediff:.5f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT} last_time: {last_time}')
-			await asyncio.sleep(0.1)
-			# do_send = False
+			# Rate limit
+			if timediff < GLOBAL_RATE_LIMIT and last_time > 0:
+				# Use debug level instead of warning for rate limiting
+				if self.args.debug:
+					logger.warning(f'Rate limiting {client_id}: {timediff:.5f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT} last_time: {last_time}')
+				await asyncio.sleep(0.1)
+				# do_send = False
 
 		try:
 			if do_send:
@@ -507,8 +505,6 @@ class GameState:
 							asyncio.create_task(self.broadcast_event(upgrade_event.copy()))
 						asyncio.create_task(self.event_queue.put(upgrade_event))
 						flame.kill()
-						if self.args.debug_gamestate:
-							logger.info(f"{self} Broadcasting upgrade_spawned event: {upgrade_event}")
 		await asyncio.sleep(0)
 
 	async def check_upgrade_collisions(self):
@@ -529,16 +525,12 @@ class GameState:
 			for player in sprite_players:
 				if player.rect.colliderect(upgrade_block.rect):
 					picked_up_blocks.add((upgrade_block, player.client_id))
-					# if self.args.debug_gamestate:
-					# 	logger.info(f"{self} {upgrade_block} picked by sprite player {player.client_id} picked_up_blocks: {len(picked_up_blocks)}")
 					break
 
 			# Check PlayerState entries (server authoritative state)
 			for ps in ps_players:
 				if ps.rect.colliderect(upgrade_block.rect):
 					picked_up_blocks.add((upgrade_block, ps.client_id))
-					# if self.args.debug_gamestate:
-					# 	logger.info(f"{self} {upgrade_block} picked by PlayerState {ps.client_id} picked_up_blocks: {len(picked_up_blocks)}")
 					break
 
 		# Process pickups
@@ -664,8 +656,6 @@ class GameState:
 		client_id = event.get("client_id")
 
 		if bid in self.processed_bullets:
-			if self.args.debug_gamestate:
-				logger.warning(f"{self} _on_bullet_fired: Duplicate bullet event_id {bid}, ignoring. self.processed_bullets: {len(self.processed_bullets)}")
 			await asyncio.sleep(0)
 			return False
 		self.processed_bullets.add(bid)
@@ -710,8 +700,6 @@ class GameState:
 		player_entry = self.playerlist.get(client_id)
 		if player_entry:
 			player_entry.bombs_left -= 1
-			if self.args.debug_gamestate:
-				pass  # logger.debug(f"{self} Updated PlayerState bombs_left for {client_id} to {player_entry.bombs_left}")
 			# Also update local sprite if this is us
 			for sprite in self.players_sprites:
 				if sprite.client_id == client_id:
@@ -758,10 +746,6 @@ class GameState:
 			event["handled"] = True
 			event["handledby"] = "_on_bomb_exploded"
 			asyncio.create_task(self.broadcast_event(event))
-			await asyncio.sleep(0)
-		else:
-			if self.args.debug_gamestate:
-				pass  # logger.warning(f"{self} _on_bomb_exploded: No player entry for owner_id/client_id: {owner_raw} event: {event}")
 			await asyncio.sleep(0)
 		return True
 
@@ -890,15 +874,8 @@ class GameState:
 				target_player_entry.health = max(0, auth_health)
 				if target_player_entry.health <= 0:
 					target_player_entry.killed = True
-				if self.args.debug_gamestate:
-					pass  # logger.debug(f"{self} target {target}: {old_health} -> {target_player_entry.health} damage: {damage}")
 			if self.client_id == "theserver":
 				target_player_entry.take_damage(damage, attacker_id=event.get("client_id"))
-				if self.args.debug_gamestate:
-					logger.info(f"{self} _on_player_hit for {target}: {old_health} -> {target_player_entry.health} damage: {damage} from attacker: {event.get('client_id')} {event.get('client_name')}")
-			else:
-				if self.args.debug_gamestate:
-					logger.debug(f"{self} _on_player_hit for {target}: {old_health} -> {target_player_entry.health} damage: {damage} from attacker: {event.get('client_id')} {event.get('client_name')}")
 			self.playerlist[target] = target_player_entry
 			# If we are the target, also sync the local sprite so HUD/debug reflects correct health.
 			# if isinstance(target_player_entry, PlayerState):
@@ -989,14 +966,10 @@ class GameState:
 							}
 							asyncio.create_task(self.broadcast_event(out_event))
 
-						if self.args.debug_gamestate:
-							logger.debug(f"{self} {upgrade} at tile {(tile_x, tile_y)} pos: {pos} for {player} picked up by {picker_id}")
 					for sprite in self.players_sprites:
 						if sprite.client_id == picker_id:
 							# Only sync non-positional fields; movement is client-driven.
 							sprite.health = sprite.health + 10
-							if self.args.debug_gamestate:
-								logger.info(f"{self} {upgrade} at tile {(tile_x, tile_y)} pos: {pos} for {player} picked up by {picker_id}")
 							break
 
 				await self._apply_tile_change(tile_x, tile_y, 1)
