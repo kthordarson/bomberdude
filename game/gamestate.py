@@ -375,21 +375,16 @@ class GameState:
 			self.upgrade_blocks.discard(upgrade)
 			if upgrade:
 				upgrade.kill()
-			# 	if self.args.debug_gamestate:
-			# 		logger.info(f"{self} Removed upgrade block at ({x},{y})")
-			# else:
-			# 	if self.args.debug_gamestate:
-			# 		logger.warning(f"{self} _apply_tile_change: No upgrade block found at ({x},{y}) to remove.")
 			# Redraw background tile
-			# tile_image = self.tile_map.get_tile_image_by_gid(new_gid)
-			# if tile_image and isinstance(tile_image, pygame.surface.Surface):
-			# 	self.static_map_surface.blit(tile_image, (x * tw, y * th))
-			# elif tile_image and isinstance(tile_image, tuple):
-			# 	tile_image = pygame.image.load(tile_image[0])
-			# 	self.static_map_surface.blit(tile_image, (x * tw, y * th))
-			# else:
-			# 	if self.args.debug_gamestate:
-			# 		logger.warning(f"{self} _apply_tile_change: No tile image found for gid {new_gid} at ({x},{y}) tile_image: {tile_image} type: {type(tile_image)}")
+			tile_image = self.tile_map.get_tile_image_by_gid(new_gid)
+			if tile_image and isinstance(tile_image, pygame.surface.Surface):
+				self.static_map_surface.blit(tile_image, (x * tw, y * th))
+			elif tile_image and isinstance(tile_image, tuple):
+				tile_image = pygame.image.load(tile_image[0])
+				self.static_map_surface.blit(tile_image, (x * tw, y * th))
+			else:
+				if self.args.debug_gamestate:
+					logger.warning(f"{self} _apply_tile_change: No tile image found for gid {new_gid} at ({x},{y}) tile_image: {tile_image} type: {type(tile_image)}")
 			# Update modified_tiles for network sync
 			self.modified_tiles[(x, y)] = new_gid
 			map_update_event = {'event_type': "map_update_event", "position": (x, y), "new_gid": new_gid, "event_time": time.time(), "client_id": self.client_id, "handled": False, 'handledby': '_apply_tile_change',}
@@ -970,7 +965,6 @@ class GameState:
 	async def _on_upgrade_spawned(self, event: dict) -> bool:
 		# Create an Upgrade locally from a server announcement
 		# upgrade_spawned event: {'event_type': 'upgrade_spawned', 'client_id': '8829958996', 'position': (10, 8), 'upgradetype': 20, 'handled': False, 'handledby': 'check_flame_collisions', 'event_id': '8102988244', 'event_time': 1767115211.6125011}
-
 		pos = event.get('position', (0, 0))
 		tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
 		upgrade_pos = (pos[0] * tw, pos[1] * th)
@@ -986,9 +980,9 @@ class GameState:
 		self.killable_tiles.discard(block)
 
 		upgradetype = 20  # event.get('upgradetype', 20)
-		if (tile_x, tile_y) in self.upgrade_by_tile or upgrade_id in self.upgrade_by_id:
+		if (tile_x, tile_y) in self.upgrade_by_tile or upgrade_id in self.upgrade_by_id or event.get('handled'):
 			if self.args.debug_gamestate:
-				logger.warning(f'{self} Upgrade already exists at {(tile_x, tile_y)}, pos: {pos} upgrade_pos: {upgrade_pos} ignoring upgrade_by_tile: {self.upgrade_by_tile.get((tile_x, tile_y))} event: {event}')
+				logger.warning(f'{self} already handled or Upgrade already exists at {(tile_x, tile_y)}, pos: {pos} upgrade_pos: {upgrade_pos} upgrade_by_tile: {self.upgrade_by_tile.get((tile_x, tile_y))} event: {event}')
 		else:
 			upgrade = Upgrade(position=upgrade_pos, upgrade_id=upgrade_id, upgradetype=upgradetype)
 			await upgrade.async_init()
@@ -996,10 +990,14 @@ class GameState:
 			self.upgrade_by_tile[(tile_x, tile_y)] = upgrade
 			self.upgrade_by_id[str(upgrade_id)] = upgrade
 
-		await self._apply_tile_change(pos[0], pos[1], upgradetype)
-		event['handled'] = True
-		event['handledby'] = '_on_upgrade_spawned'
-		asyncio.create_task(self.broadcast_event(event))
+			await self._apply_tile_change(pos[0], pos[1], upgradetype)
+			event['handled'] = True
+			if self.client_id == 'theserver':
+				event['handledby'] = f'{self.client_id}_on_upgrade_spawned'
+				asyncio.create_task(self.broadcast_event(event))
+			else:
+				event['handledby'] = '_on_upgrade_spawned'
+				asyncio.create_task(self.event_queue.put(event))
 		await asyncio.sleep(0)
 		return True
 
