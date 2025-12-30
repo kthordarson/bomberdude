@@ -18,6 +18,7 @@ class Upgrade(Sprite):
 		self.born_time = pygame.time.get_ticks() / 1000
 		self.killed = False
 		self.upgrade_id = upgrade_id
+		self.id = upgrade_id
 
 	def __repr__(self):
 		return f'Upgrade {self.client_id} (type: {self.upgradetype} pos: {self.position} life: {self.life}  original_life: {self.original_life} born_time: {self.born_time})'

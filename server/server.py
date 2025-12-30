@@ -7,6 +7,7 @@ import json
 from threading import Event
 from loguru import logger
 import random
+import pytmx
 from constants import BLOCK
 from aiohttp import web
 from game.gamestate import GameState
@@ -202,7 +203,7 @@ class BombServer:
 		layers.append(wall_layer)
 		layers.append(block_layer)
 		for layer in layers:
-			if isinstance(layer, tuple) and len(layer) == 3:
+			if isinstance(layer, pytmx.TiledTileLayer):
 				for x, y, gid in layer:
 					if gid != 0:
 						collidable_positions.add((x, y))

@@ -493,7 +493,7 @@ class Bomberdude():
 
         # Use the already calculated delta time
         await self.game_state.explosion_manager.update(self.game_state.collidable_tiles, self.game_state, self.delta_time)
-        self.game_state.check_flame_collisions()
+        await self.game_state.check_flame_collisions()
 
         self.game_state.cleanup_playerlist()
         current_time = time.time()
