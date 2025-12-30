@@ -124,7 +124,7 @@ class Bomberdude():
         if modified_tiles:
             if self.args.debug:
                 logger.debug(f"Applying {len(modified_tiles)} modified_tiles from server.")
-            # self.game_state._apply_modifications_dict(modified_tiles)
+            await self.game_state.apply_modifications(modified_tiles)
         else:
             if self.args.debug:
                 logger.debug("No modified_tiles received from server.")
@@ -481,7 +481,9 @@ class Bomberdude():
         for upgrade_block in list(self.game_state.upgrade_blocks):
             upgrade_block.update()
             if upgrade_block.killed:
-                self.game_state.upgrade_blocks.discard(upgrade_block)
+                tile_x = upgrade_block.rect.x // self.game_state.tile_map.tilewidth
+                tile_y = upgrade_block.rect.y // self.game_state.tile_map.tileheight
+                await self.game_state._apply_tile_change(tile_x, tile_y, 1)
                 if self.args.debug_gamestate:
                     logger.debug(f'Removed expired upgrade block: {upgrade_block} remaining: {len(self.game_state.upgrade_blocks)}')
 
