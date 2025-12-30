@@ -9,7 +9,7 @@ class Upgrade(Sprite):
 	def __init__(self, position, upgrade_id, life=10.0):
 		super().__init__()
 		self.image_name = 'data/heart.png'
-		self.upgradetype = random.choice(['default', 'speed', 'power', 'range', 'extra_bomb'])
+		self.upgradetype = upgrade_id  # random.choice(['default', 'speed', 'power', 'range', 'extra_bomb'])
 		self.position = position
 		self.scale = 1.0
 		self.client_id = gen_randid()
