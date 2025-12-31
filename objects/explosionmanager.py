@@ -92,6 +92,6 @@ class ExplosionManager:
 		for direction in directions:
 			# Start from exact bomb center
 			flame_position = Vec2d(owner.rect.center)
-			flame = Flame(flame_position, direction, owner.client_id, power=owner.power)
+			flame = Flame(flame_position, direction, owner.client_id, bomb_power=owner.bomb_power, size=1.0)
 			flame.flame_init()
 			self.add_flame(flame)

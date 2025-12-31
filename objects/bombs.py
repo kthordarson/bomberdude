@@ -8,7 +8,7 @@ from utils import gen_randid, get_cached_image, async_get_cached_image
 from constants import BLOCK
 
 class Bomb(Sprite):
-	def __init__(self, position, client_id, power=3, speed=10, timer=4, bomb_size=(10,10)):
+	def __init__(self, position, client_id, bomb_power, speed=10, timer=4, bomb_size=(10,10)):
 		super().__init__()
 		self.client_id = client_id
 		# self.image = pygame.Surface(bomb_size)
@@ -23,7 +23,8 @@ class Bomb(Sprite):
 		tile_y = (int(position[1]) // tile_size) * tile_size + tile_size // 2
 		self.position = Vec2d(tile_x, tile_y)
 		self.exploded = False
-		self.power = power
+		self.bomb_power = bomb_power
+		self.speed = speed
 
 	async def async_init(self):
 		self.image = await async_get_cached_image('data/bomb5.png', convert=True)
@@ -54,6 +55,7 @@ class Bomb(Sprite):
 			'event_type': "bomb_exploded",
 			"owner_id": self.client_id,
 			"client_id": self.client_id,
+			"bomb_power": self.bomb_power,
 			"position": self.rect.center if self.rect else (int(self.position.x), int(self.position.y)),  # Use center instead of top-left
 			"event_time": time.time(),
 			"handled": False,

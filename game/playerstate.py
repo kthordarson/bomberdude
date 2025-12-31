@@ -2,7 +2,7 @@ import pygame
 from loguru import logger
 from dataclasses import dataclass, field, InitVar
 from utils import gen_randid, generate_name
-from constants import DEFAULT_HEALTH, BLOCK, INITIAL_BOMBS
+from constants import DEFAULT_HEALTH, BLOCK, INITIAL_BOMBS, INITIAL_BOMB_POWER
 
 @dataclass
 class PlayerState:
@@ -11,6 +11,7 @@ class PlayerState:
 	client_name: str = 'client_namenotset'
 	score: int = 0
 	initial_bombs: InitVar[int] = INITIAL_BOMBS
+	bomb_power: int = INITIAL_BOMB_POWER
 	_bombs_left: int = INITIAL_BOMBS
 	health: int = DEFAULT_HEALTH
 	prev_position: tuple | None = None
@@ -28,7 +29,7 @@ class PlayerState:
 	event_id: str = field(default_factory=gen_randid)
 
 	def __repr__(self):
-		return f'PlayerState {self.client_name} (id: {self.client_id} pos: {self.position} health: {self.health} score: {self.score} bombs_left: {self.bombs_left} killed: {self.killed})'
+		return f'PlayerState {self.client_name} (id: {self.client_id} pos: {self.position} health: {self.health} score: {self.score} bombs_left: {self.bombs_left} bomb_power: {self.bomb_power} killed: {self.killed})'
 
 	def __post_init__(self, initial_bombs):
 		# Initialize the private attribute for the property from InitVar
@@ -55,6 +56,7 @@ class PlayerState:
 			'position': self.position,
 			'health': self.health,
 			'bombs_left': self.bombs_left,
+			'bomb_power': self.bomb_power,
 			'score': self.score,
 			'msg_dt': self.msg_dt,
 			'timeout': self.timeout,

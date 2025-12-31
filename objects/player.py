@@ -7,7 +7,7 @@ import json
 import pygame
 import time
 from utils import gen_randid, generate_name, get_cached_image, async_get_cached_image
-from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK, INITIAL_BOMBS
+from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK, INITIAL_BOMBS, INITIAL_BOMB_POWER
 
 MOVE_MAP = {
 	pygame.K_UP: (0, -PLAYER_MOVEMENT_SPEED),
@@ -61,6 +61,7 @@ class Bomberplayer(Sprite):
 		self.change_x = 0
 		self.change_y = 0
 		self.bombs_left = INITIAL_BOMBS
+		self.bomb_power = INITIAL_BOMB_POWER
 		self.health = 101
 		self.killed = False
 		self.timeout = False
@@ -119,6 +120,8 @@ class Bomberplayer(Sprite):
 				'msg_dt': time.time(),
 				'killed': self.killed,
 				'bombs_left': self.bombs_left,
+				'bomb_power': self.bomb_power,
+				'client_name': self.client_name,
 			}
 		except Exception as e:
 			logger.error(f"Error converting player to dict: {e}")
@@ -187,7 +190,7 @@ class Bomberplayer(Sprite):
 			tile_x = (int(cx) // tile_size) * tile_size + tile_size // 2
 			tile_y = (int(cy) // tile_size) * tile_size + tile_size // 2
 			bomb_pos = (tile_x, tile_y)
-			event = {"event_time": current_time, 'event_type': "notset", "client_id": self.client_id, "position": bomb_pos, "bombs_left": self.bombs_left, "handled": False, "handledby": self.client_id, "event_id": gen_randid(),}
+			event = {"event_time": current_time, 'event_type': "notset", "client_id": self.client_id, "position": bomb_pos, "bombs_left": self.bombs_left, "bomb_power": self.bomb_power, "handled": False, "handledby": self.client_id, "event_id": gen_randid(),}
 			# Check cooldown first
 			if (current_time - self.lastdrop) < cooldown_period or self.killed or self.bombs_left <= 0:
 				event['event_type'] = "nodrop"

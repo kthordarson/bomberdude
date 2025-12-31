@@ -8,8 +8,15 @@ from utils import get_cached_image, gen_randid, async_get_cached_image
 class Upgrade(Sprite):
 	def __init__(self, position, upgrade_id, upgradetype, life=10.0):
 		super().__init__()
-		self.image_name = 'data/heart.png'
-		self.upgradetype = upgradetype  # random.choice(['default', 'speed', 'power', 'range', 'extra_bomb'])
+		if upgradetype == 20:
+			self.image_name = 'data/heart.png'
+		elif upgradetype == 21:
+			self.image_name = 'data/newbomb2.png'
+		elif upgradetype == 22:
+			self.image_name = 'data/bombpwr.png'
+		else:
+			self.image_name = 'data/skull.png'
+		self.upgradetype = upgradetype
 		self.position = position
 		self.scale = 1.0
 		self.client_id = gen_randid()

@@ -495,7 +495,7 @@ class GameState:
 							"event_type": "upgrade_spawned",
 							"client_id": self.client_id,
 							"position": (tile_x, tile_y),
-							"upgradetype": random.choice([20,21]),
+							"upgradetype": random.choice([20, 21, 22]),
 							"upgrade_id": gen_randid(),
 							"handled": False,
 							"handledby": "check_flame_collisions",
@@ -713,7 +713,7 @@ class GameState:
 						sprite.bombs_left = player_entry.bombs_left
 					break
 		# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
-		bomb = Bomb(position=pos, client_id=client_id)
+		bomb = Bomb(position=pos, client_id=client_id, bomb_power=event.get("bomb_power"))
 		await bomb.async_init()
 		self.bombs.add(bomb)
 
@@ -805,11 +805,12 @@ class GameState:
 		client_id = event.get("client_id")
 		pos_tuple = self._to_pos_tuple(event.get("position"))
 
-		pos = event.get("position")
+		pos = event.get("position", (0,0))
 		health = int(event.get("health", 0))
 		client_name = event.get("client_name", "None")
 		score = int(event.get("score", 0))
-		bombs_left = event.get("bombs_left")
+		bombs_left = event.get("bombs_left", 0)
+		bomb_power = event.get("bomb_power", 0)
 
 		# Server is authoritative for health; clients may have stale state.
 		# Keep accepting health updates on clients so they reflect server state.
@@ -825,6 +826,7 @@ class GameState:
 				position=pos_tuple,
 				# position=pos if isinstance(pos, (list, tuple)) else [100, 100],
 				health=health,
+				bomb_power=bomb_power,
 				initial_bombs=bombs_left if isinstance(bombs_left, int) else 3,
 				score=score if isinstance(score, int) else 0,
 			)
@@ -839,6 +841,7 @@ class GameState:
 			if accept_update:
 				ps.health = int(health)
 				ps.bombs_left = bombs_left
+				ps.bomb_power = bomb_power
 			ps.score = score
 			ps.client_name = client_name
 			self.playerlist[client_id] = ps
@@ -857,6 +860,7 @@ class GameState:
 			out_event["bombs_left"] = ps.bombs_left
 			out_event["health"] = ps.health
 			out_event["client_name"] = ps.client_name
+			out_event["bomb_power"] = ps.bomb_power
 			# asyncio.create_task(self.broadcast_event(out_event))
 		else:
 			if self.args.debug_gamestate:
@@ -868,6 +872,7 @@ class GameState:
 		out_event["position"] = ps.position
 		out_event["score"] = ps.score
 		out_event["bombs_left"] = ps.bombs_left
+		out_event['bomb_power'] = ps.bomb_power
 		out_event["health"] = ps.health
 		out_event["client_name"] = ps.client_name
 		asyncio.create_task(self.broadcast_event(out_event))
@@ -982,16 +987,23 @@ class GameState:
 							else:
 								player.health = player.health + 10
 
-						if upgrade.upgradetype == 21:
+						elif upgrade.upgradetype == 21:
 							if isinstance(player, dict):
 								player['bombs_left'] = player.get('bombs_left', 0) + 1
 							else:
 								player.bombs_left = player.bombs_left + 1
 
+						elif upgrade.upgradetype == 22:
+							if isinstance(player, dict):
+								player['bomb_power'] = player.get('bomb_power', 0) + 3
+							else:
+								player.bomb_power = player.bomb_power + 1
+
 						# Broadcast the update immediately
 						p_health = player['health'] if isinstance(player, dict) else player.health
 						p_score = player.get('score', 0) if isinstance(player, dict) else player.score
 						p_bombs = player.get('bombs_left', 3) if isinstance(player, dict) else player.bombs_left
+						p_bomb_power = player.get('bomb_power', 1) if isinstance(player, dict) else player.bomb_power
 						p_pos = player.get('position') if isinstance(player, dict) else player.position
 						p_name = player.get('client_name') if isinstance(player, dict) else player.client_name
 						out_event = {
@@ -1000,6 +1012,7 @@ class GameState:
 							'health': p_health,
 							'score': p_score,
 							'bombs_left': p_bombs,
+							'bomb_power': p_bomb_power,
 							'position': p_pos,
 							'client_name': p_name,
 							'handled': False,
@@ -1014,8 +1027,10 @@ class GameState:
 							# Only sync non-positional fields; movement is client-driven.
 							if upgrade.upgradetype == 20:
 								sprite.health = sprite.health + 10
-							if upgrade.upgradetype == 21:
+							elif upgrade.upgradetype == 21:
 								sprite.bombs_left = sprite.bombs_left + 1
+							elif upgrade.upgradetype == 22:
+								sprite.bomb_power = sprite.bomb_power + 3
 							break
 
 				await self._apply_tile_change(tile_x, tile_y, 1)

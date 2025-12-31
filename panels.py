@@ -453,12 +453,14 @@ class PlayerInfoPanel:
             health = int(player.get('health', 0) or 0)
             score = int(player.get('score', 0) or 0)
             bombs_left = int(player.get('bombs_left', 0) or 0)
+            bomb_power = int(player.get('bomb_power', 0) or 0)
         else:
             player_id = str(getattr(player, 'client_id', 'unknown'))
             client_name = str(getattr(player, 'client_name', 'unknown'))
             health = int(getattr(player, 'health', 0) or 0)
             score = int(getattr(player, 'score', 0) or 0)
             bombs_left = int(getattr(player, 'bombs_left', 0) or 0)
+            bomb_power = int(getattr(player, 'bomb_power', 0) or 0)
 
         cache_key = (client_name, health, score, bombs_left)
         cached = self._player_text_cache.get(player_id)
@@ -466,7 +468,7 @@ class PlayerInfoPanel:
             id_text = _render_text_cached(self.player_font, f"Player: {client_name}", True, (255, 255, 255))
             health_text = _render_text_cached(self.stats_font, f"HP: {health}", True, (255, 255, 255))
             score_text = _render_text_cached(self.stats_font, f"Score: {score}", True, (255, 255, 255))
-            bombs_text = _render_text_cached(self.stats_font, f"Bombs: {bombs_left}", True, (255, 255, 255))
+            bombs_text = _render_text_cached(self.stats_font, f"Bombs: {bombs_left} {bomb_power}", True, (255, 255, 255))
             self._player_text_cache[player_id] = (cache_key, id_text, health_text, score_text, bombs_text)
         else:
             _, id_text, health_text, score_text, bombs_text = cached
