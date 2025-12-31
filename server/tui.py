@@ -1,7 +1,10 @@
+import threading
 import asyncio
 from loguru import logger
 from threading import Event
 from typing import Any, cast
+import code
+
 
 class ServerTUI():
 	def __init__(self, server, debug=False, gq=None):
@@ -16,6 +19,11 @@ class ServerTUI():
 
 	def __repr__(self):
 		return f"ServerTUI (stopped:{self.stopped()})"
+
+	def repl_thread(self):
+		print("Async REPL thread started. Use 'loop' to schedule coroutines.")
+		# code.interact(local=dict(loop=loop))
+		code.interact(local=dict(globals(), **locals(), server=self.server, tui=self))
 
 	async def stop(self):
 		self._stop.set()
@@ -69,14 +77,16 @@ class ServerTUI():
 			self.printhelp()
 		elif cmd[:1] == "s":
 			await self.get_serverinfo()
-		elif cmd[:1] == "r":
-			...
 		elif cmd[:1] == "l":
 			pass  # self.dump_players()
 		elif cmd[:1] == "e":
 			pass
 		elif cmd[:2] == "ec":
 			pass  # self.cleargameevents()
+		elif cmd[:1] == 'r':
+			t = threading.Thread(target=self.repl_thread, daemon=True)
+			logger.debug(f'Starting REPL thread: {t}')
+			t.start()
 		elif cmd[:1] == "q":
 			await self.server.stop()
 			await self.stop()

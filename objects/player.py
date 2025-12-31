@@ -7,7 +7,7 @@ import json
 import pygame
 import time
 from utils import gen_randid, generate_name, get_cached_image, async_get_cached_image
-from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK, INITIAL_BOMBS, INITIAL_BOMB_POWER
+from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK, INITIAL_BOMBS, INITIAL_BOMB_POWER, COOLDOWN_PERIOD
 
 MOVE_MAP = {
 	pygame.K_UP: (0, -PLAYER_MOVEMENT_SPEED),
@@ -49,7 +49,7 @@ class Bomberplayer(Sprite):
 	position: Vec2d = field(default_factory=lambda: Vec2d(99, 99))
 	health: int = 100
 	killed: bool = False
-	# name: str = 'xnonex'
+	cooldown_period: float = COOLDOWN_PERIOD
 
 	def __repr__(self) -> str:
 		return f'Bomberplayer {self.client_name} (id: {self.client_id} pos: {self.position} health: {self.health} score: {self.score} bombs_left: {self.bombs_left} killed: {self.killed})'
@@ -177,7 +177,6 @@ class Bomberplayer(Sprite):
 	async def drop_bomb(self):
 		"""Try to drop a bomb and return event"""
 		current_time = time.time()
-		cooldown_period = 0.5  # Half-second cooldown between bomb drops
 		# Player has bombs and can drop
 
 		# Calculate tile-centered position (snap to grid)
@@ -192,7 +191,7 @@ class Bomberplayer(Sprite):
 			bomb_pos = (tile_x, tile_y)
 			event = {"event_time": current_time, 'event_type': "notset", "client_id": self.client_id, "position": bomb_pos, "bombs_left": self.bombs_left, "bomb_power": self.bomb_power, "handled": False, "handledby": self.client_id, "event_id": gen_randid(),}
 			# Check cooldown first
-			if (current_time - self.lastdrop) < cooldown_period or self.killed or self.bombs_left <= 0:
+			if (current_time - self.lastdrop) < self.cooldown_period or self.killed or self.bombs_left <= 0:
 				event['event_type'] = "nodrop"
 			else:
 				if bomb_pos == (16,16):

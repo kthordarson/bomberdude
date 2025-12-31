@@ -1,3 +1,4 @@
+from constants import INITIAL_BOMB_POWER
 import asyncio
 import random
 from typing import Any, Callable, cast, Optional
@@ -589,7 +590,7 @@ class GameState:
 			x, y = pos
 			if isinstance(x, (int, float)) and isinstance(y, (int, float)):
 				return (int(x), int(y))
-		return (100, 100)  # default as tuple
+		return (0, 0)  # default as tuple
 
 	async def _on_player_joined(self, event: dict[str, Any]) -> str | None:
 		if self.args.debug_gamestate:
@@ -599,7 +600,8 @@ class GameState:
 			"client_name": event.get("client_name"),
 			"position": self._to_pos_tuple(event.get("position")),
 			"health": DEFAULT_HEALTH,
-			"bombs_left": 3,
+			"bombs_left": INITIAL_BOMBS,
+			'bomb_power': INITIAL_BOMB_POWER,
 			"score": 0,
 		}
 		self.playerlist[event.get("client_id",'x')] = player_state
@@ -734,12 +736,12 @@ class GameState:
 			# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
 			bomb = Bomb(position=pos, client_id=client_id, bomb_power=event.get("bomb_power"))
 			if self.args.debug_gamestate:
-				logger.info(f"{self} bomb: {bomb} for {client_id} at {pos}. player bombs left: {player_entry.bombs_left} self.bombs: {len(self.bombs)}")
+				logger.info(f"bomb: {bomb} for {client_id} at {pos}. player bombs left: {player_entry.bombs_left}")
 			await bomb.async_init()
 			self.bombs.add(bomb)
 
 			event["handled"] = True
-			event["handledby"] = "_on_player_drop_bomb"
+			event["handledby"] = f"{self.client_id}._on_player_drop_bomb"
 			asyncio.create_task(self.broadcast_event(event))
 		return True
 
@@ -1000,7 +1002,7 @@ class GameState:
 						}
 						asyncio.create_task(self.broadcast_event(out_event))
 						if self.args.debug_gamestate:
-							logger.info(f"Applied upgrade {upgrade.upgradetype} to player {picker_id} health: {player.health} bombs_left: {player.bombs_left}")
+							logger.info(f"Applied upgrade {upgrade.upgradetype} to player {picker_id} health: {player.health} bombs_left: {player.bombs_left} bomb_power: {player.bomb_power}")
 
 					# for sprite in self.players_sprites:
 					# 	if sprite.client_id == picker_id:
