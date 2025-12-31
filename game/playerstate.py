@@ -45,8 +45,8 @@ class PlayerState:
 
 	@bombs_left.setter
 	def bombs_left(self, value):
-		# Never exceed 3 bombs, and don't go below 0
-		self._bombs_left = min(3, max(0, value))
+		# Don't go below 0
+		self._bombs_left = max(0, value)
 
 	def to_dict(self):
 		return {

@@ -7,7 +7,7 @@ import json
 import pygame
 import time
 from utils import gen_randid, generate_name, get_cached_image, async_get_cached_image
-from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK
+from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK, INITIAL_BOMBS
 
 MOVE_MAP = {
 	pygame.K_UP: (0, -PLAYER_MOVEMENT_SPEED),
@@ -60,7 +60,7 @@ class Bomberplayer(Sprite):
 		# await self._set_texture(self.texture)
 		self.change_x = 0
 		self.change_y = 0
-		self.bombs_left = 3
+		self.bombs_left = INITIAL_BOMBS
 		self.health = 101
 		self.killed = False
 		self.timeout = False
@@ -105,8 +105,7 @@ class Bomberplayer(Sprite):
 
 	@bombs_left.setter
 	def bombs_left(self, value):
-		# Never exceed 3 bombs
-		self._bombsleft = min(3, max(0, value))
+		self._bombsleft = max(0, value)
 
 	def to_dict(self):
 		"""Convert player object to dictionary"""

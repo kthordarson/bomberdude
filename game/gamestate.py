@@ -751,11 +751,11 @@ class GameState:
 			sprite_updated = True
 			if isinstance(player_entry, dict):
 				bombs_before = player_entry.get('bombs_left', 0)
-				player_entry['bombs_left'] = min(3, bombs_before + 1)
+				player_entry['bombs_left'] = bombs_before + 1
 				bombs_after = player_entry['bombs_left']
 			else:
-				bombs_before = getattr(player_entry, 'bombs_left', 0)
-				player_entry.bombs_left = min(3, bombs_before + 1)
+				bombs_before = player_entry.bombs_left
+				player_entry.bombs_left = bombs_before + 1
 				bombs_after = player_entry.bombs_left
 			if self.args.debug_gamestate:
 				logger.info(f"Restored bomb for player {owner_raw}: bombs_left {bombs_before} -> {bombs_after}")
@@ -767,7 +767,7 @@ class GameState:
 		for sprite in self.players_sprites:
 			if sprite.client_id == owner_raw:
 				bombs_before_sprite = getattr(sprite, 'bombs_left', 0)
-				sprite.bombs_left = min(3, bombs_before_sprite + 1)
+				sprite.bombs_left = bombs_before_sprite + 1
 				sprite_updated = True
 				if self.args.debug_gamestate:
 					logger.info(f"Restored bomb for sprite {owner_raw}: bombs_left {bombs_before_sprite} -> {sprite.bombs_left}")
@@ -984,9 +984,9 @@ class GameState:
 
 						if upgrade.upgradetype == 21:
 							if isinstance(player, dict):
-								player['bombs_left'] = min(INITIAL_BOMBS, player.get('bombs_left', 0) + 1)
+								player['bombs_left'] = player.get('bombs_left', 0) + 1
 							else:
-								player.bombs_left = min(INITIAL_BOMBS, player.bombs_left + 1)
+								player.bombs_left = player.bombs_left + 1
 
 						# Broadcast the update immediately
 						p_health = player['health'] if isinstance(player, dict) else player.health
