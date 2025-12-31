@@ -69,7 +69,6 @@ async def send_game_state(game: Bomberdude) -> None:
 		# Log periodically
 		log_counter += 1
 		# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
-		# 	logger.info(f'send_counter: {send_counter} event_queue: {game.game_state.event_queue.qsize()} client_queue: {game.game_state.client_queue.qsize()}')
 
 async def receive_game_state(game: Bomberdude) -> None:
 	# Log less frequently

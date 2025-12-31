@@ -83,7 +83,7 @@ def draw_debug_info(screen, game_state, camera):
     screen.blit(fps_text, (screen.get_width() - 100, 10))
 
     player_one = game_state.get_playerone()
-    players_line = f"Players: {len(game_state.playerlist)}/{len(game_state.players_sprites)} eq: {game_state.event_queue.qsize()} cq: {game_state.client_queue.qsize()}"
+    players_line = f"Players: {len(game_state.playerlist)}/{len(game_state.players_sprites)} eq: {game_state.event_queue.qsize()} "
     debug_text = _render_line(font, "players", players_line, True, (255, 255, 255))
     screen.blit(debug_text, (10, 10))
 

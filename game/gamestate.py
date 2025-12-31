@@ -47,7 +47,6 @@ class GameState:
 		self.upgrade_by_tile: dict[tuple[int, int], Any] = {}
 		self.upgrade_by_id: dict[str, Any] = {}
 		self.connections = set()
-		self.client_queue = asyncio.Queue()
 		self.playerlist = {}  # dict = field(default_factory=dict)
 		self.last_pos_broadcast = 0
 		self.explosion_manager = ExplosionManager()
@@ -85,7 +84,7 @@ class GameState:
 		}
 
 	def __repr__(self):
-		return f'Gamestate {self.client_id} ( event_queue:{self.event_queue.qsize()} client_queue:{self.client_queue.qsize()}  players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)} broadcast_counter:{self.broadcast_counter} )'
+		return f'Gamestate {self.client_id} ( players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)} broadcast_counter:{self.broadcast_counter} )'
 
 	def _iter_tiles_from_index_in_rect(self, tile_index: dict[tuple[int, int], Any], rect: pygame.Rect, *, pad_pixels: int = 0):
 		"""Yield tiles from a {(tile_x,tile_y)->tile} index intersecting rect.
