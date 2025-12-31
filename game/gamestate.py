@@ -172,6 +172,7 @@ class GameState:
 				sprite.health = state.health
 				sprite.score = state.score
 				sprite.bombs_left = state.bombs_left
+				sprite.bomb_power = state.bomb_power
 				# Ensure the sprite image reflects killed/dead state.
 				dead = state.killed or int(state.health) <= 0
 				if sprite.set_dead:
@@ -301,6 +302,24 @@ class GameState:
 			logger.warning(f'get_playerone: No local player found for client_id: {self.client_id}')
 		texture = "data/netplayerdead.png"
 		return Bomberplayer(texture=texture, client_id=self.client_id)
+
+	def get_player_sprite_by_id(self, client_id) -> Optional[Bomberplayer]:
+		"""Return the sprite for a specific client_id if it exists."""
+		cid = str(client_id)
+		for player in self.players_sprites:
+			if str(player.client_id) == cid:
+				if self.args.debug_gamestate:
+					logger.info(f'{self} player sprite {player} found for client_id: {client_id}')
+				return player
+		player_entry = self.playerlist.get(client_id)
+		if player_entry:
+			if self.args.debug_gamestate:
+				logger.info(f'{self} player entry {player_entry} {type(player_entry)} found for client_id: {client_id} but no sprite exists yet.')
+			return player_entry
+		else:
+			if self.args.debug_gamestate:
+				logger.warning(f'{self} No player sprite found for client_id: {client_id}')
+			return None
 
 	def load_tile_map(self, mapname):
 		self.mapname = mapname
@@ -699,6 +718,11 @@ class GameState:
 		pos = self._to_pos_tuple(event.get("position"))
 		# Keep replicated state in sync with the event
 		player_entry = self.playerlist.get(client_id)
+		if not player_entry:
+			if self.args.debug_gamestate:
+				logger.warning(f"{self} _on_player_drop_bomb: No player entry found for {client_id}, cannot drop bomb.")
+			await asyncio.sleep(0)
+			return False
 		if player_entry:
 			if isinstance(player_entry, dict):
 				player_entry['bombs_left'] = player_entry.get('bombs_left', 3) - 1
@@ -712,14 +736,16 @@ class GameState:
 					else:
 						sprite.bombs_left = player_entry.bombs_left
 					break
-		# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
-		bomb = Bomb(position=pos, client_id=client_id, bomb_power=event.get("bomb_power"))
-		await bomb.async_init()
-		self.bombs.add(bomb)
+			# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
+			bomb = Bomb(position=pos, client_id=client_id, bomb_power=event.get("bomb_power"))
+			if self.args.debug_gamestate:
+				logger.info(f"{self} _on_player_drop_bomb: Creating bomb {bomb} for {client_id} at {pos} with power {event.get('bomb_power')}. Updated player_entry: {player_entry}")
+			await bomb.async_init()
+			self.bombs.add(bomb)
 
-		event["handled"] = True
-		event["handledby"] = "_on_player_drop_bomb"
-		asyncio.create_task(self.broadcast_event(event))
+			event["handled"] = True
+			event["handledby"] = "_on_player_drop_bomb"
+			asyncio.create_task(self.broadcast_event(event))
 		return True
 
 	async def _on_bomb_exploded(self, event: dict[str, Any]) -> bool:
@@ -727,13 +753,13 @@ class GameState:
 		explosion_id = event.get("event_id")
 		if event.get("handled"):
 			self.processed_explosions.add(explosion_id)
-			if self.args.debug_gamestate:
-				logger.warning(f"{self} _on_bomb_exploded: explosion_id {explosion_id}, already handled ignoring. self.processed_explosions: {len(self.processed_explosions)} event: {event}")
+			# if self.args.debug_gamestate:
+			# 	logger.warning(f"{self} _on_bomb_exploded: explosion_id {explosion_id}, already handled ignoring. self.processed_explosions: {len(self.processed_explosions)} event: {event}")
 			await asyncio.sleep(0)
 			return False
 		if explosion_id in self.processed_explosions:
-			if self.args.debug_gamestate:
-				logger.warning(f"{self} _on_bomb_exploded: Duplicate explosion_id {explosion_id}, ignoring. self.processed_explosions: {len(self.processed_explosions)} event: {event}")
+			# if self.args.debug_gamestate:
+			# 	logger.warning(f"{self} _on_bomb_exploded: Duplicate explosion_id {explosion_id}, ignoring. self.processed_explosions: {len(self.processed_explosions)} event: {event}")
 			await asyncio.sleep(0)
 			return False
 		self.processed_explosions.add(explosion_id)
@@ -750,29 +776,24 @@ class GameState:
 		if player_entry:
 			sprite_updated = True
 			if isinstance(player_entry, dict):
-				bombs_before = player_entry.get('bombs_left', 0)
-				player_entry['bombs_left'] = bombs_before + 1
-				bombs_after = player_entry['bombs_left']
+				player_entry['bombs_left'] += 1
 			else:
-				bombs_before = player_entry.bombs_left
-				player_entry.bombs_left = bombs_before + 1
-				bombs_after = player_entry.bombs_left
+				player_entry.bombs_left += 1
 			if self.args.debug_gamestate:
-				logger.info(f"Restored bomb for player {owner_raw}: bombs_left {bombs_before} -> {bombs_after}")
+				logger.info(f"Restored bomb for player {owner_raw}: player_entry: {player_entry}")
 		else:
 			if self.args.debug_gamestate:
 				logger.warning(f"Bomb exploded but player {owner_raw} not found in playerlist.")
 
 		# Update all matching sprites
-		for sprite in self.players_sprites:
-			if sprite.client_id == owner_raw:
-				bombs_before_sprite = getattr(sprite, 'bombs_left', 0)
-				sprite.bombs_left = bombs_before_sprite + 1
-				sprite_updated = True
-				if self.args.debug_gamestate:
-					logger.info(f"Restored bomb for sprite {owner_raw}: bombs_left {bombs_before_sprite} -> {sprite.bombs_left}")
-		if not sprite_updated and self.args.debug_gamestate:
-			logger.warning(f"Bomb exploded but sprite for player {owner_raw} not found in players_sprites.")
+		# for sprite in self.players_sprites:
+		# 	if sprite.client_id == owner_raw:
+		# 		sprite.bombs_left += 1
+		# 		sprite_updated = True
+		# 		if self.args.debug_gamestate:
+		# 			logger.info(f"Restored bomb for sprite {owner_raw}: bombs_left {sprite.bombs_left} sprite: {sprite}")
+		# if not sprite_updated and self.args.debug_gamestate:
+		# 	logger.warning(f"Bomb exploded but sprite for player {owner_raw} not found in players_sprites.")
 
 		event["handled"] = True
 		event["handledby"] = "_on_bomb_exploded"
@@ -822,13 +843,12 @@ class GameState:
 		if existing is None:
 			ps = PlayerState(
 				client_id=client_id,  # type: ignore
-				client_name=client_name or 'client_namenotset',
+				client_name=client_name,
 				position=pos_tuple,
-				# position=pos if isinstance(pos, (list, tuple)) else [100, 100],
 				health=health,
 				bomb_power=bomb_power,
-				initial_bombs=bombs_left if isinstance(bombs_left, int) else 3,
-				score=score if isinstance(score, int) else 0,
+				initial_bombs=bombs_left,
+				score=score,
 			)
 			self.playerlist[client_id] = ps
 			# Keep local sprite in sync (health/score/bombs) with authoritative data.
@@ -917,8 +937,6 @@ class GameState:
 			if self.client_id == "theserver":
 				target_player_entry.take_damage(damage, attacker_id=event.get("client_id"))
 			self.playerlist[target] = target_player_entry
-			# If we are the target, also sync the local sprite so HUD/debug reflects correct health.
-			# if isinstance(target_player_entry, PlayerState):
 			self._sync_local_sprite_from_state(target_player_entry)
 
 		# Mark handled locally so we don't reapply if this event loops back.
@@ -960,17 +978,13 @@ class GameState:
 		upgrades_to_remove = []
 		for uid, upgrade in list(self.upgrade_by_id.items()):
 			# Upgrades may store tile as .tile or .position (in tile coords)
-			upgrade_tile = getattr(upgrade, 'tile', None)
-			if upgrade_tile is None:
-				# Try to infer from .position if it's in tile coords
-				pos_attr = getattr(upgrade, 'position', None)
-				if pos_attr:
-					ux = int(pos_attr[0]) // self.tile_map.tilewidth
-					uy = int(pos_attr[1]) // self.tile_map.tileheight
-					if (ux, uy) == (tile_x, tile_y):
-						upgrade_tile = (tile_x, tile_y)
-			if upgrade_tile == (tile_x, tile_y):
-				upgrades_to_remove.append(uid)
+			pos_attr = getattr(upgrade, 'position', None)
+			if pos_attr:
+				ux = int(pos_attr[0]) // self.tile_map.tilewidth
+				uy = int(pos_attr[1]) // self.tile_map.tileheight
+				if (ux, uy) == (tile_x, tile_y):
+					upgrade_tile = (tile_x, tile_y)
+					upgrades_to_remove.append(uid)
 		for uid in upgrades_to_remove:
 			upgrade = self.upgrade_by_id.pop(uid, None)
 			if upgrade:
@@ -979,58 +993,47 @@ class GameState:
 					self.upgrade_blocks.discard(upgrade)
 				if self.client_id == 'theserver':
 					picker_id = event.get('client_id')
-					player = self.playerlist.get(picker_id)
-					if player and upgrade:
+					# player = self.playerlist.get(picker_id)
+					player = self.get_player_sprite_by_id(picker_id)
+					if player:
 						if upgrade.upgradetype == 20:
-							if isinstance(player, dict):
-								player['health'] = player.get('health', 0) + 10
-							else:
-								player.health = player.health + 10
+							player.health += 10
 
 						elif upgrade.upgradetype == 21:
-							if isinstance(player, dict):
-								player['bombs_left'] = player.get('bombs_left', 0) + 1
-							else:
-								player.bombs_left = player.bombs_left + 1
+							player.bombs_left += 1
 
 						elif upgrade.upgradetype == 22:
-							if isinstance(player, dict):
-								player['bomb_power'] = player.get('bomb_power', 0) + 3
-							else:
-								player.bomb_power = player.bomb_power + 1
+							player.bomb_power += 1
 
 						# Broadcast the update immediately
-						p_health = player['health'] if isinstance(player, dict) else player.health
-						p_score = player.get('score', 0) if isinstance(player, dict) else player.score
-						p_bombs = player.get('bombs_left', 3) if isinstance(player, dict) else player.bombs_left
-						p_bomb_power = player.get('bomb_power', 1) if isinstance(player, dict) else player.bomb_power
-						p_pos = player.get('position') if isinstance(player, dict) else player.position
-						p_name = player.get('client_name') if isinstance(player, dict) else player.client_name
 						out_event = {
 							'event_type': 'player_update',
 							'client_id': picker_id,
-							'health': p_health,
-							'score': p_score,
-							'bombs_left': p_bombs,
-							'bomb_power': p_bomb_power,
-							'position': p_pos,
-							'client_name': p_name,
+							'health': player.health,
+							'score': player.score,
+							'bombs_left': player.bombs_left,
+							'bomb_power': player.bomb_power,
+							'position': player.position,
+							'client_name': player.client_name,
 							'handled': False,
 							'handledby': 'server.upgrade_pickup'
 						}
 						asyncio.create_task(self.broadcast_event(out_event))
 						if self.args.debug_gamestate:
-							logger.info(f"{self} _on_upgrade_pickup: Applied upgrade {upgrade.upgradetype} to player {picker_id} new health: {p_health} bombs_left: {p_bombs} player: {player}")
+							logger.info(f"{self} _on_upgrade_pickup: Applied upgrade {upgrade.upgradetype} to player {picker_id} health: {player.health} bombs_left: {player.bombs_left} player: {player}")
 
 					for sprite in self.players_sprites:
 						if sprite.client_id == picker_id:
-							# Only sync non-positional fields; movement is client-driven.
+							if self.args.debug_gamestate:
+								logger.info(f"{self} _on_upgrade_pickup: Applying upgrade {upgrade.upgradetype} to sprite {picker_id} before: health={sprite.health} bombs_left={sprite.bombs_left} bomb_power={sprite.bomb_power}")
 							if upgrade.upgradetype == 20:
-								sprite.health = sprite.health + 10
+								sprite.health += 10
 							elif upgrade.upgradetype == 21:
-								sprite.bombs_left = sprite.bombs_left + 1
+								sprite.bombs_left += 1
 							elif upgrade.upgradetype == 22:
-								sprite.bomb_power = sprite.bomb_power + 3
+								sprite.bomb_power += 1
+							if self.args.debug_gamestate:
+								logger.info(f"{self} _on_upgrade_pickup: Applying upgrade {upgrade.upgradetype} to sprite {picker_id} before: health={sprite.health} bombs_left={sprite.bombs_left} bomb_power={sprite.bomb_power}")
 							break
 
 				await self._apply_tile_change(tile_x, tile_y, 1)

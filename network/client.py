@@ -47,6 +47,8 @@ async def send_game_state(game: Bomberdude) -> None:
 			'position': (player_one.position[0], player_one.position[1]),
 			'health': player_one.health,
 			'score': player_one.score,
+			'bombs_left': player_one.bombs_left,
+			'bomb_power': player_one.bomb_power,
 			'keyspressed': client_keys,
 			'event_type': "send_game_state",
 			'handledby': "send_game_state",

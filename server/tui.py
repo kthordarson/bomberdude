@@ -42,7 +42,7 @@ class ServerTUI():
 		print(f"statejsonkeys: {state_json.keys()} ")
 
 		for player in self.server.game_state.playerlist.values():
-			print(f"player ({type(player)}): {player.client_name}: {player.client_id} {player.position} {player.health} bombs_left: {player.bombs_left}")
+			print(f"player ({type(player)}): {player.client_name}: {player.client_id} {player.position} {player.health} bombs_left: {player.bombs_left} bomb_power: {player.bomb_power} killed: {player.killed}")
 
 	def printhelp(self):
 		print("""

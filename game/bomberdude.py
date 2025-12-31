@@ -13,7 +13,6 @@ from game.gamestate import GameState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
 from camera import Camera
 from objects.player import Bomberplayer, MOVE_MAP
-from game.playerstate import PlayerState  # Import PlayerState
 from debug import draw_debug_info
 from panels import PlayerInfoPanel
 

@@ -34,7 +34,7 @@ class Bomb(Sprite):
 			self.rect.center = (int(self.position.x), int(self.position.y))
 
 	def __repr__(self):
-		return f'Bomb (pos: {self.position} )'
+		return f'Bomb {self.client_id} (pos: {self.position} power: {self.bomb_power} timer: {self.timer} )'
 
 	def update(self, *args, **kwargs):
 		game_state = None
@@ -43,12 +43,16 @@ class Bomb(Sprite):
 		elif 'game_state' in kwargs:
 			game_state = kwargs['game_state']
 		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:
-			# Create explosion particles if manager is provided
-			if not self.exploded and game_state and game_state.explosion_manager and self.rect:
-				game_state.explosion_manager.create_explosion(self.rect.center, count=2)
-				game_state.explosion_manager.create_flames(self)
+			if not self.exploded:
 				self.exploded = True
-			asyncio.create_task(self.explode(game_state))
+				# Create explosion particles if manager is provided
+				if game_state and game_state.explosion_manager and self.rect:
+					game_state.explosion_manager.create_explosion(self.rect.center, count=2)
+					game_state.explosion_manager.create_flames(self)
+				if game_state and game_state.client_id == self.client_id:
+					asyncio.create_task(self.explode(game_state))
+				else:
+					self.kill()
 
 	async def explode(self, gamestate):
 		explosion_event = {

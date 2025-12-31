@@ -386,7 +386,7 @@ class PlayerInfoPanel:
         self.surface = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
 
         # Cache per-player rendered text (only update when values change)
-        self._player_text_cache: dict[str, tuple[tuple[str, int, int, int], pygame.Surface, pygame.Surface, pygame.Surface, pygame.Surface]] = {}
+        self._player_text_cache: dict[str, tuple[tuple[str, int, int, int, int], pygame.Surface, pygame.Surface, pygame.Surface, pygame.Surface]] = {}
 
     def draw(self):
         """Draw the player info panel"""
@@ -462,7 +462,7 @@ class PlayerInfoPanel:
             bombs_left = int(getattr(player, 'bombs_left', 0) or 0)
             bomb_power = int(getattr(player, 'bomb_power', 0) or 0)
 
-        cache_key = (client_name, health, score, bombs_left)
+        cache_key = (client_name, health, score, bombs_left, bomb_power)
         cached = self._player_text_cache.get(player_id)
         if cached is None or cached[0] != cache_key:
             id_text = _render_text_cached(self.player_font, f"Player: {client_name}", True, (255, 255, 255))
