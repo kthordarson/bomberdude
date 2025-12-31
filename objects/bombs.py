@@ -1,6 +1,7 @@
 import asyncio
 from loguru import logger
 import time
+import random
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 import pygame
@@ -47,7 +48,8 @@ class Bomb(Sprite):
 				self.exploded = True
 				# Create explosion particles if manager is provided
 				if game_state and game_state.explosion_manager and self.rect:
-					game_state.explosion_manager.create_explosion(self.rect.center, count=2)
+					paricle_count = self.bomb_power * random.randint(4,60)
+					game_state.explosion_manager.create_explosion(self.rect.center, count=21)
 					game_state.explosion_manager.create_flames(self)
 				if game_state and game_state.client_id == self.client_id:
 					asyncio.create_task(self.explode(game_state))
