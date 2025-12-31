@@ -307,13 +307,9 @@ class GameState:
 		cid = str(client_id)
 		for player in self.players_sprites:
 			if str(player.client_id) == cid:
-				if self.args.debug_gamestate:
-					logger.info(f'{self} player sprite {player} found for client_id: {client_id}')
 				return player
 		player_entry = self.playerlist.get(client_id)
 		if player_entry:
-			if self.args.debug_gamestate:
-				logger.info(f'{self} player entry {player_entry} {type(player_entry)} found for client_id: {client_id} but no sprite exists yet.')
 			return player_entry
 		else:
 			if self.args.debug_gamestate:
@@ -684,7 +680,7 @@ class GameState:
 		dead = bool(getattr(shooter_entry, 'killed', False)) or int(getattr(shooter_entry, 'health', 0) or 0) <= 0
 		if dead:
 			if self.args.debug_gamestate:
-				logger.warning(f"{self} _on_bullet_fired: Shooter {client_id} is dead/killed, ignoring bullet fire.")
+				logger.warning(f"{self} Shooter {client_id} is dead/killed, ignoring bullet fire.")
 			await asyncio.sleep(0)
 			return False
 
@@ -719,7 +715,7 @@ class GameState:
 		player_entry = self.playerlist.get(client_id)
 		if not player_entry:
 			if self.args.debug_gamestate:
-				logger.warning(f"{self} _on_player_drop_bomb: No player entry found for {client_id}, cannot drop bomb.")
+				logger.warning(f"{self} No player entry found for {client_id}, cannot drop bomb.")
 			await asyncio.sleep(0)
 			return False
 		if player_entry:
@@ -738,7 +734,7 @@ class GameState:
 			# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
 			bomb = Bomb(position=pos, client_id=client_id, bomb_power=event.get("bomb_power"))
 			if self.args.debug_gamestate:
-				logger.info(f"{self} _on_player_drop_bomb: Creating bomb {bomb} for {client_id} at {pos} with power {event.get('bomb_power')}. Updated player_entry: {player_entry}")
+				logger.info(f"{self} Creating bomb {bomb} for {client_id} at {pos} with power {event.get('bomb_power')}. Updated player_entry: {player_entry}")
 			await bomb.async_init()
 			self.bombs.add(bomb)
 
@@ -779,20 +775,10 @@ class GameState:
 			else:
 				player_entry.bombs_left += 1
 			if self.args.debug_gamestate:
-				logger.info(f"Restored bomb for player {owner_raw}: player_entry: {player_entry}")
+				logger.info(f"{self} Restored bomb for player {owner_raw}: player_entry: {player_entry}")
 		else:
 			if self.args.debug_gamestate:
-				logger.warning(f"Bomb exploded but player {owner_raw} not found in playerlist.")
-
-		# Update all matching sprites
-		# for sprite in self.players_sprites:
-		# 	if sprite.client_id == owner_raw:
-		# 		sprite.bombs_left += 1
-		# 		sprite_updated = True
-		# 		if self.args.debug_gamestate:
-		# 			logger.info(f"Restored bomb for sprite {owner_raw}: bombs_left {sprite.bombs_left} sprite: {sprite}")
-		# if not sprite_updated and self.args.debug_gamestate:
-		# 	logger.warning(f"Bomb exploded but sprite for player {owner_raw} not found in players_sprites.")
+				logger.warning(f"{self} Bomb exploded but player {owner_raw} not found in playerlist.")
 
 		event["handled"] = True
 		event["handledby"] = "_on_bomb_exploded"
