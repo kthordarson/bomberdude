@@ -273,8 +273,9 @@ class GameState:
 	async def send_to_client(self, connection, data):
 		"""Send data to specific client connection"""
 		try:
-			# loop = asyncio.get_event_loop()
-			loop = asyncio.get_running_loop()
+			loop = asyncio.get_event_loop()
+			# loop = asyncio.get_running_loop()
+			# loop = asyncio.new_event_loop()
 			if isinstance(data, dict):
 				data_out = json.dumps(data).encode('utf-8') + b'\n'
 			elif isinstance(data, bytes):
@@ -744,8 +745,10 @@ class GameState:
 		player_entry = self.playerlist.get(owner_raw)
 		bombs_before = None
 		bombs_after = None
+		sprite_updated = False
 		# Update player state (dict or object)
 		if player_entry:
+			sprite_updated = True
 			if isinstance(player_entry, dict):
 				bombs_before = player_entry.get('bombs_left', 0)
 				player_entry['bombs_left'] = min(3, bombs_before + 1)
@@ -761,7 +764,6 @@ class GameState:
 				logger.warning(f"Bomb exploded but player {owner_raw} not found in playerlist.")
 
 		# Update all matching sprites
-		sprite_updated = False
 		for sprite in self.players_sprites:
 			if sprite.client_id == owner_raw:
 				bombs_before_sprite = getattr(sprite, 'bombs_left', 0)
@@ -775,8 +777,10 @@ class GameState:
 		event["handled"] = True
 		event["handledby"] = "_on_bomb_exploded"
 		out_event = dict(event)
-		out_event["handled"] = False
-		asyncio.create_task(self.broadcast_event(out_event))
+		if self.client_id == "theserver":
+			out_event["handled"] = False
+			out_event['handledby'] = f"{self.client_id}._on_bomb_exploded"
+			asyncio.create_task(self.broadcast_event(out_event))
 		await asyncio.sleep(0)
 		return True
 

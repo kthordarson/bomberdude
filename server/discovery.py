@@ -61,7 +61,9 @@ class ServerDiscovery:
         sock.bind((bind_host, self.discovery_port))
         logger.info(f"Server discovery listening on {bind_host}:{self.discovery_port}")
 
-        loop = asyncio.get_running_loop()
+        # loop = asyncio.get_running_loop()
+        # loop = asyncio.new_event_loop()
+        loop = asyncio.get_event_loop()
         try:
             while self.running:
                 try:

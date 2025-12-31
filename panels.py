@@ -210,8 +210,8 @@ class ServerDiscoveryPanel():
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         sock.setblocking(False)
-        # loop = asyncio.get_event_loop()
-        loop = asyncio.get_running_loop()
+        loop = asyncio.get_event_loop()
+        # loop = asyncio.get_running_loop()
 
         while self.discovery_running:
             try:

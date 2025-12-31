@@ -126,7 +126,9 @@ class BombServer:
 
 	async def new_start_server(self):
 		# Schedule background tasks on the current running loop
-		loop = asyncio.get_running_loop()
+		# loop = asyncio.get_running_loop()
+		# loop = asyncio.new_event_loop()
+		loop = asyncio.get_event_loop()
 		discovery_task = loop.create_task(self.discovery_service.start_discovery_service())
 		"""Start the game server using asyncio's high-level server API"""
 		# Create the server
