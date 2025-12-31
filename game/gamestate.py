@@ -720,21 +720,21 @@ class GameState:
 			return False
 		if player_entry:
 			if isinstance(player_entry, dict):
-				player_entry['bombs_left'] = player_entry.get('bombs_left', 3) - 1
+				player_entry['bombs_left'] -= 1
 			else:
 				player_entry.bombs_left -= 1
 			# Also update local sprite if this is us
 			for sprite in self.players_sprites:
 				if sprite.client_id == client_id:
 					if isinstance(player_entry, dict):
-						sprite.bombs_left = player_entry.get('bombs_left', 3)
+						sprite.bombs_left = player_entry['bombs_left']
 					else:
 						sprite.bombs_left = player_entry.bombs_left
 					break
 			# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
 			bomb = Bomb(position=pos, client_id=client_id, bomb_power=event.get("bomb_power"))
 			if self.args.debug_gamestate:
-				logger.info(f"{self} Creating bomb {bomb} for {client_id} at {pos} with power {event.get('bomb_power')}. Updated player_entry: {player_entry}")
+				logger.info(f"{self} bomb: {bomb} for {client_id} at {pos}. player bombs left: {player_entry.bombs_left} self.bombs: {len(self.bombs)}")
 			await bomb.async_init()
 			self.bombs.add(bomb)
 
@@ -760,12 +760,7 @@ class GameState:
 		self.processed_explosions.add(explosion_id)
 
 		owner_raw = event.get("owner_id") or event.get("client_id")
-		pos = event.get("position")
-		tile_x = int(pos[0]) // self.tile_map.tilewidth  # type: ignore
-		tile_y = int(pos[1]) // self.tile_map.tileheight  # type: ignore
 		player_entry = self.playerlist.get(owner_raw)
-		bombs_before = None
-		bombs_after = None
 		sprite_updated = False
 		# Update player state (dict or object)
 		if player_entry:
@@ -775,7 +770,7 @@ class GameState:
 			else:
 				player_entry.bombs_left += 1
 			if self.args.debug_gamestate:
-				logger.info(f"{self} Restored bomb for player {owner_raw}: player_entry: {player_entry}")
+				logger.info(f"{self} Restored bomb for player {owner_raw}: player bombs_left: {player_entry.bombs_left}")
 		else:
 			if self.args.debug_gamestate:
 				logger.warning(f"{self} Bomb exploded but player {owner_raw} not found in playerlist.")
@@ -1005,26 +1000,24 @@ class GameState:
 						}
 						asyncio.create_task(self.broadcast_event(out_event))
 						if self.args.debug_gamestate:
-							logger.info(f"{self} _on_upgrade_pickup: Applied upgrade {upgrade.upgradetype} to player {picker_id} health: {player.health} bombs_left: {player.bombs_left} player: {player}")
+							logger.info(f"Applied upgrade {upgrade.upgradetype} to player {picker_id} health: {player.health} bombs_left: {player.bombs_left}")
 
-					for sprite in self.players_sprites:
-						if sprite.client_id == picker_id:
-							if self.args.debug_gamestate:
-								logger.info(f"{self} _on_upgrade_pickup: Applying upgrade {upgrade.upgradetype} to sprite {picker_id} before: health={sprite.health} bombs_left={sprite.bombs_left} bomb_power={sprite.bomb_power}")
-							if upgrade.upgradetype == 20:
-								sprite.health += 10
-							elif upgrade.upgradetype == 21:
-								sprite.bombs_left += 1
-							elif upgrade.upgradetype == 22:
-								sprite.bomb_power += 1
-							if self.args.debug_gamestate:
-								logger.info(f"{self} _on_upgrade_pickup: Applying upgrade {upgrade.upgradetype} to sprite {picker_id} before: health={sprite.health} bombs_left={sprite.bombs_left} bomb_power={sprite.bomb_power}")
-							break
+					# for sprite in self.players_sprites:
+					# 	if sprite.client_id == picker_id:
+					# 		if self.args.debug_gamestate:
+					# 			logger.info(f"{self} _on_upgrade_pickup: Applying upgrade {upgrade.upgradetype} to sprite {picker_id} before: health={sprite.health} bombs_left={sprite.bombs_left} bomb_power={sprite.bomb_power}")
+					# 		if upgrade.upgradetype == 20:
+					# 			sprite.health += 10
+					# 		elif upgrade.upgradetype == 21:
+					# 			sprite.bombs_left += 1
+					# 		elif upgrade.upgradetype == 22:
+					# 			sprite.bomb_power += 1
+					# 		if self.args.debug_gamestate:
+					# 			logger.info(f"{self} _on_upgrade_pickup: Applying upgrade {upgrade.upgradetype} to sprite {picker_id} before: health={sprite.health} bombs_left={sprite.bombs_left} bomb_power={sprite.bomb_power}")
+					# 		break
 
 				await self._apply_tile_change(tile_x, tile_y, 1)
 				upgrade.kill()
-		event['handled'] = True
-		event['handledby'] = '_on_upgrade_pickup'
 		await asyncio.sleep(0)
 
 		return True
