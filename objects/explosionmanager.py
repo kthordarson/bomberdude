@@ -13,7 +13,7 @@ class ExplosionManager:
 		self.flames = pygame.sprite.Group()
 		self.shockwaves = []
 
-	def create_explosion(self, position, count=PARTICLE_COUNT, colors=None):
+	def create_explosion(self, position, count, colors=None):
 		if colors is None:
 			colors = [(255, 165, 0), (255, 69, 0), (255, 215, 0)]
 
@@ -30,26 +30,14 @@ class ExplosionManager:
 			lifetime = 2.0  # random.uniform(1.0, 2.0)
 
 			# Create particle
-			particle = Particle(
-				position=position,
-				velocity=velocity,
-				radius=random.randint(2, PARTICLE_RADIUS),
-				color=color,
-				life=lifetime
-			)
+			particle = Particle(position=position, velocity=velocity, radius=random.randint(2, PARTICLE_RADIUS), color=color, life=lifetime)
 			self.particles.add(particle)
 		self.create_shockwave(position)
 
 	def create_shockwave(self, position):
 		# self.shockwaves = []
 		# Primary shockwave - faster and more transparent
-		primary = Shockwave(
-			position=position,
-			max_radius=SHOCKWAVE_MAX_RADIUS_PRIMARY,
-			duration=0.8,  # Fixed duration
-			expansion_rate=SHOCKWAVE_EXPANSION_RATE,
-			color=(255, 255, 255, 100)
-		)
+		primary = Shockwave(position=position, max_radius=SHOCKWAVE_MAX_RADIUS_PRIMARY, duration=0.8, expansion_rate=SHOCKWAVE_EXPANSION_RATE, color=(255, 255, 255, 100))
 		self.shockwaves.append(primary)
 
 		# Secondary shockwave - slower and more visible

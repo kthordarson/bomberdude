@@ -20,13 +20,11 @@ class BombServer:
 	def __init__(self, args):
 		self.args = args
 		self.game_state = GameState(args=self.args, mapname=args.mapname, client_id='theserver')
-		# self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.game_state)
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0
-		# Do NOT create or set event loop here. Schedule tasks in main async entry point.
 
 	def __repr__(self):
 		return f"<BombServer game_state connections={len(self.game_state.connections)} messages={self.message_counter} client_id={self.game_state.client_id}>"

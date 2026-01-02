@@ -13,6 +13,8 @@ from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
 from panels import MainMenu
 from game.bomberdude import Bomberdude
 from network.client import send_game_state, receive_game_state
+from server.server import BombServer
+from server.api import ApiServer
 import multiprocessing
 
 # Global variable to track server process
@@ -178,8 +180,6 @@ def run_server_process(args_dict):
 
 	# Create a headless version of the server startup
 	async def run_headless_server():
-		from server.server import BombServer
-		from server.api import ApiServer
 
 		server = BombServer(args)
 		server_task = asyncio.create_task(server.new_start_server())
@@ -248,22 +248,6 @@ async def stop_server_background():
 	server_process = None
 	logger.info("Server stopped")
 	return True
-
-def get_args():
-	parser = ArgumentParser(description="bdude")
-	parser.add_argument("--name", action="store", dest="name", default="bdude")
-	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1", help='ip address to listen (server mode)')
-	parser.add_argument("--server", action="store", dest="server", default="127.0.0.1", help='ip address of the server (client mode)')
-	parser.add_argument("--server_port", action="store", dest="server_port", default=9696, type=int, help='server_port port number')
-	parser.add_argument("--api_port", action="store", dest="api_port", default=9691, type=int, help='API port number')
-	# server
-	parser.add_argument("--host", action="store", dest="host", default="127.0.0.1")
-	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
-	parser.add_argument("-g", "--debug_gamestate", action="store_true", dest="debug_gamestate", default=False)
-	parser.add_argument("--map", action="store", dest="mapname", default="data/maptest5.tmx")
-	parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
-	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude.prof')
-	return parser.parse_args()
 
 async def start_game(args: argparse.Namespace) -> bool:
 	resptext = ''
@@ -338,6 +322,22 @@ async def main(args):
 		if mainmenu.server_running:
 			await stop_server_background()
 		pygame.quit()
+
+def get_args():
+	parser = ArgumentParser(description="bdude")
+	parser.add_argument("--name", action="store", dest="name", default="bdude")
+	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1", help='ip address to listen (server mode)')
+	parser.add_argument("--server", action="store", dest="server", default="127.0.0.1", help='ip address of the server (client mode)')
+	parser.add_argument("--server_port", action="store", dest="server_port", default=9696, type=int, help='server_port port number')
+	parser.add_argument("--api_port", action="store", dest="api_port", default=9691, type=int, help='API port number')
+	# server
+	parser.add_argument("--host", action="store", dest="host", default="127.0.0.1")
+	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
+	parser.add_argument("-g", "--debug_gamestate", action="store_true", dest="debug_gamestate", default=False)
+	parser.add_argument("--map", action="store", dest="mapname", default="data/maptest5.tmx")
+	parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
+	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude.prof')
+	return parser.parse_args()
 
 if __name__ == "__main__":
 	if sys.platform == "win32":

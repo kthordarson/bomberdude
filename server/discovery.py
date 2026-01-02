@@ -55,8 +55,6 @@ class ServerDiscovery:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         sock.setblocking(False)
 
-        # IMPORTANT for LAN: bind to all interfaces by default.
-        # If you bind to 127.0.0.1 you will not receive LAN broadcasts.
         bind_host = get_local_ip_addresses()[0]
         sock.bind((bind_host, self.discovery_port))
         logger.info(f"Server discovery listening on {bind_host}:{self.discovery_port}")

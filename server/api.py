@@ -23,6 +23,7 @@ class ApiServer:
 			methods = ["GET"]
 		for method in methods:
 			self.app.router.add_route(method, path, view_func)
+			logger.info(f'ApiServer {self._name} added route: {method} {path} -> {view_func}')
 
 	async def wait_until_ready(self):
 		"""Wait until the server is ready to handle requests"""
@@ -32,11 +33,10 @@ class ApiServer:
 		try:
 			self.runner = web.AppRunner(self.app)
 			await self.runner.setup()
-			logger.debug(f'{self} runner host {host} port {port}')
 			self.site = web.TCPSite(self.runner, host, port)
 			await self.site.start()
 			self._ready.set()
-			logger.info(f"API server running at http://{host}:{port}")
+			logger.info(f"API server running at http://{host}:{port} runner: {self.runner} site: {self.site}")
 			# Keep the server running
 			while True:
 				await asyncio.sleep(3600)  # Sleep for an hour

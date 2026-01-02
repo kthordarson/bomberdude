@@ -12,13 +12,8 @@ class Bomb(Sprite):
 	def __init__(self, position, client_id, bomb_power, speed=10, timer=4, bomb_size=(10,10)):
 		super().__init__()
 		self.client_id = client_id
-		# self.image = pygame.Surface(bomb_size)
-		# self.position = Vec2d(position)
 		self.timer = timer
 		self.start_time = pygame.time.get_ticks() / 1000
-		# self.rect.center = self.position
-		# Ensure position is centered on a map tile.
-		# IMPORTANT: snapping must use the actual tile size (BLOCK), not a scaled sprite size.
 		tile_x = (int(position[0]) // BLOCK) * BLOCK + BLOCK // 2
 		tile_y = (int(position[1]) // BLOCK) * BLOCK + BLOCK // 2
 		self.position = Vec2d(tile_x, tile_y)
@@ -48,7 +43,7 @@ class Bomb(Sprite):
 				# Create explosion particles if manager is provided
 				if game_state and game_state.explosion_manager and self.rect:
 					paricle_count = self.bomb_power * random.randint(4,60)
-					game_state.explosion_manager.create_explosion(self.rect.center, count=21)
+					game_state.explosion_manager.create_explosion(self.rect.center, count=paricle_count)
 					game_state.explosion_manager.create_flames(self)
 				if game_state and game_state.client_id == self.client_id:
 					asyncio.create_task(self.explode(game_state))
@@ -58,7 +53,6 @@ class Bomb(Sprite):
 	async def explode(self, gamestate):
 		explosion_event = {
 			'event_type': "bomb_exploded",
-			"owner_id": self.client_id,
 			"client_id": self.client_id,
 			"bomb_power": self.bomb_power,
 			"position": self.rect.center if self.rect else (int(self.position.x), int(self.position.y)),  # Use center instead of top-left

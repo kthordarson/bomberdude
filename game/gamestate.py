@@ -736,7 +736,7 @@ class GameState:
 			# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
 			bomb = Bomb(position=pos, client_id=client_id, bomb_power=event.get("bomb_power"))
 			if self.args.debug_gamestate:
-				logger.info(f"bomb: {bomb} for {client_id} at {pos}. player bombs left: {player_entry.bombs_left}")
+				logger.info(f"{bomb} for {client_id} at {pos}. player bombs left: {player_entry.bombs_left}")
 			await bomb.async_init()
 			self.bombs.add(bomb)
 
@@ -761,12 +761,10 @@ class GameState:
 			return False
 		self.processed_explosions.add(explosion_id)
 
-		owner_raw = event.get("owner_id") or event.get("client_id")
+		owner_raw = event.get("client_id")
 		player_entry = self.playerlist.get(owner_raw)
-		sprite_updated = False
 		# Update player state (dict or object)
 		if player_entry:
-			sprite_updated = True
 			if isinstance(player_entry, dict):
 				player_entry['bombs_left'] += 1
 			else:
