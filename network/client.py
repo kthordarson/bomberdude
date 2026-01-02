@@ -61,7 +61,7 @@ async def send_game_state(game: Bomberdude) -> None:
 			game.game_state.event_queue.task_done()
 			send_counter += 1
 		except Exception as e:
-			logger.error(f'Send error: {e} {type(e)}')
+			logger.error(f'Send error: {e} {type(e)} msg: {msg}')
 			break
 		# Remove sleep to send as fast as possible, or adjust
 		# await asyncio.sleep(1 / UPDATE_TICK)

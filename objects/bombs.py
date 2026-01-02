@@ -19,9 +19,8 @@ class Bomb(Sprite):
 		# self.rect.center = self.position
 		# Ensure position is centered on a map tile.
 		# IMPORTANT: snapping must use the actual tile size (BLOCK), not a scaled sprite size.
-		tile_size = BLOCK
-		tile_x = (int(position[0]) // tile_size) * tile_size + tile_size // 2
-		tile_y = (int(position[1]) // tile_size) * tile_size + tile_size // 2
+		tile_x = (int(position[0]) // BLOCK) * BLOCK + BLOCK // 2
+		tile_y = (int(position[1]) // BLOCK) * BLOCK + BLOCK // 2
 		self.position = Vec2d(tile_x, tile_y)
 		self.exploded = False
 		self.bomb_power = bomb_power

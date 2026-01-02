@@ -559,7 +559,7 @@ class GameState:
 
 			# Emit upgrade collected event and enqueue a map update so the networking task sends it to the server.
 			current_time = time.time()
-			upgrade_event = {'event_type': "upgrade_pickup", "client_id": picker_id, "position": upgrade_block.position, "upgradetype": upgrade_block.upgradetype, "handled": False, "handledby": picker_id, "event_id": gen_randid(), "event_time": current_time,}
+			upgrade_event = {'event_type': "upgrade_pickup", "client_id": picker_id, "position": (upgrade_block.position[0],upgrade_block.position[1]), "upgradetype": upgrade_block.upgradetype, "handled": False, "handledby": picker_id, "event_id": gen_randid(), "event_time": current_time,}
 			# enqueue only; server will authoritatively remove the tile and broadcast map update
 			await self._apply_tile_change(tile_x, tile_y, 1)
 			asyncio.create_task(self.event_queue.put(upgrade_event))
