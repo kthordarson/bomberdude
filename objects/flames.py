@@ -8,7 +8,7 @@ import math
 from utils import load_image_cached, async_load_image_cached
 
 class Flame(Sprite):
-	def __init__(self, position, direction, client_id, size=1, power=3):
+	def __init__(self, position, direction, client_id, size, bomb_power):
 		super().__init__()
 		self.client_id = client_id
 		self.size = size
@@ -24,7 +24,7 @@ class Flame(Sprite):
 
 		# New properties for distance tracking
 		self.starting_position = Vec2d(position)  # Store initial position
-		self.max_distance = power * BLOCK  # Max distance based on power (assuming 32px tiles)
+		self.max_distance = bomb_power * BLOCK  # Max distance based on power (assuming 32px tiles)
 		self.distance_traveled = 0
 		# Small grace period before checking collisions
 		self.collision_grace = 8  # pixels

@@ -2,7 +2,7 @@ import pygame
 from loguru import logger
 from dataclasses import dataclass, field, InitVar
 from utils import gen_randid, generate_name
-from constants import DEFAULT_HEALTH, BLOCK
+from constants import DEFAULT_HEALTH, BLOCK, INITIAL_BOMBS, INITIAL_BOMB_POWER
 
 @dataclass
 class PlayerState:
@@ -10,8 +10,9 @@ class PlayerState:
 	client_id: int = -1
 	client_name: str = 'client_namenotset'
 	score: int = 0
-	# bombs_left: InitVar[int] = 3  # Use InitVar for constructor param
-	initial_bombs: InitVar[int] = 3  # Use InitVar for constructor param
+	initial_bombs: InitVar[int] = INITIAL_BOMBS
+	bomb_power: int = INITIAL_BOMB_POWER
+	_bombs_left: int = INITIAL_BOMBS
 	health: int = DEFAULT_HEALTH
 	prev_position: tuple | None = None
 	target_position: tuple | None = None
@@ -27,9 +28,12 @@ class PlayerState:
 	playerlist: list = field(default_factory=list)
 	event_id: str = field(default_factory=gen_randid)
 
+	def __repr__(self):
+		return f'PlayerState {self.client_name} (id: {self.client_id} pos: {self.position} health: {self.health} score: {self.score} bombs_left: {self.bombs_left} bomb_power: {self.bomb_power} killed: {self.killed})'
+
 	def __post_init__(self, initial_bombs):
-		# Initialize the private attribute for the property
-		self._bombsleft = initial_bombs
+		# Initialize the private attribute for the property from InitVar
+		self._bombs_left = initial_bombs
 
 	@property
 	def rect(self):
@@ -38,12 +42,12 @@ class PlayerState:
 
 	@property
 	def bombs_left(self):
-		return self._bombsleft
+		return self._bombs_left
 
 	@bombs_left.setter
 	def bombs_left(self, value):
-		# Never exceed 3 bombs
-		self._bombsleft = min(3, max(0, value))
+		# Don't go below 0
+		self._bombs_left = max(0, value)
 
 	def to_dict(self):
 		return {
@@ -52,6 +56,7 @@ class PlayerState:
 			'position': self.position,
 			'health': self.health,
 			'bombs_left': self.bombs_left,
+			'bomb_power': self.bomb_power,
 			'score': self.score,
 			'msg_dt': self.msg_dt,
 			'timeout': self.timeout,
@@ -65,4 +70,3 @@ class PlayerState:
 		if self.health <= 0:
 			self.killed = True
 		logger.info(f"Player {self.client_name} hit by {attacker_id} for {damage} damage: {old_health} -> {self.health} killed: {self.killed}")
-

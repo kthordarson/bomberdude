@@ -47,6 +47,8 @@ async def send_game_state(game: Bomberdude) -> None:
 			'position': (player_one.position[0], player_one.position[1]),
 			'health': player_one.health,
 			'score': player_one.score,
+			'bombs_left': player_one.bombs_left,
+			'bomb_power': player_one.bomb_power,
 			'keyspressed': client_keys,
 			'event_type': "send_game_state",
 			'handledby': "send_game_state",
@@ -59,7 +61,7 @@ async def send_game_state(game: Bomberdude) -> None:
 			game.game_state.event_queue.task_done()
 			send_counter += 1
 		except Exception as e:
-			logger.error(f'Send error: {e} {type(e)}')
+			logger.error(f'Send error: {e} {type(e)} msg: {msg}')
 			break
 		# Remove sleep to send as fast as possible, or adjust
 		# await asyncio.sleep(1 / UPDATE_TICK)
@@ -67,7 +69,6 @@ async def send_game_state(game: Bomberdude) -> None:
 		# Log periodically
 		log_counter += 1
 		# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
-		# 	logger.info(f'send_counter: {send_counter} event_queue: {game.game_state.event_queue.qsize()} client_queue: {game.game_state.client_queue.qsize()}')
 
 async def receive_game_state(game: Bomberdude) -> None:
 	# Log less frequently

@@ -55,13 +55,7 @@ def get_cached_image(path: str, *, scale: float = 1.0, convert: bool = True) -> 
 		processed = base.convert()
 
 	if scale != 1.0:
-		processed = pygame.transform.scale(
-			processed,
-			(
-				int(processed.get_width() * scale),
-				int(processed.get_height() * scale),
-			),
-		)
+		processed = pygame.transform.scale(processed, (int(processed.get_width() * scale), int(processed.get_height() * scale),),)
 
 	_PROCESSED_IMAGE_CACHE[key] = processed
 	return processed
@@ -90,13 +84,7 @@ async def async_get_cached_image(path: str, *, scale: float = 1.0, convert: bool
 		processed = base.convert()
 
 	if scale != 1.0:
-		processed = pygame.transform.scale(
-			processed,
-			(
-				int(processed.get_width() * scale),
-				int(processed.get_height() * scale),
-			),
-		)
+		processed = pygame.transform.scale(processed, (int(processed.get_width() * scale), int(processed.get_height() * scale),),)
 
 	_PROCESSED_IMAGE_CACHE[key] = processed
 	return processed

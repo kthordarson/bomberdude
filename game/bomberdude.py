@@ -13,7 +13,6 @@ from game.gamestate import GameState
 from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
 from camera import Camera
 from objects.player import Bomberplayer, MOVE_MAP
-from game.playerstate import PlayerState  # Import PlayerState
 from debug import draw_debug_info
 from panels import PlayerInfoPanel
 
@@ -124,7 +123,7 @@ class Bomberdude():
         if modified_tiles:
             if self.args.debug:
                 logger.debug(f"Applying {len(modified_tiles)} modified_tiles from server.")
-            # self.game_state._apply_modifications_dict(modified_tiles)
+            await self.game_state.apply_modifications(modified_tiles)
         else:
             if self.args.debug:
                 logger.debug("No modified_tiles received from server.")
@@ -481,9 +480,12 @@ class Bomberdude():
         for upgrade_block in list(self.game_state.upgrade_blocks):
             upgrade_block.update()
             if upgrade_block.killed:
-                self.game_state.upgrade_blocks.discard(upgrade_block)
+                tile_x = upgrade_block.rect.x // self.game_state.tile_map.tilewidth
+                tile_y = upgrade_block.rect.y // self.game_state.tile_map.tileheight
+                await self.game_state._apply_tile_change(tile_x, tile_y, 1)
                 if self.args.debug_gamestate:
                     logger.debug(f'Removed expired upgrade block: {upgrade_block} remaining: {len(self.game_state.upgrade_blocks)}')
+                self.game_state.upgrade_blocks.discard(upgrade_block)
 
         self.game_state.bullets.update(self.game_state)
         for bomb in self.game_state.bombs:
@@ -493,7 +495,7 @@ class Bomberdude():
 
         # Use the already calculated delta time
         await self.game_state.explosion_manager.update(self.game_state.collidable_tiles, self.game_state, self.delta_time)
-        self.game_state.check_flame_collisions()
+        await self.game_state.check_flame_collisions()
 
         self.game_state.cleanup_playerlist()
         current_time = time.time()

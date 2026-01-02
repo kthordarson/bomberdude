@@ -6,8 +6,6 @@ class Bullet(pygame.sprite.Sprite):
 	def __init__(self, position, direction, screen_rect, owner_id=None, speed=10, bounce_count=3, bullet_size=(10,10)):
 		super().__init__()
 		self.image = pygame.Surface(bullet_size)
-		# self.image = pygame.transform.scale(self.image, bullet_size)
-		# self.image.fill((255, 0, 0))
 		self.world_position = Vec2d(position)
 
 		self.position = Vec2d(position)

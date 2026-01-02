@@ -83,7 +83,7 @@ def draw_debug_info(screen, game_state, camera):
     screen.blit(fps_text, (screen.get_width() - 100, 10))
 
     player_one = game_state.get_playerone()
-    players_line = f"Players: {len(game_state.playerlist)}/{len(game_state.players_sprites)} eq: {game_state.event_queue.qsize()} cq: {game_state.client_queue.qsize()}"
+    players_line = f"Players: {len(game_state.playerlist)}/{len(game_state.players_sprites)} eq: {game_state.event_queue.qsize()} "
     debug_text = _render_line(font, "players", players_line, True, (255, 255, 255))
     screen.blit(debug_text, (10, 10))
 
@@ -158,12 +158,33 @@ def draw_blocks_around_player(screen, game_state, camera):
     player_tile_x = int(player_one.position.x // tile_width)
     player_tile_y = int(player_one.position.y // tile_height)
 
-    # Define how many tiles around player to highlight
-    highlight_range = 3
-
     # Create a font for block IDs
     font = _get_font(14)
 
+    highlight_range = 2
+    for tile in game_state.background_tiles:
+        # Calculate tile coordinates
+        tile_x = tile.rect.x // tile_width
+        tile_y = tile.rect.y // tile_height
+        width = 1
+        # Check if within range of player
+        if (abs(tile_x - player_tile_x) <= highlight_range and abs(tile_y - player_tile_y) <= highlight_range):
+            # Convert to screen coordinates
+            screen_rect = camera.apply(tile.rect)
+            # Draw highlight
+            highlight_color = (55, 55, 55, 128)
+            # Draw outline around block
+            pygame.draw.rect(surface=screen, color=highlight_color, rect=screen_rect, width=width)
+            # Show block position/ID
+            # pos_text = f"({tile_x},{tile_y})"
+            pos_text = f"ID:{tile.id}"
+            text_surf = _render_text_cached(font, pos_text, True, (255, 255, 255))
+            screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))
+            # Draw line from player to this block
+            pygame.draw.line(screen, (200, 100, 255), camera.apply(player_one.rect).center, screen_rect.center, 1)
+
+    # Define how many tiles around player to highlight
+    highlight_range = 3
     # Highlight blocks around player
     for tile in game_state.collidable_tiles:
         # Calculate tile coordinates
@@ -185,14 +206,11 @@ def draw_blocks_around_player(screen, game_state, camera):
                 width = 1
             # Draw outline around block
             pygame.draw.rect(surface=screen, color=highlight_color, rect=screen_rect, width=width)
-
             # Show block position/ID
             # pos_text = f"({tile_x},{tile_y})"
             pos_text = f"ID:{tile.id}"
-
             text_surf = _render_text_cached(font, pos_text, True, (255, 255, 255))
             screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))
-
             # Draw line from player to this block
             pygame.draw.line(screen, (100, 100, 255), camera.apply(player_one.rect).center, screen_rect.center, 1)
     highlight_range = 5
@@ -203,21 +221,17 @@ def draw_blocks_around_player(screen, game_state, camera):
         width = 2
         # Check if within range of player
         if (abs(tile_x - player_tile_x) <= highlight_range and abs(tile_y - player_tile_y) <= highlight_range):
-
             # Convert to screen coordinates
             screen_rect = camera.apply(tile.rect)
-
             # Draw highlight
             highlight_color = (255, 255, 255, 128)
             # Draw outline around block
             pygame.draw.rect(surface=screen, color=highlight_color, rect=screen_rect, width=width)
-
             # Show block position/ID
             # pos_text = f"({tile_x},{tile_y})"
             pos_text = f"ID:{tile.id}"
-
             text_surf = _render_text_cached(font, pos_text, True, (255, 255, 255))
             screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))
-
             # Draw line from player to this block
             pygame.draw.line(screen, (200, 100, 255), camera.apply(player_one.rect).center, screen_rect.center, 1)
+
