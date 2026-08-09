@@ -65,12 +65,13 @@ class ExplosionManager:
 				self.shockwaves.remove(shockwave)
 
 	def draw(self, screen, camera):
-		for particle in self.particles:
-			screen_pos = camera.apply(particle.rect)
-			screen.blit(particle.image, screen_pos)
-		for flame in self.flames:
-			screen_pos = camera.apply(flame.rect)
-			screen.blit(flame.image, screen_pos)
+		# One batched call instead of one screen.blit() per particle/flame —
+		# each individual blit() carries fixed call overhead, which adds up
+		# fast with dozens of short-lived particles alive per explosion.
+		blit_sequence = [(particle.image, camera.apply(particle.rect)) for particle in self.particles]
+		blit_sequence.extend((flame.image, camera.apply(flame.rect)) for flame in self.flames)
+		if blit_sequence:
+			screen.blits(blit_sequence)
 		# Draw shockwaves
 		for shockwave in self.shockwaves:
 			shockwave.draw(screen, camera)

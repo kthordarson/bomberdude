@@ -9,7 +9,8 @@ import argparse
 from argparse import ArgumentParser
 import pygame
 from loguru import logger
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
+from constants import SCREEN_TITLE, UPDATE_TICK
+from config import load_config
 from panels import MainMenu
 from game.bomberdude import Bomberdude
 from network.client import send_game_state, receive_game_state
@@ -24,6 +25,9 @@ server_process = None
 async def _connect_with_timeout(bomberdude_main: Bomberdude, connection_timeout: float) -> bool:
 	try:
 		return (await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout))
+	except json.decoder.JSONDecodeError as e:
+		logger.error(f"JSON decode error during connection: {e} {type(e)}")
+		return False
 	except TimeoutError as e:
 		logger.error(f"Connection timed out after {connection_timeout} seconds: {e}")
 		return False
@@ -105,28 +109,29 @@ async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None
 			await asyncio.sleep(sleep_time)
 
 
-async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argparse.Namespace) -> bool:
+async def _handle_main_menu_action(bomberdude_main: Bomberdude, action: str, args: argparse.Namespace) -> bool:
 	if action == "Start":
-		started = await start_game(args)
+		started = await start_game(bomberdude_main, args)
 		if not started:
 			logger.warning("start_game exited without a successful session")
+			return False
 		return True
 
 	elif action == "Start Server":
 		success = await start_server_background(args)
 		if success:
-			mainmenu.server_running = True
+			bomberdude_main.mainmenu.server_running = True
 			logger.info("Server started and ready. You can now connect.")
 		# The game recreates the display surface; refresh the menu to use the new surface.
-		mainmenu.screen = pygame.display.get_surface()
-		mainmenu.setup_panel.screen = mainmenu.screen
-		mainmenu.discovery_panel.screen = mainmenu.screen
+		# bomberdude_main.mainmenu.screen = pygame.display.get_surface()
+		# bomberdude_main.mainmenu.setup_panel.screen = bomberdude_main.mainmenu.screen
+		# bomberdude_main.mainmenu.discovery_panel.screen = bomberdude_main.mainmenu.screen
 		return True
 
 	elif action == "Stop Server":
 		success = await stop_server_background()
 		if success:
-			mainmenu.server_running = False
+			bomberdude_main.mainmenu.server_running = False
 		return True
 
 	elif action == "Back":
@@ -139,11 +144,11 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 	elif action == "Find server":
 		logger.info("Finding servers on LAN...")
 		try:
-			selected = await mainmenu.discovery_panel.run()
+			selected = await bomberdude_main.mainmenu.discovery_panel.run()
 			if selected:
 				# Discovery panel should set args.server, but keep this as a safe fallback.
 				args = set_args(args, selected)
-				await start_game(args)
+				await start_game(bomberdude_main, args)
 		except Exception as e:
 			logger.error(f"Error in discovery panel: {e} {type(e)}")
 			return False
@@ -151,7 +156,7 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 		return True
 
 	elif action == "Quit":
-		if mainmenu.server_running:
+		if bomberdude_main.mainmenu.server_running:
 			await stop_server_background()
 		logger.info("Quitting...")
 		return False
@@ -252,12 +257,15 @@ async def stop_server_background():
 	logger.info("Server stopped")
 	return True
 
-async def start_game(args: argparse.Namespace) -> bool:
+async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> bool:
 	resptext = ''
 	try:
 		resptext = requests.get(f"http://{args.server}:{args.api_port}/get_client_id", timeout=10).text
 		resp = json.loads(resptext)
 		client_id = resp.get("client_id")
+	except requests.exceptions.ConnectionError as e:
+		logger.warning(f"Error: {e} {type(e)} resptext: {resptext}")
+		return False
 	except Exception as e:
 		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
 		raise e
@@ -268,11 +276,17 @@ async def start_game(args: argparse.Namespace) -> bool:
 	except Exception as e:
 		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
 		raise e
-	try:
-		bomberdude_main = Bomberdude(args=args, client_id=client_id, mapname=mapname)
-	except Exception as e:
-		logger.error(f"Error creating Bomberdude instance: {e} {type(e)}")
-		raise e
+	# try:
+	# 	bomberdude_main = Bomberdude(args=args, client_id=client_id, mapname=mapname)
+	# except Exception as e:
+	# 	logger.error(f"Error creating Bomberdude instance: {e} {type(e)}")
+	# 	raise e
+
+	bomberdude_main.client_id = client_id
+	bomberdude_main.client_id = client_id
+	bomberdude_main.game_state.client_id = client_id
+	bomberdude_main.mapname = mapname
+	bomberdude_main.game_state._load_map(mapname)
 
 	# Start networking tasks early so connect() can complete its readiness handshake.
 	# The tasks will wait until the socket is connected before using it.
@@ -305,34 +319,44 @@ async def start_game(args: argparse.Namespace) -> bool:
 	# pygame.quit()
 
 async def main(args):
+	config = load_config(args.config)
+	args.config = config
 	pygame.init()
-	screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags=pygame.RESIZABLE)
-	pygame.display.set_caption(SCREEN_TITLE)
-	mainmenu = MainMenu(screen=screen, args=args)
-	try:
-		running = True
-		while running:
-			action = mainmenu.run()
-			if not action:
-				logger.info("no action! Quitting...")
-				break
-			running = await _handle_main_menu_action(action, mainmenu, args)
-	except Exception as e:
-		logger.error(f"Error in main: {e} {type(e)}")
-		raise
-	finally:
-		# Ensure server is stopped on exit
-		if mainmenu.server_running:
-			await stop_server_background()
-		pygame.quit()
+	screen = pygame.display.set_mode((config.screen_width, config.screen_height), flags=pygame.RESIZABLE)
+	pygame.display.set_caption('init')
+	bomberdude_main = Bomberdude(args=args, mainmenu=MainMenu(screen=screen, args=args, config=config), client_id="noclientid", mapname="mapnotset", config=config)
+	if args.autoconnect:
+		running = await _handle_main_menu_action(bomberdude_main, "Start", args)
+	else:
+		try:
+			running = True
+			while running:
+				action = bomberdude_main.mainmenu.run()
+				if not action:
+					logger.info("no action! Quitting...")
+					break
+				running = await _handle_main_menu_action(bomberdude_main, action, args)
+				if not running:
+					logger.info("Exiting main loop...")
+					break
+		except Exception as e:
+			logger.error(f"Error in main: {e} {type(e)}")
+			raise
+		finally:
+			# Ensure server is stopped on exit
+			if bomberdude_main.mainmenu.server_running:
+				await stop_server_background()
+			pygame.quit()
 
 def get_args():
 	parser = ArgumentParser(description="bdude")
 	parser.add_argument("--name", action="store", dest="name", default="bdude")
 	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1", help='ip address to listen (server mode)')
 	parser.add_argument("--server", action="store", dest="server", default="127.0.0.1", help='ip address of the server (client mode)')
+	parser.add_argument("--autoconnect", action="store_true", dest="autoconnect", default=False, help='autoconnect')
 	parser.add_argument("--server_port", action="store", dest="server_port", default=9696, type=int, help='server_port port number')
 	parser.add_argument("--api_port", action="store", dest="api_port", default=9691, type=int, help='API port number')
+	parser.add_argument("--config", action="store", dest="config", default="bdude_config.json", help='Path to config file')
 	# server
 	parser.add_argument("--host", action="store", dest="host", default="127.0.0.1")
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)

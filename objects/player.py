@@ -67,21 +67,13 @@ class Bomberplayer(Sprite):
 		self.score = 0
 		self.lastdrop = 0.0
 		self.keyspressed = KeysPressed('bomberplayer')
-		self.client_name = generate_name()
+		if not self.client_name or self.client_name == 'Noname':
+			self.client_name = generate_name()
 
 	def _set_texture(self, texture_path: str) -> None:
 		# Cache disk loads globally; convert/scale only when a display surface exists.
 		self.original_image = get_cached_image(texture_path, scale=1.0, convert=True)
 		self.image = get_cached_image(texture_path, scale=self.scale, convert=True)
-		if self.image:
-			self.rect = self.image.get_rect()
-			if self.rect:
-				self.rect.topleft = (int(self.position.x), int(self.position.y))
-
-	async def async_set_texture(self, texture_path: str) -> None:
-		# Cache disk loads globally; convert/scale only when a display surface exists.
-		self.original_image = await async_get_cached_image(texture_path, scale=1.0, convert=True)
-		self.image = await async_get_cached_image(texture_path, scale=self.scale, convert=True)
 		if self.image:
 			self.rect = self.image.get_rect()
 			if self.rect:
@@ -157,10 +149,6 @@ class Bomberplayer(Sprite):
 					self.rect.x = int(prev_x)
 					self.rect.y = int(prev_y)
 					return
-
-	def addscore(self, score):
-		self.score += score
-		logger.info(f'{self} score:{self.score}')
 
 	def take_damage(self, damage, attacker):
 		self.health -= damage

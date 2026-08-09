@@ -27,12 +27,10 @@ class GameState:
 		self.players_sprites = Group()
 		self.bullets = Group()
 		self.bombs = Group()
-		self.flames = Group()
-		self.particles = Group()
 		self.mapname = mapname
 		self.event_queue = asyncio.Queue()
 		self.keyspressed = KeysPressed('gamestate')
-		self.tile_map = pytmx.TiledMap(mapname)
+		self.tile_map = pytmx.TiledMap()
 		# Ensure static_map_surface always exists, even before load_tile_map is called
 		self.static_map_surface = pygame.Surface((1, 1))
 		# Use sets for O(1) add/remove; these are iterated frequently for collision checks.
@@ -85,6 +83,32 @@ class GameState:
 	def __repr__(self):
 		return f'Gamestate {self.client_id} ( players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)} broadcast_counter:{self.broadcast_counter} )'
 
+	def _load_map(self, mapname):
+		self.tile_map = pytmx.TiledMap(mapname)
+		logger.debug(f"{self} Loaded map '{mapname}'")
+
+	def _get_tile_image_safe(self, gid: int) -> pygame.Surface | None:
+		"""Wraps pytmx's get_tile_image_by_gid against invalid gids.
+
+		pytmx's own error path for an invalid gid calls `msg.format(gid)` on a
+		4-placeholder string with a single arg, which raises IndexError instead
+		of the intended ValueError. Catch broadly since the exception type it
+		actually surfaces isn't reliable.
+
+		Normalizes pytmx's result here: lazily-loaded tiles come back as a
+		`(path, rect, flags)` tuple instead of a `Surface`, so callers would
+		otherwise all need to check for both shapes themselves.
+		"""
+		try:
+			image = self.tile_map.get_tile_image_by_gid(gid)
+		except Exception as e:
+			logger.warning(f"{self} No tile image for gid {gid}: {e} {type(e)}")
+			return None
+		if isinstance(image, tuple):
+			logger.debug(f"{self} _get_tile_image_safe: Loaded tile image for gid {gid} as Surface. image: {image} type: {type(image)}")
+			image = pygame.image.load(image[0])
+		return image
+
 	def _iter_tiles_from_index_in_rect(self, tile_index: dict[tuple[int, int], Any], rect: pygame.Rect, *, pad_pixels: int = 0):
 		"""Yield tiles from a {(tile_x,tile_y)->tile} index intersecting rect.
 
@@ -93,8 +117,8 @@ class GameState:
 		try:
 			tw = self.tile_map.tilewidth
 			th = self.tile_map.tileheight
-			map_w = int(getattr(self.tile_map, "width", 0))
-			map_h = int(getattr(self.tile_map, "height", 0))
+			map_w = self.tile_map.width
+			map_h = self.tile_map.height
 			if tw <= 0 or th <= 0 or map_w <= 0 or map_h <= 0:
 				return
 			x0 = rect.left - pad_pixels
@@ -144,7 +168,7 @@ class GameState:
 		# Remove any sprites for that player.
 		try:
 			for sprite in list(self.players_sprites):
-				if str(getattr(sprite, "client_id", "")) == cid:
+				if str(sprite.client_id) == cid:
 					sprite.kill()
 					self.players_sprites.remove(sprite)
 		except Exception as e:
@@ -160,7 +184,7 @@ class GameState:
 
 	def _sync_local_sprite_from_state(self, state: Optional[PlayerState]) -> None:
 		"""Keep the local Bomberplayer sprite in sync with authoritative state."""
-		if not isinstance(state, PlayerState):
+		if state is None:
 			return
 		if state.client_id != self.client_id:
 			return
@@ -199,7 +223,7 @@ class GameState:
 		new_gid = 1
 		tile = self.tile_cache.get(new_gid, None)
 		if tile is None:
-			self.tile_cache[new_gid] = self.tile_map.get_tile_image_by_gid(new_gid)
+			self.tile_cache[new_gid] = self._get_tile_image_safe(new_gid)
 
 		map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": new_gid, "event_time": time.time(), "client_id": self.client_id, "handled": False, 'handledby': 'destroy_block',}
 		# asyncio.create_task(self.broadcast_event(map_update_event))
@@ -269,28 +293,6 @@ class GameState:
 		except Exception as e:
 			logger.error(f"{self} Error in broadcast_state: {e} {type(e)}")
 
-	async def send_to_client(self, connection, data):
-		"""Send data to specific client connection"""
-		try:
-			loop = asyncio.get_event_loop()
-			# loop = asyncio.get_running_loop()
-			# loop = asyncio.new_event_loop()
-			if isinstance(data, dict):
-				data_out = json.dumps(data).encode('utf-8') + b'\n'
-			elif isinstance(data, bytes):
-				data_out = data + b'\n'
-			else:
-				data_out = str(data).encode('utf-8') + b'\n'
-
-			if hasattr(connection, 'write'):  # StreamWriter
-				connection.write(data_out)
-				await connection.drain()
-			else:  # Socket
-				await loop.sock_sendall(connection, data_out)
-		except Exception as e:
-			logger.error(f"{self} Error sending to client: {e}")
-			self.remove_connection(connection)
-
 	def get_playerone(self) -> Bomberplayer:
 		"""Always return a Bomberplayer instance"""
 		for player in self.players_sprites:
@@ -339,7 +341,7 @@ class GameState:
 						continue
 					tile = self.tile_cache.get(gid, None)
 					if tile is None:
-						self.tile_cache[gid] = self.tile_map.get_tile_image_by_gid(gid)
+						self.tile_cache[gid] = self._get_tile_image_safe(gid)
 					self.static_map_surface.blit(self.tile_cache[gid], (x * tw, y * th))
 					sprite: Any = pygame.sprite.Sprite()
 					sprite.image = self.tile_cache[gid]
@@ -360,14 +362,18 @@ class GameState:
 						self.killable_by_tile[(x, y)] = sprite
 					else:
 						self.background_tiles.add(sprite)
+			else:
+				logger.warning(f"Layer {layer} {type(layer)} is not a TiledTileLayer, skipping tile processing.")
 		if self.args.debug_gamestate:
 			logger.info(f"{self} Loaded tile map '{self.mapname}' with {len(self.collidable_tiles)} collidable tiles, {len(self.killable_tiles)} killable tiles, {len(self.background_tiles)} background tiles.")
 
-	def _parse_pos_key(self, key):
+	def old_parse_pos_key(self, key):
 		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
 		if isinstance(key, tuple):
+			logger.debug(f"{self} _parse_pos_key: {key} {type(key)}")
 			return key
-		if isinstance(key, str):
+		elif isinstance(key, str):
+			logger.warning(f"{self} _parse_pos_key: Invalid key type {key} {type(key)}")
 			try:
 				return tuple(ast.literal_eval(key))  # type: ignore
 			except Exception as e:
@@ -375,7 +381,13 @@ class GameState:
 				s = key.strip().strip('()')
 				x_s, y_s = s.split(',')
 				return (int(x_s), int(y_s))
+		else:
+			logger.error(f"{self} _parse_pos_key: Invalid key type {key} {type(key)}, defaulting to (0, 0).")
 		return key
+
+	def _parse_pos_key(self, key):
+		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
+		return tuple(ast.literal_eval(key))  # type: ignore
 
 	async def _apply_tile_change(self, x, y, new_gid):
 		"""Apply a single tile change and update visuals/collisions/state."""
@@ -391,14 +403,9 @@ class GameState:
 			# Remove upgrade if present
 			upgrade = self.upgrade_by_tile.pop(tile_pos, None)
 			self.upgrade_blocks.discard(upgrade)
-			if upgrade:
-				upgrade.kill()
 			# Redraw background tile
-			tile_image = self.tile_map.get_tile_image_by_gid(new_gid)
-			if tile_image and isinstance(tile_image, pygame.surface.Surface):
-				self.static_map_surface.blit(tile_image, (x * tw, y * th))
-			elif tile_image and isinstance(tile_image, tuple):
-				tile_image = pygame.image.load(tile_image[0])
+			tile_image = self._get_tile_image_safe(new_gid)
+			if tile_image:
 				self.static_map_surface.blit(tile_image, (x * tw, y * th))
 			else:
 				if self.args.debug_gamestate:
@@ -418,10 +425,8 @@ class GameState:
 			block = self.killable_by_tile.pop(tile_pos, None)
 			self.killable_tiles.discard(block)
 			# Redraw background tile to clear the block
-			bg_image = self.tile_map.get_tile_image_by_gid(1)
+			bg_image = self._get_tile_image_safe(1)
 			if bg_image:
-				if isinstance(bg_image, tuple):
-					bg_image = pygame.image.load(bg_image[0])
 				self.static_map_surface.blit(bg_image, (x * tw, y * th))
 
 			self.modified_tiles[(x, y)] = new_gid
@@ -446,29 +451,10 @@ class GameState:
 				x, y = pos
 				await self._apply_tile_change(x, y, gid)
 
-	def update_game_state(self, client_id, msg):
-		msg_event = msg.get('game_event')
-		msg_client_id = msg_event.get('client_id')
-		if msg_client_id:
-			playerdict = {
-				'client_id': msg_client_id,
-				'position': msg_event.get('position'),
-				'score': msg_event.get('score'),
-				'health': msg_event.get('health'),
-				'msg_dt': msg_event.get('msg_dt'),
-				'timeout': msg_event.get('timeout'),
-				'killed': msg_event.get('killed'),
-				'event_type': 'update_game_state',
-				'bombs_left': msg_event.get('bombs_left'),
-			}
-			self.playerlist[client_id] = playerdict
-		else:
-			logger.warning(f'no client_id in msg: {msg}')
-
 	def cleanup_playerlist(self):
 		"""Remove players with None positions from playerlist"""
 		for client_id, player in list(self.playerlist.items()):
-			if (isinstance(player, PlayerState) and player.position is None) or (isinstance(player, dict) and player.get('position') is None):
+			if player.position is None:
 				logger.info(f"Removing player with None position: {client_id}")
 				del self.playerlist[client_id]
 
@@ -524,14 +510,14 @@ class GameState:
 	async def check_upgrade_collisions(self):
 		# Collect both sprite objects (client local sprites) and authoritative PlayerState entries
 		sprite_players = list(self.players_sprites)
-		ps_players = [p for p in self.playerlist.values() if isinstance(p, PlayerState)]
+		ps_players = list(self.playerlist.values())
 
 		SPAWN_GRACE = 0.0  # seconds
 		picked_up_blocks = set()
 
 		for upgrade_block in list(self.upgrade_blocks):
 			# Skip recently spawned upgrades during a short grace period
-			elapsed = pygame.time.get_ticks() / 1000 - getattr(upgrade_block, "born_time", 0)
+			elapsed = pygame.time.get_ticks() / 1000 - upgrade_block.born_time
 			if elapsed < SPAWN_GRACE:
 				continue
 
@@ -588,21 +574,28 @@ class GameState:
 			x, y = pos
 			if isinstance(x, (int, float)) and isinstance(y, (int, float)):
 				return (int(x), int(y))
+			else:
+				logger.warning(f"{self} _to_pos_tuple: Invalid position values {pos} {type(pos)}, defaulting to (0, 0).")
+		else:
+			logger.warning(f"{self} _to_pos_tuple: Invalid position format {pos} {type(pos)}, defaulting to (0, 0).")
 		return (0, 0)  # default as tuple
+
+	def _to_bullet_color(self, color: Any) -> tuple[int, int, int]:
+		return tuple(max(0, min(255, int(c))) for c in color)  # type: ignore[return-value]
 
 	async def _on_player_joined(self, event: dict[str, Any]) -> str | None:
 		if self.args.debug_gamestate:
 			logger.info(f"Player joined: {event}")
-		player_state = {
-			"client_id": event.get("client_id"),
-			"client_name": event.get("client_name"),
-			"position": self._to_pos_tuple(event.get("position")),
-			"health": DEFAULT_HEALTH,
-			"bombs_left": INITIAL_BOMBS,
-			'bomb_power': INITIAL_BOMB_POWER,
-			"score": 0,
-		}
-		self.playerlist[event.get("client_id",'x')] = player_state
+		client_id = event.get("client_id", 'x')
+		self.playerlist[client_id] = PlayerState(
+			client_id=client_id,  # type: ignore
+			client_name=event.get("client_name") or "client_namenotset",
+			position=self._to_pos_tuple(event.get("position")),
+			health=DEFAULT_HEALTH,
+			initial_bombs=INITIAL_BOMBS,
+			bomb_power=INITIAL_BOMB_POWER,
+			score=0,
+		)
 		await asyncio.sleep(0)
 		return event.get("client_name")
 
@@ -677,7 +670,7 @@ class GameState:
 
 		# Gate firing by the shooter's authoritative state (NOT the local player).
 		shooter_entry = self.playerlist.get(client_id)
-		dead = bool(getattr(shooter_entry, 'killed', False)) or int(getattr(shooter_entry, 'health', 0) or 0) <= 0
+		dead = shooter_entry is None or shooter_entry.killed or shooter_entry.health <= 0
 		if dead:
 			if self.args.debug_gamestate:
 				logger.warning(f"{self} Shooter {client_id} is dead/killed, ignoring bullet fire.")
@@ -691,13 +684,16 @@ class GameState:
 			if isinstance(dx, (int, float)) and isinstance(dy, (int, float)):
 				direction = (float(dx), float(dy))
 			else:
+				logger.warning(f"{self} _on_bullet_fired: Invalid direction values {dir_raw} {type(dir_raw)}, defaulting to (1.0, 0.0).")
 				direction = (1.0, 0.0)
 		else:
+			logger.warning(f"{self} _on_bullet_fired: Invalid direction format {dir_raw} {type(dir_raw)}, defaulting to (1.0, 0.0).")
 			direction = (1.0, 0.0)
 
 		# Bullet stores screen_rect but doesn't currently use it for update; provide a sane default.
 		screen_rect = pygame.Rect(0, 0, 0, 0)
-		bullet = Bullet(position=pos_tuple, direction=direction, screen_rect=screen_rect, owner_id=client_id)
+		bullet_color = self._to_bullet_color(event.get("bullet_color"))
+		bullet = Bullet(position=pos_tuple, direction=direction, screen_rect=screen_rect, owner_id=client_id, color=bullet_color)
 		self.bullets.add(bullet)
 
 		event["handled"] = True
@@ -719,17 +715,11 @@ class GameState:
 			await asyncio.sleep(0)
 			return False
 		if player_entry:
-			if isinstance(player_entry, dict):
-				player_entry['bombs_left'] -= 1
-			else:
-				player_entry.bombs_left -= 1
+			player_entry.bombs_left -= 1
 			# Also update local sprite if this is us
 			for sprite in self.players_sprites:
 				if sprite.client_id == client_id:
-					if isinstance(player_entry, dict):
-						sprite.bombs_left = player_entry['bombs_left']
-					else:
-						sprite.bombs_left = player_entry.bombs_left
+					sprite.bombs_left = player_entry.bombs_left
 					break
 			# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
 			bomb = Bomb(position=pos, client_id=client_id, bomb_power=event.get("bomb_power"))
@@ -761,12 +751,8 @@ class GameState:
 
 		owner_raw = event.get("client_id")
 		player_entry = self.playerlist.get(owner_raw)
-		# Update player state (dict or object)
 		if player_entry:
-			if isinstance(player_entry, dict):
-				player_entry['bombs_left'] += 1
-			else:
-				player_entry.bombs_left += 1
+			player_entry.bombs_left += 1
 			if self.args.debug_gamestate:
 				logger.info(f"{self} Restored bomb for player {owner_raw}: player bombs_left: {player_entry.bombs_left}")
 		else:
@@ -830,7 +816,6 @@ class GameState:
 			self._sync_local_sprite_from_state(ps)
 		else:
 			ps = existing
-			# if isinstance(pos, (list, tuple)):
 			ps.position = pos_tuple
 			ps.position_updated = True  # helps interpolation
 			if accept_update:
@@ -945,13 +930,10 @@ class GameState:
 		tile_y = int(pos[1]) // self.tile_map.tileheight
 		upgrades_to_remove = []
 		for uid, upgrade in list(self.upgrade_by_id.items()):
-			# Upgrades may store tile as .tile or .position (in tile coords)
-			pos_attr = getattr(upgrade, 'position', None)
-			if pos_attr:
-				ux = int(pos_attr[0]) // self.tile_map.tilewidth
-				uy = int(pos_attr[1]) // self.tile_map.tileheight
-				if (ux, uy) == (tile_x, tile_y):
-					upgrades_to_remove.append(uid)
+			ux = int(upgrade.position[0]) // self.tile_map.tilewidth
+			uy = int(upgrade.position[1]) // self.tile_map.tileheight
+			if (ux, uy) == (tile_x, tile_y):
+				upgrades_to_remove.append(uid)
 		for uid in upgrades_to_remove:
 			upgrade = self.upgrade_by_id.pop(uid, None)
 			if upgrade:
@@ -1004,7 +986,6 @@ class GameState:
 					# 		break
 
 				await self._apply_tile_change(tile_x, tile_y, 1)
-				upgrade.kill()
 		await asyncio.sleep(0)
 
 		return True

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import os
 import pygame
 import time
 import asyncio
@@ -16,12 +17,27 @@ from .discovery import ServerDiscovery
 class BombServer:
 	def __init__(self, args):
 		self.args = args
+		self._ensure_headless_display()
 		self.game_state = GameState(args=self.args, mapname=args.mapname, client_id='theserver')
+		# The server is headless (no window), but still needs real tile
+		# metadata (dimensions, layers, collision tiles) for map queries and
+		# upgrade/block logic; without this the map stays an empty placeholder.
+		self.game_state.load_tile_map(args.mapname)
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0
+
+	@staticmethod
+	def _ensure_headless_display():
+		"""pytmx's pygame image loader calls Surface.convert(), which raises
+		unless a display mode has been set. The server has no window, so set
+		up a dummy SDL video driver and a minimal display surface."""
+		if pygame.display.get_surface() is None:
+			os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+			pygame.init()
+			pygame.display.set_mode((1, 1))
 
 	def __repr__(self):
 		return f"<BombServer game_state connections={len(self.game_state.connections)} messages={self.message_counter} client_id={self.game_state.client_id}>"
@@ -58,10 +74,12 @@ class BombServer:
 			pass  # logger.warning(f'{e} Connection closed by client')
 		except pygame.error as e:
 			logger.error(f"{e} {type(e)} ")
-			raise e
+			# raise e
+		except BrokenPipeError as e:
+			logger.error(f"{e} {type(e)} in process_messages. data: {data} msg: {msg}")
 		except Exception as e:
 			logger.error(f"{e} {type(e)} ")
-			raise e
+			# raise e
 		finally:
 			# Best-effort disconnect cleanup: remove player entry from server state
 			# and notify any remaining clients.
@@ -90,7 +108,11 @@ class BombServer:
 					logger.error(f"Error during disconnect cleanup for {disconnected_client_id}: {e} {type(e)}")
 
 	async def get_tile_map(self, request):
-		position = self.get_position()
+		try:
+			position = self.get_position()
+		except Exception as e:
+			logger.error(f"Error getting position: {e} {type(e)}")
+			position = {'position': (1, 1)}  # fallback position
 
 		modified_tiles = {}
 		for pos, gid in self.game_state.modified_tiles.items():
@@ -204,6 +226,8 @@ class BombServer:
 				for x, y, gid in layer:
 					if gid != 0:
 						collidable_positions.add((x, y))
+			else:
+				logger.warning(f"Layer {layer} {type(layer)} is not a TiledTileLayer, skipping collision check.")
 
 		# Generate list of all possible positions excluding collidable tiles
 		valid_positions = []
@@ -233,23 +257,3 @@ class BombServer:
 	async def server_broadcast_state(self, state):
 		await self.game_state.broadcast_state(state)
 
-	def _build_ack_event(self, client_id: str) -> dict:
-		return {
-			'event_type': "acknewplayer",
-			"client_id": client_id,
-			"handled": False,
-			"handledby": "_build_ack_event",
-			"event_time": time.time(),
-		}
-
-	def _build_player_joined(self, client_id: str, msg: dict) -> dict:
-		pos = msg.get('position') or msg.get('game_event', {}).get('position', [100, 100])
-		return {
-			"event_time": time.time(),
-			'event_type': "player_joined",
-			"client_id": client_id,
-			"position": pos,
-			"handled": False,
-			"handledby": "_build_player_joined",
-			"event_id": gen_randid(),
-		}

@@ -25,10 +25,6 @@ class ApiServer:
 			self.app.router.add_route(method, path, view_func)
 			logger.info(f'ApiServer {self._name} added route: {method} {path} -> {view_func}')
 
-	async def wait_until_ready(self):
-		"""Wait until the server is ready to handle requests"""
-		await self._ready.wait()
-
 	async def run(self, host, port):
 		try:
 			self.runner = web.AppRunner(self.app)

@@ -38,10 +38,16 @@ class Particle(Sprite):
 		# Apply gravity
 		self.velocity.y += PARTICLE_GRAVITY
 
-		# Fade out over time
+		# Fade out over time. Adjust the existing Surface's alpha instead of
+		# reallocating a new SRCALPHA Surface + redrawing the circle every
+		# frame for every particle (cheap blit-flag change vs. an allocation
+		# and draw call, and it now runs unconditionally instead of only
+		# when collidable_tiles happens to be set).
 		elapsed = pygame.time.get_ticks() / 1000 - self.born_time
-		# alpha = int(max(0, 255 * (1 - elapsed / self.life)))
 		alpha = int(max(0.0, 255 * (1 - elapsed / self.life)))
+		if self.image:
+			self.image.set_alpha(alpha)
+
 		# Handle wall collisions
 		if collidable_tiles and self.rect:
 			tiles_iter = collidable_tiles.iter_collidable_in_rect(self.rect, pad_pixels=0)
@@ -52,12 +58,6 @@ class Particle(Sprite):
 						self.velocity.x *= -0.8  # Bounce with dampening
 					if abs(self.rect.bottom - tile.rect.top) < 5 or abs(self.rect.top - tile.rect.bottom) < 5:
 						self.velocity.y *= -0.8  # Bounce with dampening
-
-			# Recreate the surface with new alpha
-			self.image = pygame.Surface((self.radius*2, self.radius*2), pygame.SRCALPHA)
-			color_with_alpha = (*self.color, alpha)
-			if self.image:
-				pygame.draw.circle(self.image, color_with_alpha, (self.radius, self.radius), self.radius)
 
 		# Kill if lifetime is over
 		if elapsed > self.life:
