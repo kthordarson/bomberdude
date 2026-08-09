@@ -208,6 +208,24 @@ class Bomberdude():
             logger.error(f"Error drawing player: {e} {type(player_data)}")
         await asyncio.sleep(0)  # Yield control to event loop
 
+    def draw_aim_indicator(self, player) -> None:
+        """Draw a short line on the player sprite pointing toward the current aim (mouse) direction."""
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        virtual_x, virtual_y = self.window_to_virtual(mouse_x, mouse_y)
+        mouse_world = self.camera.reverse_apply(virtual_x, virtual_y)
+        center_world = (player.position.x + player.rect.width / 2, player.position.y + player.rect.height / 2)
+        direction = Vec2d(mouse_world[0] - center_world[0], mouse_world[1] - center_world[1])
+        if direction.length() == 0:
+            return
+        direction = direction.normalize()
+
+        center_screen = self.camera.apply(player.rect).center
+        inner_radius = player.rect.width / 2
+        outer_radius = inner_radius + 12
+        start = (center_screen[0] + direction.x * inner_radius, center_screen[1] + direction.y * inner_radius)
+        end = (center_screen[0] + direction.x * outer_radius, center_screen[1] + direction.y * outer_radius)
+        pygame.draw.line(self.screen, (255, 255, 0), start, end, 3)
+
     async def on_draw(self):
         # Clear virtual screen
         # self.screen.fill((0, 0, 0))
@@ -222,6 +240,8 @@ class Bomberdude():
         player_one = self.game_state.get_playerone()
         if player_one and player_one.image:
             self.screen.blit(player_one.image, self.camera.apply(player_one.rect))
+            if not player_one.killed and player_one.rect:
+                self.draw_aim_indicator(player_one)
 
         # Draw remote players from playerlist
         try:
