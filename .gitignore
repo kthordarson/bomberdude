@@ -45,3 +45,5 @@ bdude_config.json
 .plan/*
 !.plan/marshal.json
 !.plan/project-architecture/
+.plan/marshal.json
+.gitignore
