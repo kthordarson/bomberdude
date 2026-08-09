@@ -110,6 +110,7 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 		started = await start_game(args)
 		if not started:
 			logger.warning("start_game exited without a successful session")
+			return False
 		return True
 
 	elif action == "Start Server":
@@ -320,6 +321,9 @@ async def main(args):
 				logger.info("no action! Quitting...")
 				break
 			running = await _handle_main_menu_action(action, mainmenu, args)
+			if not running:
+				logger.info("Exiting main loop...")
+				break
 	except Exception as e:
 		logger.error(f"Error in main: {e} {type(e)}")
 		raise
