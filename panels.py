@@ -606,12 +606,9 @@ class ServerDiscoveryPanel():
         logger.info(f"Connecting to server {info.get('listen')}")
         try:
             self.args.server = addr
-            if isinstance(info, dict):
-                info['host'] = info.get('listen')
-                self.args.server_port = info.get('server_port')
-                self.args.api_port = info.get('api_port')
-            else:
-                logger.warning(f"Server info is not a dict: {info} {type(info)}")
+            info['host'] = info.get('listen')
+            self.args.server_port = info.get('server_port')
+            self.args.api_port = info.get('api_port')
         except Exception as e:
             logger.error(f"Error setting selected server: {e} {type(e)}")
             pass

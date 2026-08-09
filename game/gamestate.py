@@ -104,10 +104,10 @@ class GameState:
 		try:
 			image = self.tile_map.get_tile_image_by_gid(gid)
 		except Exception as e:
-			if self.args.debug_gamestate:
-				logger.warning(f"{self} No tile image for gid {gid}: {e} {type(e)}")
+			logger.warning(f"{self} No tile image for gid {gid}: {e} {type(e)}")
 			return None
 		if isinstance(image, tuple):
+			logger.debug(f"{self} _get_tile_image_safe: Loaded tile image for gid {gid} as Surface. image: {image} type: {type(image)}")
 			image = pygame.image.load(image[0])
 		return image
 
@@ -295,28 +295,6 @@ class GameState:
 		except Exception as e:
 			logger.error(f"{self} Error in broadcast_state: {e} {type(e)}")
 
-	async def send_to_client(self, connection, data):
-		"""Send data to specific client connection"""
-		try:
-			loop = asyncio.get_event_loop()
-			# loop = asyncio.get_running_loop()
-			# loop = asyncio.new_event_loop()
-			if isinstance(data, dict):
-				data_out = json.dumps(data).encode('utf-8') + b'\n'
-			elif isinstance(data, bytes):
-				data_out = data + b'\n'
-			else:
-				data_out = str(data).encode('utf-8') + b'\n'
-
-			if hasattr(connection, 'write'):  # StreamWriter
-				connection.write(data_out)
-				await connection.drain()
-			else:  # Socket
-				await loop.sock_sendall(connection, data_out)
-		except Exception as e:
-			logger.error(f"{self} Error sending to client: {e}")
-			self.remove_connection(connection)
-
 	def get_playerone(self) -> Bomberplayer:
 		"""Always return a Bomberplayer instance"""
 		for player in self.players_sprites:
@@ -394,8 +372,10 @@ class GameState:
 	def _parse_pos_key(self, key):
 		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
 		if isinstance(key, tuple):
+			logger.debug(f"{self} _parse_pos_key: {key} {type(key)}")
 			return key
 		elif isinstance(key, str):
+			logger.warning(f"{self} _parse_pos_key: Invalid key type {key} {type(key)}")
 			try:
 				return tuple(ast.literal_eval(key))  # type: ignore
 			except Exception as e:
@@ -621,8 +601,8 @@ class GameState:
 		if isinstance(color, (list, tuple)) and len(color) == 3:
 			try:
 				return tuple(max(0, min(255, int(c))) for c in color)  # type: ignore[return-value]
-			except (TypeError, ValueError):
-				pass
+			except (TypeError, ValueError) as e:
+				logger.warning(f"{self} _to_bullet_color: Error converting color {color} to RGB tuple: {e}, defaulting to red.")
 		else:
 			logger.warning(f"{self} _to_bullet_color: Invalid color format {color} {type(color)}, defaulting to red.")
 		return (255, 0, 0)
@@ -728,6 +708,7 @@ class GameState:
 			if isinstance(dx, (int, float)) and isinstance(dy, (int, float)):
 				direction = (float(dx), float(dy))
 			else:
+				logger.warning(f"{self} _on_bullet_fired: Invalid direction values {dir_raw} {type(dir_raw)}, defaulting to (1.0, 0.0).")
 				direction = (1.0, 0.0)
 		else:
 			direction = (1.0, 0.0)
