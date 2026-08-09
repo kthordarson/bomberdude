@@ -1,11 +1,14 @@
 # panels.py
 import asyncio
 import argparse
+import dataclasses
 import socket
 import json
 import pygame
 from collections import OrderedDict
 from loguru import logger
+
+from config import Config, save_config
 
 
 # Global text render cache to avoid repeated Font.render() work every frame.
@@ -36,9 +39,10 @@ INGAME_MENU_SCALE = 0.7
 INGAME_MENU_ALPHA = 170
 
 class MainMenu:
-    def __init__(self, screen: pygame.Surface, args: argparse.Namespace):
+    def __init__(self, screen: pygame.Surface, args: argparse.Namespace, config: Config | None = None):
         self.screen = screen
         self.args = args
+        self.config = config if config is not None else Config()
         # Add server management options
         self.options = ["Start", "Start Server", "Stop Server", "Find server", "Setup", "Quit"]
         self.selected_option = 0
@@ -47,6 +51,7 @@ class MainMenu:
         self.option_rects = []
         self.setup_panel = SetupMenu(screen, args)
         self.discovery_panel = ServerDiscoveryPanel(self.screen, args)
+        self.configure_panel = ConfigureMenu(screen, self.config)
         self.server_running = False
         self.bgcolor = (0, 0, 0)
         self.ingame = False
@@ -254,6 +259,218 @@ class SetupMenu:
             if action:
                 return action
         return action
+
+RESOLUTION_PRESETS = [
+    (800, 600),
+    (1024, 768),
+    (1280, 720),
+    (1366, 768),
+    (1600, 900),
+    (1920, 1080),
+]
+
+BULLET_COLOR_PRESETS = [
+    ("Red", (255, 0, 0)),
+    ("Orange", (255, 140, 0)),
+    ("Yellow", (255, 255, 0)),
+    ("Green", (0, 200, 0)),
+    ("Cyan", (0, 220, 220)),
+    ("Blue", (60, 120, 255)),
+    ("Magenta", (255, 0, 200)),
+    ("White", (255, 255, 255)),
+]
+
+PARTICLE_COUNT_MIN = 5
+PARTICLE_COUNT_MAX = 200
+PARTICLE_COUNT_STEP = 5
+
+NAME_MAX_LENGTH = 20
+
+
+class ConfigureMenu:
+    """In-game settings screen: player name, resolution, bullet color, and
+    explosion particle count. Changes only take effect (and persist to disk)
+    when the player selects "Save"; "Cancel" discards them."""
+
+    def __init__(self, screen: pygame.Surface, config: Config):
+        self.screen = screen
+        self.config = config
+        self.rows = ["Player Name", "Resolution", "Bullet Color", "Particle Count", "Save", "Cancel"]
+        self.selected_row = 0
+        self.font = pygame.font.Font(None, 32)
+        self.hint_font = pygame.font.Font(None, 22)
+        self.running = True
+        self.row_rects: list[pygame.Rect] = []
+        self.editing_name = False
+        self._name_buffer = ""
+        self._snapshot: Config | None = None
+
+    def _resolution_index(self) -> int:
+        target = (self.config.screen_width, self.config.screen_height)
+        for i, res in enumerate(RESOLUTION_PRESETS):
+            if res == target:
+                return i
+        return 0
+
+    def _bullet_color_index(self) -> int:
+        target = tuple(self.config.bullet_color)
+        for i, (_, color) in enumerate(BULLET_COLOR_PRESETS):
+            if color == target:
+                return i
+        return 0
+
+    def _cycle_resolution(self, step: int) -> None:
+        i = (self._resolution_index() + step) % len(RESOLUTION_PRESETS)
+        self.config.screen_width, self.config.screen_height = RESOLUTION_PRESETS[i]
+
+    def _cycle_bullet_color(self, step: int) -> None:
+        i = (self._bullet_color_index() + step) % len(BULLET_COLOR_PRESETS)
+        self.config.bullet_color = BULLET_COLOR_PRESETS[i][1]
+
+    def _adjust_particle_count(self, step: int) -> None:
+        self.config.particle_count = max(PARTICLE_COUNT_MIN, min(PARTICLE_COUNT_MAX, self.config.particle_count + step))
+
+    def _row_value_text(self, row: str) -> str:
+        if row == "Player Name":
+            return self._name_buffer if self.editing_name else self.config.player_name
+        elif row == "Resolution":
+            return f"{self.config.screen_width}x{self.config.screen_height}"
+        elif row == "Bullet Color":
+            return BULLET_COLOR_PRESETS[self._bullet_color_index()][0]
+        elif row == "Particle Count":
+            return str(self.config.particle_count)
+        return ""
+
+    def draw(self):
+        self.screen.fill((15, 15, 25))
+        self.row_rects = []
+        sw = self.screen.get_width()
+
+        title = _render_text_cached(self.font, "Configure", True, (255, 255, 255))
+        self.screen.blit(title, title.get_rect(center=(sw // 2, 80)))
+
+        for i, row in enumerate(self.rows):
+            is_selected = i == self.selected_row
+            label_color = (255, 220, 80) if is_selected else (255, 255, 255)
+            y = 160 + i * 50
+
+            if row in ("Save", "Cancel"):
+                text = _render_text_cached(self.font, row, True, label_color)
+                rect = text.get_rect(center=(sw // 2, y))
+                self.screen.blit(text, rect)
+                self.row_rects.append(rect)
+                continue
+
+            value_text = self._row_value_text(row)
+            if is_selected and row != "Player Name":
+                value_text = f"< {value_text} >"
+            elif is_selected and self.editing_name:
+                value_text = f"{value_text}_"
+
+            label = _render_text_cached(self.font, f"{row}:", True, label_color)
+            value = _render_text_cached(self.font, value_text, True, label_color)
+            label_rect = label.get_rect(midright=(sw // 2 - 20, y))
+            value_rect = value.get_rect(midleft=(sw // 2 + 20, y))
+            self.screen.blit(label, label_rect)
+            self.screen.blit(value, value_rect)
+
+            if row == "Bullet Color":
+                swatch = pygame.Rect(0, 0, 24, 24)
+                swatch.center = (value_rect.right + 30, y)
+                pygame.draw.rect(self.screen, self.config.bullet_color, swatch)
+                pygame.draw.rect(self.screen, (255, 255, 255), swatch, 1)
+
+            # Combined rect for mouse hit-testing.
+            self.row_rects.append(label_rect.union(value_rect))
+
+        hint = "Enter: edit name  |  Esc: cancel edit" if self.editing_name else "Up/Down: select  Left/Right: change  Enter: confirm  Esc: cancel"
+        hint_surf = _render_text_cached(self.hint_font, hint, True, (170, 170, 170))
+        self.screen.blit(hint_surf, hint_surf.get_rect(center=(sw // 2, self.screen.get_height() - 40)))
+
+        pygame.display.flip()
+
+    def _handle_name_edit_key(self, event: pygame.event.Event) -> None:
+        if event.key == pygame.K_RETURN:
+            self.config.player_name = self._name_buffer.strip() or self.config.player_name
+            self.editing_name = False
+        elif event.key == pygame.K_ESCAPE:
+            self.editing_name = False
+        elif event.key == pygame.K_BACKSPACE:
+            self._name_buffer = self._name_buffer[:-1]
+        elif event.unicode and event.unicode.isprintable() and len(self._name_buffer) < NAME_MAX_LENGTH:
+            self._name_buffer += event.unicode
+
+    def handle_input(self) -> str | None:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+                return "Cancel"
+            elif event.type == pygame.KEYDOWN:
+                if self.editing_name:
+                    self._handle_name_edit_key(event)
+                    continue
+                current_row = self.rows[self.selected_row]
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    self.selected_row = (self.selected_row - 1) % len(self.rows)
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    self.selected_row = (self.selected_row + 1) % len(self.rows)
+                elif event.key == pygame.K_LEFT:
+                    if current_row == "Resolution":
+                        self._cycle_resolution(-1)
+                    elif current_row == "Bullet Color":
+                        self._cycle_bullet_color(-1)
+                    elif current_row == "Particle Count":
+                        self._adjust_particle_count(-PARTICLE_COUNT_STEP)
+                elif event.key == pygame.K_RIGHT:
+                    if current_row == "Resolution":
+                        self._cycle_resolution(1)
+                    elif current_row == "Bullet Color":
+                        self._cycle_bullet_color(1)
+                    elif current_row == "Particle Count":
+                        self._adjust_particle_count(PARTICLE_COUNT_STEP)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    if current_row == "Player Name":
+                        self.editing_name = True
+                        self._name_buffer = self.config.player_name
+                    elif current_row == "Save":
+                        return "Save"
+                    elif current_row == "Cancel":
+                        return "Cancel"
+                elif event.key == pygame.K_ESCAPE:
+                    return "Cancel"
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for i, rect in enumerate(self.row_rects):
+                    if rect.collidepoint(event.pos):
+                        self.selected_row = i
+                        row = self.rows[i]
+                        if row == "Save":
+                            return "Save"
+                        elif row == "Cancel":
+                            return "Cancel"
+                        elif row == "Player Name":
+                            self.editing_name = True
+                            self._name_buffer = self.config.player_name
+        return None
+
+    def run(self) -> bool:
+        """Show the settings screen. Returns True if the player saved changes,
+        False if they cancelled (any in-session edits are reverted)."""
+        self._snapshot = dataclasses.replace(self.config)
+        self.selected_row = 0
+        self.editing_name = False
+        self.running = True
+        while self.running:
+            self.draw()
+            action = self.handle_input()
+            if action == "Save":
+                save_config(self.config)
+                return True
+            elif action == "Cancel":
+                if self._snapshot is not None:
+                    for f in dataclasses.fields(self.config):
+                        setattr(self.config, f.name, getattr(self._snapshot, f.name))
+                return False
+        return False
 
 class Panel:
     def __init__(self, screen: pygame.Surface, position, size, color):

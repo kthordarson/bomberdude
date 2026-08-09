@@ -11,6 +11,7 @@ from utils import gen_randid
 from game.gamestate import GameState
 from constants import UPDATE_TICK, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
 from camera import Camera
+from config import Config
 from objects.player import Bomberplayer, MOVE_MAP
 from debug import draw_debug_info
 from panels import PlayerInfoPanel, MainMenu
@@ -19,11 +20,13 @@ class Bomberdude():
     def __init__(self, mainmenu: MainMenu, args: argparse.Namespace, client_id: str = "noclientid", mapname: str = "mapnotset"):
         self.title = "Bomberdude"
         self.args = args
+        self.config: Config = getattr(args, 'config', None) or Config()
         self.draw_debug = False
 
-        # Render to a fixed "virtual" resolution, then scale to the actual resizable window.
+        # Render to a fixed "virtual" resolution, then scale to the actual
+        # (independently configurable) window size.
         self.base_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
-        self.window = pygame.display.set_mode(self.base_size, flags=pygame.RESIZABLE)
+        self.window = pygame.display.set_mode((self.config.screen_width, self.config.screen_height), flags=pygame.RESIZABLE)
         pygame.display.set_caption(SCREEN_TITLE + ' - ' + self.title)
 
         # All game rendering happens here (virtual canvas)
@@ -136,7 +139,7 @@ class Bomberdude():
         map_width = self.game_state.tile_map.width * self.game_state.tile_map.tilewidth
         map_height = self.game_state.tile_map.height * self.game_state.tile_map.tileheight
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
-        player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id, position=pos)
+        player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id, position=pos, client_name=self.config.player_name)
         player_one._set_texture(player_one.texture)
         if player_one.image:
             player_one.rect = player_one.image.get_rect()
@@ -367,6 +370,7 @@ class Bomberdude():
                 "client_id": self.client_id,
                 "position": (bullet_pos.x, bullet_pos.y),
                 "direction": (direction_vector.x, direction_vector.y),
+                "bullet_color": list(self.config.bullet_color),
                 "timer": self.timer,
                 "handled": False,
                 "handledby": self.client_id,
@@ -422,9 +426,10 @@ class Bomberdude():
                     logger.info("Resuming game...")
                     waiting = False
                 elif action == "Configure":
-                    # todo
-                    logger.debug("Configure menu not implemented yet.")
-                    waiting = False
+                    saved = self.mainmenu.configure_panel.run()
+                    if saved:
+                        self._apply_config_changes()
+                    # Stay in the pause loop so the player returns to Resume/Quit.
             self.mainmenu.exit_ingame(["Start", "Start Server", "Stop Server", "Find server", "Setup", "Quit"])
             # pygame.event.post(pygame.event.Event(pygame.QUIT))
             # return
@@ -599,11 +604,33 @@ class Bomberdude():
         screen_y = int(world_pos[1] - camera_y)
         return (screen_x, screen_y)
 
+    def _apply_config_changes(self) -> None:
+        """Apply settings edited via the in-game Configure menu immediately.
+
+        Bullet color and particle count are read directly from self.config
+        at the moment a bullet is fired / a bomb explodes, so they need no
+        extra wiring here.
+        """
+        cfg = self.config
+        player_one = self.game_state.get_playerone()
+        if player_one and cfg.player_name and player_one.client_name != cfg.player_name:
+            player_one.client_name = cfg.player_name
+            pygame.display.set_caption(cfg.player_name + ' - ' + self.title)
+
+        if self.window.get_size() != (cfg.screen_width, cfg.screen_height):
+            self.handle_resize(cfg.screen_width, cfg.screen_height)
+
     def handle_resize(self, width: int, height: int) -> None:
         """Resize the actual OS window. Game renders at base_size and is scaled up/down."""
         width = max(320, width)
         height = max(240, height)
         self.window = pygame.display.set_mode((width, height), flags=pygame.RESIZABLE)
+        # pygame.display.set_mode() returns a fresh Surface; keep menu panels
+        # (which hold their own reference) pointed at the current one.
+        self.mainmenu.screen = self.window
+        self.mainmenu.setup_panel.screen = self.window
+        self.mainmenu.discovery_panel.screen = self.window
+        self.mainmenu.configure_panel.screen = self.window
 
     def queue_resize(self, width: int, height: int) -> None:
         """Record the latest requested window size; apply later."""

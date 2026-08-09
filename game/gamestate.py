@@ -609,6 +609,14 @@ class GameState:
 				return (int(x), int(y))
 		return (0, 0)  # default as tuple
 
+	def _to_bullet_color(self, color: Any) -> tuple[int, int, int]:
+		if isinstance(color, (list, tuple)) and len(color) == 3:
+			try:
+				return tuple(max(0, min(255, int(c))) for c in color)  # type: ignore[return-value]
+			except (TypeError, ValueError):
+				pass
+		return (255, 0, 0)
+
 	async def _on_player_joined(self, event: dict[str, Any]) -> str | None:
 		if self.args.debug_gamestate:
 			logger.info(f"Player joined: {event}")
@@ -716,7 +724,8 @@ class GameState:
 
 		# Bullet stores screen_rect but doesn't currently use it for update; provide a sane default.
 		screen_rect = pygame.Rect(0, 0, 0, 0)
-		bullet = Bullet(position=pos_tuple, direction=direction, screen_rect=screen_rect, owner_id=client_id)
+		bullet_color = self._to_bullet_color(event.get("bullet_color"))
+		bullet = Bullet(position=pos_tuple, direction=direction, screen_rect=screen_rect, owner_id=client_id, color=bullet_color)
 		self.bullets.add(bullet)
 
 		event["handled"] = True

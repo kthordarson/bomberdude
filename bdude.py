@@ -9,7 +9,8 @@ import argparse
 from argparse import ArgumentParser
 import pygame
 from loguru import logger
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
+from constants import SCREEN_TITLE, UPDATE_TICK
+from config import load_config
 from panels import MainMenu
 from game.bomberdude import Bomberdude
 from network.client import send_game_state, receive_game_state
@@ -318,10 +319,12 @@ async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> b
 	# pygame.quit()
 
 async def main(args):
+	config = load_config()
+	args.config = config
 	pygame.init()
-	screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags=pygame.RESIZABLE)
+	screen = pygame.display.set_mode((config.screen_width, config.screen_height), flags=pygame.RESIZABLE)
 	pygame.display.set_caption(SCREEN_TITLE)
-	bomberdude_main = Bomberdude(args=args, mainmenu=MainMenu(screen=screen, args=args), client_id="noclientid", mapname="mapnotset")
+	bomberdude_main = Bomberdude(args=args, mainmenu=MainMenu(screen=screen, args=args, config=config), client_id="noclientid", mapname="mapnotset")
 	try:
 		running = True
 		while running:

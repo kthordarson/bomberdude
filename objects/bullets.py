@@ -2,7 +2,7 @@ from pygame.math import Vector2 as Vec2d
 import pygame
 
 class Bullet(pygame.sprite.Sprite):
-	def __init__(self, position, direction, screen_rect, owner_id=None, speed=10, bounce_count=3, bullet_size=(10,10)):
+	def __init__(self, position, direction, screen_rect, owner_id=None, speed=10, bounce_count=3, bullet_size=(10,10), color=(255, 0, 0)):
 		super().__init__()
 		self.image = pygame.Surface(bullet_size)
 		self.world_position = Vec2d(position)
@@ -13,7 +13,7 @@ class Bullet(pygame.sprite.Sprite):
 			self.direction = self.direction.normalize()
 		if self.image:
 			self.rect = self.image.get_rect(center=(int(self.world_position.x), int(self.world_position.y)))
-			self.image.fill((255, 0, 0))
+			self.image.fill(color)
 		if self.rect:
 			self.rect.center = (int(self.world_position.x), int(self.world_position.y))
 		self.screen_rect = screen_rect

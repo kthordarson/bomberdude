@@ -67,7 +67,8 @@ class Bomberplayer(Sprite):
 		self.score = 0
 		self.lastdrop = 0.0
 		self.keyspressed = KeysPressed('bomberplayer')
-		self.client_name = generate_name()
+		if not self.client_name or self.client_name == 'Noname':
+			self.client_name = generate_name()
 
 	def _set_texture(self, texture_path: str) -> None:
 		# Cache disk loads globally; convert/scale only when a display surface exists.
