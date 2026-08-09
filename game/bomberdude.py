@@ -13,10 +13,10 @@ from constants import UPDATE_TICK, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
 from camera import Camera
 from objects.player import Bomberplayer, MOVE_MAP
 from debug import draw_debug_info
-from panels import PlayerInfoPanel
+from panels import PlayerInfoPanel, MainMenu
 
 class Bomberdude():
-    def __init__(self, mainmenu, args: argparse.Namespace, client_id: str = "noclientid", mapname: str = "mapnotset"):
+    def __init__(self, mainmenu: MainMenu, args: argparse.Namespace, client_id: str = "noclientid", mapname: str = "mapnotset"):
         self.title = "Bomberdude"
         self.args = args
         self.draw_debug = False
@@ -407,6 +407,7 @@ class Bomberdude():
             # self.running = False
             logger.info("toggle main menu")
             waiting = True
+            self.mainmenu.ingame = True
             self.mainmenu.options = ["Resume", "Configure", "Quit"]
             self.mainmenu.bgcolor = (50, 50, 50)  # Darker background for in-game menu
             while waiting:
@@ -427,6 +428,7 @@ class Bomberdude():
                     logger.debug("Configure menu not implemented yet.")
                     waiting = False
             self.mainmenu.options = ["Start", "Start Server", "Stop Server", "Find server", "Setup", "Quit"]
+            self.mainmenu.ingame = False
             self.mainmenu.bgcolor = (0, 0, 0)
             # pygame.event.post(pygame.event.Event(pygame.QUIT))
             # return

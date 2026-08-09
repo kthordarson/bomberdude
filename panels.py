@@ -33,7 +33,7 @@ def _render_text_cached(font: pygame.font.Font, text: str, antialias: bool, colo
     return surf
 
 class MainMenu:
-    def __init__(self, screen, args: argparse.Namespace):
+    def __init__(self, screen: pygame.Surface, args: argparse.Namespace):
         self.screen = screen
         self.args = args
         # Add server management options
@@ -46,6 +46,8 @@ class MainMenu:
         self.discovery_panel = ServerDiscoveryPanel(self.screen, args)
         self.server_running = False
         self.bgcolor = (0, 0, 0)
+        self.rect = pygame.Rect(0, 20, 200, 200)
+        self.ingame = False
 
     def draw(self):
         self.screen.fill(self.bgcolor)
@@ -65,6 +67,11 @@ class MainMenu:
             rect = text.get_rect(center=(self.screen.get_width() // 2, 150 + i * 50))
             self.screen.blit(text, rect)
             self.option_rects.append(rect)
+        # self.screen.blit(self.surface, self.rect)
+        if self.ingame:
+            self.screen.set_alpha(100)
+            pygame.draw.rect(surface=self.screen, rect=self.rect, color=(50, 50, 50, 180))
+        self.screen.set_alpha(0)
         pygame.display.flip()
 
     def handle_input(self):
@@ -127,7 +134,7 @@ class MainMenu:
         return None
 
 class SetupMenu:
-    def __init__(self, screen, args: argparse.Namespace):
+    def __init__(self, screen: pygame.Surface, args: argparse.Namespace):
         self.screen = screen
         self.args = args
         self.options = ["option1", "option2", "option3", "Back"]
@@ -187,7 +194,7 @@ class SetupMenu:
         return action
 
 class Panel:
-    def __init__(self, screen, position, size, color):
+    def __init__(self, screen: pygame.Surface, position, size, color):
         self.screen = screen
         self.position = position
         self.size = size
@@ -197,7 +204,7 @@ class Panel:
         pygame.draw.rect(self.screen, self.color, (*self.position, *self.size))
 
 class ServerDiscoveryPanel():
-    def __init__(self, screen, args: argparse.Namespace):
+    def __init__(self, screen: pygame.Surface, args: argparse.Namespace):
         self.screen = screen
         self.args = args
         self.rect = pygame.Rect(0, 0, screen.get_width(), screen.get_height())
@@ -352,7 +359,7 @@ class ServerDiscoveryPanel():
             logger.error(f"Error drawing server discovery panel: {e} {type(e)}")
 
 class PlayerInfoPanel:
-    def __init__(self, screen, game_state, height=110, bg_color=(30, 30, 40, 180)):
+    def __init__(self, screen:pygame.Surface, game_state, height=110, bg_color=(30, 30, 40, 180)):
         """
         Create a panel showing player information at the bottom of the screen
 

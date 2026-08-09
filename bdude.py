@@ -122,9 +122,9 @@ async def _handle_main_menu_action(bomberdude_main: Bomberdude, action: str, arg
 			bomberdude_main.mainmenu.server_running = True
 			logger.info("Server started and ready. You can now connect.")
 		# The game recreates the display surface; refresh the menu to use the new surface.
-		bomberdude_main.mainmenu.screen = pygame.display.get_surface()
-		bomberdude_main.mainmenu.setup_panel.screen = bomberdude_main.mainmenu.screen
-		bomberdude_main.mainmenu.discovery_panel.screen = bomberdude_main.mainmenu.screen
+		# bomberdude_main.mainmenu.screen = pygame.display.get_surface()
+		# bomberdude_main.mainmenu.setup_panel.screen = bomberdude_main.mainmenu.screen
+		# bomberdude_main.mainmenu.discovery_panel.screen = bomberdude_main.mainmenu.screen
 		return True
 
 	elif action == "Stop Server":
