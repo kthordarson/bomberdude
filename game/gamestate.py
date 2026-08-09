@@ -27,8 +27,6 @@ class GameState:
 		self.players_sprites = Group()
 		self.bullets = Group()
 		self.bombs = Group()
-		self.flames = Group()
-		self.particles = Group()
 		self.mapname = mapname
 		self.event_queue = asyncio.Queue()
 		self.keyspressed = KeysPressed('gamestate')
@@ -401,8 +399,6 @@ class GameState:
 			# Remove upgrade if present
 			upgrade = self.upgrade_by_tile.pop(tile_pos, None)
 			self.upgrade_blocks.discard(upgrade)
-			if upgrade:
-				upgrade.kill()
 			# Redraw background tile
 			tile_image = self._get_tile_image_safe(new_gid)
 			if tile_image:
@@ -986,7 +982,6 @@ class GameState:
 					# 		break
 
 				await self._apply_tile_change(tile_x, tile_y, 1)
-				upgrade.kill()
 		await asyncio.sleep(0)
 
 		return True

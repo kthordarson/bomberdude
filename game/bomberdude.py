@@ -534,8 +534,7 @@ class Bomberdude():
                 self.game_state.upgrade_blocks.discard(upgrade_block)
 
         self.game_state.bullets.update(self.game_state)
-        for bomb in self.game_state.bombs:
-            bomb.update(self.game_state)
+        self.game_state.bombs.update(self.game_state)
         await self.game_state.check_bullet_collisions()
         await self.game_state.check_upgrade_collisions()
 
