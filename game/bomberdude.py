@@ -58,8 +58,6 @@ class Bomberdude():
         self.player_info_panel = PlayerInfoPanel(self.screen, self.game_state)
 
         self.fog_enabled = True  # Toggle for fog of war
-        self.fog_radius = 200    # Visible radius around player
-        self.fog_color = (0, 0, 0, 180)  # Semi-transparent black
         self.fog_surface = None  # Will be created on first render
         self._fog_size = None
         self._visibility_mask = None
@@ -67,9 +65,11 @@ class Bomberdude():
         self.trail_radius = 100      # Radius of trail visibility (smaller than main)
         self.max_trail_points = 100  # Limit trail length for performance
 
-        # Fog-of-war caching: only recompute when inputs change.
+        # Fog-of-war caching: only recompute when inputs change. Radius/color/alpha
+        # are read live from self.config (edited via the in-game Configure menu).
         self._fog_last_center: tuple[int, int] | None = None
         self._fog_last_radius: int | None = None
+        self._fog_last_rgba: tuple[int, int, int, int] | None = None
         self.draw_player_info_panel = True
 
         self.remote_player_sprites: dict[str, Bomberplayer] = {}  # Cache for remote players
@@ -578,6 +578,7 @@ class Bomberdude():
             # Force a refresh after resize/recreate.
             self._fog_last_center = None
             self._fog_last_radius = None
+            self._fog_last_rgba = None
 
         player_one = self.game_state.get_playerone()
 
@@ -591,19 +592,22 @@ class Bomberdude():
         screen_x = int(player_one.position.x - camera_x)
         screen_y = int(player_one.position.y - camera_y)
 
-        # Only recompute the composed fog overlay when the reveal center or radius changed.
-        # This avoids two large Surface fills + a circle draw every frame.
+        # Only recompute the composed fog overlay when the reveal center, radius,
+        # or fog color/alpha changed. This avoids two large Surface fills + a
+        # circle draw every frame.
         center = (screen_x, screen_y)
-        radius = self.fog_radius
-        if center != self._fog_last_center or radius != self._fog_last_radius:
-            # Fill with semi-transparent black
-            self.fog_surface.fill((0, 0, 0, 220))
+        radius = self.config.fog_radius
+        rgba = (*self.config.fog_color, self.config.fog_alpha)
+        if center != self._fog_last_center or radius != self._fog_last_radius or rgba != self._fog_last_rgba:
+            # Fill with the configured fog color/alpha
+            self.fog_surface.fill(rgba)
             # Reset mask to fully opaque black
             self._visibility_mask.fill((0, 0, 0, 255))
             pygame.draw.circle(self._visibility_mask, (0, 0, 0, 0), center, radius)
             self.fog_surface.blit(self._visibility_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
             self._fog_last_center = center
             self._fog_last_radius = radius
+            self._fog_last_rgba = rgba
 
         self.screen.blit(self.fog_surface, (0, 0))
 

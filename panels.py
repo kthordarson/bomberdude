@@ -284,18 +284,36 @@ PARTICLE_COUNT_MIN = 5
 PARTICLE_COUNT_MAX = 200
 PARTICLE_COUNT_STEP = 5
 
+FOG_COLOR_PRESETS = [
+    ("Black", (0, 0, 0)),
+    ("Dark Gray", (40, 40, 40)),
+    ("Navy", (10, 10, 40)),
+    ("Dark Red", (40, 0, 0)),
+    ("Dark Green", (0, 40, 0)),
+    ("Purple", (40, 0, 40)),
+]
+
+FOG_RADIUS_MIN = 50
+FOG_RADIUS_MAX = 500
+FOG_RADIUS_STEP = 10
+
+FOG_ALPHA_MIN = 0
+FOG_ALPHA_MAX = 255
+FOG_ALPHA_STEP = 5
+
 NAME_MAX_LENGTH = 20
 
 
 class ConfigureMenu:
-    """In-game settings screen: player name, resolution, bullet color, and
-    explosion particle count. Changes only take effect (and persist to disk)
-    when the player selects "Save"; "Cancel" discards them."""
+    """In-game settings screen: player name, resolution, bullet color,
+    explosion particle count, and fog-of-war radius/color/alpha. Changes only
+    take effect (and persist to disk) when the player selects "Save";
+    "Cancel" discards them."""
 
     def __init__(self, screen: pygame.Surface, config: Config):
         self.screen = screen
         self.config = config
-        self.rows = ["Player Name", "Resolution", "Bullet Color", "Particle Count", "Save", "Cancel"]
+        self.rows = ["Player Name", "Resolution", "Bullet Color", "Particle Count", "Fog Radius", "Fog Color", "Fog Alpha", "Save", "Cancel"]
         self.selected_row = 0
         self.font = pygame.font.Font(None, 32)
         self.hint_font = pygame.font.Font(None, 22)
@@ -319,6 +337,13 @@ class ConfigureMenu:
                 return i
         return 0
 
+    def _fog_color_index(self) -> int:
+        target = tuple(self.config.fog_color)
+        for i, (_, color) in enumerate(FOG_COLOR_PRESETS):
+            if color == target:
+                return i
+        return 0
+
     def _cycle_resolution(self, step: int) -> None:
         i = (self._resolution_index() + step) % len(RESOLUTION_PRESETS)
         self.config.screen_width, self.config.screen_height = RESOLUTION_PRESETS[i]
@@ -327,8 +352,18 @@ class ConfigureMenu:
         i = (self._bullet_color_index() + step) % len(BULLET_COLOR_PRESETS)
         self.config.bullet_color = BULLET_COLOR_PRESETS[i][1]
 
+    def _cycle_fog_color(self, step: int) -> None:
+        i = (self._fog_color_index() + step) % len(FOG_COLOR_PRESETS)
+        self.config.fog_color = FOG_COLOR_PRESETS[i][1]
+
     def _adjust_particle_count(self, step: int) -> None:
         self.config.particle_count = max(PARTICLE_COUNT_MIN, min(PARTICLE_COUNT_MAX, self.config.particle_count + step))
+
+    def _adjust_fog_radius(self, step: int) -> None:
+        self.config.fog_radius = max(FOG_RADIUS_MIN, min(FOG_RADIUS_MAX, self.config.fog_radius + step))
+
+    def _adjust_fog_alpha(self, step: int) -> None:
+        self.config.fog_alpha = max(FOG_ALPHA_MIN, min(FOG_ALPHA_MAX, self.config.fog_alpha + step))
 
     def _row_value_text(self, row: str) -> str:
         if row == "Player Name":
@@ -339,6 +374,12 @@ class ConfigureMenu:
             return BULLET_COLOR_PRESETS[self._bullet_color_index()][0]
         elif row == "Particle Count":
             return str(self.config.particle_count)
+        elif row == "Fog Radius":
+            return str(self.config.fog_radius)
+        elif row == "Fog Color":
+            return FOG_COLOR_PRESETS[self._fog_color_index()][0]
+        elif row == "Fog Alpha":
+            return str(self.config.fog_alpha)
         return ""
 
     def draw(self):
@@ -378,6 +419,12 @@ class ConfigureMenu:
                 swatch = pygame.Rect(0, 0, 24, 24)
                 swatch.center = (value_rect.right + 30, y)
                 pygame.draw.rect(self.screen, self.config.bullet_color, swatch)
+                pygame.draw.rect(self.screen, (255, 255, 255), swatch, 1)
+
+            if row == "Fog Color":
+                swatch = pygame.Rect(0, 0, 24, 24)
+                swatch.center = (value_rect.right + 30, y)
+                pygame.draw.rect(self.screen, self.config.fog_color, swatch)
                 pygame.draw.rect(self.screen, (255, 255, 255), swatch, 1)
 
             # Combined rect for mouse hit-testing.
@@ -421,6 +468,12 @@ class ConfigureMenu:
                         self._cycle_bullet_color(-1)
                     elif current_row == "Particle Count":
                         self._adjust_particle_count(-PARTICLE_COUNT_STEP)
+                    elif current_row == "Fog Radius":
+                        self._adjust_fog_radius(-FOG_RADIUS_STEP)
+                    elif current_row == "Fog Color":
+                        self._cycle_fog_color(-1)
+                    elif current_row == "Fog Alpha":
+                        self._adjust_fog_alpha(-FOG_ALPHA_STEP)
                 elif event.key == pygame.K_RIGHT:
                     if current_row == "Resolution":
                         self._cycle_resolution(1)
@@ -428,6 +481,12 @@ class ConfigureMenu:
                         self._cycle_bullet_color(1)
                     elif current_row == "Particle Count":
                         self._adjust_particle_count(PARTICLE_COUNT_STEP)
+                    elif current_row == "Fog Radius":
+                        self._adjust_fog_radius(FOG_RADIUS_STEP)
+                    elif current_row == "Fog Color":
+                        self._cycle_fog_color(1)
+                    elif current_row == "Fog Alpha":
+                        self._adjust_fog_alpha(FOG_ALPHA_STEP)
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     if current_row == "Player Name":
                         self.editing_name = True

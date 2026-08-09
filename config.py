@@ -14,6 +14,9 @@ from utils import generate_name
 
 DEFAULT_CONFIG_PATH = "bdude_config.json"
 DEFAULT_BULLET_COLOR = (255, 0, 0)
+DEFAULT_FOG_RADIUS = 200
+DEFAULT_FOG_COLOR = (0, 0, 0)
+DEFAULT_FOG_ALPHA = 220
 
 
 @dataclass
@@ -23,6 +26,9 @@ class Config:
 	screen_height: int = SCREEN_HEIGHT
 	bullet_color: tuple[int, int, int] = DEFAULT_BULLET_COLOR
 	particle_count: int = PARTICLE_COUNT
+	fog_radius: int = DEFAULT_FOG_RADIUS
+	fog_color: tuple[int, int, int] = DEFAULT_FOG_COLOR
+	fog_alpha: int = DEFAULT_FOG_ALPHA
 
 	def to_dict(self) -> dict:
 		return {
@@ -31,6 +37,9 @@ class Config:
 			"screen_height": self.screen_height,
 			"bullet_color": list(self.bullet_color),
 			"particle_count": self.particle_count,
+			"fog_radius": self.fog_radius,
+			"fog_color": list(self.fog_color),
+			"fog_alpha": self.fog_alpha,
 		}
 
 	@classmethod
@@ -43,12 +52,22 @@ class Config:
 				bullet_color = defaults.bullet_color
 		except (TypeError, ValueError):
 			bullet_color = defaults.bullet_color
+		fog_color = data.get("fog_color", list(defaults.fog_color))
+		try:
+			fog_color = tuple(int(c) for c in fog_color)[:3]
+			if len(fog_color) != 3:
+				fog_color = defaults.fog_color
+		except (TypeError, ValueError):
+			fog_color = defaults.fog_color
 		return cls(
 			player_name=str(data.get("player_name") or defaults.player_name),
 			screen_width=int(data.get("screen_width", defaults.screen_width)),
 			screen_height=int(data.get("screen_height", defaults.screen_height)),
 			bullet_color=bullet_color,  # type: ignore[arg-type]
 			particle_count=int(data.get("particle_count", defaults.particle_count)),
+			fog_radius=int(data.get("fog_radius", defaults.fog_radius)),
+			fog_color=fog_color,  # type: ignore[arg-type]
+			fog_alpha=int(data.get("fog_alpha", defaults.fog_alpha)),
 		)
 
 
