@@ -48,3 +48,7 @@ bdude_config.json
 .plan/marshal.json
 .gitignore
 bdude_config*.json
+*.dot
+*.svg
+*pstats*
+pycall*
