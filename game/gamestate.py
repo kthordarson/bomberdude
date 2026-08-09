@@ -451,25 +451,6 @@ class GameState:
 				x, y = pos
 				await self._apply_tile_change(x, y, gid)
 
-	def update_game_state(self, client_id, msg):
-		msg_event = msg.get('game_event')
-		msg_client_id = msg_event.get('client_id')
-		if not msg_client_id:
-			logger.warning(f'no client_id in msg: {msg}')
-			return
-		existing = self.playerlist.get(client_id)
-		if existing is None:
-			existing = PlayerState(client_id=msg_client_id, position=self._to_pos_tuple(msg_event.get('position')))  # type: ignore
-		existing.position = self._to_pos_tuple(msg_event.get('position'))
-		existing.score = msg_event.get('score', existing.score)
-		existing.health = msg_event.get('health', existing.health)
-		existing.msg_dt = msg_event.get('msg_dt')
-		existing.timeout = msg_event.get('timeout')
-		existing.killed = msg_event.get('killed', existing.killed)
-		existing.event_type = 'update_game_state'
-		existing.bombs_left = msg_event.get('bombs_left', existing.bombs_left)
-		self.playerlist[client_id] = existing
-
 	def cleanup_playerlist(self):
 		"""Remove players with None positions from playerlist"""
 		for client_id, player in list(self.playerlist.items()):
@@ -595,17 +576,12 @@ class GameState:
 				return (int(x), int(y))
 			else:
 				logger.warning(f"{self} _to_pos_tuple: Invalid position values {pos} {type(pos)}, defaulting to (0, 0).")
+		else:
+			logger.warning(f"{self} _to_pos_tuple: Invalid position format {pos} {type(pos)}, defaulting to (0, 0).")
 		return (0, 0)  # default as tuple
 
 	def _to_bullet_color(self, color: Any) -> tuple[int, int, int]:
-		if isinstance(color, (list, tuple)) and len(color) == 3:
-			try:
-				return tuple(max(0, min(255, int(c))) for c in color)  # type: ignore[return-value]
-			except (TypeError, ValueError) as e:
-				logger.warning(f"{self} _to_bullet_color: Error converting color {color} to RGB tuple: {e}, defaulting to red.")
-		else:
-			logger.warning(f"{self} _to_bullet_color: Invalid color format {color} {type(color)}, defaulting to red.")
-		return (255, 0, 0)
+		return tuple(max(0, min(255, int(c))) for c in color)  # type: ignore[return-value]
 
 	async def _on_player_joined(self, event: dict[str, Any]) -> str | None:
 		if self.args.debug_gamestate:
@@ -711,6 +687,7 @@ class GameState:
 				logger.warning(f"{self} _on_bullet_fired: Invalid direction values {dir_raw} {type(dir_raw)}, defaulting to (1.0, 0.0).")
 				direction = (1.0, 0.0)
 		else:
+			logger.warning(f"{self} _on_bullet_fired: Invalid direction format {dir_raw} {type(dir_raw)}, defaulting to (1.0, 0.0).")
 			direction = (1.0, 0.0)
 
 		# Bullet stores screen_rect but doesn't currently use it for update; provide a sane default.
