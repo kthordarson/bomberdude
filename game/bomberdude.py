@@ -233,9 +233,9 @@ class Bomberdude():
         # draw map
         self.screen.blit(self.game_state.static_map_surface, self.camera.apply(pygame.Rect(0, 0, self.game_state.static_map_surface.get_width(), self.game_state.static_map_surface.get_height())))
 
-        # Draw upgrade blocks
-        for upgrade_block in self.game_state.upgrade_blocks:
-            self.screen.blit(upgrade_block.image, self.camera.apply(upgrade_block.rect))
+        # Draw upgrade blocks (batched: one call instead of one blit() per block)
+        if self.game_state.upgrade_blocks:
+            self.screen.blits([(u.image, self.camera.apply(u.rect)) for u in self.game_state.upgrade_blocks])
 
         # Draw local player
         player_one = self.game_state.get_playerone()
@@ -252,14 +252,12 @@ class Bomberdude():
         except Exception as e:
             logger.error(f"Error drawing remote players: {e} {type(e)}")
 
-        # Draw bullets, bombs, etc.
-        for bullet in self.game_state.bullets:
-            pos = self.camera.apply(bullet.rect)
-            self.screen.blit(bullet.image, pos)
+        # Draw bullets, bombs, etc. (batched: one call instead of one blit() per object)
+        if self.game_state.bullets:
+            self.screen.blits([(b.image, self.camera.apply(b.rect)) for b in self.game_state.bullets])
 
-        for bomb in self.game_state.bombs:
-            pos = self.camera.apply(bomb.rect)
-            self.screen.blit(bomb.image, pos)
+        if self.game_state.bombs:
+            self.screen.blits([(b.image, self.camera.apply(b.rect)) for b in self.game_state.bombs])
 
         # Draw explosion particles
         self.game_state.explosion_manager.draw(self.screen, self.camera)

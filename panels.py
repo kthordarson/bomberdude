@@ -193,11 +193,13 @@ class MainMenu:
         return action
 
     def run(self):
+        clock = pygame.time.Clock()
         while self.running:
             self.draw()
             action = self.handle_input()
             if action:
                 return action
+            clock.tick(30)
         return None
 
 class SetupMenu:
@@ -253,11 +255,13 @@ class SetupMenu:
 
     def run(self):
         action = 'noaction'
+        clock = pygame.time.Clock()
         while self.running:
             self.draw()
             action = self.handle_input()
             if action:
                 return action
+            clock.tick(30)
         return action
 
 RESOLUTION_PRESETS = [
@@ -518,6 +522,7 @@ class ConfigureMenu:
         self.selected_row = 0
         self.editing_name = False
         self.running = True
+        clock = pygame.time.Clock()
         while self.running:
             self.draw()
             action = self.handle_input()
@@ -529,6 +534,7 @@ class ConfigureMenu:
                     for f in dataclasses.fields(self.config):
                         setattr(self.config, f.name, getattr(self._snapshot, f.name))
                 return False
+            clock.tick(30)
         return False
 
 class Panel:
