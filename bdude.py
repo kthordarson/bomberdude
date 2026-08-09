@@ -319,39 +319,44 @@ async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> b
 	# pygame.quit()
 
 async def main(args):
-	config = load_config()
+	config = load_config(args.config)
 	args.config = config
 	pygame.init()
 	screen = pygame.display.set_mode((config.screen_width, config.screen_height), flags=pygame.RESIZABLE)
-	pygame.display.set_caption(SCREEN_TITLE)
-	bomberdude_main = Bomberdude(args=args, mainmenu=MainMenu(screen=screen, args=args, config=config), client_id="noclientid", mapname="mapnotset")
-	try:
-		running = True
-		while running:
-			action = bomberdude_main.mainmenu.run()
-			if not action:
-				logger.info("no action! Quitting...")
-				break
-			running = await _handle_main_menu_action(bomberdude_main, action, args)
-			if not running:
-				logger.info("Exiting main loop...")
-				break
-	except Exception as e:
-		logger.error(f"Error in main: {e} {type(e)}")
-		raise
-	finally:
-		# Ensure server is stopped on exit
-		if bomberdude_main.mainmenu.server_running:
-			await stop_server_background()
-		pygame.quit()
+	pygame.display.set_caption('init')
+	bomberdude_main = Bomberdude(args=args, mainmenu=MainMenu(screen=screen, args=args, config=config), client_id="noclientid", mapname="mapnotset", config=config)
+	if args.autoconnect:
+		running = await _handle_main_menu_action(bomberdude_main, "Start", args)
+	else:
+		try:
+			running = True
+			while running:
+				action = bomberdude_main.mainmenu.run()
+				if not action:
+					logger.info("no action! Quitting...")
+					break
+				running = await _handle_main_menu_action(bomberdude_main, action, args)
+				if not running:
+					logger.info("Exiting main loop...")
+					break
+		except Exception as e:
+			logger.error(f"Error in main: {e} {type(e)}")
+			raise
+		finally:
+			# Ensure server is stopped on exit
+			if bomberdude_main.mainmenu.server_running:
+				await stop_server_background()
+			pygame.quit()
 
 def get_args():
 	parser = ArgumentParser(description="bdude")
 	parser.add_argument("--name", action="store", dest="name", default="bdude")
 	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1", help='ip address to listen (server mode)')
 	parser.add_argument("--server", action="store", dest="server", default="127.0.0.1", help='ip address of the server (client mode)')
+	parser.add_argument("--autoconnect", action="store_true", dest="autoconnect", default=False, help='autoconnect')
 	parser.add_argument("--server_port", action="store", dest="server_port", default=9696, type=int, help='server_port port number')
 	parser.add_argument("--api_port", action="store", dest="api_port", default=9691, type=int, help='API port number')
+	parser.add_argument("--config", action="store", dest="config", default="bdude_config.json", help='Path to config file')
 	# server
 	parser.add_argument("--host", action="store", dest="host", default="127.0.0.1")
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)

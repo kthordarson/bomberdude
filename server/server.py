@@ -74,10 +74,12 @@ class BombServer:
 			pass  # logger.warning(f'{e} Connection closed by client')
 		except pygame.error as e:
 			logger.error(f"{e} {type(e)} ")
-			raise e
+			# raise e
+		except BrokenPipeError as e:
+			logger.error(f"{e} {type(e)} in process_messages. data: {data} msg: {msg}")
 		except Exception as e:
 			logger.error(f"{e} {type(e)} ")
-			raise e
+			# raise e
 		finally:
 			# Best-effort disconnect cleanup: remove player entry from server state
 			# and notify any remaining clients.

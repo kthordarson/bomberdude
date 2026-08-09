@@ -17,7 +17,8 @@ from debug import draw_debug_info
 from panels import PlayerInfoPanel, MainMenu
 
 class Bomberdude():
-    def __init__(self, mainmenu: MainMenu, args: argparse.Namespace, client_id: str = "noclientid", mapname: str = "mapnotset"):
+    def __init__(self, mainmenu: MainMenu, args: argparse.Namespace, config:Config, client_id: str = "noclientid", mapname: str = "mapnotset"):
+        self.config = config
         self.title = "Bomberdude"
         self.args = args
         self.config: Config = getattr(args, 'config', None) or Config()
@@ -27,7 +28,7 @@ class Bomberdude():
         # (independently configurable) window size.
         self.base_size = (SCREEN_WIDTH, SCREEN_HEIGHT)
         self.window = pygame.display.set_mode((self.config.screen_width, self.config.screen_height), flags=pygame.RESIZABLE)
-        pygame.display.set_caption(SCREEN_TITLE + ' - ' + self.title)
+        pygame.display.set_caption(self.title + " - " + self.config.player_name)
 
         # All game rendering happens here (virtual canvas)
         self.screen = pygame.Surface(self.base_size)

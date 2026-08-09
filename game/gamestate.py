@@ -367,7 +367,7 @@ class GameState:
 		if self.args.debug_gamestate:
 			logger.info(f"{self} Loaded tile map '{self.mapname}' with {len(self.collidable_tiles)} collidable tiles, {len(self.killable_tiles)} killable tiles, {len(self.background_tiles)} background tiles.")
 
-	def _parse_pos_key(self, key):
+	def old_parse_pos_key(self, key):
 		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
 		if isinstance(key, tuple):
 			logger.debug(f"{self} _parse_pos_key: {key} {type(key)}")
@@ -384,6 +384,10 @@ class GameState:
 		else:
 			logger.error(f"{self} _parse_pos_key: Invalid key type {key} {type(key)}, defaulting to (0, 0).")
 		return key
+
+	def _parse_pos_key(self, key):
+		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
+		return tuple(ast.literal_eval(key))  # type: ignore
 
 	async def _apply_tile_change(self, x, y, new_gid):
 		"""Apply a single tile change and update visuals/collisions/state."""
