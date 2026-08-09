@@ -150,10 +150,6 @@ class Bomberplayer(Sprite):
 					self.rect.y = int(prev_y)
 					return
 
-	def addscore(self, score):
-		self.score += score
-		logger.info(f'{self} score:{self.score}')
-
 	def take_damage(self, damage, attacker):
 		self.health -= damage
 		logger.info(f'{self} health:{self.health} {damage=} {attacker=}')
