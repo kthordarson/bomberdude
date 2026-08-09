@@ -32,6 +32,9 @@ def _render_text_cached(font: pygame.font.Font, text: str, antialias: bool, colo
         _TEXT_CACHE.popitem(last=False)
     return surf
 
+INGAME_MENU_SCALE = 0.7
+INGAME_MENU_ALPHA = 170
+
 class MainMenu:
     def __init__(self, screen: pygame.Surface, args: argparse.Namespace):
         self.screen = screen
@@ -46,17 +49,49 @@ class MainMenu:
         self.discovery_panel = ServerDiscoveryPanel(self.screen, args)
         self.server_running = False
         self.bgcolor = (0, 0, 0)
-        self.rect = pygame.Rect(0, 20, 200, 200)
         self.ingame = False
+        # Snapshot of the game frame behind an in-game (pause) menu, and a
+        # cache of the smaller fonts used to render that menu.
+        self.background_snapshot: pygame.Surface | None = None
+        self._ingame_font_cache: dict[int, pygame.font.Font] = {}
+
+    def enter_ingame(self, options: list[str]) -> None:
+        """Switch to the paused, in-game overlay style: options limited to
+        the given list, drawn semi-transparent and scaled down over a
+        snapshot of the current game frame."""
+        self.ingame = True
+        self.options = options
+        self.selected_option = 0
+        self.bgcolor = (50, 50, 50)
+        self.background_snapshot = self.screen.copy()
+
+    def exit_ingame(self, options: list[str]) -> None:
+        """Return to the normal, full-screen main menu."""
+        self.ingame = False
+        self.options = options
+        self.selected_option = 0
+        self.bgcolor = (0, 0, 0)
+        self.background_snapshot = None
+
+    def _get_ingame_font(self, size: int) -> pygame.font.Font:
+        font = self._ingame_font_cache.get(size)
+        if font is None:
+            font = pygame.font.Font(None, size)
+            self._ingame_font_cache[size] = font
+        return font
 
     def draw(self):
+        if self.ingame and self.background_snapshot is not None:
+            self._draw_ingame_overlay()
+        else:
+            self._draw_full_menu()
+        pygame.display.flip()
+
+    def _draw_full_menu(self):
         self.screen.fill(self.bgcolor)
         self.option_rects = []
 
-        # Filter options based on server state
-        display_options = [opt for opt in self.options]
-
-        for i, option in enumerate(display_options):
+        for i, option in enumerate(self.options):
             color = (255, 0, 0) if i == self.selected_option else (255, 255, 255)
 
             # Add status indicator for server
@@ -67,12 +102,39 @@ class MainMenu:
             rect = text.get_rect(center=(self.screen.get_width() // 2, 150 + i * 50))
             self.screen.blit(text, rect)
             self.option_rects.append(rect)
-        # self.screen.blit(self.surface, self.rect)
-        if self.ingame:
-            self.screen.set_alpha(100)
-            pygame.draw.rect(surface=self.screen, rect=self.rect, color=(50, 50, 50, 180))
-        self.screen.set_alpha(0)
-        pygame.display.flip()
+
+    def _draw_ingame_overlay(self):
+        # Keep the frozen game frame visible behind the menu.
+        if self.background_snapshot is not None:
+            self.screen.blit(self.background_snapshot, (0, 0))
+
+        font_size = max(12, int(36 * INGAME_MENU_SCALE))
+        spacing = max(20, int(50 * INGAME_MENU_SCALE))
+        small_font = self._get_ingame_font(font_size)
+
+        sw, sh = self.screen.get_size()
+        title_h = spacing
+        panel_w = int(sw * INGAME_MENU_SCALE)
+        panel_h = title_h + spacing * len(self.options) + spacing // 2
+        panel_x = (sw - panel_w) // 2
+        panel_y = (sh - panel_h) // 2
+
+        # Per-pixel alpha surface so the game frame shows through the panel.
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel.fill((*self.bgcolor, INGAME_MENU_ALPHA))
+        self.screen.blit(panel, (panel_x, panel_y))
+
+        title = _render_text_cached(small_font, "PAUSED", True, (255, 255, 255))
+        title_rect = title.get_rect(center=(sw // 2, panel_y + title_h // 2))
+        self.screen.blit(title, title_rect)
+
+        self.option_rects = []
+        for i, option in enumerate(self.options):
+            color = (255, 80, 80) if i == self.selected_option else (255, 255, 255)
+            text = _render_text_cached(small_font, option, True, color)
+            rect = text.get_rect(center=(sw // 2, panel_y + title_h + spacing // 2 + i * spacing))
+            self.screen.blit(text, rect)
+            self.option_rects.append(rect)
 
     def handle_input(self):
         action = 'noinput'

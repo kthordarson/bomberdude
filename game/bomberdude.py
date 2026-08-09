@@ -407,9 +407,7 @@ class Bomberdude():
             # self.running = False
             logger.info("toggle main menu")
             waiting = True
-            self.mainmenu.ingame = True
-            self.mainmenu.options = ["Resume", "Configure", "Quit"]
-            self.mainmenu.bgcolor = (50, 50, 50)  # Darker background for in-game menu
+            self.mainmenu.enter_ingame(["Resume", "Configure", "Quit"])
             while waiting:
                 action = self.mainmenu.run()
                 if action == "Quit":
@@ -427,9 +425,7 @@ class Bomberdude():
                     # todo
                     logger.debug("Configure menu not implemented yet.")
                     waiting = False
-            self.mainmenu.options = ["Start", "Start Server", "Stop Server", "Find server", "Setup", "Quit"]
-            self.mainmenu.ingame = False
-            self.mainmenu.bgcolor = (0, 0, 0)
+            self.mainmenu.exit_ingame(["Start", "Start Server", "Stop Server", "Find server", "Setup", "Quit"])
             # pygame.event.post(pygame.event.Event(pygame.QUIT))
             # return
 
