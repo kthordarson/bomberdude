@@ -306,22 +306,38 @@ FOG_ALPHA_MIN = 0
 FOG_ALPHA_MAX = 255
 FOG_ALPHA_STEP = 5
 
+MINIMAP_SIZE_MIN = 80
+MINIMAP_SIZE_MAX = 300
+MINIMAP_SIZE_STEP = 10
+
+MINIMAP_ALPHA_MIN = 40
+MINIMAP_ALPHA_MAX = 255
+MINIMAP_ALPHA_STEP = 5
+
+MINIMAP_ANCHOR_PRESETS = [
+    ("Top Left", "top_left"),
+    ("Top Right", "top_right"),
+    ("Bottom Left", "bottom_left"),
+    ("Bottom Right", "bottom_right"),
+]
+
 NAME_MAX_LENGTH = 20
 
 
 class ConfigureMenu:
     """In-game settings screen: player name, resolution, bullet color,
-    explosion particle count, and fog-of-war radius/color/alpha. Changes only
-    take effect (and persist to disk) when the player selects "Save";
-    "Cancel" discards them."""
+    explosion particle count, fog-of-war radius/color/alpha, and minimap
+    size/opacity/position. Fog and minimap rows apply live as they're
+    changed; all changes persist to disk when the player selects "Save".
+    "Cancel" discards any changes made during the session."""
 
     def __init__(self, screen: pygame.Surface, config: Config):
         self.screen = screen
         self.config = config
-        self.rows = ["Player Name", "Resolution", "Bullet Color", "Particle Count", "Fog Radius", "Fog Color", "Fog Alpha", "Save", "Cancel"]
+        self.rows = ["Player Name", "Resolution", "Bullet Color", "Particle Count", "Fog Radius", "Fog Color", "Fog Alpha", "Minimap Size", "Minimap Opacity", "Minimap Position", "Save", "Cancel"]
         self.selected_row = 0
-        self.font = pygame.font.Font(None, 32)
-        self.hint_font = pygame.font.Font(None, 22)
+        self.font = pygame.font.Font(None, 20)
+        self.hint_font = pygame.font.Font(None, 16)
         self.running = True
         self.row_rects: list[pygame.Rect] = []
         self.editing_name = False
@@ -350,6 +366,12 @@ class ConfigureMenu:
                 return i
         return 0
 
+    def _minimap_anchor_index(self) -> int:
+        for i, (_, anchor) in enumerate(MINIMAP_ANCHOR_PRESETS):
+            if anchor == self.config.minimap_anchor:
+                return i
+        return 0
+
     def _cycle_resolution(self, step: int) -> None:
         i = (self._resolution_index() + step) % len(RESOLUTION_PRESETS)
         self.config.screen_width, self.config.screen_height = RESOLUTION_PRESETS[i]
@@ -371,6 +393,16 @@ class ConfigureMenu:
     def _adjust_fog_alpha(self, step: int) -> None:
         self.config.fog_alpha = max(FOG_ALPHA_MIN, min(FOG_ALPHA_MAX, self.config.fog_alpha + step))
 
+    def _adjust_minimap_size(self, step: int) -> None:
+        self.config.minimap_size = max(MINIMAP_SIZE_MIN, min(MINIMAP_SIZE_MAX, self.config.minimap_size + step))
+
+    def _adjust_minimap_alpha(self, step: int) -> None:
+        self.config.minimap_alpha = max(MINIMAP_ALPHA_MIN, min(MINIMAP_ALPHA_MAX, self.config.minimap_alpha + step))
+
+    def _cycle_minimap_anchor(self, step: int) -> None:
+        i = (self._minimap_anchor_index() + step) % len(MINIMAP_ANCHOR_PRESETS)
+        self.config.minimap_anchor = MINIMAP_ANCHOR_PRESETS[i][1]
+
     def _row_value_text(self, row: str) -> str:
         if row == "Player Name":
             return self._name_buffer if self.editing_name else self.config.player_name
@@ -386,6 +418,12 @@ class ConfigureMenu:
             return FOG_COLOR_PRESETS[self._fog_color_index()][0]
         elif row == "Fog Alpha":
             return str(self.config.fog_alpha)
+        elif row == "Minimap Size":
+            return f"{self.config.minimap_size}px"
+        elif row == "Minimap Opacity":
+            return str(self.config.minimap_alpha)
+        elif row == "Minimap Position":
+            return MINIMAP_ANCHOR_PRESETS[self._minimap_anchor_index()][0]
         return ""
 
     def draw(self):
@@ -399,10 +437,14 @@ class ConfigureMenu:
         title = _render_text_cached(self.font, "Configure", True, (255, 255, 255))
         self.screen.blit(title, title.get_rect(center=(sw // 2, 80)))
 
+        rows_top = 130
+        rows_bottom = self.screen.get_height() - 70
+        row_step = min(50, (rows_bottom - rows_top) / max(1, len(self.rows) - 1))
+
         for i, row in enumerate(self.rows):
             is_selected = i == self.selected_row
             label_color = (255, 220, 80) if is_selected else (255, 255, 255)
-            y = 160 + i * 50
+            y = int(rows_top + i * row_step)
 
             if row in ("Save", "Cancel"):
                 text = _render_text_cached(self.font, row, True, label_color)
@@ -487,6 +529,15 @@ class ConfigureMenu:
                     elif current_row == "Fog Alpha":
                         self._adjust_fog_alpha(-FOG_ALPHA_STEP)
                         apply_needed = True
+                    elif current_row == "Minimap Size":
+                        self._adjust_minimap_size(-MINIMAP_SIZE_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Opacity":
+                        self._adjust_minimap_alpha(-MINIMAP_ALPHA_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Position":
+                        self._cycle_minimap_anchor(-1)
+                        apply_needed = True
                 elif event.key == pygame.K_RIGHT:
                     if current_row == "Resolution":
                         self._cycle_resolution(1)
@@ -502,6 +553,15 @@ class ConfigureMenu:
                         apply_needed = True
                     elif current_row == "Fog Alpha":
                         self._adjust_fog_alpha(FOG_ALPHA_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Size":
+                        self._adjust_minimap_size(MINIMAP_SIZE_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Opacity":
+                        self._adjust_minimap_alpha(MINIMAP_ALPHA_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Position":
+                        self._cycle_minimap_anchor(1)
                         apply_needed = True
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     if current_row == "Player Name":
@@ -526,8 +586,8 @@ class ConfigureMenu:
                             self.editing_name = True
                             self._name_buffer = self.config.player_name
         if apply_needed:
-            save_config(self.config)
             cb_apply_config_changes()
+            apply_needed = False
         return None
 
     def run(self, cb_apply_config_changes) -> bool:

@@ -17,6 +17,10 @@ DEFAULT_BULLET_COLOR = (255, 0, 0)
 DEFAULT_FOG_RADIUS = 200
 DEFAULT_FOG_COLOR = (0, 0, 0)
 DEFAULT_FOG_ALPHA = 220
+DEFAULT_MINIMAP_SIZE = 150
+DEFAULT_MINIMAP_ALPHA = 255
+DEFAULT_MINIMAP_ANCHOR = "bottom_right"
+MINIMAP_ANCHORS = ("top_left", "top_right", "bottom_left", "bottom_right")
 
 
 @dataclass
@@ -29,6 +33,9 @@ class Config:
 	fog_radius: int = DEFAULT_FOG_RADIUS
 	fog_color: tuple[int, int, int] = DEFAULT_FOG_COLOR
 	fog_alpha: int = DEFAULT_FOG_ALPHA
+	minimap_size: int = DEFAULT_MINIMAP_SIZE
+	minimap_alpha: int = DEFAULT_MINIMAP_ALPHA
+	minimap_anchor: str = DEFAULT_MINIMAP_ANCHOR
 
 	def to_dict(self) -> dict:
 		return {
@@ -40,6 +47,9 @@ class Config:
 			"fog_radius": self.fog_radius,
 			"fog_color": list(self.fog_color),
 			"fog_alpha": self.fog_alpha,
+			"minimap_size": self.minimap_size,
+			"minimap_alpha": self.minimap_alpha,
+			"minimap_anchor": self.minimap_anchor,
 		}
 
 	@classmethod
@@ -59,6 +69,9 @@ class Config:
 				fog_color = defaults.fog_color
 		except (TypeError, ValueError):
 			fog_color = defaults.fog_color
+		minimap_anchor = data.get("minimap_anchor", defaults.minimap_anchor)
+		if minimap_anchor not in MINIMAP_ANCHORS:
+			minimap_anchor = defaults.minimap_anchor
 		return cls(
 			player_name=str(data.get("player_name") or defaults.player_name),
 			screen_width=int(data.get("screen_width", defaults.screen_width)),
@@ -68,6 +81,9 @@ class Config:
 			fog_radius=int(data.get("fog_radius", defaults.fog_radius)),
 			fog_color=fog_color,  # type: ignore[arg-type]
 			fog_alpha=int(data.get("fog_alpha", defaults.fog_alpha)),
+			minimap_size=int(data.get("minimap_size", defaults.minimap_size)),
+			minimap_alpha=int(data.get("minimap_alpha", defaults.minimap_alpha)),
+			minimap_anchor=minimap_anchor,
 		)
 
 
