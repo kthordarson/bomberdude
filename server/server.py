@@ -255,14 +255,3 @@ class BombServer:
 	async def server_broadcast_state(self, state):
 		await self.game_state.broadcast_state(state)
 
-	def _build_player_joined(self, client_id: str, msg: dict) -> dict:
-		pos = msg.get('position') or msg.get('game_event', {}).get('position', [100, 100])
-		return {
-			"event_time": time.time(),
-			'event_type': "player_joined",
-			"client_id": client_id,
-			"position": pos,
-			"handled": False,
-			"handledby": "_build_player_joined",
-			"event_id": gen_randid(),
-		}
