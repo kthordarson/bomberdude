@@ -611,23 +611,6 @@ class Bomberdude():
 
         self.screen.blit(self.fog_surface, (0, 0))
 
-    def camera_apply_pos(self, world_pos):
-        """Convert world position to screen position"""
-        player_one = self.game_state.get_playerone()
-        camera_x = player_one.position.x - SCREEN_WIDTH/2
-        camera_y = player_one.position.y - SCREEN_HEIGHT/2
-
-        # Clamp camera to map boundaries
-        map_width = self.game_state.tile_map.width * self.game_state.tile_map.tilewidth
-        map_height = self.game_state.tile_map.height * self.game_state.tile_map.tileheight
-        camera_x = max(0.0, min(camera_x, map_width - SCREEN_WIDTH))
-        camera_y = max(0.0, min(camera_y, map_height - SCREEN_HEIGHT))
-
-        # Convert world to screen
-        screen_x = int(world_pos[0] - camera_x)
-        screen_y = int(world_pos[1] - camera_y)
-        return (screen_x, screen_y)
-
     def _apply_config_changes(self) -> None:
         """Apply settings edited via the in-game Configure menu immediately.
 
