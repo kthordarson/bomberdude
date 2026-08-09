@@ -32,7 +32,7 @@ class GameState:
 		self.mapname = mapname
 		self.event_queue = asyncio.Queue()
 		self.keyspressed = KeysPressed('gamestate')
-		self.tile_map = pytmx.TiledMap(mapname)
+		self.tile_map = pytmx.TiledMap()
 		# Ensure static_map_surface always exists, even before load_tile_map is called
 		self.static_map_surface = pygame.Surface((1, 1))
 		# Use sets for O(1) add/remove; these are iterated frequently for collision checks.
@@ -84,6 +84,10 @@ class GameState:
 
 	def __repr__(self):
 		return f'Gamestate {self.client_id} ( players:{len(self.playerlist)} players_sprites:{len(self.players_sprites)} broadcast_counter:{self.broadcast_counter} )'
+
+	def _load_map(self, mapname):
+		self.tile_map = pytmx.TiledMap(mapname)
+		logger.debug(f"{self} Loaded map '{mapname}'")
 
 	def _iter_tiles_from_index_in_rect(self, tile_index: dict[tuple[int, int], Any], rect: pygame.Rect, *, pad_pixels: int = 0):
 		"""Yield tiles from a {(tile_x,tile_y)->tile} index intersecting rect.

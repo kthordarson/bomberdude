@@ -40,7 +40,7 @@ class ServerTUI():
 		"""Get current server state information"""
 		state_json = self.server.game_state.to_json()
 		playerlist = cast(list[dict[str, Any]], state_json.get('playerlist') or [])
-		print(f'server: {self.server}')
+		print(f'server: {self.server} state_jsonmap: {state_json.get("mapname")} server.game_state.mapname: {self.server.game_state.mapname}')
 		print(f'self.server.game_state.client_id: {self.server.game_state.client_id}')
 		print(f"playerlist: {len(playerlist)} players_sprites: {len(self.server.game_state.players_sprites)} upgrade_blocks: {len(self.server.game_state.upgrade_blocks)}")
 		print(f'explosions: {len(self.server.game_state.processed_explosions)} hits: {len(self.server.game_state.processed_hits)} bullets: {len(self.server.game_state.processed_bullets)} upgrades: {len(self.server.game_state.processed_upgrades)}')

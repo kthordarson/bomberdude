@@ -90,7 +90,11 @@ class BombServer:
 					logger.error(f"Error during disconnect cleanup for {disconnected_client_id}: {e} {type(e)}")
 
 	async def get_tile_map(self, request):
-		position = self.get_position()
+		try:
+			position = self.get_position()
+		except Exception as e:
+			logger.error(f"Error getting position: {e} {type(e)}")
+			position = {'position': (1, 1)}  # fallback position
 
 		modified_tiles = {}
 		for pos, gid in self.game_state.modified_tiles.items():

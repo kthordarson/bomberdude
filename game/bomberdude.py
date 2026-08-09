@@ -16,7 +16,7 @@ from debug import draw_debug_info
 from panels import PlayerInfoPanel
 
 class Bomberdude():
-    def __init__(self, args: argparse.Namespace, client_id: str, mapname: str):
+    def __init__(self, mainmenu, args: argparse.Namespace, client_id: str = "noclientid", mapname: str = "mapnotset"):
         self.title = "Bomberdude"
         self.args = args
         self.draw_debug = False
@@ -37,6 +37,7 @@ class Bomberdude():
         self.selected_bomb = 1
         self.client_id = client_id
         self.mapname = mapname
+        self.mainmenu = mainmenu
         self.game_state = GameState(args=self.args, client_id=self.client_id, mapname=self.mapname)
         self._connected = False
         self.timer = 0.0
@@ -101,8 +102,9 @@ class Bomberdude():
         logger.info(f'connecting to server... event_queue: {self.game_state.event_queue.qsize()} ')
         await asyncio.get_running_loop().sock_connect(self.sock, (self.args.server, self.args.server_port))
         self.socket_connected.set()
+        api_url = f"http://{self.args.server}:{self.args.api_port}/get_tile_map"
         try:
-            resp = requests.get(f"http://{self.args.server}:{self.args.api_port}/get_tile_map", timeout=10).text
+            resp = requests.get(api_url, timeout=10).text
         except Exception as e:
             logger.error(f"Error connecting to server: {e} {type(e)}")
             return False
@@ -115,7 +117,7 @@ class Bomberdude():
             tile_y = resp.get('position').get('position')[1]
             modified_tiles = resp.get('modified_tiles', {})  # Get map modifications
         except Exception as e:
-            logger.error(f"{type(e)} {e=} {resp}")
+            logger.error(f"{type(e)} {e} api_url: {api_url} resp: {resp}")
             raise e
         self.game_state.load_tile_map(self.mapname)
         # Apply map modifications
@@ -400,10 +402,10 @@ class Bomberdude():
         elif key == pygame.K_TAB:
             self.draw_player_info_panel = not self.draw_player_info_panel
         elif key in (pygame.K_ESCAPE, pygame.K_q, 27):
-            await self.disconnect(return_to_menu=True)
+            # await self.disconnect(return_to_menu=True)
             # self._connected = False
             # self.running = False
-            logger.info("quit to main menu")
+            logger.info("toggle main menu")
             # pygame.event.post(pygame.event.Event(pygame.QUIT))
             return
 
