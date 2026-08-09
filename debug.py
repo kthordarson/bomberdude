@@ -3,7 +3,6 @@ import traceback
 import pygame
 import time
 from loguru import logger
-import math
 from collections import OrderedDict
 from constants import BLOCK, PLAYER_SCALING
 

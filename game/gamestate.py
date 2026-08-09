@@ -1,10 +1,9 @@
 from constants import INITIAL_BOMB_POWER
 import asyncio
 import random
-from typing import Any, Callable, cast, Optional
+from typing import Any, Callable, Optional
 import ast
 import pygame
-from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Group
 from loguru import logger
 import time
@@ -16,11 +15,10 @@ from objects.bullets import Bullet
 from objects.bombs import Bomb
 from objects.explosionmanager import ExplosionManager
 from objects.blocks import Upgrade
-from constants import DEFAULT_HEALTH, UPDATE_TICK, GLOBAL_RATE_LIMIT, BLOCK, INITIAL_BOMBS
+from constants import DEFAULT_HEALTH, GLOBAL_RATE_LIMIT, INITIAL_BOMBS
 import pytmx
 from pytmx import load_pygame
 import json
-import inspect  # <-- add
 
 @dataclass
 class GameState:
@@ -806,7 +804,6 @@ class GameState:
 		client_id = event.get("client_id")
 		pos_tuple = self._to_pos_tuple(event.get("position"))
 
-		pos = event.get("position", (0,0))
 		health = int(event.get("health", 0))
 		client_name = event.get("client_name", "None")
 		score = int(event.get("score", 0))
@@ -816,8 +813,6 @@ class GameState:
 		# Server is authoritative for health; clients may have stale state.
 		# Keep accepting health updates on clients so they reflect server state.
 		accept_update = self.client_id != "theserver"
-		# Client name is set by the client once; server keeps the first non-default.
-		accept_name_update = True
 
 		existing = self.playerlist.get(client_id)
 		if existing is None:
@@ -881,7 +876,7 @@ class GameState:
 
 	async def _on_player_hit(self, event: dict) -> bool:
 		# De-dupe by event id when available
-		hit_id = event.get('event_id') or event.get('event_id')
+		hit_id = event.get('event_id')
 		if hit_id is not None and hit_id in self.processed_hits or event.get('handled'):
 			if self.args.debug_gamestate:
 				logger.warning(f"{self} Duplicate player_hit event ignored: {event} self.processed_hits: {len(self.processed_hits)}")
@@ -904,7 +899,6 @@ class GameState:
 		target = event.get("target_id", "")
 		target_player_entry = self.playerlist.get(target)
 		if target_player_entry:
-			old_health = target_player_entry.health
 			# Keep event_type as 'player_hit' so receivers handle it consistently.
 			event["handledby"] = "_on_player_hit"
 			damage = event.get('damage', 0)
@@ -932,15 +926,9 @@ class GameState:
 			out_event["handled"] = False
 			out_event["handledby"] = "server.broadcast_player_hit"
 			out_event["target_health"] = getattr(target_player_entry, 'health', None)
-			# asyncio.create_task(self.broadcast_event(out_event))
-		else:
-			if self.args.debug_gamestate:
-				pass  # logger.warning(f"{self} skipping broadcast_event for player_hit on client.")
-		out_event = dict(event)
-		out_event["handled"] = False
-		out_event["handledby"] = "server.broadcast_player_hit"
-		out_event["target_health"] = getattr(target_player_entry, 'health', None)
-		asyncio.create_task(self.broadcast_event(out_event))
+			asyncio.create_task(self.broadcast_event(out_event))
+		elif self.args.debug_gamestate:
+			logger.warning(f"{self} skipping broadcast_event for player_hit on client.")
 		await asyncio.sleep(0)
 		return True
 
@@ -963,7 +951,6 @@ class GameState:
 				ux = int(pos_attr[0]) // self.tile_map.tilewidth
 				uy = int(pos_attr[1]) // self.tile_map.tileheight
 				if (ux, uy) == (tile_x, tile_y):
-					upgrade_tile = (tile_x, tile_y)
 					upgrades_to_remove.append(uid)
 		for uid in upgrades_to_remove:
 			upgrade = self.upgrade_by_id.pop(uid, None)

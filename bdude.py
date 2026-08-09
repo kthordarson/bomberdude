@@ -108,6 +108,8 @@ async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None
 async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argparse.Namespace) -> bool:
 	if action == "Start":
 		started = await start_game(args)
+		if not started:
+			logger.warning("start_game exited without a successful session")
 		return True
 
 	elif action == "Start Server":

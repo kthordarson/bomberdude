@@ -1,4 +1,3 @@
-import sys
 import socket
 import asyncio
 import json
@@ -8,8 +7,7 @@ DISCOVERY_MAGIC = b"BOMBERDUDE_DISCOVERY"
 
 def get_local_ip_addresses():
     ips = set()
-    for iface in socket.if_nameindex():
-        iface_name = iface[1]
+    for _iface in socket.if_nameindex():
         try:
             for fam, _, _, _, sockaddr in socket.getaddrinfo(None, 0, family=socket.AF_INET, proto=socket.IPPROTO_UDP):
                 s = socket.socket(fam, socket.SOCK_DGRAM)

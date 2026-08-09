@@ -1,5 +1,4 @@
 import time
-import ast
 import asyncio
 import requests
 import pygame
@@ -10,7 +9,7 @@ import json
 from loguru import logger
 from utils import gen_randid
 from game.gamestate import GameState
-from constants import UPDATE_TICK, PLAYER_MOVEMENT_SPEED, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
+from constants import UPDATE_TICK, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
 from camera import Camera
 from objects.player import Bomberplayer, MOVE_MAP
 from debug import draw_debug_info

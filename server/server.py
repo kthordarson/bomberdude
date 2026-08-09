@@ -1,5 +1,4 @@
 #!/usr/bin/python
-import sys
 import pygame
 import time
 import asyncio
@@ -8,10 +7,8 @@ from threading import Event
 from loguru import logger
 import random
 import pytmx
-from constants import BLOCK
 from aiohttp import web
 from game.gamestate import GameState
-from server.api import ApiServer
 from utils import gen_randid
 from constants import UPDATE_TICK
 from .discovery import ServerDiscovery
@@ -57,7 +54,7 @@ class BombServer:
 				self.message_counter += 1
 		except TypeError as e:
 			logger.error(f"{e} {type(e)} in process_messages. data: {data} msg: {msg}")
-		except (asyncio.IncompleteReadError, ConnectionResetError) as e:
+		except (asyncio.IncompleteReadError, ConnectionResetError):
 			pass  # logger.warning(f'{e} Connection closed by client')
 		except pygame.error as e:
 			logger.error(f"{e} {type(e)} ")
@@ -234,35 +231,7 @@ class BombServer:
 		return self._stop.is_set()
 
 	async def server_broadcast_state(self, state):
-		data = json.dumps(state).encode('utf-8') + b'\n'
-		# Use gather for concurrent sending
-		send_tasks = []
-		# for writer in self.connections:
-		# 	send_tasks.append(self._send_to_client(writer, data))
-		# Wait for all sends to complete
-		if send_tasks:
-			try:
-				await asyncio.gather(*send_tasks, return_exceptions=True)
-			except Exception as e:
-				logger.error(f"{self} Error during broadcast: {e}")
-
-	async def _send_to_client(self, writer, data):
-		"""Helper method to send data to a client with error handling"""
-		try:
-			writer.write(data)
-			await writer.drain()
-			return True
-		except (ConnectionResetError, BrokenPipeError) as e:
-			logger.warning(f"{self} Connection error while sending: {e}")
-			# Connection is dead, remove it
-			# if writer in self.connections:
-			# 	if self.args.debug:
-			# 		logger.debug(f"{self} Removing dead connection {writer} connections: {len(self.connections)}")
-			# 	self.connections.remove(writer)
-			return False
-		except Exception as e:
-			logger.error(f"{self} Error sending to client: {e}")
-			return False
+		await self.game_state.broadcast_state(state)
 
 	def _build_ack_event(self, client_id: str) -> dict:
 		return {

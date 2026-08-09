@@ -1,7 +1,7 @@
 import pygame
 from loguru import logger
 from dataclasses import dataclass, field, InitVar
-from utils import gen_randid, generate_name
+from utils import gen_randid
 from constants import DEFAULT_HEALTH, BLOCK, INITIAL_BOMBS, INITIAL_BOMB_POWER
 
 @dataclass

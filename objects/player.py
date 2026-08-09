@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass, field
 from loguru import logger
 from pygame.math import Vector2 as Vec2d
