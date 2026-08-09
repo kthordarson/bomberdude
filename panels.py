@@ -610,6 +610,8 @@ class ServerDiscoveryPanel():
                 info['host'] = info.get('listen')
                 self.args.server_port = info.get('server_port')
                 self.args.api_port = info.get('api_port')
+            else:
+                logger.warning(f"Server info is not a dict: {info} {type(info)}")
         except Exception as e:
             logger.error(f"Error setting selected server: {e} {type(e)}")
             pass
@@ -800,21 +802,14 @@ class PlayerInfoPanel:
         pygame.draw.rect(self.surface, (50, 50, 60), card_rect, border_radius=5)
         pygame.draw.rect(self.surface, color, card_rect, width=2, border_radius=5)
 
-        # Get player attributes (safely)
-        if isinstance(player, dict):
-            player_id = str(player.get('client_id', 'unknown'))
-            client_name = str(player.get('client_name', 'unknown'))
-            health = int(player.get('health', 0) or 0)
-            score = int(player.get('score', 0) or 0)
-            bombs_left = int(player.get('bombs_left', 0) or 0)
-            bomb_power = int(player.get('bomb_power', 0) or 0)
-        else:
-            player_id = str(getattr(player, 'client_id', 'unknown'))
-            client_name = str(getattr(player, 'client_name', 'unknown'))
-            health = int(getattr(player, 'health', 0) or 0)
-            score = int(getattr(player, 'score', 0) or 0)
-            bombs_left = int(getattr(player, 'bombs_left', 0) or 0)
-            bomb_power = int(getattr(player, 'bomb_power', 0) or 0)
+        # Get player attributes (safely) — player is either the local Bomberplayer
+        # sprite or a remote PlayerState entry; both expose these as attributes.
+        player_id = str(getattr(player, 'client_id', 'unknown'))
+        client_name = str(getattr(player, 'client_name', 'unknown'))
+        health = int(getattr(player, 'health', 0) or 0)
+        score = int(getattr(player, 'score', 0) or 0)
+        bombs_left = int(getattr(player, 'bombs_left', 0) or 0)
+        bomb_power = int(getattr(player, 'bomb_power', 0) or 0)
 
         cache_key = (client_name, health, score, bombs_left, bomb_power)
         cached = self._player_text_cache.get(player_id)

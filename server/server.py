@@ -224,6 +224,8 @@ class BombServer:
 				for x, y, gid in layer:
 					if gid != 0:
 						collidable_positions.add((x, y))
+			else:
+				logger.warning(f"Layer {layer} {type(layer)} is not a TiledTileLayer, skipping collision check.")
 
 		# Generate list of all possible positions excluding collidable tiles
 		valid_positions = []
