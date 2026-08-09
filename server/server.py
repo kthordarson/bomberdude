@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import os
 import pygame
 import time
 import asyncio
@@ -16,12 +17,27 @@ from .discovery import ServerDiscovery
 class BombServer:
 	def __init__(self, args):
 		self.args = args
+		self._ensure_headless_display()
 		self.game_state = GameState(args=self.args, mapname=args.mapname, client_id='theserver')
+		# The server is headless (no window), but still needs real tile
+		# metadata (dimensions, layers, collision tiles) for map queries and
+		# upgrade/block logic; without this the map stays an empty placeholder.
+		self.game_state.load_tile_map(args.mapname)
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0
+
+	@staticmethod
+	def _ensure_headless_display():
+		"""pytmx's pygame image loader calls Surface.convert(), which raises
+		unless a display mode has been set. The server has no window, so set
+		up a dummy SDL video driver and a minimal display surface."""
+		if pygame.display.get_surface() is None:
+			os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+			pygame.init()
+			pygame.display.set_mode((1, 1))
 
 	def __repr__(self):
 		return f"<BombServer game_state connections={len(self.game_state.connections)} messages={self.message_counter} client_id={self.game_state.client_id}>"

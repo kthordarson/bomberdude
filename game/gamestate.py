@@ -89,6 +89,21 @@ class GameState:
 		self.tile_map = pytmx.TiledMap(mapname)
 		logger.debug(f"{self} Loaded map '{mapname}'")
 
+	def _get_tile_image_safe(self, gid: int):
+		"""Wraps pytmx's get_tile_image_by_gid against invalid gids.
+
+		pytmx's own error path for an invalid gid calls `msg.format(gid)` on a
+		4-placeholder string with a single arg, which raises IndexError instead
+		of the intended ValueError. Catch broadly since the exception type it
+		actually surfaces isn't reliable.
+		"""
+		try:
+			return self.tile_map.get_tile_image_by_gid(gid)
+		except Exception as e:
+			if self.args.debug_gamestate:
+				logger.warning(f"{self} No tile image for gid {gid}: {e} {type(e)}")
+			return None
+
 	def _iter_tiles_from_index_in_rect(self, tile_index: dict[tuple[int, int], Any], rect: pygame.Rect, *, pad_pixels: int = 0):
 		"""Yield tiles from a {(tile_x,tile_y)->tile} index intersecting rect.
 
@@ -203,7 +218,7 @@ class GameState:
 		new_gid = 1
 		tile = self.tile_cache.get(new_gid, None)
 		if tile is None:
-			self.tile_cache[new_gid] = self.tile_map.get_tile_image_by_gid(new_gid)
+			self.tile_cache[new_gid] = self._get_tile_image_safe(new_gid)
 
 		map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": new_gid, "event_time": time.time(), "client_id": self.client_id, "handled": False, 'handledby': 'destroy_block',}
 		# asyncio.create_task(self.broadcast_event(map_update_event))
@@ -343,7 +358,7 @@ class GameState:
 						continue
 					tile = self.tile_cache.get(gid, None)
 					if tile is None:
-						self.tile_cache[gid] = self.tile_map.get_tile_image_by_gid(gid)
+						self.tile_cache[gid] = self._get_tile_image_safe(gid)
 					self.static_map_surface.blit(self.tile_cache[gid], (x * tw, y * th))
 					sprite: Any = pygame.sprite.Sprite()
 					sprite.image = self.tile_cache[gid]
@@ -398,7 +413,7 @@ class GameState:
 			if upgrade:
 				upgrade.kill()
 			# Redraw background tile
-			tile_image = self.tile_map.get_tile_image_by_gid(new_gid)
+			tile_image = self._get_tile_image_safe(new_gid)
 			if tile_image and isinstance(tile_image, pygame.surface.Surface):
 				self.static_map_surface.blit(tile_image, (x * tw, y * th))
 			elif tile_image and isinstance(tile_image, tuple):
@@ -422,7 +437,7 @@ class GameState:
 			block = self.killable_by_tile.pop(tile_pos, None)
 			self.killable_tiles.discard(block)
 			# Redraw background tile to clear the block
-			bg_image = self.tile_map.get_tile_image_by_gid(1)
+			bg_image = self._get_tile_image_safe(1)
 			if bg_image:
 				if isinstance(bg_image, tuple):
 					bg_image = pygame.image.load(bg_image[0])
