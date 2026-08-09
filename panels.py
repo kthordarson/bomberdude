@@ -287,13 +287,16 @@ class ServerDiscoveryPanel():
         self.show()
         selected: dict | None = None
         clock = pygame.time.Clock()
+        logger.info("Server discovery panel running...")
         while self.discovery_running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.hide()
+                    logger.info(f"{event} Server discovery panel quitting...")
                     return None
                 if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_q):
                     self.hide()
+                    logger.info(f"{event} Server discovery panel quitting...")
                     return None
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     mx, my = event.pos
@@ -305,7 +308,9 @@ class ServerDiscoveryPanel():
             self.draw(self.screen)
             pygame.display.flip()
             clock.tick(30)
-            await asyncio.sleep(0)
+            await asyncio.sleep(1)
+            logger.debug(f"Server discovery panel running... {len(self.servers)} servers found")
+        logger.info(f"Server discovery panel returning {selected=}")
         return selected
 
     def draw(self, surface):

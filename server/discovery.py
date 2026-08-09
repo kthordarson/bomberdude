@@ -53,9 +53,10 @@ class ServerDiscovery:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         sock.setblocking(False)
 
-        bind_host = get_local_ip_addresses()[0]
-        sock.bind((bind_host, self.discovery_port))
-        logger.info(f"Server discovery listening on {bind_host}:{self.discovery_port}")
+        # Bind to all interfaces (not a specific unicast IP) so broadcast
+        # packets sent to 255.255.255.255 are actually delivered to this socket.
+        sock.bind(("0.0.0.0", self.discovery_port))
+        logger.info(f"Server discovery listening on 0.0.0.0:{self.discovery_port} (local IPs: {get_local_ip_addresses()})")
 
         # loop = asyncio.get_running_loop()
         # loop = asyncio.new_event_loop()

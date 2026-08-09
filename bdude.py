@@ -147,6 +147,7 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 		except Exception as e:
 			logger.error(f"Error in discovery panel: {e} {type(e)}")
 			return False
+		logger.info("No servers on LAN...")
 		return True
 
 	elif action == "Quit":
