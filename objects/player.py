@@ -79,15 +79,6 @@ class Bomberplayer(Sprite):
 			if self.rect:
 				self.rect.topleft = (int(self.position.x), int(self.position.y))
 
-	async def async_set_texture(self, texture_path: str) -> None:
-		# Cache disk loads globally; convert/scale only when a display surface exists.
-		self.original_image = await async_get_cached_image(texture_path, scale=1.0, convert=True)
-		self.image = await async_get_cached_image(texture_path, scale=self.scale, convert=True)
-		if self.image:
-			self.rect = self.image.get_rect()
-			if self.rect:
-				self.rect.topleft = (int(self.position.x), int(self.position.y))
-
 	def set_dead(self, dead: bool) -> None:
 		"""Swap sprite image based on health/killed state."""
 		if dead:
