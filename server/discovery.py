@@ -1,4 +1,3 @@
-import sys
 import socket
 import asyncio
 import json
@@ -8,8 +7,7 @@ DISCOVERY_MAGIC = b"BOMBERDUDE_DISCOVERY"
 
 def get_local_ip_addresses():
     ips = set()
-    for iface in socket.if_nameindex():
-        iface_name = iface[1]
+    for _iface in socket.if_nameindex():
         try:
             for fam, _, _, _, sockaddr in socket.getaddrinfo(None, 0, family=socket.AF_INET, proto=socket.IPPROTO_UDP):
                 s = socket.socket(fam, socket.SOCK_DGRAM)
@@ -55,9 +53,10 @@ class ServerDiscovery:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         sock.setblocking(False)
 
-        bind_host = get_local_ip_addresses()[0]
-        sock.bind((bind_host, self.discovery_port))
-        logger.info(f"Server discovery listening on {bind_host}:{self.discovery_port}")
+        # Bind to all interfaces (not a specific unicast IP) so broadcast
+        # packets sent to 255.255.255.255 are actually delivered to this socket.
+        sock.bind(("0.0.0.0", self.discovery_port))
+        logger.info(f"Server discovery listening on 0.0.0.0:{self.discovery_port} (local IPs: {get_local_ip_addresses()})")
 
         # loop = asyncio.get_running_loop()
         # loop = asyncio.new_event_loop()

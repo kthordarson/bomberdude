@@ -3,7 +3,6 @@ import traceback
 import pygame
 import time
 from loguru import logger
-import math
 from collections import OrderedDict
 from constants import BLOCK, PLAYER_SCALING
 
@@ -30,7 +29,7 @@ _TEXT_CACHE: "OrderedDict[tuple[int, str, bool, tuple[int, int, int, int] | tupl
 
 def _render_text_cached(font: pygame.font.Font, text: str, antialias: bool, color, background=None) -> pygame.Surface:
     surf = None
-    key = (id(font), text, bool(antialias), tuple(color), tuple(background) if background is not None else None)
+    key = (id(font), text, antialias, tuple(color), tuple(background) if background is not None else None)
     if key:
         surf = _TEXT_CACHE.get(key)
     if surf:

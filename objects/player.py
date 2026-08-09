@@ -1,4 +1,3 @@
-import asyncio
 from dataclasses import dataclass, field
 from loguru import logger
 from pygame.math import Vector2 as Vec2d
@@ -73,7 +72,7 @@ class Bomberplayer(Sprite):
 	def _set_texture(self, texture_path: str) -> None:
 		# Cache disk loads globally; convert/scale only when a display surface exists.
 		self.original_image = get_cached_image(texture_path, scale=1.0, convert=True)
-		self.image = get_cached_image(texture_path, scale=float(self.scale), convert=True)
+		self.image = get_cached_image(texture_path, scale=self.scale, convert=True)
 		if self.image:
 			self.rect = self.image.get_rect()
 			if self.rect:
@@ -82,7 +81,7 @@ class Bomberplayer(Sprite):
 	async def async_set_texture(self, texture_path: str) -> None:
 		# Cache disk loads globally; convert/scale only when a display surface exists.
 		self.original_image = await async_get_cached_image(texture_path, scale=1.0, convert=True)
-		self.image = await async_get_cached_image(texture_path, scale=float(self.scale), convert=True)
+		self.image = await async_get_cached_image(texture_path, scale=self.scale, convert=True)
 		if self.image:
 			self.rect = self.image.get_rect()
 			if self.rect:
@@ -113,7 +112,7 @@ class Bomberplayer(Sprite):
 		try:
 			return {
 				'client_id': self.client_id,
-				'position': [float(self.position.x), float(self.position.y)],
+				'position': [self.position.x, self.position.y],
 				'score': self.score,
 				'health': self.health,
 				'timeout': self.timeout,

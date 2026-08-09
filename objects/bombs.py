@@ -1,11 +1,10 @@
 import asyncio
-from loguru import logger
 import time
 import random
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 import pygame
-from utils import gen_randid, get_cached_image, async_get_cached_image
+from utils import gen_randid, async_get_cached_image
 from constants import BLOCK
 
 class Bomb(Sprite):

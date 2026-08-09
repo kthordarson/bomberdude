@@ -1,4 +1,3 @@
-from loguru import logger
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 # from pymunk import Vec2d

@@ -2,7 +2,7 @@ from pygame.math import Vector2 as Vec2d
 import math
 import pygame
 import random
-from constants import PARTICLE_COUNT, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED, SHOCKWAVE_EXPANSION_RATE, SHOCKWAVE_MAX_RADIUS_PRIMARY, SHOCKWAVE_MAX_RADIUS_SECONDARY
+from constants import PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED, SHOCKWAVE_EXPANSION_RATE, SHOCKWAVE_MAX_RADIUS_PRIMARY, SHOCKWAVE_MAX_RADIUS_SECONDARY
 from .particles import Particle
 from .flames import Flame
 from .shockwave import Shockwave

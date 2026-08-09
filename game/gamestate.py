@@ -1,10 +1,9 @@
 from constants import INITIAL_BOMB_POWER
 import asyncio
 import random
-from typing import Any, Callable, cast, Optional
+from typing import Any, Callable, Optional
 import ast
 import pygame
-from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Group
 from loguru import logger
 import time
@@ -16,11 +15,10 @@ from objects.bullets import Bullet
 from objects.bombs import Bomb
 from objects.explosionmanager import ExplosionManager
 from objects.blocks import Upgrade
-from constants import DEFAULT_HEALTH, UPDATE_TICK, GLOBAL_RATE_LIMIT, BLOCK, INITIAL_BOMBS
+from constants import DEFAULT_HEALTH, GLOBAL_RATE_LIMIT, INITIAL_BOMBS
 import pytmx
 from pytmx import load_pygame
 import json
-import inspect  # <-- add
 
 @dataclass
 class GameState:
@@ -93,16 +91,16 @@ class GameState:
 		This avoids scanning every tile sprite for collision checks.
 		"""
 		try:
-			tw = int(self.tile_map.tilewidth)
-			th = int(self.tile_map.tileheight)
+			tw = self.tile_map.tilewidth
+			th = self.tile_map.tileheight
 			map_w = int(getattr(self.tile_map, "width", 0))
 			map_h = int(getattr(self.tile_map, "height", 0))
 			if tw <= 0 or th <= 0 or map_w <= 0 or map_h <= 0:
 				return
-			x0 = int(rect.left) - int(pad_pixels)
-			y0 = int(rect.top) - int(pad_pixels)
-			x1 = int(rect.right) + int(pad_pixels) - 1
-			y1 = int(rect.bottom) + int(pad_pixels) - 1
+			x0 = rect.left - pad_pixels
+			y0 = rect.top - pad_pixels
+			x1 = rect.right + pad_pixels - 1
+			y1 = rect.bottom + pad_pixels - 1
 			# Convert pixel bounds -> tile bounds
 			min_tx = max(0, min(map_w - 1, x0 // tw))
 			min_ty = max(0, min(map_h - 1, y0 // th))
@@ -130,7 +128,7 @@ class GameState:
 		On the server this is used to clean up after a disconnect.
 		On clients it's used by the `player_left` event handler.
 		"""
-		cid = str(client_id)
+		cid = client_id
 		if not remove_local and cid == str(self.client_id):
 			return
 
@@ -174,7 +172,7 @@ class GameState:
 				sprite.bombs_left = state.bombs_left
 				sprite.bomb_power = state.bomb_power
 				# Ensure the sprite image reflects killed/dead state.
-				dead = state.killed or int(state.health) <= 0
+				dead = state.killed or state.health <= 0
 				if sprite.set_dead:
 					sprite.set_dead(dead)
 				break
@@ -806,7 +804,6 @@ class GameState:
 		client_id = event.get("client_id")
 		pos_tuple = self._to_pos_tuple(event.get("position"))
 
-		pos = event.get("position", (0,0))
 		health = int(event.get("health", 0))
 		client_name = event.get("client_name", "None")
 		score = int(event.get("score", 0))
@@ -816,8 +813,6 @@ class GameState:
 		# Server is authoritative for health; clients may have stale state.
 		# Keep accepting health updates on clients so they reflect server state.
 		accept_update = self.client_id != "theserver"
-		# Client name is set by the client once; server keeps the first non-default.
-		accept_name_update = True
 
 		existing = self.playerlist.get(client_id)
 		if existing is None:
@@ -839,7 +834,7 @@ class GameState:
 			ps.position = pos_tuple
 			ps.position_updated = True  # helps interpolation
 			if accept_update:
-				ps.health = int(health)
+				ps.health = health
 				ps.bombs_left = bombs_left
 				ps.bomb_power = bomb_power
 			ps.score = score
@@ -881,7 +876,7 @@ class GameState:
 
 	async def _on_player_hit(self, event: dict) -> bool:
 		# De-dupe by event id when available
-		hit_id = event.get('event_id') or event.get('event_id')
+		hit_id = event.get('event_id')
 		if hit_id is not None and hit_id in self.processed_hits or event.get('handled'):
 			if self.args.debug_gamestate:
 				logger.warning(f"{self} Duplicate player_hit event ignored: {event} self.processed_hits: {len(self.processed_hits)}")
@@ -904,7 +899,6 @@ class GameState:
 		target = event.get("target_id", "")
 		target_player_entry = self.playerlist.get(target)
 		if target_player_entry:
-			old_health = target_player_entry.health
 			# Keep event_type as 'player_hit' so receivers handle it consistently.
 			event["handledby"] = "_on_player_hit"
 			damage = event.get('damage', 0)
@@ -932,15 +926,9 @@ class GameState:
 			out_event["handled"] = False
 			out_event["handledby"] = "server.broadcast_player_hit"
 			out_event["target_health"] = getattr(target_player_entry, 'health', None)
-			# asyncio.create_task(self.broadcast_event(out_event))
-		else:
-			if self.args.debug_gamestate:
-				pass  # logger.warning(f"{self} skipping broadcast_event for player_hit on client.")
-		out_event = dict(event)
-		out_event["handled"] = False
-		out_event["handledby"] = "server.broadcast_player_hit"
-		out_event["target_health"] = getattr(target_player_entry, 'health', None)
-		asyncio.create_task(self.broadcast_event(out_event))
+			asyncio.create_task(self.broadcast_event(out_event))
+		elif self.args.debug_gamestate:
+			logger.warning(f"{self} skipping broadcast_event for player_hit on client.")
 		await asyncio.sleep(0)
 		return True
 
@@ -963,7 +951,6 @@ class GameState:
 				ux = int(pos_attr[0]) // self.tile_map.tilewidth
 				uy = int(pos_attr[1]) // self.tile_map.tileheight
 				if (ux, uy) == (tile_x, tile_y):
-					upgrade_tile = (tile_x, tile_y)
 					upgrades_to_remove.append(uid)
 		for uid in upgrades_to_remove:
 			upgrade = self.upgrade_by_id.pop(uid, None)

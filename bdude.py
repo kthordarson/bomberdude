@@ -23,7 +23,7 @@ server_process = None
 
 async def _connect_with_timeout(bomberdude_main: Bomberdude, connection_timeout: float) -> bool:
 	try:
-		return bool(await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout))
+		return (await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout))
 	except TimeoutError as e:
 		logger.error(f"Connection timed out after {connection_timeout} seconds: {e}")
 		return False
@@ -108,6 +108,8 @@ async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None
 async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argparse.Namespace) -> bool:
 	if action == "Start":
 		started = await start_game(args)
+		if not started:
+			logger.warning("start_game exited without a successful session")
 		return True
 
 	elif action == "Start Server":
@@ -145,6 +147,7 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 		except Exception as e:
 			logger.error(f"Error in discovery panel: {e} {type(e)}")
 			return False
+		logger.info("No servers on LAN...")
 		return True
 
 	elif action == "Quit":
