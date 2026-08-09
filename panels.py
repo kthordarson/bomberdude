@@ -69,6 +69,7 @@ class MainMenu:
         self.selected_option = 0
         self.bgcolor = (50, 50, 50)
         self.background_snapshot = self.screen.copy()
+        self.configure_panel.background_snapshot = self.screen.copy()
 
     def exit_ingame(self, options: list[str]) -> None:
         """Return to the normal, full-screen main menu."""
@@ -213,7 +214,7 @@ class SetupMenu:
         self.option_rects = []
 
     def draw(self):
-        self.screen.fill((0, 0, 0))
+        self.screen.fill((0, 0, 0, 150))
         self.option_rects = []
         for i, option in enumerate(self.options):
             color = (255, 0, 0) if i == self.selected_option else (255, 255, 255)
@@ -326,6 +327,7 @@ class ConfigureMenu:
         self.editing_name = False
         self._name_buffer = ""
         self._snapshot: Config | None = None
+        self.background_snapshot = None
 
     def _resolution_index(self) -> int:
         target = (self.config.screen_width, self.config.screen_height)
@@ -387,9 +389,12 @@ class ConfigureMenu:
         return ""
 
     def draw(self):
-        self.screen.fill((15, 15, 25))
+        self.screen.fill((15, 15, 25, 150))
         self.row_rects = []
         sw = self.screen.get_width()
+
+        if self.background_snapshot is not None:
+            self.screen.blit(self.background_snapshot, (0, 0))
 
         title = _render_text_cached(self.font, "Configure", True, (255, 255, 255))
         self.screen.blit(title, title.get_rect(center=(sw // 2, 80)))
@@ -451,7 +456,8 @@ class ConfigureMenu:
         elif event.unicode and event.unicode.isprintable() and len(self._name_buffer) < NAME_MAX_LENGTH:
             self._name_buffer += event.unicode
 
-    def handle_input(self) -> str | None:
+    def handle_input(self, cb_apply_config_changes) -> str | None:
+        apply_needed = False
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -474,10 +480,13 @@ class ConfigureMenu:
                         self._adjust_particle_count(-PARTICLE_COUNT_STEP)
                     elif current_row == "Fog Radius":
                         self._adjust_fog_radius(-FOG_RADIUS_STEP)
+                        apply_needed = True
                     elif current_row == "Fog Color":
                         self._cycle_fog_color(-1)
+                        apply_needed = True
                     elif current_row == "Fog Alpha":
                         self._adjust_fog_alpha(-FOG_ALPHA_STEP)
+                        apply_needed = True
                 elif event.key == pygame.K_RIGHT:
                     if current_row == "Resolution":
                         self._cycle_resolution(1)
@@ -487,10 +496,13 @@ class ConfigureMenu:
                         self._adjust_particle_count(PARTICLE_COUNT_STEP)
                     elif current_row == "Fog Radius":
                         self._adjust_fog_radius(FOG_RADIUS_STEP)
+                        apply_needed = True
                     elif current_row == "Fog Color":
                         self._cycle_fog_color(1)
+                        apply_needed = True
                     elif current_row == "Fog Alpha":
                         self._adjust_fog_alpha(FOG_ALPHA_STEP)
+                        apply_needed = True
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     if current_row == "Player Name":
                         self.editing_name = True
@@ -513,9 +525,12 @@ class ConfigureMenu:
                         elif row == "Player Name":
                             self.editing_name = True
                             self._name_buffer = self.config.player_name
+        if apply_needed:
+            save_config(self.config)
+            cb_apply_config_changes()
         return None
 
-    def run(self) -> bool:
+    def run(self, cb_apply_config_changes) -> bool:
         """Show the settings screen. Returns True if the player saved changes,
         False if they cancelled (any in-session edits are reverted)."""
         self._snapshot = dataclasses.replace(self.config)
@@ -525,7 +540,7 @@ class ConfigureMenu:
         clock = pygame.time.Clock()
         while self.running:
             self.draw()
-            action = self.handle_input()
+            action = self.handle_input(cb_apply_config_changes)
             if action == "Save":
                 save_config(self.config)
                 return True

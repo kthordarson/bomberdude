@@ -445,7 +445,7 @@ class Bomberdude():
                     logger.info("Resuming game...")
                     waiting = False
                 elif action == "Configure":
-                    saved = self.mainmenu.configure_panel.run()
+                    saved = self.mainmenu.configure_panel.run(self._apply_config_changes)
                     if saved:
                         self._apply_config_changes()
                     # Stay in the pause loop so the player returns to Resume/Quit.
