@@ -255,15 +255,6 @@ class BombServer:
 	async def server_broadcast_state(self, state):
 		await self.game_state.broadcast_state(state)
 
-	def _build_ack_event(self, client_id: str) -> dict:
-		return {
-			'event_type': "acknewplayer",
-			"client_id": client_id,
-			"handled": False,
-			"handledby": "_build_ack_event",
-			"event_time": time.time(),
-		}
-
 	def _build_player_joined(self, client_id: str, msg: dict) -> dict:
 		pos = msg.get('position') or msg.get('game_event', {}).get('position', [100, 100])
 		return {
