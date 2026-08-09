@@ -1,7 +1,8 @@
 from pygame.math import Vector2 as Vec2d
 import pygame
+from pygame.sprite import Sprite
 
-class Bullet(pygame.sprite.Sprite):
+class Bullet(Sprite):
 	def __init__(self, position, direction, screen_rect, owner_id=None, speed=10, bounce_count=3, bullet_size=(10,10), color=(255, 0, 0)):
 		super().__init__()
 		self.image = pygame.Surface(bullet_size)

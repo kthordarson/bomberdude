@@ -119,8 +119,8 @@ class GameState:
 		try:
 			tw = self.tile_map.tilewidth
 			th = self.tile_map.tileheight
-			map_w = int(self.tile_map.width)
-			map_h = int(self.tile_map.height)
+			map_w = self.tile_map.width
+			map_h = self.tile_map.height
 			if tw <= 0 or th <= 0 or map_w <= 0 or map_h <= 0:
 				return
 			x0 = rect.left - pad_pixels
@@ -670,7 +670,7 @@ class GameState:
 
 		# Gate firing by the shooter's authoritative state (NOT the local player).
 		shooter_entry = self.playerlist.get(client_id)
-		dead = bool(getattr(shooter_entry, 'killed', False)) or int(getattr(shooter_entry, 'health', 0) or 0) <= 0
+		dead = shooter_entry is None or shooter_entry.killed or shooter_entry.health <= 0
 		if dead:
 			if self.args.debug_gamestate:
 				logger.warning(f"{self} Shooter {client_id} is dead/killed, ignoring bullet fire.")
