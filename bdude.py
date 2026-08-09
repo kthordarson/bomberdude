@@ -23,7 +23,7 @@ server_process = None
 
 async def _connect_with_timeout(bomberdude_main: Bomberdude, connection_timeout: float) -> bool:
 	try:
-		return bool(await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout))
+		return (await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout))
 	except TimeoutError as e:
 		logger.error(f"Connection timed out after {connection_timeout} seconds: {e}")
 		return False

@@ -145,7 +145,7 @@ class Bomberdude():
         connection_event = {
             "event_time": 0,
             'event_type': "connection_event",
-            "client_id": str(player_one.client_id),
+            "client_id": player_one.client_id,
             "client_name": str(getattr(player_one, "client_name", "client_namenotset")),
             "position": (player_one.position.x, player_one.position.y),
             "bombs_left": player_one.bombs_left,
@@ -504,7 +504,7 @@ class Bomberdude():
             update_event = {
                 "event_time": self.timer,
                 'event_type': "player_update",
-                "client_id": str(player_one.client_id),
+                "client_id": player_one.client_id,
                 "client_name": player_one.client_name,
                 "position": (player_one.position.x, player_one.position.y),
                 "health": player_one.health,
@@ -548,7 +548,7 @@ class Bomberdude():
         # Only recompute the composed fog overlay when the reveal center or radius changed.
         # This avoids two large Surface fills + a circle draw every frame.
         center = (screen_x, screen_y)
-        radius = int(self.fog_radius)
+        radius = self.fog_radius
         if center != self._fog_last_center or radius != self._fog_last_radius:
             # Fill with semi-transparent black
             self.fog_surface.fill((0, 0, 0, 220))
@@ -580,13 +580,13 @@ class Bomberdude():
 
     def handle_resize(self, width: int, height: int) -> None:
         """Resize the actual OS window. Game renders at base_size and is scaled up/down."""
-        width = max(320, int(width))
-        height = max(240, int(height))
+        width = max(320, width)
+        height = max(240, height)
         self.window = pygame.display.set_mode((width, height), flags=pygame.RESIZABLE)
 
     def queue_resize(self, width: int, height: int) -> None:
         """Record the latest requested window size; apply later."""
-        self._pending_resize = (max(320, int(width)), max(240, int(height)))
+        self._pending_resize = (max(320, width), max(240, height))
         self._last_resize_event_time = time.time()
 
     def apply_pending_resize(self) -> None:

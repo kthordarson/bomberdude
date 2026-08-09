@@ -42,7 +42,7 @@ def get_cached_image(path: str, *, scale: float = 1.0, convert: bool = True) -> 
 	base = load_image_cached(path)
 	if convert and pygame.display.get_init() and pygame.display.get_surface() is not None:
 		mode = "alpha" if base.get_alpha() else "opaque"
-	key = (path, float(scale), mode)
+	key = (path, scale, mode)
 	cached = _PROCESSED_IMAGE_CACHE.get(key)
 	if cached is not None:
 		return cached
@@ -71,7 +71,7 @@ async def async_get_cached_image(path: str, *, scale: float = 1.0, convert: bool
 	base = await async_load_image_cached(path)
 	if convert and pygame.display.get_init() and pygame.display.get_surface() is not None:
 		mode = "alpha" if base.get_alpha() else "opaque"
-	key = (path, float(scale), mode)
+	key = (path, scale, mode)
 	cached = _PROCESSED_IMAGE_CACHE.get(key)
 	if cached is not None:
 		return cached
@@ -90,7 +90,7 @@ async def async_get_cached_image(path: str, *, scale: float = 1.0, convert: bool
 	return processed
 
 def gen_randid() -> str:
-	return str(''.join([str(random.randint(0,9)) for k in range(10)]))
+	return ''.join([str(random.randint(0,9)) for k in range(10)])
 
 def generate_name(style="bomber"):
 	"""

@@ -51,7 +51,7 @@ class Shockwave:
 			return
 
 		# Create a surface for the shockwave with per-pixel alpha
-		surf_size = int(self.current_radius * 2)
+		surf_size = (self.current_radius * 2)
 		if surf_size <= 0:
 			return
 

@@ -93,16 +93,16 @@ class GameState:
 		This avoids scanning every tile sprite for collision checks.
 		"""
 		try:
-			tw = int(self.tile_map.tilewidth)
-			th = int(self.tile_map.tileheight)
+			tw = self.tile_map.tilewidth
+			th = self.tile_map.tileheight
 			map_w = int(getattr(self.tile_map, "width", 0))
 			map_h = int(getattr(self.tile_map, "height", 0))
 			if tw <= 0 or th <= 0 or map_w <= 0 or map_h <= 0:
 				return
-			x0 = int(rect.left) - int(pad_pixels)
-			y0 = int(rect.top) - int(pad_pixels)
-			x1 = int(rect.right) + int(pad_pixels) - 1
-			y1 = int(rect.bottom) + int(pad_pixels) - 1
+			x0 = rect.left - pad_pixels
+			y0 = rect.top - pad_pixels
+			x1 = rect.right + pad_pixels - 1
+			y1 = rect.bottom + pad_pixels - 1
 			# Convert pixel bounds -> tile bounds
 			min_tx = max(0, min(map_w - 1, x0 // tw))
 			min_ty = max(0, min(map_h - 1, y0 // th))
@@ -130,7 +130,7 @@ class GameState:
 		On the server this is used to clean up after a disconnect.
 		On clients it's used by the `player_left` event handler.
 		"""
-		cid = str(client_id)
+		cid = client_id
 		if not remove_local and cid == str(self.client_id):
 			return
 
@@ -174,7 +174,7 @@ class GameState:
 				sprite.bombs_left = state.bombs_left
 				sprite.bomb_power = state.bomb_power
 				# Ensure the sprite image reflects killed/dead state.
-				dead = state.killed or int(state.health) <= 0
+				dead = state.killed or state.health <= 0
 				if sprite.set_dead:
 					sprite.set_dead(dead)
 				break
@@ -839,7 +839,7 @@ class GameState:
 			ps.position = pos_tuple
 			ps.position_updated = True  # helps interpolation
 			if accept_update:
-				ps.health = int(health)
+				ps.health = health
 				ps.bombs_left = bombs_left
 				ps.bomb_power = bomb_power
 			ps.score = score

@@ -103,13 +103,13 @@ class BombServer:
 			"mapname": str(self.args.mapname),
 			"position": position,
 			"modified_tiles": modified_tiles,
-			"client_id": str(gen_randid())}
+			"client_id": gen_randid()}
 		if self.args.debug:
 			logger.debug(f'{self} request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified_tiles')
 		return web.json_response(map_data)
 
 	async def get_client_id(self, request):
-		client_id = str(gen_randid())
+		client_id = gen_randid()
 		if self.args.debug:
 			logger.debug(f'{self} request: {request} Assigning client_id: {client_id}')
 		resp = {"client_id": client_id}
@@ -225,7 +225,7 @@ class BombServer:
 	async def stop(self):
 		self._stop.set()
 		try:
-			if self.discovery_service:
+			if self.discovery_service.running:
 				self.discovery_service.stop()
 		except Exception as e:
 			logger.error(f"{self} Error stopping discovery service: {e} {type(e)}")

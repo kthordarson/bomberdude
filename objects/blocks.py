@@ -39,14 +39,14 @@ class Upgrade(Sprite):
 		return f'Upgrade {self.client_id} (type: {self.upgradetype} pos: {self.position} life: {self.life}  original_life: {self.original_life} born_time: {self.born_time} killed: {self.killed})'
 
 	async def async_init(self):
-		self.image = await async_get_cached_image(self.image_name, scale=float(self.scale), convert=True)
+		self.image = await async_get_cached_image(self.image_name, scale=self.scale, convert=True)
 		if self.image:
 			self.rect = self.image.get_rect()
 			if self.rect:
 				self.rect.center = (int(self.position[0]), int(self.position[1]))
 
 	def upgrade_init(self):
-		self.image = get_cached_image(self.image_name, scale=float(self.scale), convert=True)
+		self.image = get_cached_image(self.image_name, scale=self.scale, convert=True)
 		if self.image:
 			self.rect = self.image.get_rect()
 			if self.rect:
