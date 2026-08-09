@@ -45,9 +45,10 @@ class MainMenu:
         self.setup_panel = SetupMenu(screen, args)
         self.discovery_panel = ServerDiscoveryPanel(self.screen, args)
         self.server_running = False
+        self.bgcolor = (0, 0, 0)
 
     def draw(self):
-        self.screen.fill((0, 0, 0))
+        self.screen.fill(self.bgcolor)
         self.option_rects = []
 
         # Filter options based on server state
@@ -100,6 +101,8 @@ class MainMenu:
         action = 'noaction'
         if current_option == "Start":
             action = "Start"
+        if current_option == "Resume":
+            action = "Resume"
         elif current_option == "Start Server":
             action = "Start Server"
         elif current_option == "Stop Server":
@@ -108,6 +111,8 @@ class MainMenu:
             action = "Find server"
         elif current_option == "Setup":
             action = self.setup_panel.run()
+        elif current_option == "Configure":
+            action = "Configure"
         elif current_option == "Quit":
             self.running = False
             action = 'Quit'

@@ -401,13 +401,35 @@ class Bomberdude():
             pygame.display.toggle_fullscreen()
         elif key == pygame.K_TAB:
             self.draw_player_info_panel = not self.draw_player_info_panel
-        elif key in (pygame.K_ESCAPE, pygame.K_q, 27):
+        elif key == pygame.K_ESCAPE:
             # await self.disconnect(return_to_menu=True)
             # self._connected = False
             # self.running = False
             logger.info("toggle main menu")
+            waiting = True
+            self.mainmenu.options = ["Resume", "Configure", "Quit"]
+            self.mainmenu.bgcolor = (50, 50, 50)  # Darker background for in-game menu
+            while waiting:
+                action = self.mainmenu.run()
+                if action == "Quit":
+                    await self.disconnect(return_to_menu=False)
+                    self._connected = False
+                    self.running = False
+                    waiting = False
+                    logger.info("Quitting...")
+                    pygame.event.post(pygame.event.Event(pygame.QUIT))
+                    break
+                elif action in ("Resume", "Back"):
+                    logger.info("Resuming game...")
+                    waiting = False
+                elif action == "Configure":
+                    # todo
+                    logger.debug("Configure menu not implemented yet.")
+                    waiting = False
+            self.mainmenu.options = ["Start", "Start Server", "Stop Server", "Find server", "Setup", "Quit"]
+            self.mainmenu.bgcolor = (0, 0, 0)
             # pygame.event.post(pygame.event.Event(pygame.QUIT))
-            return
+            # return
 
         if player_one.killed or player_one.health <= 0:
             if self.args.debug_gamestate:
