@@ -258,6 +258,9 @@ async def start_game(args: argparse.Namespace) -> bool:
 		resptext = requests.get(f"http://{args.server}:{args.api_port}/get_client_id", timeout=10).text
 		resp = json.loads(resptext)
 		client_id = resp.get("client_id")
+	except requests.exceptions.ConnectionError as e:
+		logger.warning(f"Error: {e} {type(e)} resptext: {resptext}")
+		return False
 	except Exception as e:
 		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
 		raise e

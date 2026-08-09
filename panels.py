@@ -252,9 +252,6 @@ class ServerDiscoveryPanel():
         """Connect to selected server"""
         self.discovery_running = False
         logger.info(f"Connecting to server {info.get('listen')}")
-        # Store selection for the caller and set args.server for convenience.
-        # IMPORTANT: use the sender IP (addr) rather than the server-reported "listen",
-        # which is often 127.0.0.1 and not reachable from other machines.
         try:
             self.args.server = addr
             if isinstance(info, dict):
