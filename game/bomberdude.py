@@ -150,7 +150,7 @@ class Bomberdude():
             "event_time": 0,
             'event_type': "connection_event",
             "client_id": player_one.client_id,
-            "client_name": str(getattr(player_one, "client_name", "client_namenotset")),
+            "client_name": str(player_one.client_name),
             "position": (player_one.position.x, player_one.position.y),
             "bombs_left": player_one.bombs_left,
             "health": player_one.health,

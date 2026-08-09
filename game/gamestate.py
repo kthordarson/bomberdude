@@ -119,8 +119,8 @@ class GameState:
 		try:
 			tw = self.tile_map.tilewidth
 			th = self.tile_map.tileheight
-			map_w = int(getattr(self.tile_map, "width", 0))
-			map_h = int(getattr(self.tile_map, "height", 0))
+			map_w = int(self.tile_map.width)
+			map_h = int(self.tile_map.height)
 			if tw <= 0 or th <= 0 or map_w <= 0 or map_h <= 0:
 				return
 			x0 = rect.left - pad_pixels
@@ -170,7 +170,7 @@ class GameState:
 		# Remove any sprites for that player.
 		try:
 			for sprite in list(self.players_sprites):
-				if str(getattr(sprite, "client_id", "")) == cid:
+				if str(sprite.client_id) == cid:
 					sprite.kill()
 					self.players_sprites.remove(sprite)
 		except Exception as e:
@@ -517,7 +517,7 @@ class GameState:
 
 		for upgrade_block in list(self.upgrade_blocks):
 			# Skip recently spawned upgrades during a short grace period
-			elapsed = pygame.time.get_ticks() / 1000 - getattr(upgrade_block, "born_time", 0)
+			elapsed = pygame.time.get_ticks() / 1000 - upgrade_block.born_time
 			if elapsed < SPAWN_GRACE:
 				continue
 
@@ -930,13 +930,10 @@ class GameState:
 		tile_y = int(pos[1]) // self.tile_map.tileheight
 		upgrades_to_remove = []
 		for uid, upgrade in list(self.upgrade_by_id.items()):
-			# Upgrades may store tile as .tile or .position (in tile coords)
-			pos_attr = getattr(upgrade, 'position', None)
-			if pos_attr:
-				ux = int(pos_attr[0]) // self.tile_map.tilewidth
-				uy = int(pos_attr[1]) // self.tile_map.tileheight
-				if (ux, uy) == (tile_x, tile_y):
-					upgrades_to_remove.append(uid)
+			ux = int(upgrade.position[0]) // self.tile_map.tilewidth
+			uy = int(upgrade.position[1]) // self.tile_map.tileheight
+			if (ux, uy) == (tile_x, tile_y):
+				upgrades_to_remove.append(uid)
 		for uid in upgrades_to_remove:
 			upgrade = self.upgrade_by_id.pop(uid, None)
 			if upgrade:

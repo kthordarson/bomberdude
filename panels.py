@@ -799,14 +799,14 @@ class PlayerInfoPanel:
         pygame.draw.rect(self.surface, (50, 50, 60), card_rect, border_radius=5)
         pygame.draw.rect(self.surface, color, card_rect, width=2, border_radius=5)
 
-        # Get player attributes (safely) — player is either the local Bomberplayer
-        # sprite or a remote PlayerState entry; both expose these as attributes.
-        player_id = str(getattr(player, 'client_id', 'unknown'))
-        client_name = str(getattr(player, 'client_name', 'unknown'))
-        health = int(getattr(player, 'health', 0) or 0)
-        score = int(getattr(player, 'score', 0) or 0)
-        bombs_left = int(getattr(player, 'bombs_left', 0) or 0)
-        bomb_power = int(getattr(player, 'bomb_power', 0) or 0)
+        # player is either the local Bomberplayer sprite or a remote PlayerState
+        # entry; both expose these as plain attributes.
+        player_id = str(player.client_id)
+        client_name = str(player.client_name)
+        health = int(player.health or 0)
+        score = int(player.score or 0)
+        bombs_left = int(player.bombs_left or 0)
+        bomb_power = int(player.bomb_power or 0)
 
         cache_key = (client_name, health, score, bombs_left, bomb_power)
         cached = self._player_text_cache.get(player_id)
