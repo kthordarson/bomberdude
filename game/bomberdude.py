@@ -607,8 +607,12 @@ class Bomberdude:
         screen_width, screen_height = self.screen.get_size()
         if self._fog_size != (screen_width, screen_height) or self.fog_surface is None or self._visibility_mask is None:
             self._fog_size = (screen_width, screen_height)
-            self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
-            self._visibility_mask = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+            # convert_alpha() matches the surface's pixel format to the
+            # display, which SDL needs to use its fast blit path instead of a
+            # slow per-pixel fallback — this blends over the whole screen
+            # every frame (see below), so it's worth doing once here.
+            self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA).convert_alpha()
+            self._visibility_mask = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA).convert_alpha()
             # Force a refresh after resize/recreate.
             self._fog_last_center = None
             self._fog_last_radius = None
