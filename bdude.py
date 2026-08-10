@@ -98,8 +98,20 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 	return True
 
 
-async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None:
+async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float, network_tasks: tuple[asyncio.Task, ...] = ()) -> None:
 	while bomberdude_main.running:
+		for task in network_tasks:
+			if not task.done():
+				continue
+			exc = task.exception() if not task.cancelled() else None
+			if exc is not None:
+				logger.error(f"{task.get_name()} died: {exc} {type(exc)}; ending session")
+			else:
+				logger.warning(f"{task.get_name()} ended unexpectedly; ending session")
+			bomberdude_main.running = False
+		if not bomberdude_main.running:
+			break
+
 		frame_start = time.time()
 		await _run_frame(bomberdude_main)
 
@@ -192,16 +204,20 @@ def run_server_process(args_dict):
 	async def run_headless_server():
 
 		server = BombServer(args)
-		server_task = asyncio.create_task(server.new_start_server())
+		server_task = asyncio.create_task(server.new_start_server(), name="server_task")
 		apiserver = ApiServer(name="bombapi", server=server, game_state=server.game_state)
-		api_task = asyncio.create_task(apiserver.run(args.listen, args.api_port))
+		api_task = asyncio.create_task(apiserver.run(args.listen, args.api_port), name="api_task")
+		tasks = (server_task, api_task)
 
 		try:
-			await asyncio.gather(server_task, api_task)
-		except (asyncio.CancelledError, KeyboardInterrupt):
-			server_task.cancel()
-			api_task.cancel()
-			await asyncio.gather(server_task, api_task, return_exceptions=True)
+			await asyncio.gather(*tasks)
+		except (asyncio.CancelledError, KeyboardInterrupt) as e:
+			logger.info(f'{e} {type(e)}')
+		finally:
+			for task in tasks:
+				if not task.done():
+					task.cancel()
+			await asyncio.gather(*tasks, return_exceptions=True)
 
 	# Run server without TUI
 	try:
@@ -292,8 +308,8 @@ async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> b
 
 	# Start networking tasks early so connect() can complete its readiness handshake.
 	# The tasks will wait until the socket is connected before using it.
-	sender_task = asyncio.create_task(send_game_state(bomberdude_main))
-	receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
+	sender_task = asyncio.create_task(send_game_state(bomberdude_main), name="sender_task")
+	receive_task = asyncio.create_task(receive_game_state(bomberdude_main), name="receive_task")
 
 	connection_timeout = 5  # seconds
 	logger.info(f"Connecting {bomberdude_main}")
@@ -305,7 +321,7 @@ async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> b
 
 		# Calculate frame time in seconds
 		frame_time = 1.0 / UPDATE_TICK
-		await _run_game_loop(bomberdude_main, frame_time)
+		await _run_game_loop(bomberdude_main, frame_time, network_tasks=(sender_task, receive_task))
 	finally:
 		# Clean up tasks even on early return/exception
 		sender_task.cancel()
