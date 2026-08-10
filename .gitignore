@@ -53,3 +53,4 @@ bdude_config*.json
 *pstats*
 pycall*
 .claude/*
+.github/prompts/dudeprompt.prompt.md
