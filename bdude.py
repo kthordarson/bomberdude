@@ -499,28 +499,10 @@ def get_args():
 	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
 	parser.add_argument("-g", "--debug_gamestate", action="store_true", dest="debug_gamestate", default=False)
 	parser.add_argument("--map", action="store", dest="mapname", default="data/maptest5.tmx")
-	parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
-	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude.prof')
 	return parser.parse_args()
 
 if __name__ == "__main__":
 	if sys.platform == "win32":
 		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 	args = get_args()
-	if args.cprofile:
-		import cProfile
-		import pstats
-
-		profiler = cProfile.Profile()
-		profiler.enable()
-
-		asyncio.run(main(args))
-
-		profiler.disable()
-		stats = pstats.Stats(profiler).sort_stats('cumtime')
-		stats.print_stats(30)  # Print top 30 time-consuming functions
-
-		# Optionally save results to a file
-		stats.dump_stats(args.cprofile_file)
-	else:
-		asyncio.run(main(args))
+	asyncio.run(main(args))
