@@ -73,6 +73,12 @@ class Bomberdude():
         self._fog_last_rgba: tuple[int, int, int, int] | None = None
         self.draw_player_info_panel = True
 
+        # Snapshot of the frame right before overlays (fog/minimap/HUD) are
+        # drawn, refreshed every frame. Used to redraw those overlays with
+        # up-to-date config onto the frozen pause-menu backdrop, so
+        # live-apply Configure menu changes are visible immediately.
+        self._base_frame_snapshot: pygame.Surface | None = None
+
         self.remote_player_sprites: dict[str, Bomberplayer] = {}  # Cache for remote players
 
     def __repr__(self):
@@ -261,6 +267,8 @@ class Bomberdude():
 
         # Draw explosion particles
         self.game_state.explosion_manager.draw(self.screen, self.camera)
+
+        self._base_frame_snapshot = self.screen.copy()
 
         # Draw fog of war
         if self.fog_enabled:
@@ -646,6 +654,27 @@ class Bomberdude():
 
         if self.window.get_size() != (cfg.screen_width, cfg.screen_height):
             self.handle_resize(cfg.screen_width, cfg.screen_height)
+
+        self._refresh_configure_preview()
+
+    def _refresh_configure_preview(self) -> None:
+        """Redraw fog/minimap/HUD overlays with the current config onto the
+        frame captured just before the game paused, and push the result into
+        the Configure menu's frozen backdrop. Without this, that backdrop is
+        a one-time screenshot taken when the pause menu opened, so live-apply
+        changes (fog, minimap) would never appear until the menu is closed."""
+        if self._base_frame_snapshot is None:
+            return
+        self.screen.blit(self._base_frame_snapshot, (0, 0))
+        if self.fog_enabled:
+            self.apply_fog_of_war()
+        if self.draw_debug:
+            draw_debug_info(self.screen, self.game_state, self.camera)
+        if self.show_minimap:
+            self.draw_minimap()
+        if self.draw_player_info_panel:
+            self.player_info_panel.draw()
+        self.mainmenu.configure_panel.background_snapshot = self.screen.copy()
 
     def handle_resize(self, width: int, height: int) -> None:
         """Resize the actual OS window. Game renders at base_size and is scaled up/down."""

@@ -571,7 +571,7 @@ class ConfigureMenu:
                         return "Save"
                     elif current_row == "Cancel":
                         return "Cancel"
-                elif event.key == pygame.K_ESCAPE:
+                elif event.key in (pygame.K_ESCAPE, pygame.K_F3):
                     return "Cancel"
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for i, rect in enumerate(self.row_rects):
