@@ -72,6 +72,13 @@ async def send_game_state(game: Bomberdude) -> None:
 		log_counter += 1
 		# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
 
+def _log_event_task_exception(task: asyncio.Task) -> None:
+	if task.cancelled():
+		return
+	exc = task.exception()
+	if exc is not None:
+		logger.error(f"Error handling game event: {exc} {type(exc)}")
+
 async def receive_game_state(game: Bomberdude) -> None:
 	# Log less frequently
 	log_counter = 0
@@ -80,6 +87,9 @@ async def receive_game_state(game: Bomberdude) -> None:
 		await game.socket_connected.wait()
 	buffer = ""
 	messages_processed = 0
+	# Keep a strong reference to in-flight event tasks so they aren't GC'd mid-run,
+	# and so exceptions raised inside them are logged instead of vanishing silently.
+	event_tasks: set[asyncio.Task] = set()
 	while True:
 		try:
 			data = await asyncio.get_running_loop().sock_recv(game.sock, 4096)
@@ -97,7 +107,10 @@ async def receive_game_state(game: Bomberdude) -> None:
 				event = game_state_json.get("event")
 				if event:
 					# update_game_event is async now; schedule it without blocking receive loop
-					asyncio.create_task(game.game_state.update_game_event(event))
+					event_task = asyncio.create_task(game.game_state.update_game_event(event))
+					event_tasks.add(event_task)
+					event_task.add_done_callback(event_tasks.discard)
+					event_task.add_done_callback(_log_event_task_exception)
 					messages_processed += 1
 
 			# Log periodically

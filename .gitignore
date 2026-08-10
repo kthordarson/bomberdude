@@ -1,6 +1,6 @@
 temp/*
 .vscode/*
-.git/*
+.git/* s
 .idea/*
 __pycache__/*
 .pylintrc
