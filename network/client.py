@@ -12,14 +12,12 @@ from game.bomberdude import Bomberdude
 # To optimize, install orjson and replace json.dumps with orjson.dumps, json.loads with orjson.loads
 # orjson.dumps returns bytes, so adjust encoding accordingly
 
-DEBUG_INTERVAL = UPDATE_TICK * 2
 # Guard against a dead/unresponsive peer hanging these loops forever.
 SEND_TIMEOUT = 10
 RECV_TIMEOUT = 30
 
 async def send_game_state(game: Bomberdude) -> None:
 	# Log less frequently to reduce overhead
-	log_counter = 0
 	send_counter = 0
 	# Avoid writing to the socket before sock_connect completes.
 	if game.socket_connected:
@@ -74,10 +72,6 @@ async def send_game_state(game: Bomberdude) -> None:
 		# Remove sleep to send as fast as possible, or adjust
 		# await asyncio.sleep(1 / UPDATE_TICK)
 
-		# Log periodically
-		log_counter += 1
-		# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
-
 def _log_event_task_exception(task: asyncio.Task) -> None:
 	if task.cancelled():
 		return
@@ -87,7 +81,6 @@ def _log_event_task_exception(task: asyncio.Task) -> None:
 
 async def receive_game_state(game: Bomberdude) -> None:
 	# Log less frequently
-	log_counter = 0
 	# Avoid reading from the socket before sock_connect completes.
 	if game.socket_connected:
 		await game.socket_connected.wait()
@@ -118,11 +111,6 @@ async def receive_game_state(game: Bomberdude) -> None:
 					event_task.add_done_callback(event_tasks.discard)
 					event_task.add_done_callback(_log_event_task_exception)
 					messages_processed += 1
-
-			# Log periodically
-			log_counter += 1
-			# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
-			# 	logger.info(f'receive: processed {messages_processed} messages, buffer size: {len(buffer)}')
 
 		except asyncio.TimeoutError:
 			logger.error(f'No data received for {RECV_TIMEOUT}s; treating connection as dead')
