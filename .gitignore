@@ -52,3 +52,4 @@ bdude_config*.json
 *.svg
 *pstats*
 pycall*
+.claude/*

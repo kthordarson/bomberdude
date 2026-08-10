@@ -2,6 +2,7 @@ import asyncio
 import time
 
 import pygame
+from loguru import logger
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
 
@@ -49,7 +50,7 @@ class Bomb(Sprite):
 					game_state.explosion_manager.create_explosion(self.rect.center, count=particle_count)
 					game_state.explosion_manager.create_flames(self)
 				if game_state and game_state.client_id == self.client_id:
-					asyncio.create_task(self.explode(game_state))
+					self._explode_task = asyncio.create_task(self.explode(game_state))
 				else:
 					self.kill()
 
@@ -63,8 +64,12 @@ class Bomb(Sprite):
 			"handled": False,
 			"event_id": gen_randid(),
 		}
-		# Apply locally so the owner immediately gets bomb capacity back
-		await gamestate.update_game_event(explosion_event)
-		explosion_event['handled'] = False
-		await gamestate.event_queue.put(explosion_event)
-		self.kill()
+		try:
+			# Apply locally so the owner immediately gets bomb capacity back
+			await gamestate.update_game_event(explosion_event)
+			explosion_event['handled'] = False
+			await gamestate.event_queue.put(explosion_event)
+		except Exception as e:
+			logger.error(f"{self} Error exploding bomb: {e} {type(e)}")
+		finally:
+			self.kill()
