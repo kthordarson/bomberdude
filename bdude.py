@@ -368,8 +368,8 @@ async def connect_and_preview(bomberdude_main: Bomberdude, args: argparse.Namesp
 
 	lobby_info = await _fetch_lobby_info(args)
 	while True:
-		preview = GamePreviewScreen(bomberdude_main.mainmenu.screen, lobby_info)
-		action = preview.run()
+		preview = GamePreviewScreen(bomberdude_main.mainmenu.screen, lobby_info, refresh_callback=lambda: _fetch_lobby_info(args))
+		action = await preview.run()
 		if action == "Join":
 			return True
 		elif action == "Configure":

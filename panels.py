@@ -754,9 +754,16 @@ class GamePreviewScreen:
     """Pre-join lobby: current player list plus a static minimap-style
     overview of the game area, with a Join/Configure/Quit menu."""
 
-    def __init__(self, screen: pygame.Surface, lobby_info: dict):
+    def __init__(self, screen: pygame.Surface, lobby_info: dict, refresh_callback=None, refresh_interval: float = 1.5):
         self.screen = screen
         self.lobby_info = lobby_info
+        # Async, no-arg callable returning a fresh lobby_info dict (e.g. a
+        # server /lobby_info re-fetch); polled every `refresh_interval`
+        # seconds while this screen is shown, so the player list/minimap
+        # don't go stale while someone sits on this screen. None disables
+        # refreshing (the screen just shows a static snapshot).
+        self.refresh_callback = refresh_callback
+        self.refresh_interval = refresh_interval
         self.options = ["Join", "Configure", "Quit"]
         self.selected_option = 0
         self.font = pygame.font.Font(None, 32)
@@ -776,13 +783,16 @@ class GamePreviewScreen:
         map_w = max(1, self.lobby_info.get("map_width", 1))
         map_h = max(1, self.lobby_info.get("map_height", 1))
 
-        list_title = _render_text_cached(self.list_font, f"Players ({len(players)}) - {mapname}", True, (200, 200, 200))
+        list_title = _render_text_cached(self.list_font, f"map: {mapname} Players: {len(players)} ", True, (200, 200, 200))
         self.screen.blit(list_title, (40, 110))
         for i, p in enumerate(players):
             name = _render_text_cached(self.list_font, str(p.get("client_name", "?")), True, (255, 255, 255))
             self.screen.blit(name, (40, 140 + i * 24))
 
-        minimap_rect = pygame.Rect(sw - 340, 110, 300, 300)
+        minimap_size = 380
+        content_top, content_bottom = 110, sh - 150
+        minimap_rect = pygame.Rect(0, 0, minimap_size, minimap_size)
+        minimap_rect.center = (sw // 2, (content_top + content_bottom) // 2)
         pygame.draw.rect(self.screen, (40, 40, 50), minimap_rect)
         pygame.draw.rect(self.screen, (200, 200, 200), minimap_rect, 1)
         for p in players:
@@ -824,14 +834,25 @@ class GamePreviewScreen:
                         return self.options[i]
         return None
 
-    def run(self) -> str:
+    async def run(self) -> str:
         clock = pygame.time.Clock()
+        loop = asyncio.get_event_loop()
+        last_refresh = loop.time()
         while self.running:
             self.draw()
             action = self.handle_input()
             if action:
                 return action
+            if self.refresh_callback is not None and loop.time() - last_refresh >= self.refresh_interval:
+                last_refresh = loop.time()
+                try:
+                    fresh_info = await self.refresh_callback()
+                    if fresh_info:
+                        self.lobby_info = fresh_info
+                except Exception as e:
+                    logger.error(f"Error refreshing lobby info: {e} {type(e)}")
             clock.tick(30)
+            await asyncio.sleep(0)
         return "Quit"
 
 
