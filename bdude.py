@@ -256,7 +256,7 @@ async def start_server_background(args: argparse.Namespace):
 	if server_process.is_alive():
 		logger.info(f"Server started in background (PID: {server_process.pid})")
 		# Set client to connect to localhost
-		args.server = "127.0.0.1"
+		# args.server = "127.0.0.1"
 		return True
 	else:
 		logger.error("Failed to start server process")

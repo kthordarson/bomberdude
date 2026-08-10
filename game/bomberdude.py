@@ -11,7 +11,7 @@ from pygame.math import Vector2 as Vec2d
 
 from camera import Camera
 from config import Config
-from constants import SCREEN_HEIGHT, SCREEN_WIDTH, UPDATE_TICK
+from constants import BASE_FRAME_SNAPSHOT_REFRESH_INTERVAL, SCREEN_HEIGHT, SCREEN_WIDTH, UPDATE_TICK
 from debug import draw_debug_info
 from game.gamestate import GameState
 from objects.player import MOVE_MAP, Bomberplayer
@@ -77,10 +77,12 @@ class Bomberdude:
         self.draw_player_info_panel = True
 
         # Snapshot of the frame right before overlays (fog/minimap/HUD) are
-        # drawn, refreshed every frame. Used to redraw those overlays with
-        # up-to-date config onto the frozen pause-menu backdrop, so
-        # live-apply Configure menu changes are visible immediately.
+        # drawn, refreshed every BASE_FRAME_SNAPSHOT_REFRESH_INTERVAL frames
+        # (see on_draw). Used to redraw those overlays with up-to-date config
+        # onto the frozen pause-menu backdrop, so live-apply Configure menu
+        # changes are visible immediately.
         self._base_frame_snapshot: pygame.Surface | None = None
+        self._base_frame_snapshot_counter = 0
 
         self.remote_player_sprites: dict[str, Bomberplayer] = {}  # Cache for remote players
 
@@ -271,7 +273,9 @@ class Bomberdude:
         # Draw explosion particles
         self.game_state.explosion_manager.draw(self.screen, self.camera)
 
-        self._base_frame_snapshot = self.screen.copy()
+        self._base_frame_snapshot_counter += 1
+        if self._base_frame_snapshot is None or self._base_frame_snapshot_counter % BASE_FRAME_SNAPSHOT_REFRESH_INTERVAL == 0:
+            self._base_frame_snapshot = self.screen.copy()
 
         # Draw fog of war
         if self.fog_enabled:
