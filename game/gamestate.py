@@ -15,7 +15,6 @@ from pytmx import load_pygame
 
 from constants import (
 	DEFAULT_HEALTH,
-	GLOBAL_RATE_LIMIT,
 	INITIAL_BOMB_POWER,
 	INITIAL_BOMBS,
 )
@@ -58,7 +57,6 @@ class GameState:
 		self._ready = False
 		self.modified_tiles = {}  # Format: {(tile_x, tile_y): new_gid}
 		self.tile_cache = {}
-		self.last_update_times = {}
 		self.client_id = client_id
 		self.player_active_bombs = {}  # player_id -> active bomb count
 		self.active_bombs_per_player = {}  # Track active bombs per player
@@ -183,7 +181,7 @@ class GameState:
 			logger.error(f"{self} Error removing player sprite {cid}: {e} {type(e)}")
 
 		# Clean up per-player bookkeeping if present.
-		for d in (self.player_active_bombs, self.active_bombs_per_player, self.last_update_times):
+		for d in (self.player_active_bombs, self.active_bombs_per_player):
 			try:
 				d.pop(cid, None)
 			except Exception as e:
@@ -254,31 +252,9 @@ class GameState:
 				logger.info(f"Connection removed. Total connections: {len(self.connections)}")
 
 	async def broadcast_event(self, event):
-		# Only broadcast player_update events at a reduced rate
-		do_send = True
-		client_id = event.get('client_id')
-		current_time = time.time()
-		# Use per-client rate limiting
-		if event.get('event_type') == 'player_update':
-			# Get last update time for this client (default to 0)
-			last_time = self.last_update_times.get(client_id, 0)
-			timediff = current_time - last_time
-
-			# Rate limit
-			if timediff < GLOBAL_RATE_LIMIT and last_time > 0:
-				# Use debug level instead of warning for rate limiting
-				if self.args.debug:
-					logger.warning(f'Rate limiting {client_id}: {timediff:.5f}s GLOBAL_RATE_LIMIT: {GLOBAL_RATE_LIMIT} last_time: {last_time}')
-				await asyncio.sleep(0.1)
-				# do_send = False
-
 		try:
-			if do_send:
-				await self.broadcast_state({'event_type': "broadcast_event", "event": event})
-				self.broadcast_counter += 1
-				# Track last time we sent an update for this specific client
-				if event.get('event_type') == 'player_update':
-					self.last_update_times[event.get('client_id')] = time.time()
+			await self.broadcast_state({'event_type': "broadcast_event", "event": event})
+			self.broadcast_counter += 1
 		except Exception as e:
 			logger.error(f"{self} Error in broadcast_event: {e} {type(e)}")
 
@@ -591,6 +567,23 @@ class GameState:
 	def _to_bullet_color(self, color: Any) -> tuple[int, int, int]:
 		return tuple(max(0, min(255, int(c))) for c in color)  # type: ignore[return-value]
 
+	def _is_near_tile(self, position: Any, tile_x: int, tile_y: int, max_tiles: float = 1.5) -> bool:
+		"""Whether `position` (pixels) is within `max_tiles` of the given tile's center.
+
+		Used to sanity-check a claimed pickup/interaction against the server's
+		own tracked position rather than trusting the client's claim outright.
+		The generous default accounts for the ~50ms staleness of replicated
+		position (see `position_update_interval`), not tight hit detection.
+		"""
+		try:
+			px, py = position[0], position[1]
+		except (TypeError, IndexError):
+			return False
+		tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
+		center_x, center_y = tile_x * tw + tw / 2, tile_y * th + th / 2
+		max_dist = max_tiles * max(tw, th)
+		return ((px - center_x) ** 2 + (py - center_y) ** 2) ** 0.5 <= max_dist
+
 	async def _on_player_joined(self, event: dict[str, Any]) -> str | None:
 		if self.args.debug_gamestate:
 			logger.info(f"Player joined: {event}")
@@ -722,6 +715,11 @@ class GameState:
 				logger.warning(f"{self} No player entry found for {client_id}, cannot drop bomb.")
 			await asyncio.sleep(0)
 			return False
+		if player_entry.bombs_left <= 0:
+			if self.args.debug_gamestate:
+				logger.warning(f"{self} Rejected drop_bomb from {client_id}: no bombs left (bombs_left={player_entry.bombs_left})")
+			await asyncio.sleep(0)
+			return False
 		if player_entry:
 			player_entry.bombs_left -= 1
 			# Also update local sprite if this is us
@@ -730,7 +728,9 @@ class GameState:
 					sprite.bombs_left = player_entry.bombs_left
 					break
 			# Create a bomb sprite locally. Server does not simulate bombs but should broadcast.
-			bomb = Bomb(position=pos, client_id=client_id, bomb_power=event.get("bomb_power"))
+			# Blast radius comes from the replicated (server-authoritative) bomb_power,
+			# not the client's claim, so a forged event can't inflate it.
+			bomb = Bomb(position=pos, client_id=client_id, bomb_power=player_entry.bomb_power)
 			if self.args.debug_gamestate:
 				logger.info(f"{bomb} for {client_id} at {pos}. player bombs left: {player_entry.bombs_left}")
 			await bomb.async_init()
@@ -810,6 +810,15 @@ class GameState:
 
 		existing = self.playerlist.get(client_id)
 		if existing is None:
+			if self.client_id == "theserver":
+				# A player must join via connection_event (which seeds safe
+				# server-side defaults) before it can report state; don't let
+				# a bare player_update fabricate a new player from
+				# client-supplied health/score/bombs_left.
+				if self.args.debug_gamestate:
+					logger.warning(f"{self} Rejected player_update for unknown client_id {client_id}: not joined yet")
+				await asyncio.sleep(0)
+				return False
 			ps = PlayerState(
 				client_id=client_id,  # type: ignore
 				client_name=client_name,
@@ -830,7 +839,7 @@ class GameState:
 				ps.health = health
 				ps.bombs_left = bombs_left
 				ps.bomb_power = bomb_power
-			ps.score = score
+				ps.score = score
 			ps.client_name = client_name
 			self.playerlist[client_id] = ps
 			self._sync_local_sprite_from_state(ps)
@@ -943,57 +952,49 @@ class GameState:
 			if (ux, uy) == (tile_x, tile_y):
 				upgrades_to_remove.append(uid)
 		for uid in upgrades_to_remove:
-			upgrade = self.upgrade_by_id.pop(uid, None)
-			if upgrade:
-				self.upgrade_by_tile.pop((tile_x, tile_y), None)
-				if upgrade in self.upgrade_blocks:
-					self.upgrade_blocks.discard(upgrade)
-				if self.client_id == 'theserver':
-					picker_id = event.get('client_id')
-					# player = self.playerlist.get(picker_id)
-					player = self.get_player_sprite_by_id(picker_id)
-					if player:
-						if upgrade.upgradetype == 20:
-							player.health += 10
+			upgrade = self.upgrade_by_id.get(uid)
+			if not upgrade:
+				continue
+			picker_id = event.get('client_id')
+			if self.client_id == 'theserver':
+				picker_state = self.playerlist.get(picker_id)
+				if picker_state is None or not self._is_near_tile(picker_state.position, tile_x, tile_y):
+					if self.args.debug_gamestate:
+						logger.warning(f"{self} Rejected upgrade_pickup: {picker_id} not near tile ({tile_x},{tile_y}); leaving upgrade in place")
+					continue
+			self.upgrade_by_id.pop(uid, None)
+			self.upgrade_by_tile.pop((tile_x, tile_y), None)
+			self.upgrade_blocks.discard(upgrade)
+			if self.client_id == 'theserver':
+				player = self.get_player_sprite_by_id(picker_id)
+				if player:
+					if upgrade.upgradetype == 20:
+						player.health += 10
 
-						elif upgrade.upgradetype == 21:
-							player.bombs_left += 1
+					elif upgrade.upgradetype == 21:
+						player.bombs_left += 1
 
-						elif upgrade.upgradetype == 22:
-							player.bomb_power += 1
+					elif upgrade.upgradetype == 22:
+						player.bomb_power += 1
 
-						# Broadcast the update immediately
-						out_event = {
-							'event_type': 'player_update',
-							'client_id': picker_id,
-							'health': player.health,
-							'score': player.score,
-							'bombs_left': player.bombs_left,
-							'bomb_power': player.bomb_power,
-							'position': player.position,
-							'client_name': player.client_name,
-							'handled': False,
-							'handledby': 'server.upgrade_pickup'
-						}
-						asyncio.create_task(self.broadcast_event(out_event))
-						if self.args.debug_gamestate:
-							logger.info(f"Applied upgrade {upgrade.upgradetype} to player {picker_id} health: {player.health} bombs_left: {player.bombs_left} bomb_power: {player.bomb_power}")
+					# Broadcast the update immediately
+					out_event = {
+						'event_type': 'player_update',
+						'client_id': picker_id,
+						'health': player.health,
+						'score': player.score,
+						'bombs_left': player.bombs_left,
+						'bomb_power': player.bomb_power,
+						'position': player.position,
+						'client_name': player.client_name,
+						'handled': False,
+						'handledby': 'server.upgrade_pickup'
+					}
+					asyncio.create_task(self.broadcast_event(out_event))
+					if self.args.debug_gamestate:
+						logger.info(f"Applied upgrade {upgrade.upgradetype} to player {picker_id} health: {player.health} bombs_left: {player.bombs_left} bomb_power: {player.bomb_power}")
 
-					# for sprite in self.players_sprites:
-					# 	if sprite.client_id == picker_id:
-					# 		if self.args.debug_gamestate:
-					# 			logger.info(f"{self} _on_upgrade_pickup: Applying upgrade {upgrade.upgradetype} to sprite {picker_id} before: health={sprite.health} bombs_left={sprite.bombs_left} bomb_power={sprite.bomb_power}")
-					# 		if upgrade.upgradetype == 20:
-					# 			sprite.health += 10
-					# 		elif upgrade.upgradetype == 21:
-					# 			sprite.bombs_left += 1
-					# 		elif upgrade.upgradetype == 22:
-					# 			sprite.bomb_power += 1
-					# 		if self.args.debug_gamestate:
-					# 			logger.info(f"{self} _on_upgrade_pickup: Applying upgrade {upgrade.upgradetype} to sprite {picker_id} before: health={sprite.health} bombs_left={sprite.bombs_left} bomb_power={sprite.bomb_power}")
-					# 		break
-
-				await self._apply_tile_change(tile_x, tile_y, 1)
+			await self._apply_tile_change(tile_x, tile_y, 1)
 		await asyncio.sleep(0)
 
 		return True

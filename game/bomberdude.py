@@ -575,7 +575,9 @@ class Bomberdude:
         self.game_state.cleanup_playerlist()
         current_time = time.time()
         if current_time - self.last_position_update > self.position_update_interval:
-            playerlist = [player.to_dict() for player in self.game_state.playerlist.values()]
+            # Only the sender's own delta fields — no full playerlist snapshot.
+            # Other players' state reaches us the same way: their own client
+            # sends this same event, and the server rebroadcasts it.
             update_event = {
                 "event_time": self.timer,
                 'event_type': "player_update",
@@ -587,7 +589,6 @@ class Bomberdude:
                 "bombs_left": player_one.bombs_left,
                 "handled": False,
                 "handledby": "game_update",
-                "playerlist": playerlist,
                 "event_id": gen_randid(),}
             await self.game_state.event_queue.put(update_event)
             self.last_position_update = current_time

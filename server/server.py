@@ -11,15 +11,14 @@ import pytmx
 from aiohttp import web
 from loguru import logger
 
-from constants import UPDATE_TICK
 from game.gamestate import GameState
 from utils import gen_randid
 
 from .accounts import AccountStore
 from .discovery import ServerDiscovery
 
-# A connected client is expected to send state at UPDATE_TICK Hz; anything
-# idle this long is treated as dead rather than left to hang forever.
+# A connected client is expected to send state regularly; anything idle
+# this long is treated as dead rather than left to hang forever.
 CLIENT_IDLE_TIMEOUT = 30
 
 
@@ -74,13 +73,40 @@ class BombServer:
 					logger.error(f"error: {e} {type(e)} Data: {data}")
 					await asyncio.sleep(1)
 					continue
-				# Track which client_id is associated with this connection so we can
-				# clean up player state on disconnect.
-				msg_client_id = msg.get('client_id')
-				self.connection_to_client_id[writer] = str(msg_client_id)
-				game_event = msg.get('game_event')
+				msg_client_id = str(msg.get('client_id'))
+				game_event = msg.get('game_event') or {}
+
+				# Bind this connection to the identity it first claimed, and
+				# reject anything that tries to act as a different one — a
+				# client may only ever report events as itself.
+				bound_client_id = self.connection_to_client_id.get(writer)
+				if bound_client_id is None:
+					self.connection_to_client_id[writer] = msg_client_id
+					bound_client_id = msg_client_id
+				elif msg_client_id != bound_client_id:
+					logger.warning(f"{self} Rejected message: connection bound to {bound_client_id} but claimed {msg_client_id}")
+					continue
+
+				# For most event types `client_id` means "the actor reporting
+				# this", so it must match the connection's bound identity.
+				# `player_hit`/`upgrade_pickup` are witnessed-fact reports
+				# where `client_id` names a *different* player (the attacker,
+				# or the picker per replicated position) — those are instead
+				# validated by `reported_by` (hits) or server-side proximity
+				# against the claimed picker's own tracked position (pickups,
+				# see `_on_upgrade_pickup`/`_is_near_tile`).
+				event_type = game_event.get('event_type')
+				if event_type not in ('player_hit', 'on_player_hit', 'upgrade_pickup'):
+					event_actor = str(game_event.get('client_id', bound_client_id))
+					if event_actor != bound_client_id:
+						logger.warning(f"{self} Rejected forged event: connection {bound_client_id} tried to act as {event_actor}: {game_event}")
+						continue
+				reported_by = game_event.get('reported_by')
+				if reported_by is not None and str(reported_by) != bound_client_id:
+					logger.warning(f"{self} Rejected forged reported_by: connection {bound_client_id} claimed reported_by={reported_by}")
+					continue
+
 				await self.game_state.update_game_event(game_event)
-				await self.server_broadcast_state(self.game_state.to_json())
 				self.message_counter += 1
 		except TypeError as e:
 			logger.error(f"{e} {type(e)} in process_messages. data: {data} msg: {msg}")
@@ -217,8 +243,6 @@ class BombServer:
 		except Exception as e:
 			logger.error(f'{self} Error starting API server on {self.args.listen}:{tcp_port}: {e} {type(e)}')
 			return
-		# Ticker task to broadcast game state
-		ticker_task = loop.create_task(self.ticker_broadcast())
 
 		try:
 			# Run the server
@@ -226,33 +250,12 @@ class BombServer:
 				await server.serve_forever()
 		finally:
 			# Clean up
-			ticker_task.cancel()
 			discovery_task.cancel()
-			try:
-				await ticker_task
-			except asyncio.CancelledError:
-				pass
 			try:
 				await discovery_task
 			except asyncio.CancelledError:
 				pass
 			await runner.cleanup()
-
-	async def ticker_broadcast(self):
-		"""Broadcast game state at regular intervals"""
-		last_broadcast = time.time()
-		try:
-			while not self.stopped():
-				# Broadcast player states (at a sensible rate)
-				if time.time() - last_broadcast > 0.05:  # 20 updates per second
-					game_state = self.game_state.to_json()
-					await self.server_broadcast_state(game_state)
-					last_broadcast = time.time()
-				await asyncio.sleep(1 / UPDATE_TICK)
-		except asyncio.CancelledError as e:
-			logger.info(f"Ticker broadcast task cancelled {e}")
-		except Exception as e:
-			logger.error(f"Error in ticker broadcast: {e} {type(e)}")
 
 	def get_position(self, retas="int"):
 		# Get map dimensions in tiles
@@ -295,10 +298,4 @@ class BombServer:
 				self.discovery_service.stop()
 		except Exception as e:
 			logger.error(f"{self} Error stopping discovery service: {e} {type(e)}")
-
-	def stopped(self):
-		return self._stop.is_set()
-
-	async def server_broadcast_state(self, state):
-		await self.game_state.broadcast_state(state)
 

@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import asyncio
 import json
-import time
 
 from loguru import logger
 
@@ -22,15 +21,23 @@ async def send_game_state(game: Bomberdude) -> None:
 	# Avoid writing to the socket before sock_connect completes.
 	if game.socket_connected:
 		await game.socket_connected.wait()
+	# A discrete (non-player_update) event pulled while coalescing a burst of
+	# player_update snapshots below; sent on the next iteration so its
+	# relative order versus other discrete events is preserved.
+	pending_event = None
 	while True:
-		try:
-			game_event = await game.game_state.event_queue.get()
-		except asyncio.QueueEmpty:
-			await asyncio.sleep(1 / UPDATE_TICK)
-			continue
-		except Exception as e:
-			logger.error(f"Error getting event: {e} {type(e)}")
-			continue
+		if pending_event is not None:
+			game_event = pending_event
+			pending_event = None
+		else:
+			try:
+				game_event = await game.game_state.event_queue.get()
+			except asyncio.QueueEmpty:
+				await asyncio.sleep(1 / UPDATE_TICK)
+				continue
+			except Exception as e:
+				logger.error(f"Error getting event: {e} {type(e)}")
+				continue
 
 		if game.client_id == 'bdudenotset' or game.game_state.client_id == 'gamestatenotset' or game.game_state.client_id == 'missingclientid':
 			logger.error(f'client_id not set game: {game}')
@@ -39,24 +46,29 @@ async def send_game_state(game: Bomberdude) -> None:
 		else:
 			player_one = game.game_state.get_playerone()
 
-		# Cache keyspressed serialization
-		client_keys = json.loads(game.game_state.keyspressed.to_json())
+		# Coalesce a burst of back-to-back player_update events: each one is
+		# a full state snapshot (not a delta), so under load only the latest
+		# is worth sending. Any other event type found while draining is
+		# stashed in `pending_event` rather than dropped.
+		while game_event.get('event_type') == 'player_update':
+			try:
+				next_event = game.game_state.event_queue.get_nowait()
+			except asyncio.QueueEmpty:
+				break
+			if next_event.get('event_type') == 'player_update':
+				game.game_state.event_queue.task_done()
+				game_event = next_event
+			else:
+				pending_event = next_event
+				break
 
-		# Convert PlayerState objects to dicts so dumps succeeds.
-		playerlist = [p.to_dict() for p in game.game_state.playerlist.values()]
+		# The server only ever reads `game_event` and `client_id` from this
+		# message (see server/server.py:process_messages) — everything else
+		# once sent here (position/health/playerlist/keyspressed/...) was
+		# dead weight resent on every single message.
 		msg = {
 			'game_event': game_event,
 			'client_id': player_one.client_id,
-			'position': (player_one.position[0], player_one.position[1]),
-			'health': player_one.health,
-			'score': player_one.score,
-			'bombs_left': player_one.bombs_left,
-			'bomb_power': player_one.bomb_power,
-			'keyspressed': client_keys,
-			'event_type': "send_game_state",
-			'handledby': "send_game_state",
-			'msg_dt': time.time(),
-			'playerlist': playerlist,
 		}
 		try:
 			data_out = (json.dumps(msg) + '\n').encode('utf-8')
