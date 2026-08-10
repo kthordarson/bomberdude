@@ -1,5 +1,7 @@
 import asyncio
 import random
+import secrets
+import string
 
 import pygame
 
@@ -146,3 +148,9 @@ def generate_name(style="bomber"):
 		return f"{adj}{noun}{suffix}{idnum}"
 
 	return f"{adj}{noun}{idnum}"
+
+def generate_password(length=16):
+	"""Generate a random account password using a CSPRNG (unlike generate_name,
+	this backs a real credential, so `secrets` is used instead of `random`)."""
+	alphabet = string.ascii_letters + string.digits
+	return ''.join(secrets.choice(alphabet) for _ in range(length))

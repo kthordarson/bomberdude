@@ -15,6 +15,7 @@ from constants import UPDATE_TICK
 from game.gamestate import GameState
 from utils import gen_randid
 
+from .accounts import AccountStore
 from .discovery import ServerDiscovery
 
 # A connected client is expected to send state at UPDATE_TICK Hz; anything
@@ -36,6 +37,7 @@ class BombServer:
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0
+		self.accounts = AccountStore("data/players.db", "data/server_secret.key")
 
 	@staticmethod
 	def _ensure_headless_display():
@@ -151,6 +153,37 @@ class BombServer:
 		if self.args.debug:
 			logger.debug(f'{self} request: {request} mapname: {mapname}')
 		resp = {"mapname": mapname}
+		return web.json_response(resp)
+
+	async def register_player(self, request):
+		body = await request.json()
+		username = str(body.get("username", ""))
+		password = str(body.get("password", ""))
+		ok, reason = await asyncio.to_thread(self.accounts.create_player, username, password)
+		if self.args.debug:
+			logger.debug(f'{self} register_player username: {username} ok: {ok} reason: {reason}')
+		return web.json_response({"ok": ok, "reason": reason})
+
+	async def login_player(self, request):
+		body = await request.json()
+		username = str(body.get("username", ""))
+		password = str(body.get("password", ""))
+		ok, reason = await asyncio.to_thread(self.accounts.authenticate, username, password)
+		if self.args.debug:
+			logger.debug(f'{self} login_player username: {username} ok: {ok} reason: {reason}')
+		return web.json_response({"ok": ok, "reason": reason})
+
+	async def get_lobby_info(self, request):
+		players = [{"client_name": p.client_name, "position": list(p.position)} for p in self.game_state.playerlist.values()]
+		tile_map = self.game_state.tile_map
+		resp = {
+			"players": players,
+			"mapname": str(self.args.mapname),
+			"map_width": tile_map.width * tile_map.tilewidth,
+			"map_height": tile_map.height * tile_map.tileheight,
+		}
+		if self.args.debug:
+			logger.debug(f'{self} request: {request} get_lobby_info players: {len(players)}')
 		return web.json_response(resp)
 
 	async def new_start_server(self):

@@ -54,3 +54,7 @@ bdude_config*.json
 pycall*
 .claude/*
 .github/prompts/dudeprompt.prompt.md
+
+# AES keys and the player accounts DB (server/accounts.py, crypto_utils.py)
+*.key
+data/*.db

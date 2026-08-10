@@ -27,6 +27,7 @@ MINIMAP_ANCHORS = ("top_left", "top_right", "bottom_left", "bottom_right")
 @dataclass
 class Config:
 	player_name: str = field(default_factory=generate_name)
+	password_enc: str = ""
 	screen_width: int = SCREEN_WIDTH
 	screen_height: int = SCREEN_HEIGHT
 	bullet_color: tuple[int, int, int] = DEFAULT_BULLET_COLOR
@@ -41,6 +42,7 @@ class Config:
 	def to_dict(self) -> dict:
 		return {
 			"player_name": self.player_name,
+			"password_enc": self.password_enc,
 			"screen_width": self.screen_width,
 			"screen_height": self.screen_height,
 			"bullet_color": list(self.bullet_color),
@@ -75,6 +77,7 @@ class Config:
 			minimap_anchor = defaults.minimap_anchor
 		return cls(
 			player_name=str(data.get("player_name") or defaults.player_name),
+			password_enc=str(data.get("password_enc", defaults.password_enc)),
 			screen_width=int(data.get("screen_width", defaults.screen_width)),
 			screen_height=int(data.get("screen_height", defaults.screen_height)),
 			bullet_color=bullet_color,  # type: ignore[arg-type]
