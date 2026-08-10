@@ -19,6 +19,7 @@ from network.client import receive_game_state, send_game_state
 from panels import MainMenu
 from server.api import ApiServer
 from server.server import BombServer
+from utils import async_load_image_cached
 
 # Global variable to track server process
 server_process = None
@@ -305,6 +306,12 @@ async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> b
 	bomberdude_main.game_state.client_id = client_id
 	bomberdude_main.mapname = mapname
 	bomberdude_main.game_state._load_map(mapname)
+
+	# Warm the flame image cache off the event loop thread now, so the first
+	# bomb explosion doesn't stall the loop on synchronous pygame.image.load
+	# (ExplosionManager.create_flames/Flame.flame_init are sync call sites and
+	# can't await the async loader themselves).
+	await async_load_image_cached('data/flameball.png')
 
 	# Start networking tasks early so connect() can complete its readiness handshake.
 	# The tasks will wait until the socket is connected before using it.
