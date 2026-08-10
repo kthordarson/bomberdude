@@ -16,19 +16,29 @@ async def async_start_server(args: argparse.Namespace) -> None:
 	# apiserver = ApiServer("bombapi", server)
 	tui = ServerTUI(server, args.debug)
 	apiserver = ApiServer(name="bombapi", server=server, game_state=server.game_state)
-	api_task = asyncio.create_task(apiserver.run(args.listen, args.api_port))
-	tui_task = asyncio.create_task(tui.start())
-	new_server_start_task = asyncio.create_task(server.new_start_server())
+	api_task = asyncio.create_task(apiserver.run(args.listen, args.api_port), name="api_task")
+	tui_task = asyncio.create_task(tui.start(), name="tui_task")
+	new_server_start_task = asyncio.create_task(server.new_start_server(), name="new_server_start_task")
+	tasks = (api_task, tui_task, new_server_start_task)
 
 	logger.debug(f'{server=} {tui=} {apiserver=}')
 	try:
-		await asyncio.wait([api_task, tui_task, new_server_start_task], return_when=asyncio.FIRST_COMPLETED)
+		done, _pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+		for task in done:
+			if task.cancelled():
+				continue
+			exc = task.exception()
+			if exc is not None:
+				logger.error(f"{task.get_name()} raised {exc} {type(exc)}; shutting down server")
+			else:
+				logger.warning(f"{task.get_name()} finished unexpectedly; shutting down server")
 	except (asyncio.CancelledError, KeyboardInterrupt) as e:
 		logger.info(f'{e} {type(e)}')
-		api_task.cancel()
-		tui_task.cancel()
-		new_server_start_task.cancel()
-		await asyncio.gather(api_task, tui_task, return_exceptions=True)
+	finally:
+		for task in tasks:
+			if not task.done():
+				task.cancel()
+		await asyncio.gather(*tasks, return_exceptions=True)
 
 def get_server_args() -> argparse.Namespace:
 	parser = ArgumentParser(description="server")
