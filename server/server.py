@@ -17,6 +17,10 @@ from utils import gen_randid
 
 from .discovery import ServerDiscovery
 
+# A connected client is expected to send state at UPDATE_TICK Hz; anything
+# idle this long is treated as dead rather than left to hang forever.
+CLIENT_IDLE_TIMEOUT = 30
+
 
 class BombServer:
 	def __init__(self, args):
@@ -57,7 +61,11 @@ class BombServer:
 		msg = None
 		try:
 			while not writer.is_closing():
-				data = await reader.readuntil(b'\n')
+				try:
+					data = await asyncio.wait_for(reader.readuntil(b'\n'), timeout=CLIENT_IDLE_TIMEOUT)
+				except asyncio.TimeoutError:
+					logger.warning(f"{self} Client {writer.get_extra_info('peername')} idle for {CLIENT_IDLE_TIMEOUT}s, disconnecting")
+					break
 				try:
 					msg = json.loads(data.decode('utf-8'))
 				except (UnicodeDecodeError, json.decoder.JSONDecodeError) as e:

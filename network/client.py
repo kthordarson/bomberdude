@@ -13,6 +13,9 @@ from game.bomberdude import Bomberdude
 # orjson.dumps returns bytes, so adjust encoding accordingly
 
 DEBUG_INTERVAL = UPDATE_TICK * 2
+# Guard against a dead/unresponsive peer hanging these loops forever.
+SEND_TIMEOUT = 10
+RECV_TIMEOUT = 30
 
 async def send_game_state(game: Bomberdude) -> None:
 	# Log less frequently to reduce overhead
@@ -59,9 +62,12 @@ async def send_game_state(game: Bomberdude) -> None:
 		}
 		try:
 			data_out = (json.dumps(msg) + '\n').encode('utf-8')
-			await asyncio.get_running_loop().sock_sendall(game.sock, data_out)  # Direct to socket
+			await asyncio.wait_for(asyncio.get_running_loop().sock_sendall(game.sock, data_out), timeout=SEND_TIMEOUT)  # Direct to socket
 			game.game_state.event_queue.task_done()
 			send_counter += 1
+		except asyncio.TimeoutError:
+			logger.error(f'Send timed out after {SEND_TIMEOUT}s; treating connection as dead')
+			break
 		except Exception as e:
 			logger.error(f'Send error: {e} {type(e)} msg: {msg}')
 			break
@@ -92,7 +98,7 @@ async def receive_game_state(game: Bomberdude) -> None:
 	event_tasks: set[asyncio.Task] = set()
 	while True:
 		try:
-			data = await asyncio.get_running_loop().sock_recv(game.sock, 4096)
+			data = await asyncio.wait_for(asyncio.get_running_loop().sock_recv(game.sock, 4096), timeout=RECV_TIMEOUT)
 			if not data:
 				# Connection closed
 				break
@@ -118,6 +124,9 @@ async def receive_game_state(game: Bomberdude) -> None:
 			# if log_counter % DEBUG_INTERVAL == 0 and game.args.debug_gamestate:  # Log every second at 60 FPS
 			# 	logger.info(f'receive: processed {messages_processed} messages, buffer size: {len(buffer)}')
 
+		except asyncio.TimeoutError:
+			logger.error(f'No data received for {RECV_TIMEOUT}s; treating connection as dead')
+			break
 		except (BlockingIOError, InterruptedError):
 			await asyncio.sleep(0.1)  # Shorter sleep
 			continue
