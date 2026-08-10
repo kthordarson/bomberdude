@@ -1,12 +1,21 @@
+import json
+import time
 from dataclasses import dataclass, field
+
+import pygame
 from loguru import logger
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
-import json
-import pygame
-import time
-from utils import gen_randid, generate_name, get_cached_image, async_get_cached_image
-from constants import PLAYER_MOVEMENT_SPEED, PLAYER_SCALING, BLOCK, INITIAL_BOMBS, INITIAL_BOMB_POWER, COOLDOWN_PERIOD
+
+from constants import (
+	BLOCK,
+	COOLDOWN_PERIOD,
+	INITIAL_BOMB_POWER,
+	INITIAL_BOMBS,
+	PLAYER_MOVEMENT_SPEED,
+	PLAYER_SCALING,
+)
+from utils import gen_randid, generate_name, get_cached_image
 
 MOVE_MAP = {
 	pygame.K_UP: (0, -PLAYER_MOVEMENT_SPEED),
@@ -31,7 +40,7 @@ KEY_NAME_MAP = {v: k for k, v in pygame.key.__dict__.items() if isinstance(v, in
 class KeysPressed:
 	def __init__(self, name):
 		self.name = name
-		self.keys = {k: False for k in MOVE_MAP}
+		self.keys = dict.fromkeys(MOVE_MAP, False)
 
 	def __repr__(self):
 		return f'KeyPressed ({self.name})'
@@ -89,7 +98,7 @@ class Bomberplayer(Sprite):
 			self._set_texture(self._alive_texture_path)
 
 	def __hash__(self):
-		return hash((self.client_id))
+		return hash(self.client_id)
 
 	@property
 	def bombs_left(self):

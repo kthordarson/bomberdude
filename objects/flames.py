@@ -1,10 +1,13 @@
-from pygame.math import Vector2 as Vec2d
-from pygame.sprite import Sprite
+import math
+
 # from pymunk import Vec2d
 import pygame
-from constants import FLAME_SPEED, BLOCK
-import math
-from utils import load_image_cached, async_load_image_cached
+from pygame.math import Vector2 as Vec2d
+from pygame.sprite import Sprite
+
+from constants import BLOCK, FLAME_SPEED
+from utils import async_load_image_cached, load_image_cached
+
 
 class Flame(Sprite):
 	def __init__(self, position, direction, client_id, size, bomb_power):

@@ -1,9 +1,11 @@
 # debug.py
-import traceback
-import pygame
 import time
-from loguru import logger
+import traceback
 from collections import OrderedDict
+
+import pygame
+from loguru import logger
+
 from constants import BLOCK, PLAYER_SCALING
 
 # Store the last few frame times for smoothing

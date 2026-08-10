@@ -1,6 +1,8 @@
+import asyncio
+
 from aiohttp import web
 from loguru import logger
-import asyncio
+
 
 class ApiServer:
 	def __init__(self, name, server, game_state):

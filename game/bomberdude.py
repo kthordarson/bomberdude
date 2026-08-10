@@ -1,22 +1,25 @@
-import time
-import asyncio
-import requests
-import pygame
-import socket
 import argparse
-from pygame.math import Vector2 as Vec2d
+import asyncio
 import json
+import socket
+import time
+
+import pygame
+import requests
 from loguru import logger
-from utils import gen_randid
-from game.gamestate import GameState
-from constants import UPDATE_TICK, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
+from pygame.math import Vector2 as Vec2d
+
 from camera import Camera
 from config import Config
-from objects.player import Bomberplayer, MOVE_MAP
+from constants import SCREEN_HEIGHT, SCREEN_WIDTH, UPDATE_TICK
 from debug import draw_debug_info
-from panels import PlayerInfoPanel, MainMenu
+from game.gamestate import GameState
+from objects.player import MOVE_MAP, Bomberplayer
+from panels import MainMenu, PlayerInfoPanel
+from utils import gen_randid
 
-class Bomberdude():
+
+class Bomberdude:
     def __init__(self, mainmenu: MainMenu, args: argparse.Namespace, config:Config, client_id: str = "noclientid", mapname: str = "mapnotset"):
         self.config = config
         self.title = "Bomberdude"

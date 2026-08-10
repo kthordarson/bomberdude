@@ -1,15 +1,15 @@
 # panels.py
-import asyncio
 import argparse
+import asyncio
 import dataclasses
-import socket
 import json
-import pygame
+import socket
 from collections import OrderedDict
+
+import pygame
 from loguru import logger
 
 from config import Config, save_config
-
 
 # Global text render cache to avoid repeated Font.render() work every frame.
 # Keyed by (font_id, text, antialias, color, background).
@@ -622,7 +622,7 @@ class Panel:
     def draw(self):
         pygame.draw.rect(self.screen, self.color, (*self.position, *self.size))
 
-class ServerDiscoveryPanel():
+class ServerDiscoveryPanel:
     def __init__(self, screen: pygame.Surface, args: argparse.Namespace):
         self.screen = screen
         self.args = args

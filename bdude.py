@@ -1,22 +1,24 @@
 #!/usr/bin/python
-import traceback
-import requests
-import json
-import sys
-import asyncio
-import time
 import argparse
-from argparse import ArgumentParser
-import pygame
-from loguru import logger
-from constants import SCREEN_TITLE, UPDATE_TICK
-from config import load_config
-from panels import MainMenu
-from game.bomberdude import Bomberdude
-from network.client import send_game_state, receive_game_state
-from server.server import BombServer
-from server.api import ApiServer
+import asyncio
+import json
 import multiprocessing
+import sys
+import time
+import traceback
+from argparse import ArgumentParser
+
+import pygame
+import requests
+from loguru import logger
+
+from config import load_config
+from constants import UPDATE_TICK
+from game.bomberdude import Bomberdude
+from network.client import receive_game_state, send_game_state
+from panels import MainMenu
+from server.api import ApiServer
+from server.server import BombServer
 
 # Global variable to track server process
 server_process = None
@@ -260,7 +262,7 @@ async def stop_server_background():
 async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> bool:
 	resptext = ''
 	try:
-		resptext = requests.get(f"http://{args.server}:{args.api_port}/get_client_id", timeout=10).text
+		resptext = (await asyncio.to_thread(requests.get, f"http://{args.server}:{args.api_port}/get_client_id", timeout=10)).text
 		resp = json.loads(resptext)
 		client_id = resp.get("client_id")
 	except requests.exceptions.ConnectionError as e:
@@ -270,7 +272,7 @@ async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> b
 		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
 		raise e
 	try:
-		resptext = requests.get(f"http://{args.server}:{args.api_port}/get_map_name", timeout=10).text
+		resptext = (await asyncio.to_thread(requests.get, f"http://{args.server}:{args.api_port}/get_map_name", timeout=10)).text
 		resp = json.loads(resptext)
 		mapname = resp.get("mapname")
 	except Exception as e:

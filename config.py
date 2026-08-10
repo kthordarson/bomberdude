@@ -7,9 +7,10 @@ stay forward-compatible) are used.
 import json
 import os
 from dataclasses import dataclass, field
+
 from loguru import logger
 
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT, PARTICLE_COUNT
+from constants import PARTICLE_COUNT, SCREEN_HEIGHT, SCREEN_WIDTH
 from utils import generate_name
 
 DEFAULT_CONFIG_PATH = "bdude_config.json"
@@ -95,7 +96,7 @@ def load_config(path: str = DEFAULT_CONFIG_PATH) -> Config:
 		logger.info(f"No config file at '{path}'; created one with default values: {config}")
 		return config
 	try:
-		with open(path, "r") as f:
+		with open(path) as f:
 			data = json.load(f)
 		config = Config.from_dict(data)
 		logger.info(f"Loaded config from '{path}': {config}")

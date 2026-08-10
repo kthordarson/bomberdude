@@ -1,6 +1,7 @@
 import pygame
 from pygame.math import Vector2 as Vec2d
 
+
 class Shockwave:
 	def __init__(self, position, max_radius=150, duration=1.0, color=(255, 255, 255, 180), expansion_rate=None):
 		"""

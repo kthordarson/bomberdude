@@ -1,12 +1,15 @@
 #!/usr/bin/python
+import argparse
 import asyncio
 import sys
-import argparse
 from argparse import ArgumentParser
+
 from loguru import logger
-from server.server import BombServer
+
 from server.api import ApiServer
+from server.server import BombServer
 from server.tui import ServerTUI
+
 
 async def async_start_server(args: argparse.Namespace) -> None:
 	server = BombServer(args)

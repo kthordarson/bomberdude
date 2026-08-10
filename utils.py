@@ -1,6 +1,7 @@
-import random
-import pygame
 import asyncio
+import random
+
+import pygame
 
 _RAW_IMAGE_CACHE: dict[str, pygame.Surface] = {}
 _PROCESSED_IMAGE_CACHE: dict[tuple[str, float, str], pygame.Surface] = {}

@@ -1,24 +1,32 @@
-from constants import INITIAL_BOMB_POWER
-import asyncio
-import random
-from typing import Any, Callable, Optional
 import ast
-import pygame
-from pygame.sprite import Group
-from loguru import logger
-import time
-from dataclasses import dataclass
-from game.playerstate import PlayerState
-from utils import gen_randid
-from objects.player import KeysPressed, Bomberplayer
-from objects.bullets import Bullet
-from objects.bombs import Bomb
-from objects.explosionmanager import ExplosionManager
-from objects.blocks import Upgrade
-from constants import DEFAULT_HEALTH, GLOBAL_RATE_LIMIT, INITIAL_BOMBS
-import pytmx
-from pytmx import load_pygame
+import asyncio
 import json
+import random
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
+
+import pygame
+import pytmx
+from loguru import logger
+from pygame.sprite import Group
+from pytmx import load_pygame
+
+from constants import (
+	DEFAULT_HEALTH,
+	GLOBAL_RATE_LIMIT,
+	INITIAL_BOMB_POWER,
+	INITIAL_BOMBS,
+)
+from game.playerstate import PlayerState
+from objects.blocks import Upgrade
+from objects.bombs import Bomb
+from objects.bullets import Bullet
+from objects.explosionmanager import ExplosionManager
+from objects.player import Bomberplayer, KeysPressed
+from utils import gen_randid
+
 
 @dataclass
 class GameState:
@@ -182,7 +190,7 @@ class GameState:
 				logger.error(f"{self} Error cleaning up player data {cid} in {d}: {e} {type(e)}")
 				pass
 
-	def _sync_local_sprite_from_state(self, state: Optional[PlayerState]) -> None:
+	def _sync_local_sprite_from_state(self, state: PlayerState | None) -> None:
 		"""Keep the local Bomberplayer sprite in sync with authoritative state."""
 		if state is None:
 			return
@@ -303,7 +311,7 @@ class GameState:
 		texture = "data/netplayerdead.png"
 		return Bomberplayer(texture=texture, client_id=self.client_id)
 
-	def get_player_sprite_by_id(self, client_id) -> Optional[Bomberplayer]:
+	def get_player_sprite_by_id(self, client_id) -> Bomberplayer | None:
 		"""Return the sprite for a specific client_id if it exists."""
 		cid = str(client_id)
 		for player in self.players_sprites:

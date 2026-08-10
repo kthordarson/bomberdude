@@ -1,18 +1,22 @@
 #!/usr/bin/python
-import os
-import pygame
-import time
 import asyncio
 import json
-from threading import Event
-from loguru import logger
+import os
 import random
+import time
+from threading import Event
+
+import pygame
 import pytmx
 from aiohttp import web
+from loguru import logger
+
+from constants import UPDATE_TICK
 from game.gamestate import GameState
 from utils import gen_randid
-from constants import UPDATE_TICK
+
 from .discovery import ServerDiscovery
+
 
 class BombServer:
 	def __init__(self, args):

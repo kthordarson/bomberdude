@@ -1,6 +1,7 @@
-import socket
 import asyncio
 import json
+import socket
+
 from loguru import logger
 
 DISCOVERY_MAGIC = b"BOMBERDUDE_DISCOVERY"
@@ -9,7 +10,7 @@ def get_local_ip_addresses():
     ips = set()
     for _iface in socket.if_nameindex():
         try:
-            for fam, _, _, _, sockaddr in socket.getaddrinfo(None, 0, family=socket.AF_INET, proto=socket.IPPROTO_UDP):
+            for fam, _, _, _, _sockaddr in socket.getaddrinfo(None, 0, family=socket.AF_INET, proto=socket.IPPROTO_UDP):
                 s = socket.socket(fam, socket.SOCK_DGRAM)
                 try:
                     s.connect(('8.8.8.8', 80))

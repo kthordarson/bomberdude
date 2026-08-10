@@ -1,8 +1,10 @@
 #!/usr/bin/python
-import json
 import asyncio
+import json
 import time
+
 from loguru import logger
+
 from constants import UPDATE_TICK
 from game.bomberdude import Bomberdude
 

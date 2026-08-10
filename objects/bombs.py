@@ -1,10 +1,13 @@
 import asyncio
 import time
+
+import pygame
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
-import pygame
-from utils import gen_randid, async_get_cached_image
+
 from constants import BLOCK, PARTICLE_COUNT
+from utils import async_get_cached_image, gen_randid
+
 
 class Bomb(Sprite):
 	def __init__(self, position, client_id, bomb_power, speed=10, timer=4, bomb_size=(10,10)):
