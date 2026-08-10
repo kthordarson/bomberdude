@@ -22,9 +22,17 @@ def load_or_create_key(path: str) -> bytes:
 		if len(key) == KEY_LENGTH:
 			return key
 	key = secrets.token_bytes(KEY_LENGTH)
-	with open(path, "wb") as f:
+	# O_CREAT|O_EXCL with an explicit mode makes creation-with-restricted-permissions
+	# atomic, so there's no window (independent of umask) where another local
+	# process could open the file before it's locked down.
+	try:
+		fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+	except FileExistsError:
+		# Lost the race to create it; another process just wrote one.
+		with open(path, "rb") as f:
+			return f.read()
+	with os.fdopen(fd, "wb") as f:
 		f.write(key)
-	os.chmod(path, 0o600)
 	return key
 
 

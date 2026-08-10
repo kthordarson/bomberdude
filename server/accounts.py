@@ -1,15 +1,19 @@
-"""SQLite-backed player account storage with AES-encrypted passwords."""
-import secrets
+"""SQLite-backed player account storage with argon2-hashed passwords.
+
+Passwords are hashed one-way (argon2), never encrypted/decrypted: a leaked
+database only exposes hashes, not recoverable plaintext passwords.
+"""
 import sqlite3
 import time
 
-from crypto_utils import decrypt_secret, encrypt_secret, load_or_create_key
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
 
 class AccountStore:
-	def __init__(self, db_path: str, key_path: str):
+	def __init__(self, db_path: str):
 		self.db_path = db_path
-		self.key = load_or_create_key(key_path)
+		self.hasher = PasswordHasher()
 		self._init_db()
 
 	def _connect(self) -> sqlite3.Connection:
@@ -21,7 +25,7 @@ class AccountStore:
 			conn.execute(
 				"CREATE TABLE IF NOT EXISTS players ("
 				"username TEXT PRIMARY KEY, "
-				"password_enc TEXT NOT NULL, "
+				"password_hash TEXT NOT NULL, "
 				"created_at REAL NOT NULL)"
 			)
 			conn.commit()
@@ -32,8 +36,8 @@ class AccountStore:
 		conn = self._connect()
 		try:
 			conn.execute(
-				"INSERT INTO players (username, password_enc, created_at) VALUES (?, ?, ?)",
-				(username, encrypt_secret(password, self.key), time.time()),
+				"INSERT INTO players (username, password_hash, created_at) VALUES (?, ?, ?)",
+				(username, self.hasher.hash(password), time.time()),
 			)
 			conn.commit()
 			return True, "ok"
@@ -45,15 +49,13 @@ class AccountStore:
 	def authenticate(self, username: str, password: str) -> tuple[bool, str]:
 		conn = self._connect()
 		try:
-			row = conn.execute("SELECT password_enc FROM players WHERE username = ?", (username,)).fetchone()
+			row = conn.execute("SELECT password_hash FROM players WHERE username = ?", (username,)).fetchone()
 		finally:
 			conn.close()
 		if row is None:
 			return False, "not_found"
 		try:
-			stored_password = decrypt_secret(row[0], self.key)
-		except (ValueError, KeyError):
-			return False, "invalid_credentials"
-		if not secrets.compare_digest(stored_password, password):
+			self.hasher.verify(row[0], password)
+		except VerifyMismatchError:
 			return False, "invalid_credentials"
 		return True, "ok"

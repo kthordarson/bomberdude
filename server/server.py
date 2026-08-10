@@ -37,7 +37,7 @@ class BombServer:
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0
-		self.accounts = AccountStore("data/players.db", "data/server_secret.key")
+		self.accounts = AccountStore("data/players.db")
 
 	@staticmethod
 	def _ensure_headless_display():
