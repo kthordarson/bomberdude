@@ -1,0 +1,2432 @@
+{
+	"version": 1,
+	"state": {
+		"document": {
+			"documentNodeId": "document",
+			"nodes": {
+				"document": {
+					"type": "DOCUMENT",
+					"id": "document",
+					"name": "My campaign",
+					"selectedPage": "1c253cae-fa04-4c18-adac-06f322b0f188",
+					"children": [
+						"1c253cae-fa04-4c18-adac-06f322b0f188"
+					]
+				},
+				"1c253cae-fa04-4c18-adac-06f322b0f188": {
+					"type": "PAGE",
+					"id": "1c253cae-fa04-4c18-adac-06f322b0f188",
+					"parentId": "document",
+					"name": "Random Dungeon",
+					"children": [
+						"b6844b9d-5250-4027-8de7-a87099776a5a",
+						"bc988d35-3488-419c-902c-70774c51061c"
+					],
+					"selection": [
+						"b6844b9d-5250-4027-8de7-a87099776a5a"
+					],
+					"alpha": 1,
+					"objectSelection": [],
+					"lastSelectedDrawableNode": "b6844b9d-5250-4027-8de7-a87099776a5a",
+					"pageTransform": "default",
+					"templateLocked": false,
+					"grid": {
+						"type": "square",
+						"cellDiameter": 36,
+						"variant": "dots",
+						"visible": true,
+						"dotsOptions": {
+							"radius": 1.5
+						},
+						"linesOptions": {
+							"width": 1
+						},
+						"sharedOptions": {
+							"colour": {
+								"colour": 6710886,
+								"alpha": 0.5
+							}
+						}
+					},
+					"background": {
+						"colour": {
+							"colour": 15723234,
+							"alpha": 1
+						}
+					},
+					"lighting": {
+						"enabled": false,
+						"ambientLight": {
+							"colour": 3359846,
+							"alpha": 1
+						},
+						"blur": 3
+					},
+					"texture": {
+						"enabled": false,
+						"scale": 1,
+						"alpha": 1
+					},
+					"backgroundTexture": {
+						"enabled": false,
+						"scale": 1
+					}
+				},
+				"b6844b9d-5250-4027-8de7-a87099776a5a": {
+					"type": "TEMPLATE",
+					"id": "b6844b9d-5250-4027-8de7-a87099776a5a",
+					"alpha": 1,
+					"parentId": "1c253cae-fa04-4c18-adac-06f322b0f188",
+					"name": "Classic Hatching 1",
+					"visible": true,
+					"children": [
+						"4456124e-adbe-413c-9640-63d527dc298f"
+					],
+					"template": {
+						"type": "V1",
+						"dungeonShape": "4456124e-adbe-413c-9640-63d527dc298f",
+						"wall": "16636919-78b6-47c0-9426-d97a7bb2e2d4",
+						"floor": "67be22ea-0d03-4566-99ae-ac92b259d1ad",
+						"grid": "11e4b2e5-f008-4ff1-ae23-34c3af706e18",
+						"shadow": "9c85e087-321f-4b02-9ca7-520edf55a43d",
+						"hatching": "e052550a-e53e-4bec-98df-06ece80c26b6",
+						"shading": "4f2f3f7f-066c-4e0d-ba30-c2f2b0cbc2de"
+					}
+				},
+				"4456124e-adbe-413c-9640-63d527dc298f": {
+					"type": "GEOMETRY",
+					"id": "4456124e-adbe-413c-9640-63d527dc298f",
+					"alpha": 1,
+					"parentId": "b6844b9d-5250-4027-8de7-a87099776a5a",
+					"name": "Classic Hatching 1",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"4f2f3f7f-066c-4e0d-ba30-c2f2b0cbc2de",
+						"e052550a-e53e-4bec-98df-06ece80c26b6",
+						"67be22ea-0d03-4566-99ae-ac92b259d1ad",
+						"24bc8931-9666-42df-b629-544726a56e50",
+						"16636919-78b6-47c0-9426-d97a7bb2e2d4"
+					],
+					"backgroundEffect": {},
+					"geometryId": "2513122b-c3df-429d-9529-f146ff57a701"
+				},
+				"16636919-78b6-47c0-9426-d97a7bb2e2d4": {
+					"type": "MULTIPOLYGON",
+					"id": "16636919-78b6-47c0-9426-d97a7bb2e2d4",
+					"alpha": 1,
+					"name": "Walls",
+					"parentId": "4456124e-adbe-413c-9640-63d527dc298f",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 5,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": false,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"24bc8931-9666-42df-b629-544726a56e50": {
+					"type": "FOLDER",
+					"id": "24bc8931-9666-42df-b629-544726a56e50",
+					"alpha": 1,
+					"parentId": "4456124e-adbe-413c-9640-63d527dc298f",
+					"name": "Grid, Shadow",
+					"visible": true,
+					"children": [
+						"753c1613-6e0b-4c4d-84d1-7abb13ae1e85",
+						"9c85e087-321f-4b02-9ca7-520edf55a43d",
+						"11e4b2e5-f008-4ff1-ae23-34c3af706e18"
+					]
+				},
+				"11e4b2e5-f008-4ff1-ae23-34c3af706e18": {
+					"type": "GRID",
+					"id": "11e4b2e5-f008-4ff1-ae23-34c3af706e18",
+					"alpha": 1,
+					"name": "Grid",
+					"parentId": "24bc8931-9666-42df-b629-544726a56e50",
+					"visible": true,
+					"gridType": "square",
+					"variant": "clean",
+					"cleanOptions": {
+						"width": 1,
+						"colour": {
+							"colour": 5592405,
+							"alpha": 1
+						}
+					},
+					"roughOptions": {
+						"width": 1,
+						"colour": {
+							"colour": 5592405,
+							"alpha": 1
+						},
+						"roughness": {
+							"segmentSizeMin": 1,
+							"segmentSizeMax": 10,
+							"segmentSkipRate": 0,
+							"noDotRate": 0.2,
+							"scribbleScale": 10,
+							"scribbleAmplitude": 0.7,
+							"shiftRate": 0.3,
+							"shiftAmountMin": 1,
+							"shiftAmountMax": 2,
+							"majorNoiseScale": 0.1,
+							"majorNoiseAmplitude": 15,
+							"majorNoiseShift": 0.9
+						}
+					},
+					"dotsOptions": {
+						"radius": 1,
+						"colour": {
+							"colour": 5592405,
+							"alpha": 1
+						}
+					}
+				},
+				"9c85e087-321f-4b02-9ca7-520edf55a43d": {
+					"type": "SHADOW",
+					"id": "9c85e087-321f-4b02-9ca7-520edf55a43d",
+					"alpha": 1,
+					"name": "",
+					"parentId": "24bc8931-9666-42df-b629-544726a56e50",
+					"visible": true,
+					"castFromInternalLines": true,
+					"tx": 12,
+					"ty": 9,
+					"colour": {
+						"colour": 9209469,
+						"alpha": 1
+					},
+					"lineWidth": 5,
+					"roughOptions": "low"
+				},
+				"753c1613-6e0b-4c4d-84d1-7abb13ae1e85": {
+					"type": "MULTIPOLYGON",
+					"id": "753c1613-6e0b-4c4d-84d1-7abb13ae1e85",
+					"alpha": 1,
+					"name": "Mask",
+					"parentId": "24bc8931-9666-42df-b629-544726a56e50",
+					"mask": true,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 5,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": false,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"67be22ea-0d03-4566-99ae-ac92b259d1ad": {
+					"type": "MULTIPOLYGON",
+					"id": "67be22ea-0d03-4566-99ae-ac92b259d1ad",
+					"alpha": 1,
+					"name": "Floor",
+					"parentId": "4456124e-adbe-413c-9640-63d527dc298f",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": false,
+						"width": 5,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 15789280,
+							"alpha": 1
+						}
+					}
+				},
+				"e052550a-e53e-4bec-98df-06ece80c26b6": {
+					"type": "HATCHING",
+					"id": "e052550a-e53e-4bec-98df-06ece80c26b6",
+					"alpha": 1,
+					"name": "",
+					"parentId": "4456124e-adbe-413c-9640-63d527dc298f",
+					"visible": true,
+					"variant": "random",
+					"squareOptions": {
+						"padding": 4,
+						"lineCount": 5
+					},
+					"sharedOptions": {
+						"wallDistance": 30,
+						"strokeWidth": 2.5,
+						"strokeColour": {
+							"colour": 2236962,
+							"alpha": 1
+						}
+					}
+				},
+				"4f2f3f7f-066c-4e0d-ba30-c2f2b0cbc2de": {
+					"type": "BUFFER_SHADING",
+					"id": "4f2f3f7f-066c-4e0d-ba30-c2f2b0cbc2de",
+					"alpha": 1,
+					"name": "",
+					"parentId": "4456124e-adbe-413c-9640-63d527dc298f",
+					"visible": true,
+					"wallDistance": 23,
+					"roughness": 10,
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 12958124,
+							"alpha": 1
+						}
+					},
+					"stroke": {
+						"visible": false,
+						"colour": {
+							"colour": 10066329,
+							"alpha": 1
+						},
+						"width": 1
+					}
+				},
+				"bc988d35-3488-419c-902c-70774c51061c": {
+					"type": "IMAGES",
+					"id": "bc988d35-3488-419c-902c-70774c51061c",
+					"alpha": 1,
+					"parentId": "1c253cae-fa04-4c18-adac-06f322b0f188",
+					"name": "Images",
+					"visible": true,
+					"children": [
+						"4d818692-d307-484f-beec-fd47319c2d77",
+						"5664eef4-4f64-437d-923c-3526801bcd3f",
+						"1329035d-e470-4dd6-8d5d-287cf4f8d535",
+						"0098876a-9d8d-467e-825d-bda2caa7ce3b",
+						"cd5f5e66-5ec9-43bd-be02-0bf2bccb1c20",
+						"4c90df6e-d362-4d51-920f-36cf03a8f087",
+						"e3e68d2c-4b14-44de-94a2-5a4ed4e38a30",
+						"cd184258-9661-4994-b461-8c1d219200d8",
+						"4b8dc904-9ac3-4053-8579-3baef4eac40a",
+						"9528800e-99d3-4a4a-b764-889266707b87",
+						"bd8332bc-1c2c-46b3-be44-24f5cc2012b6",
+						"2fa0d4b8-819f-4987-9d58-ca55d316aa42"
+					]
+				},
+				"4d818692-d307-484f-beec-fd47319c2d77": {
+					"type": "DUNGEON_ASSET",
+					"id": "4d818692-d307-484f-beec-fd47319c2d77",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"a45794ba-c606-4079-aa06-6eeb3c5d9f6b"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"a45794ba-c606-4079-aa06-6eeb3c5d9f6b": {
+					"type": "GEOMETRY",
+					"id": "a45794ba-c606-4079-aa06-6eeb3c5d9f6b",
+					"alpha": 1,
+					"parentId": "4d818692-d307-484f-beec-fd47319c2d77",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"beaa680c-26d3-4677-b385-c5a4ba1834b3"
+					],
+					"backgroundEffect": {},
+					"geometryId": "cf342d52-71d4-47df-9390-6373b70b873d"
+				},
+				"beaa680c-26d3-4677-b385-c5a4ba1834b3": {
+					"type": "MULTIPOLYGON",
+					"id": "beaa680c-26d3-4677-b385-c5a4ba1834b3",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "a45794ba-c606-4079-aa06-6eeb3c5d9f6b",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"5664eef4-4f64-437d-923c-3526801bcd3f": {
+					"type": "DUNGEON_ASSET",
+					"id": "5664eef4-4f64-437d-923c-3526801bcd3f",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"0bc4bb75-2023-40f5-9adb-b1cfb9948fbd"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"0bc4bb75-2023-40f5-9adb-b1cfb9948fbd": {
+					"type": "GEOMETRY",
+					"id": "0bc4bb75-2023-40f5-9adb-b1cfb9948fbd",
+					"alpha": 1,
+					"parentId": "5664eef4-4f64-437d-923c-3526801bcd3f",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"511e80c5-604c-420b-8a72-e66cfd0b5b67"
+					],
+					"backgroundEffect": {},
+					"geometryId": "f91591e4-d32b-4dcd-86bd-1ace991ce556"
+				},
+				"511e80c5-604c-420b-8a72-e66cfd0b5b67": {
+					"type": "MULTIPOLYGON",
+					"id": "511e80c5-604c-420b-8a72-e66cfd0b5b67",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "0bc4bb75-2023-40f5-9adb-b1cfb9948fbd",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"1329035d-e470-4dd6-8d5d-287cf4f8d535": {
+					"type": "DUNGEON_ASSET",
+					"id": "1329035d-e470-4dd6-8d5d-287cf4f8d535",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"d76c3709-9f83-4ed0-b276-aa1f76b4653b"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"d76c3709-9f83-4ed0-b276-aa1f76b4653b": {
+					"type": "GEOMETRY",
+					"id": "d76c3709-9f83-4ed0-b276-aa1f76b4653b",
+					"alpha": 1,
+					"parentId": "1329035d-e470-4dd6-8d5d-287cf4f8d535",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"e73eb25f-c216-4a08-a0ea-56a37bf6ea59"
+					],
+					"backgroundEffect": {},
+					"geometryId": "f7b2d18b-d6f2-4652-9c65-49708fa9737f"
+				},
+				"e73eb25f-c216-4a08-a0ea-56a37bf6ea59": {
+					"type": "MULTIPOLYGON",
+					"id": "e73eb25f-c216-4a08-a0ea-56a37bf6ea59",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "d76c3709-9f83-4ed0-b276-aa1f76b4653b",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"0098876a-9d8d-467e-825d-bda2caa7ce3b": {
+					"type": "DUNGEON_ASSET",
+					"id": "0098876a-9d8d-467e-825d-bda2caa7ce3b",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"8c6be5ee-1e1e-4bd6-bbce-350b07d38c62"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"8c6be5ee-1e1e-4bd6-bbce-350b07d38c62": {
+					"type": "GEOMETRY",
+					"id": "8c6be5ee-1e1e-4bd6-bbce-350b07d38c62",
+					"alpha": 1,
+					"parentId": "0098876a-9d8d-467e-825d-bda2caa7ce3b",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"ddae0e4a-f965-4d86-9905-a7b10b8d158d"
+					],
+					"backgroundEffect": {},
+					"geometryId": "60a6c59a-e210-420e-85fd-cf088ed944a0"
+				},
+				"ddae0e4a-f965-4d86-9905-a7b10b8d158d": {
+					"type": "MULTIPOLYGON",
+					"id": "ddae0e4a-f965-4d86-9905-a7b10b8d158d",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "8c6be5ee-1e1e-4bd6-bbce-350b07d38c62",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"cd5f5e66-5ec9-43bd-be02-0bf2bccb1c20": {
+					"type": "DUNGEON_ASSET",
+					"id": "cd5f5e66-5ec9-43bd-be02-0bf2bccb1c20",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"b6182072-68f0-437b-bc77-7ad62a26786b"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"b6182072-68f0-437b-bc77-7ad62a26786b": {
+					"type": "GEOMETRY",
+					"id": "b6182072-68f0-437b-bc77-7ad62a26786b",
+					"alpha": 1,
+					"parentId": "cd5f5e66-5ec9-43bd-be02-0bf2bccb1c20",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"159eef16-79b1-4641-bcc9-beffcc99ef87"
+					],
+					"backgroundEffect": {},
+					"geometryId": "c08a49d4-93c8-462a-aa38-7ada3de26e9e"
+				},
+				"159eef16-79b1-4641-bcc9-beffcc99ef87": {
+					"type": "MULTIPOLYGON",
+					"id": "159eef16-79b1-4641-bcc9-beffcc99ef87",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "b6182072-68f0-437b-bc77-7ad62a26786b",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"4c90df6e-d362-4d51-920f-36cf03a8f087": {
+					"type": "DUNGEON_ASSET",
+					"id": "4c90df6e-d362-4d51-920f-36cf03a8f087",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"b42bd2c6-53c1-45e5-8d6a-cf9c4caf52cd"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"b42bd2c6-53c1-45e5-8d6a-cf9c4caf52cd": {
+					"type": "GEOMETRY",
+					"id": "b42bd2c6-53c1-45e5-8d6a-cf9c4caf52cd",
+					"alpha": 1,
+					"parentId": "4c90df6e-d362-4d51-920f-36cf03a8f087",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"61a91f80-2e89-4969-9676-74787836688a"
+					],
+					"backgroundEffect": {},
+					"geometryId": "f3696755-6475-481d-9e75-c3ee3889d352"
+				},
+				"61a91f80-2e89-4969-9676-74787836688a": {
+					"type": "MULTIPOLYGON",
+					"id": "61a91f80-2e89-4969-9676-74787836688a",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "b42bd2c6-53c1-45e5-8d6a-cf9c4caf52cd",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"e3e68d2c-4b14-44de-94a2-5a4ed4e38a30": {
+					"type": "DUNGEON_ASSET",
+					"id": "e3e68d2c-4b14-44de-94a2-5a4ed4e38a30",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"e1787672-0969-437d-acec-6171bd6db143"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"e1787672-0969-437d-acec-6171bd6db143": {
+					"type": "GEOMETRY",
+					"id": "e1787672-0969-437d-acec-6171bd6db143",
+					"alpha": 1,
+					"parentId": "e3e68d2c-4b14-44de-94a2-5a4ed4e38a30",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"d4d39db8-4a59-4a9d-83ae-67945c91e129"
+					],
+					"backgroundEffect": {},
+					"geometryId": "c9074d1f-72b9-4283-80ab-21a125e4b7c4"
+				},
+				"d4d39db8-4a59-4a9d-83ae-67945c91e129": {
+					"type": "MULTIPOLYGON",
+					"id": "d4d39db8-4a59-4a9d-83ae-67945c91e129",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "e1787672-0969-437d-acec-6171bd6db143",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"cd184258-9661-4994-b461-8c1d219200d8": {
+					"type": "DUNGEON_ASSET",
+					"id": "cd184258-9661-4994-b461-8c1d219200d8",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"9e1688d6-87c2-4f96-b95a-3cae128c6dde"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"9e1688d6-87c2-4f96-b95a-3cae128c6dde": {
+					"type": "GEOMETRY",
+					"id": "9e1688d6-87c2-4f96-b95a-3cae128c6dde",
+					"alpha": 1,
+					"parentId": "cd184258-9661-4994-b461-8c1d219200d8",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"f5fb3728-f3cd-41a9-9aad-f50b60fc5007"
+					],
+					"backgroundEffect": {},
+					"geometryId": "698d95c6-226b-4f08-831b-aafae5251f36"
+				},
+				"f5fb3728-f3cd-41a9-9aad-f50b60fc5007": {
+					"type": "MULTIPOLYGON",
+					"id": "f5fb3728-f3cd-41a9-9aad-f50b60fc5007",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "9e1688d6-87c2-4f96-b95a-3cae128c6dde",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"4b8dc904-9ac3-4053-8579-3baef4eac40a": {
+					"type": "DUNGEON_ASSET",
+					"id": "4b8dc904-9ac3-4053-8579-3baef4eac40a",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"5c925532-2228-446d-aee2-f80ebcc4d312"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"5c925532-2228-446d-aee2-f80ebcc4d312": {
+					"type": "GEOMETRY",
+					"id": "5c925532-2228-446d-aee2-f80ebcc4d312",
+					"alpha": 1,
+					"parentId": "4b8dc904-9ac3-4053-8579-3baef4eac40a",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"d25cd80d-17bd-4113-9a72-9b29a4baf4c3"
+					],
+					"backgroundEffect": {},
+					"geometryId": "6aef5c0e-5061-46a6-87ac-899b48ba98af"
+				},
+				"d25cd80d-17bd-4113-9a72-9b29a4baf4c3": {
+					"type": "MULTIPOLYGON",
+					"id": "d25cd80d-17bd-4113-9a72-9b29a4baf4c3",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "5c925532-2228-446d-aee2-f80ebcc4d312",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"9528800e-99d3-4a4a-b764-889266707b87": {
+					"type": "DUNGEON_ASSET",
+					"id": "9528800e-99d3-4a4a-b764-889266707b87",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"8a484d6c-0b3a-4a28-b2c5-f2a11071e6f7"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"8a484d6c-0b3a-4a28-b2c5-f2a11071e6f7": {
+					"type": "GEOMETRY",
+					"id": "8a484d6c-0b3a-4a28-b2c5-f2a11071e6f7",
+					"alpha": 1,
+					"parentId": "9528800e-99d3-4a4a-b764-889266707b87",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"a31dd558-f8cb-441e-8cbb-b4093522ad4a"
+					],
+					"backgroundEffect": {},
+					"geometryId": "f10f8588-6427-4de8-81e7-c3b49426ed68"
+				},
+				"a31dd558-f8cb-441e-8cbb-b4093522ad4a": {
+					"type": "MULTIPOLYGON",
+					"id": "a31dd558-f8cb-441e-8cbb-b4093522ad4a",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "8a484d6c-0b3a-4a28-b2c5-f2a11071e6f7",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"bd8332bc-1c2c-46b3-be44-24f5cc2012b6": {
+					"type": "DUNGEON_ASSET",
+					"id": "bd8332bc-1c2c-46b3-be44-24f5cc2012b6",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"381e8236-9fbc-4345-9ffb-06c1d507a18f"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"381e8236-9fbc-4345-9ffb-06c1d507a18f": {
+					"type": "GEOMETRY",
+					"id": "381e8236-9fbc-4345-9ffb-06c1d507a18f",
+					"alpha": 1,
+					"parentId": "bd8332bc-1c2c-46b3-be44-24f5cc2012b6",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"a86d0652-b3f4-4fbd-b7a9-c3dde1de8fa7"
+					],
+					"backgroundEffect": {},
+					"geometryId": "5d9b4bb3-2fa0-4e0c-a472-453a0556b16a"
+				},
+				"a86d0652-b3f4-4fbd-b7a9-c3dde1de8fa7": {
+					"type": "MULTIPOLYGON",
+					"id": "a86d0652-b3f4-4fbd-b7a9-c3dde1de8fa7",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "381e8236-9fbc-4345-9ffb-06c1d507a18f",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				},
+				"2fa0d4b8-819f-4987-9d58-ca55d316aa42": {
+					"type": "DUNGEON_ASSET",
+					"id": "2fa0d4b8-819f-4987-9d58-ca55d316aa42",
+					"alpha": 1,
+					"name": "Door",
+					"parentId": "bc988d35-3488-419c-902c-70774c51061c",
+					"children": [
+						"f3121325-5a76-45a2-997e-7d7d0c12bad7"
+					],
+					"visible": true,
+					"transform": [
+						1,
+						0,
+						0,
+						1,
+						0,
+						0
+					]
+				},
+				"f3121325-5a76-45a2-997e-7d7d0c12bad7": {
+					"type": "GEOMETRY",
+					"id": "f3121325-5a76-45a2-997e-7d7d0c12bad7",
+					"alpha": 1,
+					"parentId": "2fa0d4b8-819f-4987-9d58-ca55d316aa42",
+					"name": "Door geometry",
+					"visible": true,
+					"allowsLightToPass": false,
+					"children": [
+						"f82fbb25-afe3-47ed-a7db-821d7de30921"
+					],
+					"backgroundEffect": {},
+					"geometryId": "8fda98ba-776d-4db6-958a-75313650c19f"
+				},
+				"f82fbb25-afe3-47ed-a7db-821d7de30921": {
+					"type": "MULTIPOLYGON",
+					"id": "f82fbb25-afe3-47ed-a7db-821d7de30921",
+					"alpha": 1,
+					"name": "Door style",
+					"parentId": "f3121325-5a76-45a2-997e-7d7d0c12bad7",
+					"mask": false,
+					"isFog": false,
+					"visible": true,
+					"blendMode": "normal",
+					"stroke": {
+						"visible": true,
+						"width": 2,
+						"colour": {
+							"colour": 0,
+							"alpha": 1
+						},
+						"roughOptions": "low"
+					},
+					"fill": {
+						"visible": true,
+						"colour": {
+							"colour": 16777215,
+							"alpha": 1
+						}
+					}
+				}
+			},
+			"undoStack": [],
+			"undoHistoryPaused": false,
+			"undoStackPointer": -1
+		}
+	},
+	"data": {
+		"geometry": {
+			"2513122b-c3df-429d-9529-f146ff57a701": {
+				"polygons": [
+					[
+						[
+							[
+								0,
+								1044
+							],
+							[
+								36,
+								1044
+							],
+							[
+								36,
+								972
+							],
+							[
+								288,
+								972
+							],
+							[
+								288,
+								1044
+							],
+							[
+								324,
+								1044
+							],
+							[
+								324,
+								1224
+							],
+							[
+								180,
+								1224
+							],
+							[
+								180,
+								1368
+							],
+							[
+								324,
+								1368
+							],
+							[
+								324,
+								1440
+							],
+							[
+								504,
+								1440
+							],
+							[
+								504,
+								1512
+							],
+							[
+								576,
+								1512
+							],
+							[
+								576,
+								1332
+							],
+							[
+								504,
+								1332
+							],
+							[
+								504,
+								1008
+							],
+							[
+								612,
+								1008
+							],
+							[
+								612,
+								828
+							],
+							[
+								540,
+								828
+							],
+							[
+								540,
+								792
+							],
+							[
+								360,
+								792
+							],
+							[
+								360,
+								828
+							],
+							[
+								144,
+								828
+							],
+							[
+								144,
+								792
+							],
+							[
+								72,
+								792
+							],
+							[
+								72,
+								648
+							],
+							[
+								144,
+								648
+							],
+							[
+								144,
+								468
+							],
+							[
+								36,
+								468
+							],
+							[
+								36,
+								216
+							],
+							[
+								324,
+								216
+							],
+							[
+								324,
+								468
+							],
+							[
+								252,
+								468
+							],
+							[
+								252,
+								612
+							],
+							[
+								360,
+								612
+							],
+							[
+								360,
+								648
+							],
+							[
+								540,
+								648
+							],
+							[
+								540,
+								612
+							],
+							[
+								648,
+								612
+							],
+							[
+								648,
+								504
+							],
+							[
+								576,
+								504
+							],
+							[
+								576,
+								252
+							],
+							[
+								612,
+								252
+							],
+							[
+								612,
+								180
+							],
+							[
+								576,
+								180
+							],
+							[
+								576,
+								144
+							],
+							[
+								504,
+								144
+							],
+							[
+								504,
+								180
+							],
+							[
+								180,
+								180
+							],
+							[
+								180,
+								0
+							],
+							[
+								828,
+								0
+							],
+							[
+								828,
+								180
+							],
+							[
+								756,
+								180
+							],
+							[
+								756,
+								288
+							],
+							[
+								828,
+								288
+							],
+							[
+								828,
+								468
+							],
+							[
+								756,
+								468
+							],
+							[
+								756,
+								504
+							],
+							[
+								720,
+								504
+							],
+							[
+								720,
+								612
+							],
+							[
+								828,
+								612
+							],
+							[
+								828,
+								648
+							],
+							[
+								900,
+								648
+							],
+							[
+								900,
+								576
+							],
+							[
+								1008,
+								576
+							],
+							[
+								1008,
+								396
+							],
+							[
+								972,
+								396
+							],
+							[
+								972,
+								144
+							],
+							[
+								1152,
+								144
+							],
+							[
+								1152,
+								396
+							],
+							[
+								1080,
+								396
+							],
+							[
+								1080,
+								576
+							],
+							[
+								1224,
+								576
+							],
+							[
+								1224,
+								684
+							],
+							[
+								1332,
+								684
+							],
+							[
+								1332,
+								612
+							],
+							[
+								1368,
+								612
+							],
+							[
+								1368,
+								468
+							],
+							[
+								1332,
+								468
+							],
+							[
+								1332,
+								288
+							],
+							[
+								1512,
+								288
+							],
+							[
+								1512,
+								468
+							],
+							[
+								1476,
+								468
+							],
+							[
+								1476,
+								612
+							],
+							[
+								1512,
+								612
+							],
+							[
+								1512,
+								684
+							],
+							[
+								1656,
+								684
+							],
+							[
+								1656,
+								612
+							],
+							[
+								1908,
+								612
+							],
+							[
+								1908,
+								864
+							],
+							[
+								1728,
+								864
+							],
+							[
+								1728,
+								792
+							],
+							[
+								1656,
+								792
+							],
+							[
+								1656,
+								756
+							],
+							[
+								1512,
+								756
+							],
+							[
+								1512,
+								864
+							],
+							[
+								1476,
+								864
+							],
+							[
+								1476,
+								1008
+							],
+							[
+								1548,
+								1008
+							],
+							[
+								1548,
+								1044
+							],
+							[
+								1656,
+								1044
+							],
+							[
+								1656,
+								1008
+							],
+							[
+								1836,
+								1008
+							],
+							[
+								1836,
+								1080
+							],
+							[
+								1908,
+								1080
+							],
+							[
+								1908,
+								1044
+							],
+							[
+								2160,
+								1044
+							],
+							[
+								2160,
+								1008
+							],
+							[
+								2304,
+								1008
+							],
+							[
+								2304,
+								1224
+							],
+							[
+								2160,
+								1224
+							],
+							[
+								2160,
+								1188
+							],
+							[
+								1908,
+								1188
+							],
+							[
+								1908,
+								1224
+							],
+							[
+								1656,
+								1224
+							],
+							[
+								1656,
+								1188
+							],
+							[
+								1548,
+								1188
+							],
+							[
+								1548,
+								1260
+							],
+							[
+								1296,
+								1260
+							],
+							[
+								1296,
+								1188
+							],
+							[
+								1224,
+								1188
+							],
+							[
+								1224,
+								1260
+							],
+							[
+								1008,
+								1260
+							],
+							[
+								1008,
+								1008
+							],
+							[
+								1224,
+								1008
+							],
+							[
+								1224,
+								1044
+							],
+							[
+								1296,
+								1044
+							],
+							[
+								1296,
+								1008
+							],
+							[
+								1332,
+								1008
+							],
+							[
+								1332,
+								756
+							],
+							[
+								1224,
+								756
+							],
+							[
+								1224,
+								900
+							],
+							[
+								900,
+								900
+							],
+							[
+								900,
+								792
+							],
+							[
+								828,
+								792
+							],
+							[
+								828,
+								828
+							],
+							[
+								720,
+								828
+							],
+							[
+								720,
+								1008
+							],
+							[
+								792,
+								1008
+							],
+							[
+								792,
+								1332
+							],
+							[
+								684,
+								1332
+							],
+							[
+								684,
+								1440
+							],
+							[
+								756,
+								1440
+							],
+							[
+								756,
+								1620
+							],
+							[
+								504,
+								1620
+							],
+							[
+								504,
+								1584
+							],
+							[
+								324,
+								1584
+							],
+							[
+								324,
+								1656
+							],
+							[
+								180,
+								1656
+							],
+							[
+								180,
+								1764
+							],
+							[
+								216,
+								1764
+							],
+							[
+								216,
+								1872
+							],
+							[
+								324,
+								1872
+							],
+							[
+								324,
+								2088
+							],
+							[
+								0,
+								2088
+							],
+							[
+								0,
+								1764
+							],
+							[
+								108,
+								1764
+							],
+							[
+								108,
+								1584
+							],
+							[
+								0,
+								1584
+							],
+							[
+								0,
+								1440
+							],
+							[
+								108,
+								1440
+							],
+							[
+								108,
+								1224
+							],
+							[
+								0,
+								1224
+							],
+							[
+								0,
+								1044
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							900,
+							648
+						],
+						[
+							900,
+							684
+						]
+					],
+					[
+						[
+							900,
+							756
+						],
+						[
+							900,
+							792
+						]
+					],
+					[
+						[
+							1548,
+							1044
+						],
+						[
+							1548,
+							1080
+						]
+					],
+					[
+						[
+							1548,
+							1152
+						],
+						[
+							1548,
+							1188
+						]
+					],
+					[
+						[
+							1296,
+							1044
+						],
+						[
+							1296,
+							1080
+						]
+					],
+					[
+						[
+							1296,
+							1152
+						],
+						[
+							1296,
+							1188
+						]
+					],
+					[
+						[
+							612,
+							828
+						],
+						[
+							648,
+							828
+						]
+					],
+					[
+						[
+							684,
+							828
+						],
+						[
+							720,
+							828
+						]
+					],
+					[
+						[
+							576,
+							0
+						],
+						[
+							576,
+							36
+						]
+					],
+					[
+						[
+							576,
+							108
+						],
+						[
+							576,
+							144
+						]
+					],
+					[
+						[
+							1908,
+							1044
+						],
+						[
+							1908,
+							1080
+						]
+					],
+					[
+						[
+							1908,
+							1152
+						],
+						[
+							1908,
+							1188
+						]
+					],
+					[
+						[
+							144,
+							612
+						],
+						[
+							180,
+							612
+						]
+					],
+					[
+						[
+							216,
+							612
+						],
+						[
+							252,
+							612
+						]
+					]
+				]
+			},
+			"cf342d52-71d4-47df-9390-6373b70b873d": {
+				"polygons": [
+					[
+						[
+							[
+								1516,
+								690
+							],
+							[
+								1516,
+								750
+							],
+							[
+								1508,
+								750
+							],
+							[
+								1508,
+								690
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							1512,
+							684
+						],
+						[
+							1512,
+							690
+						]
+					],
+					[
+						[
+							1512,
+							750
+						],
+						[
+							1512,
+							756
+						]
+					]
+				]
+			},
+			"f91591e4-d32b-4dcd-86bd-1ace991ce556": {
+				"polygons": [
+					[
+						[
+							[
+								1336,
+								690
+							],
+							[
+								1336,
+								750
+							],
+							[
+								1328,
+								750
+							],
+							[
+								1328,
+								690
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							1332,
+							684
+						],
+						[
+							1332,
+							690
+						]
+					],
+					[
+						[
+							1332,
+							750
+						],
+						[
+							1332,
+							756
+						]
+					]
+				]
+			},
+			"f7b2d18b-d6f2-4652-9c65-49708fa9737f": {
+				"polygons": [
+					[
+						[
+							[
+								904,
+								690
+							],
+							[
+								904,
+								750
+							],
+							[
+								896,
+								750
+							],
+							[
+								896,
+								690
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							900,
+							684
+						],
+						[
+							900,
+							690
+						]
+					],
+					[
+						[
+							900,
+							750
+						],
+						[
+							900,
+							756
+						]
+					]
+				]
+			},
+			"60a6c59a-e210-420e-85fd-cf088ed944a0": {
+				"polygons": [
+					[
+						[
+							[
+								1552,
+								1086
+							],
+							[
+								1552,
+								1146
+							],
+							[
+								1544,
+								1146
+							],
+							[
+								1544,
+								1086
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							1548,
+							1080
+						],
+						[
+							1548,
+							1086
+						]
+					],
+					[
+						[
+							1548,
+							1146
+						],
+						[
+							1548,
+							1152
+						]
+					]
+				]
+			},
+			"c08a49d4-93c8-462a-aa38-7ada3de26e9e": {
+				"polygons": [
+					[
+						[
+							[
+								1300,
+								1086
+							],
+							[
+								1300,
+								1146
+							],
+							[
+								1292,
+								1146
+							],
+							[
+								1292,
+								1086
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							1296,
+							1080
+						],
+						[
+							1296,
+							1086
+						]
+					],
+					[
+						[
+							1296,
+							1146
+						],
+						[
+							1296,
+							1152
+						]
+					]
+				]
+			},
+			"f3696755-6475-481d-9e75-c3ee3889d352": {
+				"polygons": [
+					[
+						[
+							[
+								654,
+								824
+							],
+							[
+								678,
+								824
+							],
+							[
+								678,
+								832
+							],
+							[
+								654,
+								832
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							648,
+							828
+						],
+						[
+							654,
+							828
+						]
+					],
+					[
+						[
+							678,
+							828
+						],
+						[
+							684,
+							828
+						]
+					]
+				]
+			},
+			"c9074d1f-72b9-4283-80ab-21a125e4b7c4": {
+				"polygons": [
+					[
+						[
+							[
+								1014,
+								572
+							],
+							[
+								1074,
+								572
+							],
+							[
+								1074,
+								580
+							],
+							[
+								1014,
+								580
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							1008,
+							576
+						],
+						[
+							1014,
+							576
+						]
+					],
+					[
+						[
+							1074,
+							576
+						],
+						[
+							1080,
+							576
+						]
+					]
+				]
+			},
+			"698d95c6-226b-4f08-831b-aafae5251f36": {
+				"polygons": [
+					[
+						[
+							[
+								580,
+								42
+							],
+							[
+								580,
+								102
+							],
+							[
+								572,
+								102
+							],
+							[
+								572,
+								42
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							576,
+							36
+						],
+						[
+							576,
+							42
+						]
+					],
+					[
+						[
+							576,
+							102
+						],
+						[
+							576,
+							108
+						]
+					]
+				]
+			},
+			"6aef5c0e-5061-46a6-87ac-899b48ba98af": {
+				"polygons": [
+					[
+						[
+							[
+								114,
+								1652
+							],
+							[
+								174,
+								1652
+							],
+							[
+								174,
+								1660
+							],
+							[
+								114,
+								1660
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							108,
+							1656
+						],
+						[
+							114,
+							1656
+						]
+					],
+					[
+						[
+							174,
+							1656
+						],
+						[
+							180,
+							1656
+						]
+					]
+				]
+			},
+			"f10f8588-6427-4de8-81e7-c3b49426ed68": {
+				"polygons": [
+					[
+						[
+							[
+								1912,
+								1086
+							],
+							[
+								1912,
+								1146
+							],
+							[
+								1904,
+								1146
+							],
+							[
+								1904,
+								1086
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							1908,
+							1080
+						],
+						[
+							1908,
+							1086
+						]
+					],
+					[
+						[
+							1908,
+							1146
+						],
+						[
+							1908,
+							1152
+						]
+					]
+				]
+			},
+			"5d9b4bb3-2fa0-4e0c-a472-453a0556b16a": {
+				"polygons": [
+					[
+						[
+							[
+								114,
+								1364
+							],
+							[
+								174,
+								1364
+							],
+							[
+								174,
+								1372
+							],
+							[
+								114,
+								1372
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							108,
+							1368
+						],
+						[
+							114,
+							1368
+						]
+					],
+					[
+						[
+							174,
+							1368
+						],
+						[
+							180,
+							1368
+						]
+					]
+				]
+			},
+			"8fda98ba-776d-4db6-958a-75313650c19f": {
+				"polygons": [
+					[
+						[
+							[
+								186,
+								608
+							],
+							[
+								210,
+								608
+							],
+							[
+								210,
+								616
+							],
+							[
+								186,
+								616
+							]
+						]
+					]
+				],
+				"polylines": [
+					[
+						[
+							180,
+							612
+						],
+						[
+							186,
+							612
+						]
+					],
+					[
+						[
+							210,
+							612
+						],
+						[
+							216,
+							612
+						]
+					]
+				]
+			}
+		},
+		"assets": {}
+	},
+	"errors": []
+}

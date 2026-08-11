@@ -1,11 +1,22 @@
-from pygame.math import Vector2 as Vec2d
 import math
-import pygame
 import random
-from constants import PARTICLE_COUNT, PARTICLE_RADIUS, PARTICLE_SPEED_RANGE, PARTICLE_MIN_SPEED, SHOCKWAVE_EXPANSION_RATE, SHOCKWAVE_MAX_RADIUS_PRIMARY, SHOCKWAVE_MAX_RADIUS_SECONDARY
-from .particles import Particle
+
+import pygame
+from pygame.math import Vector2 as Vec2d
+
+from constants import (
+	PARTICLE_MIN_SPEED,
+	PARTICLE_RADIUS,
+	PARTICLE_SPEED_RANGE,
+	SHOCKWAVE_EXPANSION_RATE,
+	SHOCKWAVE_MAX_RADIUS_PRIMARY,
+	SHOCKWAVE_MAX_RADIUS_SECONDARY,
+)
+
 from .flames import Flame
+from .particles import Particle
 from .shockwave import Shockwave
+
 
 class ExplosionManager:
 	def __init__(self):
@@ -13,7 +24,7 @@ class ExplosionManager:
 		self.flames = pygame.sprite.Group()
 		self.shockwaves = []
 
-	def create_explosion(self, position, count=PARTICLE_COUNT, colors=None):
+	def create_explosion(self, position, count, colors=None):
 		if colors is None:
 			colors = [(255, 165, 0), (255, 69, 0), (255, 215, 0)]
 
@@ -30,26 +41,14 @@ class ExplosionManager:
 			lifetime = 2.0  # random.uniform(1.0, 2.0)
 
 			# Create particle
-			particle = Particle(
-				position=position,
-				velocity=velocity,
-				radius=random.randint(2, PARTICLE_RADIUS),
-				color=color,
-				life=lifetime
-			)
+			particle = Particle(position=position, velocity=velocity, radius=random.randint(2, PARTICLE_RADIUS), color=color, life=lifetime)
 			self.particles.add(particle)
 		self.create_shockwave(position)
 
 	def create_shockwave(self, position):
 		# self.shockwaves = []
 		# Primary shockwave - faster and more transparent
-		primary = Shockwave(
-			position=position,
-			max_radius=SHOCKWAVE_MAX_RADIUS_PRIMARY,
-			duration=0.8,  # Fixed duration
-			expansion_rate=SHOCKWAVE_EXPANSION_RATE,
-			color=(255, 255, 255, 100)
-		)
+		primary = Shockwave(position=position, max_radius=SHOCKWAVE_MAX_RADIUS_PRIMARY, duration=0.8, expansion_rate=SHOCKWAVE_EXPANSION_RATE, color=(255, 255, 255, 100))
 		self.shockwaves.append(primary)
 
 		# Secondary shockwave - slower and more visible
@@ -77,21 +76,22 @@ class ExplosionManager:
 				self.shockwaves.remove(shockwave)
 
 	def draw(self, screen, camera):
-		for particle in self.particles:
-			screen_pos = camera.apply(particle.rect)
-			screen.blit(particle.image, screen_pos)
-		for flame in self.flames:
-			screen_pos = camera.apply(flame.rect)
-			screen.blit(flame.image, screen_pos)
+		# One batched call instead of one screen.blit() per particle/flame —
+		# each individual blit() carries fixed call overhead, which adds up
+		# fast with dozens of short-lived particles alive per explosion.
+		blit_sequence = [(particle.image, camera.apply(particle.rect)) for particle in self.particles]
+		blit_sequence.extend((flame.image, camera.apply(flame.rect)) for flame in self.flames)
+		if blit_sequence:
+			screen.blits(blit_sequence)
 		# Draw shockwaves
 		for shockwave in self.shockwaves:
 			shockwave.draw(screen, camera)
 
-	async def create_flames(self, owner):
+	def create_flames(self, owner):
 		directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]  # Right, Left, Down, Up
 		for direction in directions:
 			# Start from exact bomb center
 			flame_position = Vec2d(owner.rect.center)
-			flame = Flame(flame_position, direction, owner.client_id, power=owner.power)
-			await flame.async_init()
+			flame = Flame(flame_position, direction, owner.client_id, bomb_power=owner.bomb_power, size=1.0)
+			flame.flame_init()
 			self.add_flame(flame)

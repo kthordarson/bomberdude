@@ -1,6 +1,7 @@
 import pygame
 from pygame.math import Vector2 as Vec2d
 
+
 class Shockwave:
 	def __init__(self, position, max_radius=150, duration=1.0, color=(255, 255, 255, 180), expansion_rate=None):
 		"""
@@ -51,7 +52,7 @@ class Shockwave:
 			return
 
 		# Create a surface for the shockwave with per-pixel alpha
-		surf_size = int(self.current_radius * 2)
+		surf_size = (self.current_radius * 2)
 		if surf_size <= 0:
 			return
 

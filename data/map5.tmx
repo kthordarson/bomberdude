@@ -61,6 +61,7 @@
  <layer id="10" name="Blocks" width="32" height="23">
   <properties>
    <property name="collidable" type="bool" value="true"/>
+   <property name="killable" type="bool" value="true"/>
   </properties>
   <data encoding="csv">
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

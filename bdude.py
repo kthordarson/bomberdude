@@ -1,17 +1,26 @@
 #!/usr/bin/python
-import traceback
-import sys
-import asyncio
-import time
 import argparse
-from argparse import ArgumentParser
-import pygame
-from loguru import logger
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE, UPDATE_TICK
-from panels import MainMenu
-from game.bomberdude import Bomberdude
-from network.client import send_game_state, receive_game_state
+import asyncio
+import json
 import multiprocessing
+import sys
+import time
+import traceback
+from argparse import ArgumentParser
+
+import pygame
+import requests
+from loguru import logger
+
+import crypto_utils
+from config import Config, load_config, save_config
+from constants import UPDATE_TICK
+from game.bomberdude import Bomberdude
+from network.client import receive_game_state, send_game_state
+from panels import AuthDialog, GamePreviewScreen, MainMenu
+from server.api import ApiServer
+from server.server import BombServer
+from utils import async_load_image_cached, generate_password
 
 # Global variable to track server process
 server_process = None
@@ -19,7 +28,10 @@ server_process = None
 
 async def _connect_with_timeout(bomberdude_main: Bomberdude, connection_timeout: float) -> bool:
 	try:
-		return bool(await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout))
+		return (await asyncio.wait_for(bomberdude_main.connect(), timeout=connection_timeout))
+	except json.decoder.JSONDecodeError as e:
+		logger.error(f"JSON decode error during connection: {e} {type(e)}")
+		return False
 	except TimeoutError as e:
 		logger.error(f"Connection timed out after {connection_timeout} seconds: {e}")
 		return False
@@ -72,6 +84,7 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 		await bomberdude_main.on_draw()
 	except Exception as e:
 		logger.error(f"Error in on_draw: {e} {type(e)}")
+		traceback.print_exc()
 		await asyncio.sleep(1)
 		return False
 
@@ -86,41 +99,58 @@ async def _run_frame(bomberdude_main: Bomberdude) -> bool:
 	await _process_pygame_events(bomberdude_main)
 	return True
 
-async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float) -> None:
+
+async def _run_game_loop(bomberdude_main: Bomberdude, frame_time: float, network_tasks: tuple[asyncio.Task, ...] = ()) -> None:
 	while bomberdude_main.running:
+		for task in network_tasks:
+			if not task.done():
+				continue
+			exc = task.exception() if not task.cancelled() else None
+			if exc is not None:
+				logger.error(f"{task.get_name()} died: {exc} {type(exc)}; ending session")
+			else:
+				logger.warning(f"{task.get_name()} ended unexpectedly; ending session")
+			bomberdude_main.running = False
+		if not bomberdude_main.running:
+			break
+
 		frame_start = time.time()
 		await _run_frame(bomberdude_main)
 
 		elapsed = time.time() - frame_start
-		sleep_time = max(0, frame_time - elapsed)
+		sleep_time = max(0.0, frame_time - elapsed)
 		if sleep_time > 0:
 			if sleep_time > 0.05:
 				logger.warning(f"Sleep time: {sleep_time}")
 			await asyncio.sleep(sleep_time)
 
-async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argparse.Namespace) -> bool:
+
+async def _handle_main_menu_action(bomberdude_main: Bomberdude, action: str, args: argparse.Namespace) -> bool:
 	if action == "Start":
-		try:
-			await start_game(args)
-		except Exception as e:
-			logger.error(f"Error starting game: {e} {type(e)}")
+		if not await connect_and_preview(bomberdude_main, args):
+			logger.info("Connection lobby quit before joining")
+			return False
+		started = await start_game(bomberdude_main, args)
+		if not started:
+			logger.warning("start_game exited without a successful session")
+			return False
 		return True
 
 	elif action == "Start Server":
 		success = await start_server_background(args)
 		if success:
-			mainmenu.server_running = True
+			bomberdude_main.mainmenu.server_running = True
 			logger.info("Server started and ready. You can now connect.")
 		# The game recreates the display surface; refresh the menu to use the new surface.
-		mainmenu.screen = pygame.display.get_surface()
-		mainmenu.setup_panel.screen = mainmenu.screen
-		mainmenu.discovery_panel.screen = mainmenu.screen
+		# bomberdude_main.mainmenu.screen = pygame.display.get_surface()
+		# bomberdude_main.mainmenu.setup_panel.screen = bomberdude_main.mainmenu.screen
+		# bomberdude_main.mainmenu.discovery_panel.screen = bomberdude_main.mainmenu.screen
 		return True
 
 	elif action == "Stop Server":
 		success = await stop_server_background()
 		if success:
-			mainmenu.server_running = False
+			bomberdude_main.mainmenu.server_running = False
 		return True
 
 	elif action == "Back":
@@ -133,18 +163,22 @@ async def _handle_main_menu_action(action: str, mainmenu: MainMenu, args: argpar
 	elif action == "Find server":
 		logger.info("Finding servers on LAN...")
 		try:
-			selected = await mainmenu.discovery_panel.run()
+			selected = await bomberdude_main.mainmenu.discovery_panel.run()
 			if selected:
 				# Discovery panel should set args.server, but keep this as a safe fallback.
 				args = set_args(args, selected)
-				await start_game(args)
+				if not await connect_and_preview(bomberdude_main, args):
+					logger.info("Connection lobby quit before joining")
+					return False
+				await start_game(bomberdude_main, args)
 		except Exception as e:
 			logger.error(f"Error in discovery panel: {e} {type(e)}")
 			return False
+		logger.info("No servers on LAN...")
 		return True
 
 	elif action == "Quit":
-		if mainmenu.server_running:
+		if bomberdude_main.mainmenu.server_running:
 			await stop_server_background()
 		logger.info("Quitting...")
 		return False
@@ -172,18 +206,22 @@ def run_server_process(args_dict):
 
 	# Create a headless version of the server startup
 	async def run_headless_server():
-		from server.server import BombServer
 
 		server = BombServer(args)
-		server_task = asyncio.create_task(server.new_start_server())
-		api_task = asyncio.create_task(server.apiserver.run(args.listen, args.api_port))
+		server_task = asyncio.create_task(server.new_start_server(), name="server_task")
+		apiserver = ApiServer(name="bombapi", server=server, game_state=server.game_state)
+		api_task = asyncio.create_task(apiserver.run(args.listen, args.api_port), name="api_task")
+		tasks = (server_task, api_task)
 
 		try:
-			await asyncio.gather(server_task, api_task)
-		except (asyncio.CancelledError, KeyboardInterrupt):
-			server_task.cancel()
-			api_task.cancel()
-			await asyncio.gather(server_task, api_task, return_exceptions=True)
+			await asyncio.gather(*tasks)
+		except (asyncio.CancelledError, KeyboardInterrupt) as e:
+			logger.info(f'{e} {type(e)}')
+		finally:
+			for task in tasks:
+				if not task.done():
+					task.cancel()
+			await asyncio.gather(*tasks, return_exceptions=True)
 
 	# Run server without TUI
 	try:
@@ -214,7 +252,7 @@ async def start_server_background(args: argparse.Namespace):
 	if server_process.is_alive():
 		logger.info(f"Server started in background (PID: {server_process.pid})")
 		# Set client to connect to localhost
-		args.server = "127.0.0.1"
+		# args.server = "127.0.0.1"
 		return True
 	else:
 		logger.error("Failed to start server process")
@@ -241,33 +279,145 @@ async def stop_server_background():
 	logger.info("Server stopped")
 	return True
 
-def get_args():
-	parser = ArgumentParser(description="bdude")
-	parser.add_argument("--name", action="store", dest="name", default="bdude")
-	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1", help='ip address to listen (server mode)')
-	parser.add_argument("--server", action="store", dest="server", default="127.0.0.1", help='ip address of the server (client mode)')
-	parser.add_argument("--server_port", action="store", dest="server_port", default=9696, type=int, help='server_port port number')
-	parser.add_argument("--api_port", action="store", dest="api_port", default=9691, type=int, help='API port number')
-	# server
-	parser.add_argument("--host", action="store", dest="host", default="127.0.0.1")
-	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
-	parser.add_argument("-g", "--debug_gamestate", action="store_true", dest="debug_gamestate", default=False)
-	parser.add_argument("--map", action="store", dest="mapname", default="data/maptest5.tmx")
-	parser.add_argument("--cprofile", action="store_true", dest="cprofile", default=False,)
-	parser.add_argument("--cprofile_file", action="store", dest="cprofile_file", default='bdude.prof')
-	return parser.parse_args()
-
-async def start_game(args: argparse.Namespace):
+async def _post_json(args: argparse.Namespace, path: str, payload: dict) -> dict:
 	try:
-		bomberdude_main = Bomberdude(args=args)
+		resptext = (await asyncio.to_thread(requests.post, f"http://{args.server}:{args.api_port}{path}", json=payload, timeout=10)).text
+		return json.loads(resptext)
+	except requests.exceptions.ConnectionError as e:
+		logger.warning(f"Error: {e} {type(e)} path: {path}")
+		return {"ok": False, "reason": "connection_error"}
 	except Exception as e:
-		logger.error(f"Error: {e} {type(e)}")
-		raise
+		logger.error(f"Error: {e} {type(e)} path: {path}")
+		return {"ok": False, "reason": "connection_error"}
+
+
+async def _fetch_lobby_info(args: argparse.Namespace) -> dict:
+	try:
+		resptext = (await asyncio.to_thread(requests.get, f"http://{args.server}:{args.api_port}/lobby_info", timeout=10)).text
+		return json.loads(resptext)
+	except Exception as e:
+		logger.error(f"Error fetching lobby info: {e} {type(e)}")
+		return {"players": [], "mapname": "", "map_width": 1, "map_height": 1}
+
+
+async def _authenticate(args: argparse.Namespace, username: str, password: str) -> tuple[bool, str]:
+	"""Log in; if the account doesn't exist yet, transparently register it."""
+	resp = await _post_json(args, "/login", {"username": username, "password": password})
+	if resp.get("ok"):
+		return True, "ok"
+	if resp.get("reason") == "not_found":
+		resp = await _post_json(args, "/register", {"username": username, "password": password})
+		return bool(resp.get("ok")), resp.get("reason", "register_failed")
+	return False, resp.get("reason", "login_failed")
+
+
+def resolve_credentials(config: Config, args: argparse.Namespace) -> tuple[str, str, bool]:
+	"""Resolve login credentials: CLI args, then stored config, else a
+	freshly generated default pair to show in the AuthDialog."""
+	if args.username and args.password:
+		return args.username, args.password, False
+	if config.password_enc:
+		try:
+			key = crypto_utils.load_or_create_key(f"{args.config_path}.key")
+			password = crypto_utils.decrypt_secret(config.password_enc, key)
+			return config.player_name, password, False
+		except (ValueError, KeyError) as e:
+			logger.warning(f"Could not decrypt stored password: {e} {type(e)}; falling back to auth dialog")
+	return config.player_name, generate_password(), True
+
+
+async def _authenticate_loop(bomberdude_main: Bomberdude, args: argparse.Namespace) -> bool:
+	"""Resolve/collect credentials and authenticate against the target
+	server, retrying via the AuthDialog on failure. Returns False if the
+	user quits instead of authenticating."""
+	config = bomberdude_main.config
+	username, password, need_dialog = resolve_credentials(config, args)
+	error = ""
+	while True:
+		if need_dialog:
+			dialog = AuthDialog(bomberdude_main.mainmenu.screen, username, password)
+			dialog.set_error(error)
+			action = dialog.run()
+			if action == "Quit":
+				return False
+			username, password = dialog.username, dialog.password
+
+		ok, reason = await _authenticate(args, username, password)
+		if ok:
+			config.player_name = username
+			key = crypto_utils.load_or_create_key(f"{args.config_path}.key")
+			config.password_enc = crypto_utils.encrypt_secret(password, key)
+			save_config(config, args.config_path)
+			return True
+
+		logger.warning(f"Authentication failed for {username}: {reason}")
+		error = f"Authentication failed: {reason}"
+		need_dialog = True
+
+
+async def connect_and_preview(bomberdude_main: Bomberdude, args: argparse.Namespace) -> bool:
+	"""Authenticate against the target server, then show the pre-join lobby
+	(player list + minimap, Join/Configure/Quit). Returns True if the user
+	chose Join (caller should proceed to start_game), False if they quit."""
+	if not await _authenticate_loop(bomberdude_main, args):
+		return False
+
+	lobby_info = await _fetch_lobby_info(args)
+	while True:
+		preview = GamePreviewScreen(bomberdude_main.mainmenu.screen, lobby_info, refresh_callback=lambda: _fetch_lobby_info(args))
+		action = await preview.run()
+		if action == "Join":
+			return True
+		elif action == "Configure":
+			saved = bomberdude_main.mainmenu.configure_panel.run(bomberdude_main._apply_config_changes)
+			if saved:
+				bomberdude_main._apply_config_changes()
+			lobby_info = await _fetch_lobby_info(args)
+		else:
+			return False
+
+
+async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> bool:
+	resptext = ''
+	try:
+		resptext = (await asyncio.to_thread(requests.get, f"http://{args.server}:{args.api_port}/get_client_id", timeout=10)).text
+		resp = json.loads(resptext)
+		client_id = resp.get("client_id")
+	except requests.exceptions.ConnectionError as e:
+		logger.warning(f"Error: {e} {type(e)} resptext: {resptext}")
+		return False
+	except Exception as e:
+		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
+		raise e
+	try:
+		resptext = (await asyncio.to_thread(requests.get, f"http://{args.server}:{args.api_port}/get_map_name", timeout=10)).text
+		resp = json.loads(resptext)
+		mapname = resp.get("mapname")
+	except Exception as e:
+		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
+		raise e
+	# try:
+	# 	bomberdude_main = Bomberdude(args=args, client_id=client_id, mapname=mapname)
+	# except Exception as e:
+	# 	logger.error(f"Error creating Bomberdude instance: {e} {type(e)}")
+	# 	raise e
+
+	bomberdude_main.client_id = client_id
+	bomberdude_main.client_id = client_id
+	bomberdude_main.game_state.client_id = client_id
+	bomberdude_main.mapname = mapname
+	bomberdude_main.game_state._load_map(mapname)
+
+	# Warm the flame image cache off the event loop thread now, so the first
+	# bomb explosion doesn't stall the loop on synchronous pygame.image.load
+	# (ExplosionManager.create_flames/Flame.flame_init are sync call sites and
+	# can't await the async loader themselves).
+	await async_load_image_cached('data/flameball.png')
 
 	# Start networking tasks early so connect() can complete its readiness handshake.
 	# The tasks will wait until the socket is connected before using it.
-	sender_task = asyncio.create_task(send_game_state(bomberdude_main))
-	receive_task = asyncio.create_task(receive_game_state(bomberdude_main))
+	sender_task = asyncio.create_task(send_game_state(bomberdude_main), name="sender_task")
+	receive_task = asyncio.create_task(receive_game_state(bomberdude_main), name="receive_task")
 
 	connection_timeout = 5  # seconds
 	logger.info(f"Connecting {bomberdude_main}")
@@ -275,11 +425,11 @@ async def start_game(args: argparse.Namespace):
 		connected = await _connect_with_timeout(bomberdude_main, connection_timeout)
 		if not connected:
 			logger.error("Failed to establish connection")
-			return
+			return False
 
 		# Calculate frame time in seconds
 		frame_time = 1.0 / UPDATE_TICK
-		await _run_game_loop(bomberdude_main, frame_time)
+		await _run_game_loop(bomberdude_main, frame_time, network_tasks=(sender_task, receive_task))
 	finally:
 		# Clean up tasks even on early return/exception
 		sender_task.cancel()
@@ -290,51 +440,63 @@ async def start_game(args: argparse.Namespace):
 			await bomberdude_main.disconnect(return_to_menu=True)
 		except Exception as e:
 			logger.error(f"Error during disconnect: {e} {type(e)}")
+	return True
 	# pygame.display.quit()
 	# pygame.quit()
 
 async def main(args):
+	config_path = args.config
+	config = load_config(config_path)
+	args.config = config
+	# Bomberdude.__init__ reads the loaded Config from args.config (above); keep
+	# the original file path separately so credential resolution can derive
+	# the client-side AES key path from it.
+	args.config_path = config_path
 	pygame.init()
-	screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags=pygame.RESIZABLE)
-	pygame.display.set_caption(SCREEN_TITLE)
-	mainmenu = MainMenu(screen=screen, args=args)
-	try:
-		running = True
-		while running:
-			action = mainmenu.run()
-			if not action:
-				logger.info("no action! Quitting...")
-				break
-			running = await _handle_main_menu_action(action, mainmenu, args)
-	except Exception as e:
-		logger.error(f"Error in main: {e} {type(e)}")
-		raise
-	finally:
-		# Ensure server is stopped on exit
-		if mainmenu.server_running:
-			await stop_server_background()
-		pygame.quit()
+	screen = pygame.display.set_mode((config.screen_width, config.screen_height), flags=pygame.RESIZABLE)
+	pygame.display.set_caption('init')
+	bomberdude_main = Bomberdude(args=args, mainmenu=MainMenu(screen=screen, args=args, config=config), client_id="noclientid", mapname="mapnotset", config=config)
+	if args.autoconnect:
+		running = await _handle_main_menu_action(bomberdude_main, "Start", args)
+	else:
+		try:
+			running = True
+			while running:
+				action = bomberdude_main.mainmenu.run()
+				if not action:
+					logger.info("no action! Quitting...")
+					break
+				running = await _handle_main_menu_action(bomberdude_main, action, args)
+				if not running:
+					logger.info("Exiting main loop...")
+					break
+		except Exception as e:
+			logger.error(f"Error in main: {e} {type(e)}")
+			raise
+		finally:
+			# Ensure server is stopped on exit
+			if bomberdude_main.mainmenu.server_running:
+				await stop_server_background()
+			pygame.quit()
+
+def get_args():
+	parser = ArgumentParser(description="bdude")
+	parser.add_argument("--name", action="store", dest="name", default="bdude")
+	parser.add_argument("--listen", action="store", dest="listen", default="127.0.0.1", help='ip address to listen (server mode)')
+	parser.add_argument("--server", action="store", dest="server", default="127.0.0.1", help='ip address of the server (client mode)')
+	parser.add_argument("--autoconnect", action="store_true", dest="autoconnect", default=False, help='autoconnect')
+	parser.add_argument("--server_port", action="store", dest="server_port", default=9696, type=int, help='server_port port number')
+	parser.add_argument("--api_port", action="store", dest="api_port", default=9691, type=int, help='API port number')
+	parser.add_argument("--config", action="store", dest="config", default="bdude_config.json", help='Path to config file')
+	parser.add_argument("--username", action="store", dest="username", default=None, help='Account username; skips the auth dialog if --password is also given')
+	parser.add_argument("--password", action="store", dest="password", default=None, help='Account password in plain text; encrypted before any local storage')
+	# server
+	parser.add_argument("--host", action="store", dest="host", default="127.0.0.1")
+	parser.add_argument("-d", "--debug", action="store_true", dest="debug", default=False)
+	parser.add_argument("-g", "--debug_gamestate", action="store_true", dest="debug_gamestate", default=False)
+	parser.add_argument("--map", action="store", dest="mapname", default="data/maptest5.tmx")
+	return parser.parse_args()
 
 if __name__ == "__main__":
 	args = get_args()
-	if args.cprofile:
-		import cProfile
-		import pstats
-
-		profiler = cProfile.Profile()
-		profiler.enable()
-
-		asyncio.run(main(args))
-
-		profiler.disable()
-		stats = pstats.Stats(profiler).sort_stats('cumtime')
-		stats.print_stats(30)  # Print top 30 time-consuming functions
-
-		# Optionally save results to a file
-		stats.dump_stats(args.cprofile_file)
-	else:
-		try:
-			asyncio.run(main(args))
-		except Exception as e:
-			logger.error(f"Fatal error: {e} {type(e)}")
-			traceback.print_exc()
+	asyncio.run(main(args))

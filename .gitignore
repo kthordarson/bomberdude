@@ -1,6 +1,6 @@
 temp/*
 .vscode/*
-.git/*
+.git/* s
 .idea/*
 __pycache__/*
 .pylintrc
@@ -37,3 +37,24 @@ bomberdude.tiled-session
 .complexipy_cache/*
 .coverage
 *.prof.*
+pyrefly.toml
+bdude_config.json
+
+# Planning system (managed by /marshall-steward)
+# Runtime state (plans, run-configuration, lessons-learned, memory, logs — managed by plan-marshall)
+.plan/*
+!.plan/marshal.json
+!.plan/project-architecture/
+.plan/marshal.json
+.gitignore
+bdude_config*.json
+*.dot
+*.svg
+*pstats*
+pycall*
+.claude/*
+.github/prompts/dudeprompt.prompt.md
+
+# AES keys and the player accounts DB (server/accounts.py, crypto_utils.py)
+*.key
+data/*.db

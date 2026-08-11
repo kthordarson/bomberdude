@@ -1,57 +1,75 @@
 import asyncio
 import time
+
+import pygame
+from loguru import logger
 from pygame.math import Vector2 as Vec2d
 from pygame.sprite import Sprite
-import pygame
-from utils import gen_randid, get_cached_image
-from constants import BLOCK
+
+from constants import BLOCK, PARTICLE_COUNT
+from utils import async_get_cached_image, gen_randid
+
 
 class Bomb(Sprite):
-	def __init__(self, position, client_id, power=3, speed=10, timer=4, bomb_size=(10,10)):
+	def __init__(self, position, client_id, bomb_power, speed=10, timer=4, bomb_size=(10,10)):
 		super().__init__()
 		self.client_id = client_id
-		# self.image = pygame.Surface(bomb_size)
-		# self.position = Vec2d(position)
 		self.timer = timer
 		self.start_time = pygame.time.get_ticks() / 1000
-		# self.rect.center = self.position
-		# Ensure position is centered on a map tile.
-		# IMPORTANT: snapping must use the actual tile size (BLOCK), not a scaled sprite size.
-		tile_size = BLOCK
-		tile_x = (int(position[0]) // tile_size) * tile_size + tile_size // 2
-		tile_y = (int(position[1]) // tile_size) * tile_size + tile_size // 2
+		tile_x = (int(position[0]) // BLOCK) * BLOCK + BLOCK // 2
+		tile_y = (int(position[1]) // BLOCK) * BLOCK + BLOCK // 2
 		self.position = Vec2d(tile_x, tile_y)
 		self.exploded = False
-		self.power = power
+		self.bomb_power = bomb_power
+		self.speed = speed
 
 	async def async_init(self):
-		self.image = await get_cached_image('data/bomb5.png', convert=True)
-		self.rect = self.image.get_rect()
-		self.rect.center = (int(self.position.x), int(self.position.y))
+		self.image = await async_get_cached_image('data/bomb5.png', convert=True)
+		if self.image:
+			self.rect = self.image.get_rect()
+		if self.rect:
+			self.rect.center = (int(self.position.x), int(self.position.y))
 
 	def __repr__(self):
-		return f'Bomb (pos: {self.position} )'
+		return f'Bomb {self.client_id} (pos: {self.position} power: {self.bomb_power} timer: {self.timer} )'
 
-	async def update(self, game_state):  # type: ignore
+	def update(self, *args, **kwargs):
+		game_state = None
+		if args:
+			game_state = args[0]
+		elif 'game_state' in kwargs:
+			game_state = kwargs['game_state']
 		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:
-			# Create explosion particles if manager is provided
 			if not self.exploded:
-				game_state.explosion_manager.create_explosion(self.rect.center, count=2)
-				await game_state.explosion_manager.create_flames(self)
 				self.exploded = True
-			asyncio.create_task(self.explode(game_state))
-		await asyncio.sleep(0)  # Yield control to event loop
+				# Create explosion particles if manager is provided
+				if game_state and game_state.explosion_manager and self.rect:
+					config = getattr(game_state.args, 'config', None)
+					base_particle_count = config.particle_count if config else PARTICLE_COUNT
+					particle_count = self.bomb_power * base_particle_count
+					game_state.explosion_manager.create_explosion(self.rect.center, count=particle_count)
+					game_state.explosion_manager.create_flames(self)
+				if game_state and game_state.client_id == self.client_id:
+					self._explode_task = asyncio.create_task(self.explode(game_state))
+				else:
+					self.kill()
 
 	async def explode(self, gamestate):
 		explosion_event = {
 			'event_type': "bomb_exploded",
-			"owner_id": self.client_id,
 			"client_id": self.client_id,
-			"position": self.rect.center,  # Use center instead of top-left
+			"bomb_power": self.bomb_power,
+			"position": self.rect.center if self.rect else (int(self.position.x), int(self.position.y)),  # Use center instead of top-left
 			"event_time": time.time(),
 			"handled": False,
 			"event_id": gen_randid(),
 		}
-		# Apply locally so the owner immediately gets bomb capacity back
-		await gamestate.update_game_event(explosion_event)
-		self.kill()
+		try:
+			# Apply locally so the owner immediately gets bomb capacity back
+			await gamestate.update_game_event(explosion_event)
+			explosion_event['handled'] = False
+			await gamestate.event_queue.put(explosion_event)
+		except Exception as e:
+			logger.error(f"{self} Error exploding bomb: {e} {type(e)}")
+		finally:
+			self.kill()

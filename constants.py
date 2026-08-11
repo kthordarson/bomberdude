@@ -1,4 +1,3 @@
-GLOBAL_RATE_LIMIT = 0.00001
 DEFAULT_HEALTH = 100
 BULLETDEBUG = False
 BLOCK = 32
@@ -24,3 +23,10 @@ UPDATE_TICK:int = 60
 SHOCKWAVE_EXPANSION_RATE = 150  # pixels per second
 SHOCKWAVE_MAX_RADIUS_PRIMARY = 150
 SHOCKWAVE_MAX_RADIUS_SECONDARY = 100
+INITIAL_BOMBS = 3
+INITIAL_BOMB_POWER = 3
+COOLDOWN_PERIOD = 0.5
+# _base_frame_snapshot only backs the paused Configure-menu backdrop, so it
+# doesn't need per-frame freshness; refreshing it at this cadence instead of
+# every frame avoids a full-screen Surface.copy() on every single frame.
+BASE_FRAME_SNAPSHOT_REFRESH_INTERVAL = 5

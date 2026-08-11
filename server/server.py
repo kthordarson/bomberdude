@@ -1,34 +1,55 @@
 #!/usr/bin/python
-import pygame
-import time
 import asyncio
 import json
-from threading import Event
-from loguru import logger
+import os
 import random
+import time
+from threading import Event
+
+import pygame
+import pytmx
 from aiohttp import web
+from loguru import logger
+
 from game.gamestate import GameState
-from server.api import ApiServer
 from utils import gen_randid
-from constants import UPDATE_TICK
+
+from .accounts import AccountStore
 from .discovery import ServerDiscovery
+
+# A connected client is expected to send state regularly; anything idle
+# this long is treated as dead rather than left to hang forever.
+CLIENT_IDLE_TIMEOUT = 30
+
 
 class BombServer:
 	def __init__(self, args):
 		self.args = args
+		self._ensure_headless_display()
 		self.game_state = GameState(args=self.args, mapname=args.mapname, client_id='theserver')
-		self.apiserver = ApiServer(name="bombapi", server=self, game_state=self.game_state)
-		self.connections = set()  # Track active connections
+		# The server is headless (no window), but still needs real tile
+		# metadata (dimensions, layers, collision tiles) for map queries and
+		# upgrade/block logic; without this the map stays an empty placeholder.
+		self.game_state.load_tile_map(args.mapname)
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
-		self.loop = asyncio.get_event_loop()
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0
-		asyncio.create_task(self.discovery_service.start_discovery_service())
+		self.accounts = AccountStore("data/players.db")
+
+	@staticmethod
+	def _ensure_headless_display():
+		"""pytmx's pygame image loader calls Surface.convert(), which raises
+		unless a display mode has been set. The server has no window, so set
+		up a dummy SDL video driver and a minimal display surface."""
+		if pygame.display.get_surface() is None:
+			os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+			pygame.init()
+			pygame.display.set_mode((1, 1))
 
 	def __repr__(self):
-		return f"<BombServer clients={len(self.connections)} messages={self.message_counter} client_id={self.game_state.client_id}>"
+		return f"<BombServer game_state connections={len(self.game_state.connections)} messages={self.message_counter} client_id={self.game_state.client_id}>"
 
 	async def client_connected_callback(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 		logger.info(f"{self} New connection from {writer.get_extra_info('peername')[0]} ")
@@ -38,31 +59,67 @@ class BombServer:
 
 	async def process_messages(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
 		data = None
+		msg = None
 		try:
 			while not writer.is_closing():
-				data = await reader.readuntil(b'\n')
+				try:
+					data = await asyncio.wait_for(reader.readuntil(b'\n'), timeout=CLIENT_IDLE_TIMEOUT)
+				except asyncio.TimeoutError:
+					logger.warning(f"{self} Client {writer.get_extra_info('peername')} idle for {CLIENT_IDLE_TIMEOUT}s, disconnecting")
+					break
 				try:
 					msg = json.loads(data.decode('utf-8'))
 				except (UnicodeDecodeError, json.decoder.JSONDecodeError) as e:
 					logger.error(f"error: {e} {type(e)} Data: {data}")
 					await asyncio.sleep(1)
 					continue
-				# Track which client_id is associated with this connection so we can
-				# clean up player state on disconnect.
-				msg_client_id = msg.get('client_id')
-				self.connection_to_client_id[writer] = str(msg_client_id)
-				game_event = msg.get('game_event')
+				msg_client_id = str(msg.get('client_id'))
+				game_event = msg.get('game_event') or {}
+
+				# Bind this connection to the identity it first claimed, and
+				# reject anything that tries to act as a different one — a
+				# client may only ever report events as itself.
+				bound_client_id = self.connection_to_client_id.get(writer)
+				if bound_client_id is None:
+					self.connection_to_client_id[writer] = msg_client_id
+					bound_client_id = msg_client_id
+				elif msg_client_id != bound_client_id:
+					logger.warning(f"{self} Rejected message: connection bound to {bound_client_id} but claimed {msg_client_id}")
+					continue
+
+				# For most event types `client_id` means "the actor reporting
+				# this", so it must match the connection's bound identity.
+				# `player_hit`/`upgrade_pickup` are witnessed-fact reports
+				# where `client_id` names a *different* player (the attacker,
+				# or the picker per replicated position) — those are instead
+				# validated by `reported_by` (hits) or server-side proximity
+				# against the claimed picker's own tracked position (pickups,
+				# see `_on_upgrade_pickup`/`_is_near_tile`).
+				event_type = game_event.get('event_type')
+				if event_type not in ('player_hit', 'on_player_hit', 'upgrade_pickup'):
+					event_actor = str(game_event.get('client_id', bound_client_id))
+					if event_actor != bound_client_id:
+						logger.warning(f"{self} Rejected forged event: connection {bound_client_id} tried to act as {event_actor}: {game_event}")
+						continue
+				reported_by = game_event.get('reported_by')
+				if reported_by is not None and str(reported_by) != bound_client_id:
+					logger.warning(f"{self} Rejected forged reported_by: connection {bound_client_id} claimed reported_by={reported_by}")
+					continue
+
 				await self.game_state.update_game_event(game_event)
-				await self.server_broadcast_state(self.game_state.to_json())
 				self.message_counter += 1
+		except TypeError as e:
+			logger.error(f"{e} {type(e)} in process_messages. data: {data} msg: {msg}")
 		except (asyncio.IncompleteReadError, ConnectionResetError):
 			pass  # logger.warning(f'{e} Connection closed by client')
 		except pygame.error as e:
 			logger.error(f"{e} {type(e)} ")
-			raise e
+			# raise e
+		except BrokenPipeError as e:
+			logger.error(f"{e} {type(e)} in process_messages. data: {data} msg: {msg}")
 		except Exception as e:
 			logger.error(f"{e} {type(e)} ")
-			raise e
+			# raise e
 		finally:
 			# Best-effort disconnect cleanup: remove player entry from server state
 			# and notify any remaining clients.
@@ -91,7 +148,11 @@ class BombServer:
 					logger.error(f"Error during disconnect cleanup for {disconnected_client_id}: {e} {type(e)}")
 
 	async def get_tile_map(self, request):
-		position = self.get_position()
+		try:
+			position = self.get_position()
+		except Exception as e:
+			logger.error(f"Error getting position: {e} {type(e)}")
+			position = {'position': (1, 1)}  # fallback position
 
 		modified_tiles = {}
 		for pos, gid in self.game_state.modified_tiles.items():
@@ -101,12 +162,62 @@ class BombServer:
 			"mapname": str(self.args.mapname),
 			"position": position,
 			"modified_tiles": modified_tiles,
-			"client_id": str(gen_randid())}
+			"client_id": gen_randid()}
 		if self.args.debug:
-			logger.debug(f'{self} get_tile_map request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified_tiles')
+			logger.debug(f'{self} request: {request} mapname: {self.args.mapname} {position} Sending {len(modified_tiles)} modified_tiles')
 		return web.json_response(map_data)
 
+	async def get_client_id(self, request):
+		client_id = gen_randid()
+		if self.args.debug:
+			logger.debug(f'{self} request: {request} Assigning client_id: {client_id}')
+		resp = {"client_id": client_id}
+		return web.json_response(resp)
+
+	async def get_map_name(self, request):
+		mapname = str(self.args.mapname)
+		if self.args.debug:
+			logger.debug(f'{self} request: {request} mapname: {mapname}')
+		resp = {"mapname": mapname}
+		return web.json_response(resp)
+
+	async def register_player(self, request):
+		body = await request.json()
+		username = str(body.get("username", ""))
+		password = str(body.get("password", ""))
+		ok, reason = await asyncio.to_thread(self.accounts.create_player, username, password)
+		if self.args.debug:
+			logger.debug(f'{self} register_player username: {username} ok: {ok} reason: {reason}')
+		return web.json_response({"ok": ok, "reason": reason})
+
+	async def login_player(self, request):
+		body = await request.json()
+		username = str(body.get("username", ""))
+		password = str(body.get("password", ""))
+		ok, reason = await asyncio.to_thread(self.accounts.authenticate, username, password)
+		if self.args.debug:
+			logger.debug(f'{self} login_player username: {username} ok: {ok} reason: {reason}')
+		return web.json_response({"ok": ok, "reason": reason})
+
+	async def get_lobby_info(self, request):
+		players = [{"client_name": p.client_name, "position": list(p.position)} for p in self.game_state.playerlist.values()]
+		tile_map = self.game_state.tile_map
+		resp = {
+			"players": players,
+			"mapname": str(self.args.mapname),
+			"map_width": tile_map.width * tile_map.tilewidth,
+			"map_height": tile_map.height * tile_map.tileheight,
+		}
+		if self.args.debug:
+			logger.debug(f'{self} request: {request} get_lobby_info players: {len(players)}')
+		return web.json_response(resp)
+
 	async def new_start_server(self):
+		# Schedule background tasks on the current running loop
+		# loop = asyncio.get_running_loop()
+		# loop = asyncio.new_event_loop()
+		loop = asyncio.get_event_loop()
+		discovery_task = loop.create_task(self.discovery_service.start_discovery_service())
 		"""Start the game server using asyncio's high-level server API"""
 		# Create the server
 		server = await asyncio.start_server(lambda r, w: self.client_connected_callback(r, w), host=self.args.listen, port=self.args.server_port, reuse_address=True,)
@@ -116,6 +227,9 @@ class BombServer:
 		# Create the HTTP server for map requests
 		app = web.Application()
 		app.router.add_get('/get_tile_map', self.get_tile_map)
+		app.router.add_get('/get_client_id', self.get_client_id)
+		app.router.add_get('/get_map_name', self.get_map_name)
+
 		runner = web.AppRunner(app)
 		await runner.setup()
 		if self.args.debug:
@@ -129,8 +243,6 @@ class BombServer:
 		except Exception as e:
 			logger.error(f'{self} Error starting API server on {self.args.listen}:{tcp_port}: {e} {type(e)}')
 			return
-		# Ticker task to broadcast game state
-		ticker_task = self.loop.create_task(self.ticker_broadcast())
 
 		try:
 			# Run the server
@@ -140,26 +252,12 @@ class BombServer:
 			logger.error(f'{self} Server error: {e} {type(e)}')
 		finally:
 			# Clean up
-			ticker_task.cancel()
-			# await runner.cleanup()
-
-	async def ticker_broadcast(self):
-		"""Broadcast game state at regular intervals"""
-		last_broadcast = time.time()
-		try:
-			while not self.stopped():
-				# Broadcast player states (at a sensible rate)
-				if time.time() - last_broadcast > 0.05:  # 20 updates per second
-					game_state = self.game_state.to_json()
-					await self.server_broadcast_state(game_state)
-					last_broadcast = time.time()
-				await asyncio.sleep(1 / UPDATE_TICK)
-		except asyncio.CancelledError as e:
-			logger.info(f"Ticker broadcast task cancelled {e}")
-		except RuntimeError as e:
-			logger.error(f"Error in ticker broadcast: {e} {type(e)}")
-		except Exception as e:
-			logger.error(f"Error in ticker broadcast: {e} {type(e)}")
+			discovery_task.cancel()
+			try:
+				await discovery_task
+			except asyncio.CancelledError:
+				pass
+			await runner.cleanup()
 
 	def get_position(self, retas="int"):
 		# Get map dimensions in tiles
@@ -174,9 +272,12 @@ class BombServer:
 		layers.append(wall_layer)
 		layers.append(block_layer)
 		for layer in layers:
-			for x, y, gid in layer:
-				if gid != 0:
-					collidable_positions.add((x, y))
+			if isinstance(layer, pytmx.TiledTileLayer):
+				for x, y, gid in layer:
+					if gid != 0:
+						collidable_positions.add((x, y))
+			else:
+				logger.warning(f"Layer {layer} {type(layer)} is not a TiledTileLayer, skipping collision check.")
 
 		# Generate list of all possible positions excluding collidable tiles
 		valid_positions = []
@@ -195,60 +296,8 @@ class BombServer:
 	async def stop(self):
 		self._stop.set()
 		try:
-			if self.discovery_service:
+			if self.discovery_service.running:
 				self.discovery_service.stop()
 		except Exception as e:
 			logger.error(f"{self} Error stopping discovery service: {e} {type(e)}")
 
-	def stopped(self):
-		return self._stop.is_set()
-
-	async def server_broadcast_state(self, state):
-		data = json.dumps(state).encode('utf-8') + b'\n'
-		# Use gather for concurrent sending
-		send_tasks = []
-		for writer in self.connections:
-			send_tasks.append(self._send_to_client(writer, data))
-		# Wait for all sends to complete
-		if send_tasks:
-			try:
-				await asyncio.gather(*send_tasks, return_exceptions=True)
-			except Exception as e:
-				logger.error(f"{self} Error during broadcast: {e}")
-
-	async def _send_to_client(self, writer, data):
-		"""Helper method to send data to a client with error handling"""
-		try:
-			writer.write(data)
-			await writer.drain()
-			return True
-		except (ConnectionResetError, BrokenPipeError) as e:
-			logger.warning(f"{self} Connection error while sending: {e}")
-			# Connection is dead, remove it
-			if writer in self.connections:
-				self.connections.remove(writer)
-			return False
-		except Exception as e:
-			logger.error(f"{self} Error sending to client: {e}")
-			return False
-
-	def _build_ack_event(self, client_id: str) -> dict:
-		return {
-			'event_type': "acknewplayer",
-			"client_id": client_id,
-			"handled": False,
-			"handledby": "_build_ack_event",
-			"event_time": time.time(),
-		}
-
-	def _build_player_joined(self, client_id: str, msg: dict) -> dict:
-		pos = msg.get('position') or msg.get('game_event', {}).get('position', [100, 100])
-		return {
-			"event_time": time.time(),
-			'event_type': "player_joined",
-			"client_id": client_id,
-			"position": pos,
-			"handled": False,
-			"handledby": "_build_player_joined",
-			"event_id": gen_randid(),
-		}

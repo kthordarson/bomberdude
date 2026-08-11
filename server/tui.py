@@ -1,9 +1,13 @@
 import asyncio
-from loguru import logger
+import code
+import threading
 from threading import Event
 from typing import Any, cast
 
-class ServerTUI():
+from loguru import logger
+
+
+class ServerTUI:
 	def __init__(self, server, debug=False, gq=None):
 		# Thread.__init__(self, daemon=True, name="tui")
 		self.gq = gq
@@ -11,9 +15,16 @@ class ServerTUI():
 		self.debug = debug
 		self._stop = Event()
 		self.loop = asyncio.get_event_loop()
+		# self.loop = asyncio.new_event_loop()
+		# self.loop = asyncio.get_running_loop()
 
 	def __repr__(self):
 		return f"ServerTUI (stopped:{self.stopped()})"
+
+	def repl_thread(self):
+		print("Async REPL thread started. Use 'loop' to schedule coroutines.")
+		# code.interact(local=dict(loop=loop))
+		code.interact(local=dict(globals(), **locals(), server=self.server, tui=self))
 
 	async def stop(self):
 		self._stop.set()
@@ -30,16 +41,17 @@ class ServerTUI():
 		"""Get current server state information"""
 		state_json = self.server.game_state.to_json()
 		playerlist = cast(list[dict[str, Any]], state_json.get('playerlist') or [])
-		print(f'server: {self.server}')
+		print(f'server: {self.server} state_jsonmap: {state_json.get("mapname")} server.game_state.mapname: {self.server.game_state.mapname}')
+		print(f'self.server.game_state.client_id: {self.server.game_state.client_id}')
 		print(f"playerlist: {len(playerlist)} players_sprites: {len(self.server.game_state.players_sprites)} upgrade_blocks: {len(self.server.game_state.upgrade_blocks)}")
 		print(f'explosions: {len(self.server.game_state.processed_explosions)} hits: {len(self.server.game_state.processed_hits)} bullets: {len(self.server.game_state.processed_bullets)} upgrades: {len(self.server.game_state.processed_upgrades)}')
-		print(f"event_queue: {self.server.game_state.event_queue.qsize()}  client_queue: {self.server.game_state.client_queue.qsize()} game_state connections: {len(self.server.game_state.connections)} server connections: {len(self.server.connections)}")
+		print(f"event_queue: {self.server.game_state.event_queue.qsize()}  game_state connections: {len(self.server.game_state.connections)} ")
 		print(f"state_json modified_tiles: {len(state_json.get('modified_tiles'))}")
 		print(f"server gamestate: {self.server.game_state} ")
 		print(f"statejsonkeys: {state_json.keys()} ")
 
 		for player in self.server.game_state.playerlist.values():
-			print(f"player ({type(player)}): {player.client_name}: {player.client_id} {player.position} {player.health} bombs_left: {player.bombs_left}")
+			print(f"player ({type(player)}): {player.client_name}: {player.client_id} {player.position} {player.health} bombs_left: {player.bombs_left} bomb_power: {player.bomb_power} killed: {player.killed}")
 
 	def printhelp(self):
 		print("""
@@ -66,14 +78,16 @@ class ServerTUI():
 			self.printhelp()
 		elif cmd[:1] == "s":
 			await self.get_serverinfo()
-		elif cmd[:1] == "r":
-			...
 		elif cmd[:1] == "l":
 			pass  # self.dump_players()
 		elif cmd[:1] == "e":
 			pass
 		elif cmd[:2] == "ec":
 			pass  # self.cleargameevents()
+		elif cmd[:1] == 'r':
+			t = threading.Thread(target=self.repl_thread, daemon=True)
+			logger.debug(f'Starting REPL thread: {t}')
+			t.start()
 		elif cmd[:1] == "q":
 			await self.server.stop()
 			await self.stop()

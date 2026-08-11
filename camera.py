@@ -1,6 +1,7 @@
 import pygame
 from pygame.math import Vector2 as Vec2d
 
+
 class Camera:
     def __init__(self, width, height, map_width, map_height):
         self.width = width
@@ -23,7 +24,7 @@ class Camera:
         y = max(0, min(y, self.map_height - self.height))
 
         # Store as integers for pixel-perfect rendering
-        self.position = Vec2d(int(x), int(y))
+        self.position = Vec2d(x, y)
 
     def apply(self, rect):
         """Convert rect from world coordinates to screen coordinates"""
