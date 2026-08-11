@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import os
 import argparse
 import asyncio
 import hashlib
