@@ -344,6 +344,19 @@ class ConfigureMenu:
         self._name_buffer = ""
         self._snapshot: Config | None = None
         self.background_snapshot = None
+        # Maps each adjustable row to (callable, step, needs_live_apply).
+        # LEFT passes -step, RIGHT passes +step to the callable.
+        self._cycle_actions: dict[str, tuple] = {
+            "Resolution":       (self._cycle_resolution,      1,                    False),
+            "Bullet Color":     (self._cycle_bullet_color,    1,                    False),
+            "Particle Count":   (self._adjust_particle_count, PARTICLE_COUNT_STEP,  False),
+            "Fog Radius":       (self._adjust_fog_radius,     FOG_RADIUS_STEP,      True),
+            "Fog Color":        (self._cycle_fog_color,       1,                    True),
+            "Fog Alpha":        (self._adjust_fog_alpha,      FOG_ALPHA_STEP,       True),
+            "Minimap Size":     (self._adjust_minimap_size,   MINIMAP_SIZE_STEP,    True),
+            "Minimap Opacity":  (self._adjust_minimap_alpha,  MINIMAP_ALPHA_STEP,   True),
+            "Minimap Position": (self._cycle_minimap_anchor,  1,                    True),
+        }
 
     def _resolution_index(self) -> int:
         target = (self.config.screen_width, self.config.screen_height)
@@ -498,6 +511,17 @@ class ConfigureMenu:
         elif event.unicode and event.unicode.isprintable() and len(self._name_buffer) < NAME_MAX_LENGTH:
             self._name_buffer += event.unicode
 
+    def _handle_row_activation(self, row: str) -> str | None:
+        """Handle ENTER/SPACE/click on a row. Returns 'Save', 'Cancel', or None."""
+        if row == "Save":
+            return "Save"
+        if row == "Cancel":
+            return "Cancel"
+        if row == "Player Name":
+            self.editing_name = True
+            self._name_buffer = self.config.player_name
+        return None
+
     def handle_input(self, cb_apply_config_changes) -> str | None:
         apply_needed = False
         for event in pygame.event.get():
@@ -513,81 +537,29 @@ class ConfigureMenu:
                     self.selected_row = (self.selected_row - 1) % len(self.rows)
                 elif event.key in (pygame.K_DOWN, pygame.K_s):
                     self.selected_row = (self.selected_row + 1) % len(self.rows)
-                elif event.key == pygame.K_LEFT:
-                    if current_row == "Resolution":
-                        self._cycle_resolution(-1)
-                    elif current_row == "Bullet Color":
-                        self._cycle_bullet_color(-1)
-                    elif current_row == "Particle Count":
-                        self._adjust_particle_count(-PARTICLE_COUNT_STEP)
-                    elif current_row == "Fog Radius":
-                        self._adjust_fog_radius(-FOG_RADIUS_STEP)
-                        apply_needed = True
-                    elif current_row == "Fog Color":
-                        self._cycle_fog_color(-1)
-                        apply_needed = True
-                    elif current_row == "Fog Alpha":
-                        self._adjust_fog_alpha(-FOG_ALPHA_STEP)
-                        apply_needed = True
-                    elif current_row == "Minimap Size":
-                        self._adjust_minimap_size(-MINIMAP_SIZE_STEP)
-                        apply_needed = True
-                    elif current_row == "Minimap Opacity":
-                        self._adjust_minimap_alpha(-MINIMAP_ALPHA_STEP)
-                        apply_needed = True
-                    elif current_row == "Minimap Position":
-                        self._cycle_minimap_anchor(-1)
-                        apply_needed = True
-                elif event.key == pygame.K_RIGHT:
-                    if current_row == "Resolution":
-                        self._cycle_resolution(1)
-                    elif current_row == "Bullet Color":
-                        self._cycle_bullet_color(1)
-                    elif current_row == "Particle Count":
-                        self._adjust_particle_count(PARTICLE_COUNT_STEP)
-                    elif current_row == "Fog Radius":
-                        self._adjust_fog_radius(FOG_RADIUS_STEP)
-                        apply_needed = True
-                    elif current_row == "Fog Color":
-                        self._cycle_fog_color(1)
-                        apply_needed = True
-                    elif current_row == "Fog Alpha":
-                        self._adjust_fog_alpha(FOG_ALPHA_STEP)
-                        apply_needed = True
-                    elif current_row == "Minimap Size":
-                        self._adjust_minimap_size(MINIMAP_SIZE_STEP)
-                        apply_needed = True
-                    elif current_row == "Minimap Opacity":
-                        self._adjust_minimap_alpha(MINIMAP_ALPHA_STEP)
-                        apply_needed = True
-                    elif current_row == "Minimap Position":
-                        self._cycle_minimap_anchor(1)
-                        apply_needed = True
+                elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                    direction = -1 if event.key == pygame.K_LEFT else 1
+                    action = self._cycle_actions.get(current_row)
+                    if action:
+                        fn, step, needs_apply = action
+                        fn(direction * step)
+                        if needs_apply:
+                            apply_needed = True
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                    if current_row == "Player Name":
-                        self.editing_name = True
-                        self._name_buffer = self.config.player_name
-                    elif current_row == "Save":
-                        return "Save"
-                    elif current_row == "Cancel":
-                        return "Cancel"
+                    result = self._handle_row_activation(current_row)
+                    if result:
+                        return result
                 elif event.key in (pygame.K_ESCAPE, pygame.K_F3):
                     return "Cancel"
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for i, rect in enumerate(self.row_rects):
                     if rect.collidepoint(event.pos):
                         self.selected_row = i
-                        row = self.rows[i]
-                        if row == "Save":
-                            return "Save"
-                        elif row == "Cancel":
-                            return "Cancel"
-                        elif row == "Player Name":
-                            self.editing_name = True
-                            self._name_buffer = self.config.player_name
+                        result = self._handle_row_activation(self.rows[i])
+                        if result:
+                            return result
         if apply_needed:
             cb_apply_config_changes()
-            apply_needed = False
         return None
 
     def run(self, cb_apply_config_changes) -> bool:

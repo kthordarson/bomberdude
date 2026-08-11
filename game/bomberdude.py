@@ -305,6 +305,24 @@ class Bomberdude:
 
         self.window.blit(self.screen, (0, 0))
 
+    def _minimap_pos(self, pos, scale: float, border: int) -> tuple[int, int]:
+        """Convert a world-space position to minimap pixel coords.
+        Accepts both attribute-style (pos.x/pos.y) and sequence-style positions."""
+        if hasattr(pos, 'x') and hasattr(pos, 'y'):
+            wx, wy = pos.x, pos.y
+        else:
+            wx, wy = pos[0], pos[1]
+        return (border + int(wx * scale), border + int(wy * scale))
+
+    def _draw_minimap_dot(self, surface: pygame.Surface, pos, color: tuple,
+                          radius: int, scale: float, border: int, label: str = "entity") -> None:
+        """Draw a single dot on the minimap, silently logging any error."""
+        try:
+            mx, my = self._minimap_pos(pos, scale, border)
+            pygame.draw.circle(surface, color, (mx, my), radius)
+        except Exception as e:
+            logger.error(f"Minimap {label} error: {e} {type(e)}")
+
     def draw_minimap(self):
         """Draw a minimap showing all players. Size, opacity, and screen
         anchor are read live from self.config so changes in ConfigureMenu
@@ -318,12 +336,9 @@ class Bomberdude:
         minimap_x = pad if anchor.endswith("left") else SCREEN_WIDTH - minimap_width - pad
         minimap_y = pad if anchor.startswith("top") else SCREEN_HEIGHT - minimap_height - pad
 
-        # Calculate scale ratio (map size to minimap size)
         map_width = self.game_state.tile_map.width * self.game_state.tile_map.tilewidth
         map_height = self.game_state.tile_map.height * self.game_state.tile_map.tileheight
-        scale_x = minimap_width / map_width
-        scale_y = minimap_height / map_height
-        scale = min(scale_x, scale_y)  # Use the smaller scale to fit entire map
+        scale = min(minimap_width / map_width, minimap_height / map_height)
 
         # Render onto an off-screen surface so overall opacity can be
         # applied with a single set_alpha() rather than per-shape.
@@ -331,11 +346,11 @@ class Bomberdude:
         total_h = minimap_height + 2 * minimap_border
         mini_surface = pygame.Surface((total_w, total_h))
 
-        # Draw background and border
+        # Background and border
         pygame.draw.rect(mini_surface, (0, 0, 0), (0, 0, total_w, total_h))
         pygame.draw.rect(mini_surface, (50, 50, 50), (minimap_border, minimap_border, minimap_width, minimap_height))
 
-        # Draw map blocks
+        # Map blocks
         for tile in self.game_state.collidable_tiles:
             if tile.layer in ('Blocks',):
                 mini_x = minimap_border + int(tile.rect.x * scale)
@@ -344,55 +359,31 @@ class Bomberdude:
                 mini_h = max(2, int(tile.rect.height * scale))
                 pygame.draw.rect(mini_surface, (150, 75, 0), (mini_x, mini_y, mini_w, mini_h))
 
-        # Draw player one (as green dot)
+        # Local player (green dot) + camera viewport rectangle
         try:
             player_one = self.game_state.get_playerone()
-            player_x = minimap_border + int(player_one.position.x * scale)
-            player_y = minimap_border + int(player_one.position.y * scale)
-            pygame.draw.circle(mini_surface, (0, 255, 0), (player_x, player_y), 3)
-
-            # Get camera viewport position
-            # Instead of using offset_x and offset_y directly, calculate it from player position and screen center
-            # This assumes camera is centered on player (modify if your camera logic is different)
-            center_x = player_one.position.x - SCREEN_WIDTH/2
-            center_y = player_one.position.y - SCREEN_HEIGHT/2
-
-            # Clamp to map boundaries
-            center_x = max(0.0, min(center_x, map_width - SCREEN_WIDTH))
-            center_y = max(0.0, min(center_y, map_height - SCREEN_HEIGHT))
-
-            # Draw view rectangle on minimap
-            view_x = minimap_border + int(center_x * scale)
-            view_y = minimap_border + int(center_y * scale)
-            view_w = int(SCREEN_WIDTH * scale)
-            view_h = int(SCREEN_HEIGHT * scale)
-            pygame.draw.rect(mini_surface, (200, 200, 200), (view_x, view_y, view_w, view_h), 1)
+            px, py = self._minimap_pos(player_one.position, scale, minimap_border)
+            pygame.draw.circle(mini_surface, (0, 255, 0), (px, py), 3)
+            # Viewport rect: derive from player position, clamp to map bounds.
+            cx = max(0.0, min(player_one.position.x - SCREEN_WIDTH / 2, map_width - SCREEN_WIDTH))
+            cy = max(0.0, min(player_one.position.y - SCREEN_HEIGHT / 2, map_height - SCREEN_HEIGHT))
+            pygame.draw.rect(mini_surface, (200, 200, 200), (
+                minimap_border + int(cx * scale),
+                minimap_border + int(cy * scale),
+                int(SCREEN_WIDTH * scale),
+                int(SCREEN_HEIGHT * scale),
+            ), 1)
         except Exception as e:
             logger.error(f"Minimap player error: {e} {type(e)}")
 
-        # Draw other players (as red dots)
+        # Remote players (red dots)
         for client_id, player in self.game_state.playerlist.items():
             if client_id != self.client_id:
-                try:
-                    pos = player.position
-                    if hasattr(pos, 'x') and hasattr(pos, 'y'):
-                        other_x = minimap_border + int(pos.x * scale)
-                        other_y = minimap_border + int(pos.y * scale)
-                    else:
-                        other_x = minimap_border + int(pos[0] * scale)
-                        other_y = minimap_border + int(pos[1] * scale)
-                    pygame.draw.circle(mini_surface, (255, 0, 0), (other_x, other_y), 3)
-                except Exception as e:
-                    logger.error(f"Minimap other player error: {e} {type(e)}")
+                self._draw_minimap_dot(mini_surface, player.position, (255, 0, 0), 3, scale, minimap_border, "other player")
 
-        # Draw bombs as yellow dots
+        # Bombs (orange dots)
         for bomb in self.game_state.bombs:
-            try:
-                bomb_x = minimap_border + int(bomb.position.x * scale)
-                bomb_y = minimap_border + int(bomb.position.y * scale)
-                pygame.draw.circle(mini_surface, (255, 55, 0), (bomb_x, bomb_y), 2)
-            except Exception as e:
-                logger.error(f"Minimap bomb error: {e} {type(e)}")
+            self._draw_minimap_dot(mini_surface, bomb.position, (255, 55, 0), 2, scale, minimap_border, "bomb")
 
         mini_surface.set_alpha(self.config.minimap_alpha)
         self.screen.blit(mini_surface, (minimap_x - minimap_border, minimap_y - minimap_border))
@@ -639,8 +630,7 @@ class Bomberdude:
         screen_x = int(player_one.position.x - camera_x)
         screen_y = int(player_one.position.y - camera_y)
 
-        # Only recompute the composed fog overlay when the reveal center, radius,
-        # or fog color/alpha changed. This avoids two large Surface fills + a
+        # Only recompute the composed fog overlay when the reveal center, radius, or fog color/alpha changed. This avoids two large Surface fills + a
         # circle draw every frame.
         center = (screen_x, screen_y)
         radius = self.config.fog_radius
@@ -649,7 +639,7 @@ class Bomberdude:
             # Fill with the configured fog color/alpha
             self.fog_surface.fill(rgba)
             # Reset mask to fully opaque black
-            self._visibility_mask.fill((0, 0, 0, 255))
+            self._visibility_mask.fill((255, 255, 255, 255))
             pygame.draw.circle(self._visibility_mask, (0, 0, 0, 0), center, radius)
             self.fog_surface.blit(self._visibility_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
             self._fog_last_center = center
