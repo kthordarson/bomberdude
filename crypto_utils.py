@@ -39,7 +39,7 @@ def load_or_create_key(path: str) -> bytes:
 def encrypt_secret(plaintext: str, key: bytes) -> str:
 	cipher = AES.new(key, AES.MODE_GCM, nonce=secrets.token_bytes(NONCE_LENGTH))
 	ciphertext, tag = cipher.encrypt_and_digest(plaintext.encode("utf-8"))
-	return base64.b64encode(cipher.nonce + tag + ciphertext).decode("ascii")
+	return base64.b64encode(cipher.nonce + tag + ciphertext).decode("ascii")  # type: ignore
 
 
 def decrypt_secret(blob: str, key: bytes) -> str:

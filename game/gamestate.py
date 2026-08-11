@@ -349,24 +349,6 @@ class GameState:
 		if self.args.debug_gamestate:
 			logger.info(f"{self} Loaded tile map '{self.mapname}' with {len(self.collidable_tiles)} collidable tiles, {len(self.killable_tiles)} killable tiles, {len(self.background_tiles)} background tiles.")
 
-	def old_parse_pos_key(self, key):
-		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
-		if isinstance(key, tuple):
-			logger.debug(f"{self} _parse_pos_key: {key} {type(key)}")
-			return key
-		elif isinstance(key, str):
-			logger.warning(f"{self} _parse_pos_key: Invalid key type {key} {type(key)}")
-			try:
-				return tuple(ast.literal_eval(key))  # type: ignore
-			except Exception as e:
-				logger.error(f'{self} Error parsing position key {key}: {e} {type(e)}')
-				s = key.strip().strip('()')
-				x_s, y_s = s.split(',')
-				return (int(x_s), int(y_s))
-		else:
-			logger.error(f"{self} _parse_pos_key: Invalid key type {key} {type(key)}, defaulting to (0, 0).")
-		return key
-
 	def _parse_pos_key(self, key):
 		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
 		return tuple(ast.literal_eval(key))  # type: ignore
