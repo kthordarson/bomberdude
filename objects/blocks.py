@@ -1,4 +1,6 @@
 # from pymunk import Vec2d
+import os
+
 import pygame
 from pygame.math import Vector2 as Vec2d
 
@@ -44,14 +46,22 @@ class Upgrade:
 	def __repr__(self):
 		return f'Upgrade {self.client_id} (type: {self.upgradetype} pos: {self.position} life: {self.life}  original_life: {self.original_life} born_time: {self.born_time} killed: {self.killed})'
 
-	async def async_init(self):
-		self.image = await async_get_cached_image(self.image_name, scale=self.scale, convert=True)
+	async def async_init(self, game_state=None):
+		# Prefer the loaded map's own tileset; fall back to a standalone
+		# file load for art that isn't part of it.
+		image = game_state.get_image_by_source(os.path.basename(self.image_name), scale=self.scale) if game_state is not None else None
+		self.image = image if image is not None else await async_get_cached_image(self.image_name, scale=self.scale, convert=True)
 		if self.image:
 			self.rect = self.image.get_rect()
 			if self.rect:
 				self.rect.center = (int(self.position[0]), int(self.position[1]))
 
 	def update(self, *args, **kwargs):
+		game_state = None
+		if args:
+			game_state = args[0]
+		elif 'game_state' in kwargs:
+			game_state = kwargs['game_state']
 		elapsed = pygame.time.get_ticks() / 1000 - self.born_time
 		# Kill if lifetime is over
 		new_scale = max(0.1, self.scale * (1 - elapsed / self.original_life))
@@ -59,7 +69,8 @@ class Upgrade:
 		# instead of growing get_cached_image's shared cache with a unique
 		# float key on every single frame.
 		cache_scale = round(new_scale, 2)
-		self.image = get_cached_image(self.image_name, scale=cache_scale, convert=True)
+		image = game_state.get_image_by_source(os.path.basename(self.image_name), scale=cache_scale) if game_state is not None else None
+		self.image = image if image is not None else get_cached_image(self.image_name, scale=cache_scale, convert=True)
 		if self.image:
 			self.rect = self.image.get_rect(center=(int(self.position[0]), int(self.position[1])))
 			if self.rect:

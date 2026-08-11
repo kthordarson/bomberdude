@@ -152,7 +152,7 @@ class Bomberdude:
         map_height = self.game_state.tile_map.height * self.game_state.tile_map.tileheight
         self.camera = Camera(SCREEN_WIDTH, SCREEN_HEIGHT, map_width, map_height)
         player_one = Bomberplayer(texture="data/playerone.png", client_id=self.client_id, position=pos, client_name=self.config.player_name)
-        player_one._set_texture(player_one.texture)
+        player_one._set_texture(player_one.texture, self.game_state)
         if player_one.image:
             player_one.rect = player_one.image.get_rect()
             if player_one.rect:
@@ -199,14 +199,14 @@ class Bomberdude:
             if client_id not in self.remote_player_sprites:
                 texture = "data/netplayerdead.png" if is_dead else "data/player2.png"
                 player_sprite = Bomberplayer(texture=texture, client_id=client_id)
-                player_sprite._set_texture(texture)
+                player_sprite._set_texture(texture, self.game_state)
                 self.remote_player_sprites[client_id] = player_sprite
                 if self.args.debug:
                     logger.debug(f"Created new remote player sprite for {client_id} (dead: {is_dead}) player_sprite: {player_sprite} self.remote_player_sprites: {len(self.remote_player_sprites)}")
             else:
                 player_sprite = self.remote_player_sprites[client_id]
                 # Always update dead/alive state and texture if needed
-                player_sprite.set_dead(is_dead)
+                player_sprite.set_dead(is_dead, self.game_state)
 
             position = player_data.position
             player_sprite.position = Vec2d(position)
@@ -558,7 +558,7 @@ class Bomberdude:
         # --- Upgrade block pickup logic ---
         # Use a copy to avoid modifying the set during iteration
         for upgrade_block in list(self.game_state.upgrade_blocks):
-            upgrade_block.update()
+            upgrade_block.update(self.game_state)
             if upgrade_block.killed:
                 tile_x = upgrade_block.rect.x // self.game_state.tile_map.tilewidth
                 tile_y = upgrade_block.rect.y // self.game_state.tile_map.tileheight

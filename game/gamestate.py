@@ -1,6 +1,7 @@
 import ast
 import asyncio
 import json
+import os
 import random
 import time
 from collections.abc import Callable
@@ -57,6 +58,12 @@ class GameState:
 		self._ready = False
 		self.modified_tiles = {}  # Format: {(tile_x, tile_y): new_gid}
 		self.tile_cache = {}
+		# Reverse index (source filename -> gid) into the loaded map's own
+		# tileset, built by load_tile_map. Lets sprite classes source their
+		# art from the map's tileset instead of loading a standalone file,
+		# so there's one asset per sprite instead of two that can drift.
+		self._gid_by_source: dict[str, int] = {}
+		self._tileset_sprite_cache: dict[tuple[int, float], pygame.Surface] = {}
 		self.client_id = client_id
 		self.player_active_bombs = {}  # player_id -> active bomb count
 		self.active_bombs_per_player = {}  # Track active bombs per player
@@ -113,6 +120,29 @@ class GameState:
 		if isinstance(image, tuple):
 			logger.debug(f"{self} _get_tile_image_safe: Loaded tile image for gid {gid} as Surface. image: {image} type: {type(image)}")
 			image = pygame.image.load(image[0])
+		return image
+
+	def get_image_by_source(self, filename: str, *, scale: float = 1.0) -> pygame.Surface | None:
+		"""Look up a sprite's image via the currently-loaded map's own
+		tileset (matched by source filename) instead of loading it as a
+		standalone file. Returns None if `filename` isn't part of this map's
+		tileset, so callers can fall back to a direct file load.
+		"""
+		gid = self._gid_by_source.get(filename)
+		if gid is None:
+			return None
+		cache_key = (gid, round(scale, 3))
+		cached = self._tileset_sprite_cache.get(cache_key)
+		if cached is not None:
+			return cached
+		image = self._get_tile_image_safe(gid)
+		if image is None:
+			return None
+		if pygame.display.get_init() and pygame.display.get_surface() is not None:
+			image = image.convert_alpha() if image.get_alpha() is not None else image.convert()
+		if scale != 1.0:
+			image = pygame.transform.scale(image, (int(image.get_width() * scale), int(image.get_height() * scale)))
+		self._tileset_sprite_cache[cache_key] = image
 		return image
 
 	def _iter_tiles_from_index_in_rect(self, tile_index: dict[tuple[int, int], Any], rect: pygame.Rect, *, pad_pixels: int = 0):
@@ -204,7 +234,7 @@ class GameState:
 				# Ensure the sprite image reflects killed/dead state.
 				dead = state.killed or state.health <= 0
 				if sprite.set_dead:
-					sprite.set_dead(dead)
+					sprite.set_dead(dead, self)
 				break
 
 	def to_json(self):
@@ -307,6 +337,16 @@ class GameState:
 		# Create a cache for tile images
 		tw, th = self.tile_map.tilewidth, self.tile_map.tileheight
 		self.static_map_surface = pygame.Surface((self.tile_map.width * tw, self.tile_map.height * th))
+
+		# Index this map's tileset by source filename, so sprite classes can
+		# fetch their art from it (get_image_by_source) instead of loading a
+		# standalone file with the same content under a separate path.
+		self._gid_by_source = {}
+		for gid, props in self.tile_map.tile_properties.items():
+			source = props.get('source')
+			if source:
+				self._gid_by_source[os.path.basename(source)] = gid
+		self._tileset_sprite_cache = {}
 
 		# Reset caches and indexes when loading a new map
 		self.collidable_tiles.clear()
@@ -417,7 +457,7 @@ class GameState:
 			if (x, y) not in self.upgrade_by_tile:
 				upgrade_pos = (x * tw, y * th)
 				upgrade = Upgrade(position=upgrade_pos, upgrade_id=gen_randid(), upgradetype=new_gid)
-				await upgrade.async_init()
+				await upgrade.async_init(self)
 				self.upgrade_blocks.add(upgrade)
 				self.upgrade_by_tile[(x, y)] = upgrade
 				self.upgrade_by_id[str(upgrade.upgrade_id)] = upgrade
@@ -1021,7 +1061,7 @@ class GameState:
 				logger.warning(f'{self} already handled or Upgrade already exists at {(tile_x, tile_y)}, pos: {pos} upgrade_pos: {upgrade_pos} upgrade_by_tile: {self.upgrade_by_tile.get((tile_x, tile_y))} event: {event}')
 		else:
 			upgrade = Upgrade(position=upgrade_pos, upgrade_id=upgrade_id, upgradetype=upgradetype)
-			await upgrade.async_init()
+			await upgrade.async_init(self)
 			self.upgrade_blocks.add(upgrade)
 			self.upgrade_by_tile[(tile_x, tile_y)] = upgrade
 			self.upgrade_by_id[str(upgrade_id)] = upgrade

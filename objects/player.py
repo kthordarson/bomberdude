@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from dataclasses import dataclass, field
 
@@ -79,23 +80,34 @@ class Bomberplayer(Sprite):
 		if not self.client_name or self.client_name == 'Noname':
 			self.client_name = generate_name()
 
-	def _set_texture(self, texture_path: str) -> None:
-		# Cache disk loads globally; convert/scale only when a display surface exists.
-		self.original_image = get_cached_image(texture_path, scale=1.0, convert=True)
-		self.image = get_cached_image(texture_path, scale=self.scale, convert=True)
+	def _set_texture(self, texture_path: str, game_state=None) -> None:
+		# Prefer the loaded map's own tileset (single source of truth for art
+		# that's part of it); fall back to a standalone file load for
+		# textures that aren't (e.g. netplayerdead.png).
+		original = scaled = None
+		if game_state is not None:
+			filename = os.path.basename(texture_path)
+			original = game_state.get_image_by_source(filename, scale=1.0)
+			scaled = game_state.get_image_by_source(filename, scale=self.scale)
+		if original is None or scaled is None:
+			# Cache disk loads globally; convert/scale only when a display surface exists.
+			original = get_cached_image(texture_path, scale=1.0, convert=True)
+			scaled = get_cached_image(texture_path, scale=self.scale, convert=True)
+		self.original_image = original
+		self.image = scaled
 		if self.image:
 			self.rect = self.image.get_rect()
 			if self.rect:
 				self.rect.topleft = (int(self.position.x), int(self.position.y))
 
-	def set_dead(self, dead: bool) -> None:
+	def set_dead(self, dead: bool, game_state=None) -> None:
 		"""Swap sprite image based on health/killed state."""
 		if dead:
 			self.killed = True
-			self._set_texture('data/netplayerdead.png')
+			self._set_texture('data/netplayerdead.png', game_state)
 		else:
 			self.killed = False
-			self._set_texture(self._alive_texture_path)
+			self._set_texture(self._alive_texture_path, game_state)
 
 	def __hash__(self):
 		return hash(self.client_id)
