@@ -630,8 +630,7 @@ class Bomberdude:
         screen_x = int(player_one.position.x - camera_x)
         screen_y = int(player_one.position.y - camera_y)
 
-        # Only recompute the composed fog overlay when the reveal center, radius,
-        # or fog color/alpha changed. This avoids two large Surface fills + a
+        # Only recompute the composed fog overlay when the reveal center, radius, or fog color/alpha changed. This avoids two large Surface fills + a
         # circle draw every frame.
         center = (screen_x, screen_y)
         radius = self.config.fog_radius
@@ -640,7 +639,7 @@ class Bomberdude:
             # Fill with the configured fog color/alpha
             self.fog_surface.fill(rgba)
             # Reset mask to fully opaque black
-            self._visibility_mask.fill((0, 0, 0, 255))
+            self._visibility_mask.fill((255, 255, 255, 255))
             pygame.draw.circle(self._visibility_mask, (0, 0, 0, 0), center, radius)
             self.fog_surface.blit(self._visibility_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
             self._fog_last_center = center
