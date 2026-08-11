@@ -4,8 +4,6 @@ import asyncio
 import hashlib
 import json
 import multiprocessing
-import os
-import sys
 import time
 import traceback
 from argparse import ArgumentParser
@@ -206,10 +204,6 @@ def run_server_process(args_dict):
 
 	# Convert args_dict back to Namespace
 	args = argparse.Namespace(**args_dict)
-
-	# Set Windows event loop policy if needed
-	if sys.platform == "win32":
-		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 	# Create a headless version of the server startup
 	async def run_headless_server():
@@ -578,7 +572,5 @@ def get_args():
 	return parser.parse_args()
 
 if __name__ == "__main__":
-	if sys.platform == "win32":
-		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 	args = get_args()
 	asyncio.run(main(args))

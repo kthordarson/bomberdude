@@ -277,6 +277,8 @@ class BombServer:
 			# Run the server
 			async with server:
 				await server.serve_forever()
+		except Exception as e:
+			logger.error(f'{self} Server error: {e} {type(e)}')
 		finally:
 			# Clean up
 			discovery_task.cancel()
@@ -300,7 +302,7 @@ class BombServer:
 		layers.append(block_layer)
 		for layer in layers:
 			if isinstance(layer, pytmx.TiledTileLayer):
-				for x, y, gid in layer:
+				for x, y, gid in layer: # type: ignore
 					if gid != 0:
 						collidable_positions.add((x, y))
 			else:

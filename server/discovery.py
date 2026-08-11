@@ -17,11 +17,11 @@ def get_local_ip_addresses():
                     ip = s.getsockname()[0]
                     if not ip.startswith("127."):
                         ips.add(ip)
-                except Exception:
+                except Exception:  # noqa: S110
                     pass
                 finally:
                     s.close()
-        except Exception:
+        except Exception:  # noqa: S110
             pass
     return list(ips)
 
@@ -45,10 +45,11 @@ class ServerDiscovery:
 
         # Allow quick restarts / multiple listeners on some platforms
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        except Exception as e:
-            logger.error(f"Failed to set SO_REUSEPORT: {e} {type(e)}")
+        if hasattr(socket, "SO_REUSEPORT"):
+            try:
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)  # type: ignore
+            except Exception as e:
+                logger.error(f"Failed to set SO_REUSEPORT: {e} {type(e)}")
 
         # Receive broadcast packets
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -72,6 +73,9 @@ class ServerDiscovery:
                     continue
                 except (OSError, asyncio.CancelledError):
                     break
+                except Exception as e:
+                    logger.error(f"Error receiving discovery packet: {e} {type(e)}")
+                    continue
 
                 if not data:
                     continue
@@ -100,6 +104,8 @@ class ServerDiscovery:
                     # logger.debug(f"Discovery response sent to {addr}: {response}")
                 except Exception as e:
                     logger.error(f"Failed sending discovery response to {addr}: {e}")
+        except Exception as e:
+            logger.error(f"Server discovery error: {e} {type(e)}")
         finally:
             try:
                 sock.close()
@@ -109,12 +115,9 @@ class ServerDiscovery:
             self.running = False
 
     def stop(self) -> None:
+        # Only flip the flag; the receive loop's own 0.5s wait_for timeout
+        # will notice and close the socket itself in its own finally block.
+        # Closing the socket here (from another task) while it's still
+        # registered as a pending reader with the selector crashes on
+        # Windows with OSError [WinError 10038] on the next select() call.
         self.running = False
-        # Closing the socket unblocks sock_recvfrom immediately on most platforms
-        if self._sock is not None:
-            try:
-                self._sock.close()
-            except Exception as e:
-                logger.error(f"Error closing discovery socket: {e} {type(e)}")
-                pass
-            self._sock = None

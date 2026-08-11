@@ -199,7 +199,6 @@ class GameState:
 			self.playerlist.pop(int(cid), None)
 		except Exception as e:
 			logger.error(f"{self} Error removing player from playerlist {cid}: {e} {type(e)}")
-			pass
 
 		# Remove any sprites for that player.
 		try:
@@ -216,7 +215,6 @@ class GameState:
 				d.pop(cid, None)
 			except Exception as e:
 				logger.error(f"{self} Error cleaning up player data {cid} in {d}: {e} {type(e)}")
-				pass
 
 	def _sync_local_sprite_from_state(self, state: PlayerState | None) -> None:
 		"""Keep the local Bomberplayer sprite in sync with authoritative state."""
@@ -360,7 +358,7 @@ class GameState:
 			collidable = layer.properties.get('collidable')  # type: ignore
 			killable = layer.properties.get('killable')  # type: ignore
 			if isinstance(layer, pytmx.TiledTileLayer):
-				for x, y, gid in layer:
+				for x, y, gid in layer: # type: ignore
 					if gid == 0:
 						continue
 					tile = self.tile_cache.get(gid, None)
@@ -510,7 +508,7 @@ class GameState:
 			flame_rect = flame.rect
 			for block in list(self.killable_tiles):
 				block_rect = block.rect
-				if flame_rect.colliderect(block_rect):
+				if flame_rect.colliderect(block_rect):  # noqa: SIM102
 					if random.random() < 0.9:
 						tile_x = block_rect.centerx // self.tile_map.tilewidth
 						tile_y = block_rect.centery // self.tile_map.tileheight
@@ -955,11 +953,11 @@ class GameState:
 			self.playerlist[target] = target_player_entry
 			self._sync_local_sprite_from_state(target_player_entry)
 
-		# Mark handled locally so we don't reapply if this event loops back.
-		event['handled'] = True
-		event["handledby"] = "_on_player_hit"
-		# if hit_id is not None:
-		self.processed_hits.add(hit_id)
+			# Mark handled locally so we don't reapply if this event loops back.
+			event['handled'] = True
+			event["handledby"] = "_on_player_hit"
+			# if hit_id is not None:
+			self.processed_hits.add(hit_id)
 
 		# Only the server should broadcast hit events.
 		if self.client_id == "theserver":

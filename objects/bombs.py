@@ -39,7 +39,7 @@ class Bomb(Sprite):
 			game_state = args[0]
 		elif 'game_state' in kwargs:
 			game_state = kwargs['game_state']
-		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:
+		if pygame.time.get_ticks() / 1000 - self.start_time >= self.timer:  # noqa: SIM102
 			if not self.exploded:
 				self.exploded = True
 				# Create explosion particles if manager is provided
