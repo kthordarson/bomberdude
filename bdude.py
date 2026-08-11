@@ -1,8 +1,10 @@
 #!/usr/bin/python
 import argparse
 import asyncio
+import hashlib
 import json
 import multiprocessing
+import os
 import sys
 import time
 import traceback
@@ -381,6 +383,48 @@ async def connect_and_preview(bomberdude_main: Bomberdude, args: argparse.Namesp
 			return False
 
 
+async def _ensure_local_map(args: argparse.Namespace, mapname: str, server_hash: str | None) -> bool:
+	"""Make sure `mapname` exists locally and matches the server's copy
+	(per the map_hash from /get_map_name), downloading a fresh one via
+	/get_map_file if it's missing or stale. Returns False only if no usable
+	local file is available afterward."""
+	local_hash = None
+	if os.path.exists(mapname):
+		try:
+			with open(mapname, "rb") as f:
+				local_hash = hashlib.sha256(f.read()).hexdigest()
+		except OSError as e:
+			logger.error(f"Error hashing local map '{mapname}': {e} {type(e)}")
+
+	if local_hash is not None and server_hash and local_hash == server_hash:
+		return True
+
+	if local_hash is None:
+		logger.warning(f"No local copy of map '{mapname}'; downloading from server.")
+	else:
+		logger.warning(f"Local map '{mapname}' does not match the server's copy (hash mismatch); downloading fresh copy.")
+
+	try:
+		resp = await asyncio.to_thread(requests.get, f"http://{args.server}:{args.api_port}/get_map_file", timeout=15)
+		resp.raise_for_status()
+		data = resp.content
+	except Exception as e:
+		logger.error(f"Error downloading map '{mapname}' from server: {e} {type(e)}")
+		return local_hash is not None  # fall back to the stale local copy, if any
+
+	try:
+		parent = os.path.dirname(mapname)
+		if parent:
+			os.makedirs(parent, exist_ok=True)
+		with open(mapname, "wb") as f:
+			f.write(data)
+		logger.info(f"Downloaded map '{mapname}' from server ({len(data)} bytes).")
+		return True
+	except OSError as e:
+		logger.error(f"Error writing downloaded map '{mapname}': {e} {type(e)}")
+		return local_hash is not None
+
+
 async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> bool:
 	resptext = ''
 	try:
@@ -397,9 +441,14 @@ async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> b
 		resptext = (await asyncio.to_thread(requests.get, f"http://{args.server}:{args.api_port}/get_map_name", timeout=10)).text
 		resp = json.loads(resptext)
 		mapname = resp.get("mapname")
+		server_map_hash = resp.get("map_hash")
 	except Exception as e:
 		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
 		raise e
+
+	if not await _ensure_local_map(args, mapname, server_map_hash):
+		logger.error(f"No usable local copy of map '{mapname}' and download from server failed; aborting connection.")
+		return False
 	# try:
 	# 	bomberdude_main = Bomberdude(args=args, client_id=client_id, mapname=mapname)
 	# except Exception as e:

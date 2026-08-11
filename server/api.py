@@ -14,6 +14,7 @@ class ApiServer:
 		self.add_url_rule("/get_tile_map", view_func=server.get_tile_map, methods=["GET"])
 		self.add_url_rule("/get_client_id", view_func=server.get_client_id, methods=["GET"])
 		self.add_url_rule("/get_map_name", view_func=server.get_map_name, methods=["GET"])
+		self.add_url_rule("/get_map_file", view_func=server.get_map_file, methods=["GET"])
 		self.add_url_rule("/get_position", view_func=server.get_position, methods=["GET"])
 		self.add_url_rule("/register", view_func=server.register_player, methods=["POST"])
 		self.add_url_rule("/login", view_func=server.login_player, methods=["POST"])

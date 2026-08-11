@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import asyncio
+import hashlib
 import json
 import os
 import random
@@ -31,12 +32,26 @@ class BombServer:
 		# metadata (dimensions, layers, collision tiles) for map queries and
 		# upgrade/block logic; without this the map stays an empty placeholder.
 		self.game_state.load_tile_map(args.mapname)
+		# Content hash of the map file itself (not the parsed tile data), so
+		# clients can tell whether their local copy matches this server's
+		# without downloading it first. Computed once since args.mapname is
+		# fixed for the server's lifetime.
+		self.map_hash = self._hash_file(args.mapname)
 		self.client_tasks = set()  # Track active client tasks
 		self.connection_to_client_id = {}  # Map connections to client IDs
 		self._stop = Event()
 		self.discovery_service = ServerDiscovery(self)
 		self.message_counter = 0
 		self.accounts = AccountStore("data/players.db")
+
+	@staticmethod
+	def _hash_file(path: str) -> str | None:
+		try:
+			with open(path, "rb") as f:
+				return hashlib.sha256(f.read()).hexdigest()
+		except OSError as e:
+			logger.error(f"Error hashing map file '{path}': {e} {type(e)}")
+			return None
 
 	@staticmethod
 	def _ensure_headless_display():
@@ -177,9 +192,23 @@ class BombServer:
 	async def get_map_name(self, request):
 		mapname = str(self.args.mapname)
 		if self.args.debug:
-			logger.debug(f'{self} request: {request} mapname: {mapname}')
-		resp = {"mapname": mapname}
+			logger.debug(f'{self} request: {request} mapname: {mapname} map_hash: {self.map_hash}')
+		resp = {"mapname": mapname, "map_hash": self.map_hash}
 		return web.json_response(resp)
+
+	async def get_map_file(self, request):
+		"""Serve the raw currently-running map file, so a client missing it
+		(or holding a stale copy per get_map_name's map_hash) can fetch a
+		fresh one instead of failing to load the map."""
+		try:
+			with open(self.args.mapname, "rb") as f:
+				data = f.read()
+		except OSError as e:
+			logger.error(f"{self} Error reading map file '{self.args.mapname}' for download: {e} {type(e)}")
+			return web.Response(status=404, text=f"Map file not readable: {e}")
+		if self.args.debug:
+			logger.debug(f'{self} request: {request} serving map file {self.args.mapname} ({len(data)} bytes)')
+		return web.Response(body=data, content_type="application/xml")
 
 	async def register_player(self, request):
 		body = await request.json()
