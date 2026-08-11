@@ -417,6 +417,8 @@ async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> b
 	# The tasks will wait until the socket is connected before using it.
 	sender_task = asyncio.create_task(send_game_state(bomberdude_main), name="sender_task")
 	receive_task = asyncio.create_task(receive_game_state(bomberdude_main), name="receive_task")
+	# Let disconnect() cancel these before it closes the socket (see Bomberdude.disconnect).
+	bomberdude_main.network_tasks = (sender_task, receive_task)
 
 	connection_timeout = 5  # seconds
 	logger.info(f"Connecting {bomberdude_main}")

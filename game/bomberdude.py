@@ -54,6 +54,12 @@ class Bomberdude:
         self.sock.setblocking(False)  # Make non-blocking
         # Networking tasks should wait for this before using the socket.
         self.socket_connected = asyncio.Event()
+        # Set by the caller once the sender/receiver tasks are created, so
+        # disconnect() can cancel them before closing self.sock (closing the
+        # socket while they still have a pending sock_recv/sock_sendall
+        # crashes asyncio's Windows ProactorEventLoop when it later tries to
+        # cancel the now-handle-less overlapped I/O).
+        self.network_tasks: tuple[asyncio.Task, ...] = ()
         self.last_position_update = 0.0
         self.position_update_interval = 0.05  # 50ms = 20 updates/second
         self.last_frame_time = time.time()
@@ -97,6 +103,15 @@ class Bomberdude:
         self._connected = False
         self.running = False
         self.return_to_menu = return_to_menu
+        # Cancel the sender/receiver tasks and let them unwind *before*
+        # touching the socket - they may have a pending sock_recv/sock_sendall
+        # on it, and closing the socket out from under a pending op is what
+        # trips the Windows ProactorEventLoop "handle is invalid" crash.
+        for task in self.network_tasks:
+            if not task.done():
+                task.cancel()
+        if self.network_tasks:
+            await asyncio.gather(*self.network_tasks, return_exceptions=True)
         try:
             if hasattr(self, "sock") and self.sock:
                 try:

@@ -69,7 +69,7 @@ class MainMenu:
         self.selected_option = 0
         self.bgcolor = (50, 50, 50)
         self.background_snapshot = self.screen.copy()
-        self.configure_panel.background_snapshot = self.screen.copy()
+        self.configure_panel.background_snapshot = self.screen.copy()  # type: ignore
 
     def exit_ingame(self, options: list[str]) -> None:
         """Return to the normal, full-screen main menu."""
@@ -158,7 +158,7 @@ class MainMenu:
                     action = 'Quit'
                 elif event.key == pygame.K_ESCAPE:
                     action = 'Back'
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.MOUSEBUTTONDOWN:  # noqa: SIM102
                 if event.button == 1:  # Left mouse button
                     action = self.handle_mouse_click(event.pos)
         return action
@@ -238,7 +238,7 @@ class SetupMenu:
                     action = self.select_option()
                 elif event.key in (pygame.K_q, pygame.K_ESCAPE):
                     action = 'Back'
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.MOUSEBUTTONDOWN:  # noqa: SIM102
                 if event.button == 1:  # Left mouse button
                     action = self.handle_mouse_click(event.pos)
         return action
@@ -936,7 +936,6 @@ class ServerDiscoveryPanel:
             self.args.api_port = info.get('api_port')
         except Exception as e:
             logger.error(f"Error setting selected server: {e} {type(e)}")
-            pass
 
     def show(self):
         # super().show()
