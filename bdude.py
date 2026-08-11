@@ -26,6 +26,7 @@ from utils import async_load_image_cached, generate_password
 
 # Global variable to track server process
 server_process = None
+MAPS_DIR = os.path.realpath("data")
 
 
 async def _connect_with_timeout(bomberdude_main: Bomberdude, connection_timeout: float) -> bool:
@@ -383,6 +384,27 @@ async def connect_and_preview(bomberdude_main: Bomberdude, args: argparse.Namesp
 			return False
 
 
+def _sanitize_mapname(mapname: str | None) -> str | None:
+	"""Confine a server-reported map name to MAPS_DIR, rejecting anything
+	with directory components (absolute paths, `..`, subdirectories).
+
+	`mapname` comes from an untrusted server (over /get_map_name) and is
+	used as a filesystem path for both reading and writing (see
+	_ensure_local_map below) — without this, a malicious server could send
+	e.g. "../../.ssh/authorized_keys" as the mapname and have the client
+	overwrite arbitrary local files with attacker-controlled bytes.
+	"""
+	if not mapname:
+		return None
+	safe_name = os.path.basename(mapname)
+	if not safe_name or safe_name in (".", ".."):
+		return None
+	target = os.path.realpath(os.path.join(MAPS_DIR, safe_name))
+	if target != MAPS_DIR and not target.startswith(MAPS_DIR + os.sep):
+		return None
+	return target
+
+
 async def _ensure_local_map(args: argparse.Namespace, mapname: str, server_hash: str | None) -> bool:
 	"""Make sure `mapname` exists locally and matches the server's copy
 	(per the map_hash from /get_map_name), downloading a fresh one via
@@ -440,11 +462,16 @@ async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> b
 	try:
 		resptext = (await asyncio.to_thread(requests.get, f"http://{args.server}:{args.api_port}/get_map_name", timeout=10)).text
 		resp = json.loads(resptext)
-		mapname = resp.get("mapname")
+		raw_mapname = resp.get("mapname")
 		server_map_hash = resp.get("map_hash")
 	except Exception as e:
 		logger.error(f"Error: {e} {type(e)} resptext: {resptext}")
 		raise e
+
+	mapname = _sanitize_mapname(raw_mapname)
+	if mapname is None:
+		logger.error(f"Server returned an unusable map name '{raw_mapname}'; aborting connection.")
+		return False
 
 	if not await _ensure_local_map(args, mapname, server_map_hash):
 		logger.error(f"No usable local copy of map '{mapname}' and download from server failed; aborting connection.")
