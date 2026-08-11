@@ -30,3 +30,11 @@ COOLDOWN_PERIOD = 0.5
 # doesn't need per-frame freshness; refreshing it at this cadence instead of
 # every frame avoids a full-screen Surface.copy() on every single frame.
 BASE_FRAME_SNAPSHOT_REFRESH_INTERVAL = 5
+
+# Upgrade tile GIDs (must match the Tiled map's tileset).
+UPGRADE_HEALTH = 20   # restores player health
+UPGRADE_BOMBS  = 21   # grants an extra bomb slot
+UPGRADE_POWER  = 22   # increases bomb blast radius
+UPGRADE_SPEED  = 23   # speed boost (tile GID reserved; not yet applied)
+# Convenience set for "is this GID an upgrade tile?" checks.
+UPGRADE_TILE_GIDS: frozenset[int] = frozenset({UPGRADE_HEALTH, UPGRADE_BOMBS, UPGRADE_POWER, UPGRADE_SPEED})

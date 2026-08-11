@@ -17,10 +17,10 @@ _DEBUG_FONTS: dict[int, pygame.font.Font] = {}
 
 
 def _get_font(size: int) -> pygame.font.Font:
-    # font = _DEBUG_FONTS.get(size)
-    # if font is None:
-    font = pygame.font.Font(None, size)
-    _DEBUG_FONTS[size] = font
+    font = _DEBUG_FONTS.get(size)
+    if font is None:
+        font = pygame.font.Font(None, size)
+        _DEBUG_FONTS[size] = font
     return font
 
 
@@ -134,15 +134,11 @@ def draw_other_player_id(screen, game_state, camera):
                 traceback.print_exc()
 
 def draw_bullet_debug(screen, game_state, camera):
-    # Draw debug lines for all bullets
+    """Draw a direction indicator for each bullet."""
     for bullet in game_state.bullets:
-        bullet_screen = camera.apply(bullet.rect).center
-        line_end = (bullet_screen[0] + bullet.direction.x * 25, bullet_screen[1] + bullet.direction.y * 25)
-        pygame.draw.line(screen, (255, 0, 0), bullet_screen, line_end, 2)
-        # Draw a line showing bullet direction
-        start_pos = camera.apply(bullet.rect).center
-        end_pos = (start_pos[0] + bullet.direction.x * 25, start_pos[1] + bullet.direction.y * 25)
-        pygame.draw.line(screen, (255, 255, 0), start_pos, end_pos, 2)
+        center = camera.apply(bullet.rect).center
+        tip = (center[0] + bullet.direction.x * 25, center[1] + bullet.direction.y * 25)
+        pygame.draw.line(screen, (255, 255, 0), center, tip, 2)
 
 def draw_blocks_around_player(screen, game_state, camera):
     """

@@ -96,13 +96,13 @@ def load_config(path: str = DEFAULT_CONFIG_PATH) -> Config:
 	if not os.path.exists(path):
 		config = Config()
 		save_config(config, path)
-		logger.info(f"No config file at '{path}'; created one with default values: {config}")
+		logger.info(f"No config file at '{path}'; created one with default values")
 		return config
 	try:
 		with open(path) as f:
 			data = json.load(f)
 		config = Config.from_dict(data)
-		logger.info(f"Loaded config from '{path}': {config}")
+		logger.info(f"Loaded config from '{path}'")
 		return config
 	except Exception as e:
 		logger.error(f"Error loading config from '{path}': {e} {type(e)}; using defaults.")
