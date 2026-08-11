@@ -1,12 +1,13 @@
-import threading
 import asyncio
-from loguru import logger
+import code
+import threading
 from threading import Event
 from typing import Any, cast
-import code
+
+from loguru import logger
 
 
-class ServerTUI():
+class ServerTUI:
 	def __init__(self, server, debug=False, gq=None):
 		# Thread.__init__(self, daemon=True, name="tui")
 		self.gq = gq

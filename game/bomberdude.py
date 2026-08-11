@@ -1,22 +1,25 @@
-import time
-import asyncio
-import requests
-import pygame
-import socket
 import argparse
-from pygame.math import Vector2 as Vec2d
+import asyncio
 import json
+import socket
+import time
+
+import pygame
+import requests
 from loguru import logger
-from utils import gen_randid
-from game.gamestate import GameState
-from constants import UPDATE_TICK, SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE
+from pygame.math import Vector2 as Vec2d
+
 from camera import Camera
 from config import Config
-from objects.player import Bomberplayer, MOVE_MAP
+from constants import BASE_FRAME_SNAPSHOT_REFRESH_INTERVAL, SCREEN_HEIGHT, SCREEN_WIDTH, UPDATE_TICK
 from debug import draw_debug_info
-from panels import PlayerInfoPanel, MainMenu
+from game.gamestate import GameState
+from objects.player import MOVE_MAP, Bomberplayer
+from panels import MainMenu, PlayerInfoPanel
+from utils import gen_randid
 
-class Bomberdude():
+
+class Bomberdude:
     def __init__(self, mainmenu: MainMenu, args: argparse.Namespace, config:Config, client_id: str = "noclientid", mapname: str = "mapnotset"):
         self.config = config
         self.title = "Bomberdude"
@@ -72,6 +75,14 @@ class Bomberdude():
         self._fog_last_radius: int | None = None
         self._fog_last_rgba: tuple[int, int, int, int] | None = None
         self.draw_player_info_panel = True
+
+        # Snapshot of the frame right before overlays (fog/minimap/HUD) are
+        # drawn, refreshed every BASE_FRAME_SNAPSHOT_REFRESH_INTERVAL frames
+        # (see on_draw). Used to redraw those overlays with up-to-date config
+        # onto the frozen pause-menu backdrop, so live-apply Configure menu
+        # changes are visible immediately.
+        self._base_frame_snapshot: pygame.Surface | None = None
+        self._base_frame_snapshot_counter = 0
 
         self.remote_player_sprites: dict[str, Bomberplayer] = {}  # Cache for remote players
 
@@ -262,6 +273,10 @@ class Bomberdude():
         # Draw explosion particles
         self.game_state.explosion_manager.draw(self.screen, self.camera)
 
+        self._base_frame_snapshot_counter += 1
+        if self._base_frame_snapshot is None or self._base_frame_snapshot_counter % BASE_FRAME_SNAPSHOT_REFRESH_INTERVAL == 0:
+            self._base_frame_snapshot = self.screen.copy()
+
         # Draw fog of war
         if self.fog_enabled:
             self.apply_fog_of_war()
@@ -276,13 +291,17 @@ class Bomberdude():
         self.window.blit(self.screen, (0, 0))
 
     def draw_minimap(self):
-        """Draw a minimap in the bottom-right corner showing all players"""
-        # Minimap dimensions and position
-        minimap_width = 150
-        minimap_height = 150
-        minimap_x = SCREEN_WIDTH - minimap_width - 10  # 10px padding
-        minimap_y = SCREEN_HEIGHT - minimap_height - 10
+        """Draw a minimap showing all players. Size, opacity, and screen
+        anchor are read live from self.config so changes in ConfigureMenu
+        take effect immediately."""
+        minimap_width = self.config.minimap_size
+        minimap_height = self.config.minimap_size
         minimap_border = 2
+
+        anchor = self.config.minimap_anchor
+        pad = 10
+        minimap_x = pad if anchor.endswith("left") else SCREEN_WIDTH - minimap_width - pad
+        minimap_y = pad if anchor.startswith("top") else SCREEN_HEIGHT - minimap_height - pad
 
         # Calculate scale ratio (map size to minimap size)
         map_width = self.game_state.tile_map.width * self.game_state.tile_map.tilewidth
@@ -291,25 +310,31 @@ class Bomberdude():
         scale_y = minimap_height / map_height
         scale = min(scale_x, scale_y)  # Use the smaller scale to fit entire map
 
+        # Render onto an off-screen surface so overall opacity can be
+        # applied with a single set_alpha() rather than per-shape.
+        total_w = minimap_width + 2 * minimap_border
+        total_h = minimap_height + 2 * minimap_border
+        mini_surface = pygame.Surface((total_w, total_h))
+
         # Draw background and border
-        pygame.draw.rect(self.screen, (0, 0, 0), (minimap_x - minimap_border, minimap_y - minimap_border, minimap_width + 2*minimap_border, minimap_height + 2*minimap_border))
-        pygame.draw.rect(self.screen, (50, 50, 50), (minimap_x, minimap_y, minimap_width, minimap_height))
+        pygame.draw.rect(mini_surface, (0, 0, 0), (0, 0, total_w, total_h))
+        pygame.draw.rect(mini_surface, (50, 50, 50), (minimap_border, minimap_border, minimap_width, minimap_height))
 
         # Draw map blocks
         for tile in self.game_state.collidable_tiles:
             if tile.layer in ('Blocks',):
-                mini_x = minimap_x + int(tile.rect.x * scale)
-                mini_y = minimap_y + int(tile.rect.y * scale)
+                mini_x = minimap_border + int(tile.rect.x * scale)
+                mini_y = minimap_border + int(tile.rect.y * scale)
                 mini_w = max(2, int(tile.rect.width * scale))
                 mini_h = max(2, int(tile.rect.height * scale))
-                pygame.draw.rect(self.screen, (150, 75, 0), (mini_x, mini_y, mini_w, mini_h))
+                pygame.draw.rect(mini_surface, (150, 75, 0), (mini_x, mini_y, mini_w, mini_h))
 
         # Draw player one (as green dot)
         try:
             player_one = self.game_state.get_playerone()
-            player_x = minimap_x + int(player_one.position.x * scale)
-            player_y = minimap_y + int(player_one.position.y * scale)
-            pygame.draw.circle(self.screen, (0, 255, 0), (player_x, player_y), 3)
+            player_x = minimap_border + int(player_one.position.x * scale)
+            player_y = minimap_border + int(player_one.position.y * scale)
+            pygame.draw.circle(mini_surface, (0, 255, 0), (player_x, player_y), 3)
 
             # Get camera viewport position
             # Instead of using offset_x and offset_y directly, calculate it from player position and screen center
@@ -322,11 +347,11 @@ class Bomberdude():
             center_y = max(0.0, min(center_y, map_height - SCREEN_HEIGHT))
 
             # Draw view rectangle on minimap
-            view_x = minimap_x + int(center_x * scale)
-            view_y = minimap_y + int(center_y * scale)
+            view_x = minimap_border + int(center_x * scale)
+            view_y = minimap_border + int(center_y * scale)
             view_w = int(SCREEN_WIDTH * scale)
             view_h = int(SCREEN_HEIGHT * scale)
-            pygame.draw.rect(self.screen, (200, 200, 200), (view_x, view_y, view_w, view_h), 1)
+            pygame.draw.rect(mini_surface, (200, 200, 200), (view_x, view_y, view_w, view_h), 1)
         except Exception as e:
             logger.error(f"Minimap player error: {e} {type(e)}")
 
@@ -336,23 +361,26 @@ class Bomberdude():
                 try:
                     pos = player.position
                     if hasattr(pos, 'x') and hasattr(pos, 'y'):
-                        other_x = minimap_x + int(pos.x * scale)
-                        other_y = minimap_y + int(pos.y * scale)
+                        other_x = minimap_border + int(pos.x * scale)
+                        other_y = minimap_border + int(pos.y * scale)
                     else:
-                        other_x = minimap_x + int(pos[0] * scale)
-                        other_y = minimap_y + int(pos[1] * scale)
-                    pygame.draw.circle(self.screen, (255, 0, 0), (other_x, other_y), 3)
+                        other_x = minimap_border + int(pos[0] * scale)
+                        other_y = minimap_border + int(pos[1] * scale)
+                    pygame.draw.circle(mini_surface, (255, 0, 0), (other_x, other_y), 3)
                 except Exception as e:
                     logger.error(f"Minimap other player error: {e} {type(e)}")
 
         # Draw bombs as yellow dots
         for bomb in self.game_state.bombs:
             try:
-                bomb_x = minimap_x + int(bomb.position.x * scale)
-                bomb_y = minimap_y + int(bomb.position.y * scale)
-                pygame.draw.circle(self.screen, (255, 55, 0), (bomb_x, bomb_y), 2)
+                bomb_x = minimap_border + int(bomb.position.x * scale)
+                bomb_y = minimap_border + int(bomb.position.y * scale)
+                pygame.draw.circle(mini_surface, (255, 55, 0), (bomb_x, bomb_y), 2)
             except Exception as e:
                 logger.error(f"Minimap bomb error: {e} {type(e)}")
+
+        mini_surface.set_alpha(self.config.minimap_alpha)
+        self.screen.blit(mini_surface, (minimap_x - minimap_border, minimap_y - minimap_border))
 
     async def handle_on_mouse_press(self, x, y, button) -> None:
         if button == 1:
@@ -411,7 +439,12 @@ class Bomberdude():
             self.draw_debug = not self.draw_debug
             logger.debug(f"draw_debug: {self.draw_debug} debug: {self.args.debug}")
         elif key == pygame.K_F3:
-            pass
+            self.mainmenu.configure_panel.background_snapshot = self.screen.copy()
+            saved = self.mainmenu.configure_panel.run(self._apply_config_changes)
+            if saved:
+                if self.args.debug:
+                    logger.debug(f"Config changes saved: {self.config}")
+                self._apply_config_changes()
         elif key == pygame.K_F4:
             pass
         elif key == pygame.K_F5:
@@ -445,8 +478,10 @@ class Bomberdude():
                     logger.info("Resuming game...")
                     waiting = False
                 elif action == "Configure":
-                    saved = self.mainmenu.configure_panel.run()
+                    saved = self.mainmenu.configure_panel.run(self._apply_config_changes)
                     if saved:
+                        if self.args.debug:
+                            logger.debug(f"Config changes saved: {self.config}")
                         self._apply_config_changes()
                     # Stay in the pause loop so the player returns to Resume/Quit.
             self.mainmenu.exit_ingame(["Start", "Start Server", "Stop Server", "Find server", "Setup", "Quit"])
@@ -544,7 +579,9 @@ class Bomberdude():
         self.game_state.cleanup_playerlist()
         current_time = time.time()
         if current_time - self.last_position_update > self.position_update_interval:
-            playerlist = [player.to_dict() for player in self.game_state.playerlist.values()]
+            # Only the sender's own delta fields — no full playerlist snapshot.
+            # Other players' state reaches us the same way: their own client
+            # sends this same event, and the server rebroadcasts it.
             update_event = {
                 "event_time": self.timer,
                 'event_type': "player_update",
@@ -556,7 +593,6 @@ class Bomberdude():
                 "bombs_left": player_one.bombs_left,
                 "handled": False,
                 "handledby": "game_update",
-                "playerlist": playerlist,
                 "event_id": gen_randid(),}
             await self.game_state.event_queue.put(update_event)
             self.last_position_update = current_time
@@ -571,8 +607,12 @@ class Bomberdude():
         screen_width, screen_height = self.screen.get_size()
         if self._fog_size != (screen_width, screen_height) or self.fog_surface is None or self._visibility_mask is None:
             self._fog_size = (screen_width, screen_height)
-            self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
-            self._visibility_mask = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+            # convert_alpha() matches the surface's pixel format to the
+            # display, which SDL needs to use its fast blit path instead of a
+            # slow per-pixel fallback — this blends over the whole screen
+            # every frame (see below), so it's worth doing once here.
+            self.fog_surface = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA).convert_alpha()
+            self._visibility_mask = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA).convert_alpha()
             # Force a refresh after resize/recreate.
             self._fog_last_center = None
             self._fog_last_radius = None
@@ -618,12 +658,35 @@ class Bomberdude():
         """
         cfg = self.config
         player_one = self.game_state.get_playerone()
+        if self.args.debug:
+            logger.debug(f"Applying config changes: {cfg}")
         if player_one and cfg.player_name and player_one.client_name != cfg.player_name:
             player_one.client_name = cfg.player_name
             pygame.display.set_caption(cfg.player_name + ' - ' + self.title)
 
         if self.window.get_size() != (cfg.screen_width, cfg.screen_height):
             self.handle_resize(cfg.screen_width, cfg.screen_height)
+
+        self._refresh_configure_preview()
+
+    def _refresh_configure_preview(self) -> None:
+        """Redraw fog/minimap/HUD overlays with the current config onto the
+        frame captured just before the game paused, and push the result into
+        the Configure menu's frozen backdrop. Without this, that backdrop is
+        a one-time screenshot taken when the pause menu opened, so live-apply
+        changes (fog, minimap) would never appear until the menu is closed."""
+        if self._base_frame_snapshot is None:
+            return
+        self.screen.blit(self._base_frame_snapshot, (0, 0))
+        if self.fog_enabled:
+            self.apply_fog_of_war()
+        if self.draw_debug:
+            draw_debug_info(self.screen, self.game_state, self.camera)
+        if self.show_minimap:
+            self.draw_minimap()
+        if self.draw_player_info_panel:
+            self.player_info_panel.draw()
+        self.mainmenu.configure_panel.background_snapshot = self.screen.copy()
 
     def handle_resize(self, width: int, height: int) -> None:
         """Resize the actual OS window. Game renders at base_size and is scaled up/down."""

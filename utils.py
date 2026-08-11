@@ -1,6 +1,9 @@
-import random
-import pygame
 import asyncio
+import random
+import secrets
+import string
+
+import pygame
 
 _RAW_IMAGE_CACHE: dict[str, pygame.Surface] = {}
 _PROCESSED_IMAGE_CACHE: dict[tuple[str, float, str], pygame.Surface] = {}
@@ -145,3 +148,9 @@ def generate_name(style="bomber"):
 		return f"{adj}{noun}{suffix}{idnum}"
 
 	return f"{adj}{noun}{idnum}"
+
+def generate_password(length=16):
+	"""Generate a random account password using a CSPRNG (unlike generate_name,
+	this backs a real credential, so `secrets` is used instead of `random`)."""
+	alphabet = string.ascii_letters + string.digits
+	return ''.join(secrets.choice(alphabet) for _ in range(length))

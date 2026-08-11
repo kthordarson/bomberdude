@@ -1,6 +1,8 @@
+import asyncio
+
 from aiohttp import web
 from loguru import logger
-import asyncio
+
 
 class ApiServer:
 	def __init__(self, name, server, game_state):
@@ -13,6 +15,9 @@ class ApiServer:
 		self.add_url_rule("/get_client_id", view_func=server.get_client_id, methods=["GET"])
 		self.add_url_rule("/get_map_name", view_func=server.get_map_name, methods=["GET"])
 		self.add_url_rule("/get_position", view_func=server.get_position, methods=["GET"])
+		self.add_url_rule("/register", view_func=server.register_player, methods=["POST"])
+		self.add_url_rule("/login", view_func=server.login_player, methods=["POST"])
+		self.add_url_rule("/lobby_info", view_func=server.get_lobby_info, methods=["GET"])
 		self.game_state = game_state
 
 	def __repr__(self):

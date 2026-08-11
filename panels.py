@@ -1,15 +1,15 @@
 # panels.py
-import asyncio
 import argparse
+import asyncio
 import dataclasses
-import socket
 import json
-import pygame
+import socket
 from collections import OrderedDict
+
+import pygame
 from loguru import logger
 
 from config import Config, save_config
-
 
 # Global text render cache to avoid repeated Font.render() work every frame.
 # Keyed by (font_id, text, antialias, color, background).
@@ -69,6 +69,7 @@ class MainMenu:
         self.selected_option = 0
         self.bgcolor = (50, 50, 50)
         self.background_snapshot = self.screen.copy()
+        self.configure_panel.background_snapshot = self.screen.copy()
 
     def exit_ingame(self, options: list[str]) -> None:
         """Return to the normal, full-screen main menu."""
@@ -213,7 +214,7 @@ class SetupMenu:
         self.option_rects = []
 
     def draw(self):
-        self.screen.fill((0, 0, 0))
+        self.screen.fill((0, 0, 0, 150))
         self.option_rects = []
         for i, option in enumerate(self.options):
             color = (255, 0, 0) if i == self.selected_option else (255, 255, 255)
@@ -305,27 +306,44 @@ FOG_ALPHA_MIN = 0
 FOG_ALPHA_MAX = 255
 FOG_ALPHA_STEP = 5
 
+MINIMAP_SIZE_MIN = 80
+MINIMAP_SIZE_MAX = 300
+MINIMAP_SIZE_STEP = 10
+
+MINIMAP_ALPHA_MIN = 40
+MINIMAP_ALPHA_MAX = 255
+MINIMAP_ALPHA_STEP = 5
+
+MINIMAP_ANCHOR_PRESETS = [
+    ("Top Left", "top_left"),
+    ("Top Right", "top_right"),
+    ("Bottom Left", "bottom_left"),
+    ("Bottom Right", "bottom_right"),
+]
+
 NAME_MAX_LENGTH = 20
 
 
 class ConfigureMenu:
     """In-game settings screen: player name, resolution, bullet color,
-    explosion particle count, and fog-of-war radius/color/alpha. Changes only
-    take effect (and persist to disk) when the player selects "Save";
-    "Cancel" discards them."""
+    explosion particle count, fog-of-war radius/color/alpha, and minimap
+    size/opacity/position. Fog and minimap rows apply live as they're
+    changed; all changes persist to disk when the player selects "Save".
+    "Cancel" discards any changes made during the session."""
 
     def __init__(self, screen: pygame.Surface, config: Config):
         self.screen = screen
         self.config = config
-        self.rows = ["Player Name", "Resolution", "Bullet Color", "Particle Count", "Fog Radius", "Fog Color", "Fog Alpha", "Save", "Cancel"]
+        self.rows = ["Player Name", "Resolution", "Bullet Color", "Particle Count", "Fog Radius", "Fog Color", "Fog Alpha", "Minimap Size", "Minimap Opacity", "Minimap Position", "Save", "Cancel"]
         self.selected_row = 0
-        self.font = pygame.font.Font(None, 32)
-        self.hint_font = pygame.font.Font(None, 22)
+        self.font = pygame.font.Font(None, 20)
+        self.hint_font = pygame.font.Font(None, 16)
         self.running = True
         self.row_rects: list[pygame.Rect] = []
         self.editing_name = False
         self._name_buffer = ""
         self._snapshot: Config | None = None
+        self.background_snapshot = None
 
     def _resolution_index(self) -> int:
         target = (self.config.screen_width, self.config.screen_height)
@@ -345,6 +363,12 @@ class ConfigureMenu:
         target = tuple(self.config.fog_color)
         for i, (_, color) in enumerate(FOG_COLOR_PRESETS):
             if color == target:
+                return i
+        return 0
+
+    def _minimap_anchor_index(self) -> int:
+        for i, (_, anchor) in enumerate(MINIMAP_ANCHOR_PRESETS):
+            if anchor == self.config.minimap_anchor:
                 return i
         return 0
 
@@ -369,6 +393,16 @@ class ConfigureMenu:
     def _adjust_fog_alpha(self, step: int) -> None:
         self.config.fog_alpha = max(FOG_ALPHA_MIN, min(FOG_ALPHA_MAX, self.config.fog_alpha + step))
 
+    def _adjust_minimap_size(self, step: int) -> None:
+        self.config.minimap_size = max(MINIMAP_SIZE_MIN, min(MINIMAP_SIZE_MAX, self.config.minimap_size + step))
+
+    def _adjust_minimap_alpha(self, step: int) -> None:
+        self.config.minimap_alpha = max(MINIMAP_ALPHA_MIN, min(MINIMAP_ALPHA_MAX, self.config.minimap_alpha + step))
+
+    def _cycle_minimap_anchor(self, step: int) -> None:
+        i = (self._minimap_anchor_index() + step) % len(MINIMAP_ANCHOR_PRESETS)
+        self.config.minimap_anchor = MINIMAP_ANCHOR_PRESETS[i][1]
+
     def _row_value_text(self, row: str) -> str:
         if row == "Player Name":
             return self._name_buffer if self.editing_name else self.config.player_name
@@ -384,20 +418,33 @@ class ConfigureMenu:
             return FOG_COLOR_PRESETS[self._fog_color_index()][0]
         elif row == "Fog Alpha":
             return str(self.config.fog_alpha)
+        elif row == "Minimap Size":
+            return f"{self.config.minimap_size}px"
+        elif row == "Minimap Opacity":
+            return str(self.config.minimap_alpha)
+        elif row == "Minimap Position":
+            return MINIMAP_ANCHOR_PRESETS[self._minimap_anchor_index()][0]
         return ""
 
     def draw(self):
-        self.screen.fill((15, 15, 25))
+        self.screen.fill((15, 15, 25, 150))
         self.row_rects = []
         sw = self.screen.get_width()
+
+        if self.background_snapshot is not None:
+            self.screen.blit(self.background_snapshot, (0, 0))
 
         title = _render_text_cached(self.font, "Configure", True, (255, 255, 255))
         self.screen.blit(title, title.get_rect(center=(sw // 2, 80)))
 
+        rows_top = 130
+        rows_bottom = self.screen.get_height() - 70
+        row_step = min(50, (rows_bottom - rows_top) / max(1, len(self.rows) - 1))
+
         for i, row in enumerate(self.rows):
             is_selected = i == self.selected_row
             label_color = (255, 220, 80) if is_selected else (255, 255, 255)
-            y = 160 + i * 50
+            y = int(rows_top + i * row_step)
 
             if row in ("Save", "Cancel"):
                 text = _render_text_cached(self.font, row, True, label_color)
@@ -451,7 +498,8 @@ class ConfigureMenu:
         elif event.unicode and event.unicode.isprintable() and len(self._name_buffer) < NAME_MAX_LENGTH:
             self._name_buffer += event.unicode
 
-    def handle_input(self) -> str | None:
+    def handle_input(self, cb_apply_config_changes) -> str | None:
+        apply_needed = False
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
@@ -474,10 +522,22 @@ class ConfigureMenu:
                         self._adjust_particle_count(-PARTICLE_COUNT_STEP)
                     elif current_row == "Fog Radius":
                         self._adjust_fog_radius(-FOG_RADIUS_STEP)
+                        apply_needed = True
                     elif current_row == "Fog Color":
                         self._cycle_fog_color(-1)
+                        apply_needed = True
                     elif current_row == "Fog Alpha":
                         self._adjust_fog_alpha(-FOG_ALPHA_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Size":
+                        self._adjust_minimap_size(-MINIMAP_SIZE_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Opacity":
+                        self._adjust_minimap_alpha(-MINIMAP_ALPHA_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Position":
+                        self._cycle_minimap_anchor(-1)
+                        apply_needed = True
                 elif event.key == pygame.K_RIGHT:
                     if current_row == "Resolution":
                         self._cycle_resolution(1)
@@ -487,10 +547,22 @@ class ConfigureMenu:
                         self._adjust_particle_count(PARTICLE_COUNT_STEP)
                     elif current_row == "Fog Radius":
                         self._adjust_fog_radius(FOG_RADIUS_STEP)
+                        apply_needed = True
                     elif current_row == "Fog Color":
                         self._cycle_fog_color(1)
+                        apply_needed = True
                     elif current_row == "Fog Alpha":
                         self._adjust_fog_alpha(FOG_ALPHA_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Size":
+                        self._adjust_minimap_size(MINIMAP_SIZE_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Opacity":
+                        self._adjust_minimap_alpha(MINIMAP_ALPHA_STEP)
+                        apply_needed = True
+                    elif current_row == "Minimap Position":
+                        self._cycle_minimap_anchor(1)
+                        apply_needed = True
                 elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                     if current_row == "Player Name":
                         self.editing_name = True
@@ -499,7 +571,7 @@ class ConfigureMenu:
                         return "Save"
                     elif current_row == "Cancel":
                         return "Cancel"
-                elif event.key == pygame.K_ESCAPE:
+                elif event.key in (pygame.K_ESCAPE, pygame.K_F3):
                     return "Cancel"
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for i, rect in enumerate(self.row_rects):
@@ -513,9 +585,12 @@ class ConfigureMenu:
                         elif row == "Player Name":
                             self.editing_name = True
                             self._name_buffer = self.config.player_name
+        if apply_needed:
+            cb_apply_config_changes()
+            apply_needed = False
         return None
 
-    def run(self) -> bool:
+    def run(self, cb_apply_config_changes) -> bool:
         """Show the settings screen. Returns True if the player saved changes,
         False if they cancelled (any in-session edits are reverted)."""
         self._snapshot = dataclasses.replace(self.config)
@@ -525,7 +600,7 @@ class ConfigureMenu:
         clock = pygame.time.Clock()
         while self.running:
             self.draw()
-            action = self.handle_input()
+            action = self.handle_input(cb_apply_config_changes)
             if action == "Save":
                 save_config(self.config)
                 return True
@@ -537,6 +612,250 @@ class ConfigureMenu:
             clock.tick(30)
         return False
 
+class AuthDialog:
+    """Pre-join login dialog: a single 'Connect' action logs in, or (per the
+    caller acting on the returned reason) transparently registers the account
+    if it doesn't exist yet. No separate 'Create Account' vs 'Login' choice."""
+
+    def __init__(self, screen: pygame.Surface, username: str, password: str):
+        self.screen = screen
+        self.username = username
+        self.password = password
+        self.error = ""
+        self.rows = ["Username", "Password", "Connect", "Quit"]
+        self.selected_row = 0
+        self.font = pygame.font.Font(None, 28)
+        self.hint_font = pygame.font.Font(None, 18)
+        self.error_font = pygame.font.Font(None, 20)
+        self.running = True
+        self.row_rects: list[pygame.Rect] = []
+        self.editing_field: str | None = None
+        self._buffer = ""
+
+    def set_error(self, message: str) -> None:
+        self.error = message
+
+    def _field_value(self, row: str) -> str:
+        if row == "Username":
+            return self._buffer if self.editing_field == "Username" else self.username
+        elif row == "Password":
+            raw = self._buffer if self.editing_field == "Password" else self.password
+            return "*" * len(raw)
+        return ""
+
+    def draw(self):
+        self.screen.fill((10, 10, 20))
+        sw, sh = self.screen.get_size()
+        self.row_rects = []
+
+        title = _render_text_cached(self.font, "Connect to Server", True, (255, 255, 255))
+        self.screen.blit(title, title.get_rect(center=(sw // 2, 100)))
+
+        if self.error:
+            err = _render_text_cached(self.error_font, self.error, True, (255, 90, 90))
+            self.screen.blit(err, err.get_rect(center=(sw // 2, 150)))
+
+        rows_top = 220
+        row_step = 50
+        for i, row in enumerate(self.rows):
+            is_selected = i == self.selected_row
+            color = (255, 220, 80) if is_selected else (255, 255, 255)
+            y = rows_top + i * row_step
+
+            if row in ("Connect", "Quit"):
+                text = _render_text_cached(self.font, row, True, color)
+                rect = text.get_rect(center=(sw // 2, y))
+                self.screen.blit(text, rect)
+                self.row_rects.append(rect)
+                continue
+
+            value_text = self._field_value(row)
+            if is_selected and self.editing_field == row:
+                value_text = f"{value_text}_"
+            label = _render_text_cached(self.font, f"{row}:", True, color)
+            value = _render_text_cached(self.font, value_text, True, color)
+            label_rect = label.get_rect(midright=(sw // 2 - 20, y))
+            value_rect = value.get_rect(midleft=(sw // 2 + 20, y))
+            self.screen.blit(label, label_rect)
+            self.screen.blit(value, value_rect)
+            self.row_rects.append(label_rect.union(value_rect))
+
+        hint = "Enter: edit  |  Esc: cancel edit" if self.editing_field else "Up/Down: select  Enter: confirm"
+        hint_surf = _render_text_cached(self.hint_font, hint, True, (170, 170, 170))
+        self.screen.blit(hint_surf, hint_surf.get_rect(center=(sw // 2, sh - 40)))
+
+        pygame.display.flip()
+
+    def _handle_edit_key(self, event: pygame.event.Event) -> None:
+        if event.key == pygame.K_RETURN:
+            value = self._buffer.strip()
+            if self.editing_field == "Username":
+                self.username = value or self.username
+            elif self.editing_field == "Password":
+                self.password = value or self.password
+            self.editing_field = None
+        elif event.key == pygame.K_ESCAPE:
+            self.editing_field = None
+        elif event.key == pygame.K_BACKSPACE:
+            self._buffer = self._buffer[:-1]
+        elif event.unicode and event.unicode.isprintable() and len(self._buffer) < 64:
+            self._buffer += event.unicode
+
+    def handle_input(self) -> str | None:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+                return "Quit"
+            elif event.type == pygame.KEYDOWN:
+                if self.editing_field:
+                    self._handle_edit_key(event)
+                    continue
+                current_row = self.rows[self.selected_row]
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    self.selected_row = (self.selected_row - 1) % len(self.rows)
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    self.selected_row = (self.selected_row + 1) % len(self.rows)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    if current_row in ("Username", "Password"):
+                        self.editing_field = current_row
+                        self._buffer = self.username if current_row == "Username" else self.password
+                    elif current_row == "Connect":
+                        return "Connect"
+                    elif current_row == "Quit":
+                        return "Quit"
+                elif event.key == pygame.K_ESCAPE:
+                    return "Quit"
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for i, rect in enumerate(self.row_rects):
+                    if rect.collidepoint(event.pos):
+                        self.selected_row = i
+                        row = self.rows[i]
+                        if row == "Connect":
+                            return "Connect"
+                        elif row == "Quit":
+                            return "Quit"
+                        elif row in ("Username", "Password"):
+                            self.editing_field = row
+                            self._buffer = self.username if row == "Username" else self.password
+        return None
+
+    def run(self) -> str:
+        clock = pygame.time.Clock()
+        while self.running:
+            self.draw()
+            action = self.handle_input()
+            if action:
+                return action
+            clock.tick(30)
+        return "Quit"
+
+
+class GamePreviewScreen:
+    """Pre-join lobby: current player list plus a static minimap-style
+    overview of the game area, with a Join/Configure/Quit menu."""
+
+    def __init__(self, screen: pygame.Surface, lobby_info: dict, refresh_callback=None, refresh_interval: float = 1.5):
+        self.screen = screen
+        self.lobby_info = lobby_info
+        # Async, no-arg callable returning a fresh lobby_info dict (e.g. a
+        # server /lobby_info re-fetch); polled every `refresh_interval`
+        # seconds while this screen is shown, so the player list/minimap
+        # don't go stale while someone sits on this screen. None disables
+        # refreshing (the screen just shows a static snapshot).
+        self.refresh_callback = refresh_callback
+        self.refresh_interval = refresh_interval
+        self.options = ["Join", "Configure", "Quit"]
+        self.selected_option = 0
+        self.font = pygame.font.Font(None, 32)
+        self.list_font = pygame.font.Font(None, 22)
+        self.option_rects: list[pygame.Rect] = []
+        self.running = True
+
+    def draw(self):
+        self.screen.fill((15, 15, 25))
+        sw, sh = self.screen.get_size()
+
+        title = _render_text_cached(self.font, "Game Preview", True, (255, 255, 255))
+        self.screen.blit(title, title.get_rect(center=(sw // 2, 50)))
+
+        mapname = self.lobby_info.get("mapname", "")
+        players = self.lobby_info.get("players", [])
+        map_w = max(1, self.lobby_info.get("map_width", 1))
+        map_h = max(1, self.lobby_info.get("map_height", 1))
+
+        list_title = _render_text_cached(self.list_font, f"map: {mapname} Players: {len(players)} ", True, (200, 200, 200))
+        self.screen.blit(list_title, (40, 110))
+        for i, p in enumerate(players):
+            name = _render_text_cached(self.list_font, str(p.get("client_name", "?")), True, (255, 255, 255))
+            self.screen.blit(name, (40, 140 + i * 24))
+
+        minimap_size = 380
+        content_top, content_bottom = 110, sh - 150
+        minimap_rect = pygame.Rect(0, 0, minimap_size, minimap_size)
+        minimap_rect.center = (sw // 2, (content_top + content_bottom) // 2)
+        pygame.draw.rect(self.screen, (40, 40, 50), minimap_rect)
+        pygame.draw.rect(self.screen, (200, 200, 200), minimap_rect, 1)
+        for p in players:
+            pos = p.get("position") or [0, 0]
+            frac_x = max(0.0, min(1.0, pos[0] / map_w))
+            frac_y = max(0.0, min(1.0, pos[1] / map_h))
+            px = minimap_rect.left + int(frac_x * minimap_rect.width)
+            py = minimap_rect.top + int(frac_y * minimap_rect.height)
+            pygame.draw.circle(self.screen, (100, 255, 100), (px, py), 4)
+
+        self.option_rects = []
+        for i, option in enumerate(self.options):
+            color = (255, 220, 80) if i == self.selected_option else (255, 255, 255)
+            text = _render_text_cached(self.font, option, True, color)
+            rect = text.get_rect(center=(sw // 2, sh - 150 + i * 50))
+            self.screen.blit(text, rect)
+            self.option_rects.append(rect)
+
+        pygame.display.flip()
+
+    def handle_input(self) -> str | None:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+                return "Quit"
+            elif event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_UP, pygame.K_w):
+                    self.selected_option = (self.selected_option - 1) % len(self.options)
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    self.selected_option = (self.selected_option + 1) % len(self.options)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    return self.options[self.selected_option]
+                elif event.key == pygame.K_ESCAPE:
+                    return "Quit"
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for i, rect in enumerate(self.option_rects):
+                    if rect.collidepoint(event.pos):
+                        self.selected_option = i
+                        return self.options[i]
+        return None
+
+    async def run(self) -> str:
+        clock = pygame.time.Clock()
+        loop = asyncio.get_event_loop()
+        last_refresh = loop.time()
+        while self.running:
+            self.draw()
+            action = self.handle_input()
+            if action:
+                return action
+            if self.refresh_callback is not None and loop.time() - last_refresh >= self.refresh_interval:
+                last_refresh = loop.time()
+                try:
+                    fresh_info = await self.refresh_callback()
+                    if fresh_info:
+                        self.lobby_info = fresh_info
+                except Exception as e:
+                    logger.error(f"Error refreshing lobby info: {e} {type(e)}")
+            clock.tick(30)
+            await asyncio.sleep(0)
+        return "Quit"
+
+
 class Panel:
     def __init__(self, screen: pygame.Surface, position, size, color):
         self.screen = screen
@@ -547,7 +866,7 @@ class Panel:
     def draw(self):
         pygame.draw.rect(self.screen, self.color, (*self.position, *self.size))
 
-class ServerDiscoveryPanel():
+class ServerDiscoveryPanel:
     def __init__(self, screen: pygame.Surface, args: argparse.Namespace):
         self.screen = screen
         self.args = args

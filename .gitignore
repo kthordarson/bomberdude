@@ -1,6 +1,6 @@
 temp/*
 .vscode/*
-.git/*
+.git/* s
 .idea/*
 __pycache__/*
 .pylintrc
@@ -52,3 +52,9 @@ bdude_config*.json
 *.svg
 *pstats*
 pycall*
+.claude/*
+.github/prompts/dudeprompt.prompt.md
+
+# AES keys and the player accounts DB (server/accounts.py, crypto_utils.py)
+*.key
+data/*.db

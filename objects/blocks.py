@@ -1,8 +1,10 @@
-from pygame.math import Vector2 as Vec2d
 # from pymunk import Vec2d
 import pygame
-from utils import get_cached_image, gen_randid, async_get_cached_image
+from pygame.math import Vector2 as Vec2d
+
 from constants import BLOCK
+from utils import async_get_cached_image, gen_randid, get_cached_image
+
 
 class Upgrade:
 	"""A pickup/status effect spawned on a destroyed block.

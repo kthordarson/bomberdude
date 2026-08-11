@@ -1,6 +1,7 @@
 import pygame
 from pygame.math import Vector2 as Vec2d
 
+
 class Camera:
     def __init__(self, width, height, map_width, map_height):
         self.width = width
