@@ -115,11 +115,9 @@ class ServerDiscovery:
             self.running = False
 
     def stop(self) -> None:
+        # Only flip the flag; the receive loop's own 0.5s wait_for timeout
+        # will notice and close the socket itself in its own finally block.
+        # Closing the socket here (from another task) while it's still
+        # registered as a pending reader with the selector crashes on
+        # Windows with OSError [WinError 10038] on the next select() call.
         self.running = False
-        # Closing the socket unblocks sock_recvfrom immediately on most platforms
-        if self._sock is not None:
-            try:
-                self._sock.close()
-            except Exception as e:
-                logger.error(f"Error closing discovery socket: {e} {type(e)}")
-            self._sock = None
