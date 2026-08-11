@@ -17,7 +17,7 @@ _TEXT_CACHE_MAX = 512
 _TEXT_CACHE: "OrderedDict[tuple[int, str, bool, tuple[int, int, int, int] | tuple[int, int, int], tuple[int, int, int, int] | tuple[int, int, int] | None], pygame.Surface]" = OrderedDict()
 
 
-def _render_text_cached(font: pygame.font.Font, text: str, antialias: bool, color, background=None) -> pygame.Surface:
+def _render_panel_text(font: pygame.font.Font, text: str, antialias: bool, color, background=None) -> pygame.Surface:
     key = (id(font), text, antialias, tuple(color), tuple(background) if background is not None else None)
     surf = None
     if key:
@@ -104,7 +104,7 @@ class MainMenu:
             if option == "Start" and self.server_running:
                 option = "Start (Server Running)"
 
-            text = _render_text_cached(self.font, option, True, color)
+            text = _render_panel_text(self.font, option, True, color)
             rect = text.get_rect(center=(self.screen.get_width() // 2, 150 + i * 50))
             self.screen.blit(text, rect)
             self.option_rects.append(rect)
@@ -130,14 +130,14 @@ class MainMenu:
         panel.fill((*self.bgcolor, INGAME_MENU_ALPHA))
         self.screen.blit(panel, (panel_x, panel_y))
 
-        title = _render_text_cached(small_font, "PAUSED", True, (255, 255, 255))
+        title = _render_panel_text(small_font, "PAUSED", True, (255, 255, 255))
         title_rect = title.get_rect(center=(sw // 2, panel_y + title_h // 2))
         self.screen.blit(title, title_rect)
 
         self.option_rects = []
         for i, option in enumerate(self.options):
             color = (255, 80, 80) if i == self.selected_option else (255, 255, 255)
-            text = _render_text_cached(small_font, option, True, color)
+            text = _render_panel_text(small_font, option, True, color)
             rect = text.get_rect(center=(sw // 2, panel_y + title_h + spacing // 2 + i * spacing))
             self.screen.blit(text, rect)
             self.option_rects.append(rect)
@@ -218,7 +218,7 @@ class SetupMenu:
         self.option_rects = []
         for i, option in enumerate(self.options):
             color = (255, 0, 0) if i == self.selected_option else (255, 255, 255)
-            text = _render_text_cached(self.font, option, True, color)
+            text = _render_panel_text(self.font, option, True, color)
             rect = text.get_rect(center=(self.screen.get_width() // 2, 150 + i * 50))
             self.screen.blit(text, rect)
             self.option_rects.append(rect)
@@ -434,7 +434,7 @@ class ConfigureMenu:
         if self.background_snapshot is not None:
             self.screen.blit(self.background_snapshot, (0, 0))
 
-        title = _render_text_cached(self.font, "Configure", True, (255, 255, 255))
+        title = _render_panel_text(self.font, "Configure", True, (255, 255, 255))
         self.screen.blit(title, title.get_rect(center=(sw // 2, 80)))
 
         rows_top = 130
@@ -447,7 +447,7 @@ class ConfigureMenu:
             y = int(rows_top + i * row_step)
 
             if row in ("Save", "Cancel"):
-                text = _render_text_cached(self.font, row, True, label_color)
+                text = _render_panel_text(self.font, row, True, label_color)
                 rect = text.get_rect(center=(sw // 2, y))
                 self.screen.blit(text, rect)
                 self.row_rects.append(rect)
@@ -459,8 +459,8 @@ class ConfigureMenu:
             elif is_selected and self.editing_name:
                 value_text = f"{value_text}_"
 
-            label = _render_text_cached(self.font, f"{row}:", True, label_color)
-            value = _render_text_cached(self.font, value_text, True, label_color)
+            label = _render_panel_text(self.font, f"{row}:", True, label_color)
+            value = _render_panel_text(self.font, value_text, True, label_color)
             label_rect = label.get_rect(midright=(sw // 2 - 20, y))
             value_rect = value.get_rect(midleft=(sw // 2 + 20, y))
             self.screen.blit(label, label_rect)
@@ -482,7 +482,7 @@ class ConfigureMenu:
             self.row_rects.append(label_rect.union(value_rect))
 
         hint = "Enter: edit name  |  Esc: cancel edit" if self.editing_name else "Up/Down: select  Left/Right: change  Enter: confirm  Esc: cancel"
-        hint_surf = _render_text_cached(self.hint_font, hint, True, (170, 170, 170))
+        hint_surf = _render_panel_text(self.hint_font, hint, True, (170, 170, 170))
         self.screen.blit(hint_surf, hint_surf.get_rect(center=(sw // 2, self.screen.get_height() - 40)))
 
         pygame.display.flip()
@@ -648,11 +648,11 @@ class AuthDialog:
         sw, sh = self.screen.get_size()
         self.row_rects = []
 
-        title = _render_text_cached(self.font, "Connect to Server", True, (255, 255, 255))
+        title = _render_panel_text(self.font, "Connect to Server", True, (255, 255, 255))
         self.screen.blit(title, title.get_rect(center=(sw // 2, 100)))
 
         if self.error:
-            err = _render_text_cached(self.error_font, self.error, True, (255, 90, 90))
+            err = _render_panel_text(self.error_font, self.error, True, (255, 90, 90))
             self.screen.blit(err, err.get_rect(center=(sw // 2, 150)))
 
         rows_top = 220
@@ -663,7 +663,7 @@ class AuthDialog:
             y = rows_top + i * row_step
 
             if row in ("Connect", "Quit"):
-                text = _render_text_cached(self.font, row, True, color)
+                text = _render_panel_text(self.font, row, True, color)
                 rect = text.get_rect(center=(sw // 2, y))
                 self.screen.blit(text, rect)
                 self.row_rects.append(rect)
@@ -672,8 +672,8 @@ class AuthDialog:
             value_text = self._field_value(row)
             if is_selected and self.editing_field == row:
                 value_text = f"{value_text}_"
-            label = _render_text_cached(self.font, f"{row}:", True, color)
-            value = _render_text_cached(self.font, value_text, True, color)
+            label = _render_panel_text(self.font, f"{row}:", True, color)
+            value = _render_panel_text(self.font, value_text, True, color)
             label_rect = label.get_rect(midright=(sw // 2 - 20, y))
             value_rect = value.get_rect(midleft=(sw // 2 + 20, y))
             self.screen.blit(label, label_rect)
@@ -681,7 +681,7 @@ class AuthDialog:
             self.row_rects.append(label_rect.union(value_rect))
 
         hint = "Enter: edit  |  Esc: cancel edit" if self.editing_field else "Up/Down: select  Enter: confirm"
-        hint_surf = _render_text_cached(self.hint_font, hint, True, (170, 170, 170))
+        hint_surf = _render_panel_text(self.hint_font, hint, True, (170, 170, 170))
         self.screen.blit(hint_surf, hint_surf.get_rect(center=(sw // 2, sh - 40)))
 
         pygame.display.flip()
@@ -775,7 +775,7 @@ class GamePreviewScreen:
         self.screen.fill((15, 15, 25))
         sw, sh = self.screen.get_size()
 
-        title = _render_text_cached(self.font, "Game Preview", True, (255, 255, 255))
+        title = _render_panel_text(self.font, "Game Preview", True, (255, 255, 255))
         self.screen.blit(title, title.get_rect(center=(sw // 2, 50)))
 
         mapname = self.lobby_info.get("mapname", "")
@@ -783,10 +783,10 @@ class GamePreviewScreen:
         map_w = max(1, self.lobby_info.get("map_width", 1))
         map_h = max(1, self.lobby_info.get("map_height", 1))
 
-        list_title = _render_text_cached(self.list_font, f"map: {mapname} Players: {len(players)} ", True, (200, 200, 200))
+        list_title = _render_panel_text(self.list_font, f"map: {mapname} Players: {len(players)} ", True, (200, 200, 200))
         self.screen.blit(list_title, (40, 110))
         for i, p in enumerate(players):
-            name = _render_text_cached(self.list_font, str(p.get("client_name", "?")), True, (255, 255, 255))
+            name = _render_panel_text(self.list_font, str(p.get("client_name", "?")), True, (255, 255, 255))
             self.screen.blit(name, (40, 140 + i * 24))
 
         minimap_size = 380
@@ -806,7 +806,7 @@ class GamePreviewScreen:
         self.option_rects = []
         for i, option in enumerate(self.options):
             color = (255, 220, 80) if i == self.selected_option else (255, 255, 255)
-            text = _render_text_cached(self.font, option, True, color)
+            text = _render_panel_text(self.font, option, True, color)
             rect = text.get_rect(center=(sw // 2, sh - 150 + i * 50))
             self.screen.blit(text, rect)
             self.option_rects.append(rect)
@@ -990,16 +990,16 @@ class ServerDiscoveryPanel:
             self.rect = pygame.Rect(0, 0, surface.get_width(), surface.get_height())
             surface.fill((30, 30, 30), self.rect)
             # Draw title
-            title = _render_text_cached(self.title_font, "Find Local Servers", True, (255, 255, 255))
+            title = _render_panel_text(self.title_font, "Find Local Servers", True, (255, 255, 255))
             surface.blit(title, (self.rect.centerx - title.get_width()//2, 20))
 
-            hint = _render_text_cached(self.font, "Click a server to select, ESC/Q to go back", True, (200, 200, 200))
+            hint = _render_panel_text(self.font, "Click a server to select, ESC/Q to go back", True, (200, 200, 200))
             surface.blit(hint, (self.rect.centerx - hint.get_width()//2, 70))
 
             self.server_rows = []
             y = 120
             if not self.servers:
-                none_text = _render_text_cached(self.font, "No servers found yet...", True, (255, 255, 255))
+                none_text = _render_panel_text(self.font, "No servers found yet...", True, (255, 255, 255))
                 surface.blit(none_text, (self.rect.centerx - none_text.get_width()//2, y))
                 return
 
@@ -1008,7 +1008,7 @@ class ServerDiscoveryPanel:
                 players = info.get('players', '?')
                 m = info.get('map', '')
                 info_string = f"{name} ({addr}) - {players} players - {m}"
-                text = _render_text_cached(self.font, info_string, True, (255, 255, 255))
+                text = _render_panel_text(self.font, info_string, True, (255, 255, 255))
                 rect = text.get_rect(center=(self.rect.centerx, y))
                 # Expand to a click target
                 click_rect = pygame.Rect(rect.left - 10, rect.top - 6, rect.width + 20, rect.height + 12)
@@ -1071,7 +1071,7 @@ class PlayerInfoPanel:
         self.surface.fill(self.bg_color)
 
         # Draw panel title
-        title = _render_text_cached(self.title_font, "PLAYERS", True, (255, 255, 255))
+        title = _render_panel_text(self.title_font, "PLAYERS", True, (255, 255, 255))
         title_rect = title.get_rect(midtop=(self.rect.width // 2, 5))
         self.surface.blit(title, title_rect)
 
@@ -1081,7 +1081,7 @@ class PlayerInfoPanel:
         # Get all players to display
         local_player = self.game_state.get_playerone()
         # if local_player:
-        #     name_text = _render_text_cached(self.title_font, f"{local_player.client_name}", True, (255, 255, 255))
+        #     name_text = _render_panel_text(self.title_font, f"{local_player.client_name}", True, (255, 255, 255))
         #     name_rect = name_text.get_rect(midtop=(self.rect.width // 3, 5))
         #     self.surface.blit(name_text, name_rect)
 
@@ -1135,10 +1135,10 @@ class PlayerInfoPanel:
         cache_key = (client_name, health, score, bombs_left, bomb_power)
         cached = self._player_text_cache.get(player_id)
         if cached is None or cached[0] != cache_key:
-            id_text = _render_text_cached(self.player_font, f"Player: {client_name}", True, (255, 255, 255))
-            health_text = _render_text_cached(self.stats_font, f"HP: {health}", True, (255, 255, 255))
-            score_text = _render_text_cached(self.stats_font, f"Score: {score}", True, (255, 255, 255))
-            bombs_text = _render_text_cached(self.stats_font, f"Bombs: {bombs_left} {bomb_power}", True, (255, 255, 255))
+            id_text = _render_panel_text(self.player_font, f"Player: {client_name}", True, (255, 255, 255))
+            health_text = _render_panel_text(self.stats_font, f"HP: {health}", True, (255, 255, 255))
+            score_text = _render_panel_text(self.stats_font, f"Score: {score}", True, (255, 255, 255))
+            bombs_text = _render_panel_text(self.stats_font, f"Bombs: {bombs_left} {bomb_power}", True, (255, 255, 255))
             self._player_text_cache[player_id] = (cache_key, id_text, health_text, score_text, bombs_text)
         else:
             _, id_text, health_text, score_text, bombs_text = cached

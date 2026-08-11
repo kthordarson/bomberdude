@@ -29,7 +29,7 @@ _TEXT_CACHE_MAX = 512
 _TEXT_CACHE: "OrderedDict[tuple[int, str, bool, tuple[int, int, int, int] | tuple[int, int, int], tuple[int, int, int, int] | tuple[int, int, int] | None], pygame.Surface]" = OrderedDict()
 
 
-def _render_text_cached(font: pygame.font.Font, text: str, antialias: bool, color, background=None) -> pygame.Surface:
+def _render_debug_text(font: pygame.font.Font, text: str, antialias: bool, color, background=None) -> pygame.Surface:
     surf = None
     key = (id(font), text, antialias, tuple(color), tuple(background) if background is not None else None)
     if key:
@@ -53,7 +53,7 @@ def _render_line(font: pygame.font.Font, cache_key: str, text: str, antialias: b
     cached = _LINE_CACHE.get(cache_key)
     if cached is not None and cached[0] == text:
         return cached[1]
-    surf = _render_text_cached(font, text, antialias, color)
+    surf = _render_debug_text(font, text, antialias, color)
     _LINE_CACHE[cache_key] = (text, surf)
     return surf
 
@@ -110,7 +110,7 @@ def draw_other_player_id(screen, game_state, camera):
     font = _get_font(16)
     player_one = game_state.get_playerone()
     player_one_screen_pos = camera.apply(player_one.rect).topleft
-    player_text = _render_text_cached(font, f"{player_one.health}", True, (50, 255, 50))
+    player_text = _render_debug_text(font, f"{player_one.health}", True, (50, 255, 50))
     screen.blit(player_text, (player_one_screen_pos[0], player_one_screen_pos[1] - 20))
 
     # Draw network players' IDs above their sprites
@@ -121,7 +121,7 @@ def draw_other_player_id(screen, game_state, camera):
                 # Convert world position to screen position
                 screen_pos = camera.apply(player_rect).topleft
                 # Generate and draw the player ID text above the sprite
-                player_text = _render_text_cached(font, f"{player.health}", True, (255, 150, 150))
+                player_text = _render_debug_text(font, f"{player.health}", True, (255, 150, 150))
                 text_x = screen_pos[0] + (player_rect.width // 2) - (player_text.get_width() // 2)
                 text_y = screen_pos[1] - 20  # Position above the player sprite
 
@@ -175,7 +175,7 @@ def draw_blocks_around_player(screen, game_state, camera):
             # Show block position/ID
             # pos_text = f"({tile_x},{tile_y})"
             pos_text = f"ID:{tile.id}"
-            text_surf = _render_text_cached(font, pos_text, True, (255, 255, 255))
+            text_surf = _render_debug_text(font, pos_text, True, (255, 255, 255))
             screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))
             # Draw line from player to this block
             pygame.draw.line(screen, (200, 100, 255), camera.apply(player_one.rect).center, screen_rect.center, 1)
@@ -206,7 +206,7 @@ def draw_blocks_around_player(screen, game_state, camera):
             # Show block position/ID
             # pos_text = f"({tile_x},{tile_y})"
             pos_text = f"ID:{tile.id}"
-            text_surf = _render_text_cached(font, pos_text, True, (255, 255, 255))
+            text_surf = _render_debug_text(font, pos_text, True, (255, 255, 255))
             screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))
             # Draw line from player to this block
             pygame.draw.line(screen, (100, 100, 255), camera.apply(player_one.rect).center, screen_rect.center, 1)
@@ -227,7 +227,7 @@ def draw_blocks_around_player(screen, game_state, camera):
             # Show block position/ID
             # pos_text = f"({tile_x},{tile_y})"
             pos_text = f"ID:{tile.id}"
-            text_surf = _render_text_cached(font, pos_text, True, (255, 255, 255))
+            text_surf = _render_debug_text(font, pos_text, True, (255, 255, 255))
             screen.blit(text_surf, (screen_rect.centerx - text_surf.get_width()//2, screen_rect.centery - text_surf.get_height()//2))
             # Draw line from player to this block
             pygame.draw.line(screen, (200, 100, 255), camera.apply(player_one.rect).center, screen_rect.center, 1)
