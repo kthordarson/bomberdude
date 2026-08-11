@@ -53,7 +53,9 @@ def get_server_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
 	args = get_server_args()
-	if sys.platform == "win32":
-		asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+	asyncio.run(async_start_server(args),loop_factory=asyncio.SelectorEventLoop if sys.platform == "win32" else None,)
 
-	asyncio.run(async_start_server(args))
+	# if sys.platform == "win32":
+	# 	asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+	# asyncio.run(async_start_server(args))
