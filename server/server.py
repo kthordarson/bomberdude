@@ -273,7 +273,7 @@ class BombServer:
 		layers.append(block_layer)
 		for layer in layers:
 			if isinstance(layer, pytmx.TiledTileLayer):
-				for x, y, gid in layer:
+				for x, y, gid in layer: # type: ignore
 					if gid != 0:
 						collidable_positions.add((x, y))
 			else:

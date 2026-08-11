@@ -17,11 +17,11 @@ def get_local_ip_addresses():
                     ip = s.getsockname()[0]
                     if not ip.startswith("127."):
                         ips.add(ip)
-                except Exception:
+                except Exception:  # noqa: S110
                     pass
                 finally:
                     s.close()
-        except Exception:
+        except Exception:  # noqa: S110
             pass
     return list(ips)
 
@@ -122,5 +122,4 @@ class ServerDiscovery:
                 self._sock.close()
             except Exception as e:
                 logger.error(f"Error closing discovery socket: {e} {type(e)}")
-                pass
             self._sock = None

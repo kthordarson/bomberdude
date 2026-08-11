@@ -1,0 +1,5 @@
+[tool.ruff]
+
+[tool.ruff.lint]
+# select = [...]  # See the Default Rules page for the full listing.
+ignore = ["E501", "BLE001", "TRY201", "I001"]

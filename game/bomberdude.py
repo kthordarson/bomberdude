@@ -119,7 +119,7 @@ class Bomberdude:
         self.socket_connected.set()
         api_url = f"http://{self.args.server}:{self.args.api_port}/get_tile_map"
         try:
-            resp = requests.get(api_url, timeout=10).text
+            resp = requests.get(api_url, timeout=10).text  # noqa: ASYNC210
         except Exception as e:
             logger.error(f"Error connecting to server: {e} {type(e)}")
             return False
@@ -439,7 +439,7 @@ class Bomberdude:
             self.draw_debug = not self.draw_debug
             logger.debug(f"draw_debug: {self.draw_debug} debug: {self.args.debug}")
         elif key == pygame.K_F3:
-            self.mainmenu.configure_panel.background_snapshot = self.screen.copy()
+            self.mainmenu.configure_panel.background_snapshot = self.screen.copy() # type: ignore
             saved = self.mainmenu.configure_panel.run(self._apply_config_changes)
             if saved:
                 if self.args.debug:
@@ -518,16 +518,10 @@ class Bomberdude:
 
     async def handle_on_key_release(self, key):
         player_one = self.game_state.get_playerone()
-        if key in (pygame.K_UP, pygame.K_w):
+        if key in (pygame.K_UP, pygame.K_w) or key in (pygame.K_DOWN, pygame.K_s):
             player_one.change_y = 0
             self.game_state.keyspressed.keys[key] = False
-        elif key in (pygame.K_DOWN, pygame.K_s):
-            player_one.change_y = 0
-            self.game_state.keyspressed.keys[key] = False
-        elif key in (pygame.K_LEFT, pygame.K_a):
-            player_one.change_x = 0
-            self.game_state.keyspressed.keys[key] = False
-        elif key in (pygame.K_RIGHT, pygame.K_d):
+        elif key in (pygame.K_LEFT, pygame.K_a) or key in (pygame.K_RIGHT, pygame.K_d):
             player_one.change_x = 0
             self.game_state.keyspressed.keys[key] = False
         if key == pygame.K_SPACE:
@@ -686,7 +680,7 @@ class Bomberdude:
             self.draw_minimap()
         if self.draw_player_info_panel:
             self.player_info_panel.draw()
-        self.mainmenu.configure_panel.background_snapshot = self.screen.copy()
+        self.mainmenu.configure_panel.background_snapshot = self.screen.copy() # type: ignore
 
     def handle_resize(self, width: int, height: int) -> None:
         """Resize the actual OS window. Game renders at base_size and is scaled up/down."""

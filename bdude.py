@@ -3,7 +3,6 @@ import argparse
 import asyncio
 import json
 import multiprocessing
-import sys
 import time
 import traceback
 from argparse import ArgumentParser
