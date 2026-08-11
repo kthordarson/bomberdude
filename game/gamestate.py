@@ -353,6 +353,24 @@ class GameState:
 		if self.args.debug_gamestate:
 			logger.info(f"{self} Loaded tile map '{self.mapname}' with {len(self.collidable_tiles)} collidable tiles, {len(self.killable_tiles)} killable tiles, {len(self.background_tiles)} background tiles.")
 
+	def old_parse_pos_key(self, key):
+		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
+		if isinstance(key, tuple):
+			logger.debug(f"{self} _parse_pos_key: {key} {type(key)}")
+			return key
+		elif isinstance(key, str):
+			logger.warning(f"{self} _parse_pos_key: Invalid key type {key} {type(key)}")
+			try:
+				return tuple(ast.literal_eval(key))  # type: ignore
+			except Exception as e:
+				logger.error(f'{self} Error parsing position key {key}: {e} {type(e)}')
+				s = key.strip().strip('()')
+				x_s, y_s = s.split(',')
+				return (int(x_s), int(y_s))
+		else:
+			logger.error(f"{self} _parse_pos_key: Invalid key type {key} {type(key)}, defaulting to (0, 0).")
+		return key
+
 	def _parse_pos_key(self, key):
 		"""Safely parse a position key that may be a tuple or a string like '(x, y)'"""
 		return tuple(ast.literal_eval(key))  # type: ignore
@@ -854,8 +872,11 @@ class GameState:
 		# Mark handled and schedule broadcast without blocking
 		event["handled"] = True
 		event["handledby"] = "_on_player_update"
+		# Only the server re-broadcasts authoritative player state. Clients must
+		# not re-broadcast player_update events — the server validates that each
+		# connection only reports events for its own bound client_id, so a client
+		# rebroadcasting would either be rejected or create a feedback loop.
 		if self.client_id == "theserver":
-			# IMPORTANT: clients can have stale health; broadcast server-authoritative state.
 			out_event = dict(event)
 			out_event["handled"] = False
 			out_event["handledby"] = "server.authoritative_player_update"
@@ -865,21 +886,7 @@ class GameState:
 			out_event["health"] = ps.health
 			out_event["client_name"] = ps.client_name
 			out_event["bomb_power"] = ps.bomb_power
-			# asyncio.create_task(self.broadcast_event(out_event))
-		else:
-			if self.args.debug_gamestate:
-				pass  # logger.warning(f"{self} skipping broadcast_event for player_update on client.")
-			# asyncio.create_task(self.broadcast_event(event))
-		out_event = dict(event)
-		out_event["handled"] = False
-		out_event["handledby"] = "server.authoritative_player_update"
-		out_event["position"] = ps.position
-		out_event["score"] = ps.score
-		out_event["bombs_left"] = ps.bombs_left
-		out_event['bomb_power'] = ps.bomb_power
-		out_event["health"] = ps.health
-		out_event["client_name"] = ps.client_name
-		asyncio.create_task(self.broadcast_event(out_event))
+			asyncio.create_task(self.broadcast_event(out_event))
 		await asyncio.sleep(0)
 		return True
 
