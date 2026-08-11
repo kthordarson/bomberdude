@@ -454,7 +454,7 @@ class Bomberdude:
             self.draw_debug = not self.draw_debug
             logger.debug(f"draw_debug: {self.draw_debug} debug: {self.args.debug}")
         elif key == pygame.K_F3:
-            self.mainmenu.configure_panel.background_snapshot = self.screen.copy() # type: ignore
+            self.mainmenu.configure_panel.background_snapshot = self.screen.copy()  # type: ignore
             saved = self.mainmenu.configure_panel.run(self._apply_config_changes)
             if saved:
                 if self.args.debug:
@@ -695,7 +695,7 @@ class Bomberdude:
             self.draw_minimap()
         if self.draw_player_info_panel:
             self.player_info_panel.draw()
-        self.mainmenu.configure_panel.background_snapshot = self.screen.copy() # type: ignore
+        self.mainmenu.configure_panel.background_snapshot = self.screen.copy()  # type: ignore
 
     def handle_resize(self, width: int, height: int) -> None:
         """Resize the actual OS window. Game renders at base_size and is scaled up/down."""
