@@ -18,6 +18,10 @@ from constants import (
 	DEFAULT_HEALTH,
 	INITIAL_BOMB_POWER,
 	INITIAL_BOMBS,
+	UPGRADE_HEALTH,
+	UPGRADE_BOMBS,
+	UPGRADE_POWER,
+	UPGRADE_TILE_GIDS,
 )
 from game.playerstate import PlayerState
 from objects.blocks import Upgrade
@@ -437,7 +441,7 @@ class GameState:
 			map_update_event = {'event_type': "map_update_event", "position": (x, y), "new_gid": new_gid, "event_time": time.time(), "client_id": self.client_id, "handled": False, 'handledby': '_apply_tile_change',}
 			asyncio.create_task(self.broadcast_event(map_update_event))
 			# asyncio.create_task(self.event_queue.put(map_update_event))
-		elif new_gid in [20,21,22,23]:
+		elif new_gid in UPGRADE_TILE_GIDS:
 			# Create and add an Upgrade object for this tile if not already present (for both server and clients)
 			upgrade_tile = self.tile_cache.get(new_gid)
 			self.tile_cache[new_gid] = upgrade_tile
@@ -481,42 +485,63 @@ class GameState:
 				del self.playerlist[client_id]
 
 	async def check_flame_collisions(self) -> None:
-		"""Check for collisions between bomb flames and players.
+		"""Check for collisions between bomb flames and players/killable blocks.
+
+		Each flame is checked once per call:
+		- If it touches a living player, a player_hit event is queued and the
+		  flame is consumed (so it cannot *also* destroy a block on the same
+		  tick).
+		- Otherwise, if it overlaps a killable block, there is a 90 % chance of
+		  spawning a random upgrade and the flame is consumed.
 
 		Notes:
-		- In the current client simulation, clients usually only have *their own* sprite in `players_sprites`, so this primarily detects hits on the local player and reports them (similar to bullets).
-		- If a player is touched by a flame, we emit a `player_hit` event and kill the flame.
+		- Clients usually only carry their own sprite in `players_sprites`, so
+		  flame→player hits are primarily self-reported and then broadcast.
+		- `list(...)` snapshots prevent mutation-during-iteration issues.
 		"""
 		players = list(self.players_sprites)
-		# Flames live under the ExplosionManager in this codebase.
 
 		for flame in list(self.explosion_manager.flames):
 			flame_rect = flame.rect
+			hit_player = False
+
+			# --- player collision (highest priority) ---
 			for player in players:
-				player_id = player.client_id
-				player_rect = player.rect
 				# Don't re-hit already-dead players.
 				if player.killed or player.health <= 0:
 					continue
-				if flame_rect.colliderect(player_rect):
-					hit_event = {"event_time": time.time(), 'event_type': "player_hit", "client_id": flame.client_id, "reported_by": self.client_id, "target_id": player_id, "damage": 10, "position": (int(flame_rect.centerx), int(flame_rect.centery)), "handled": False, "handledby": "check_flame_collisions", "event_id": gen_randid(),}
-					# Queue the hit event and remove the flame so it only damages once.
+				if flame_rect.colliderect(player.rect):
+					hit_event = {
+						"event_time": time.time(),
+						"event_type": "player_hit",
+						"client_id": flame.client_id,
+						"reported_by": self.client_id,
+						"target_id": player.client_id,
+						"damage": 10,
+						"position": (int(flame_rect.centerx), int(flame_rect.centery)),
+						"handled": False,
+						"handledby": "check_flame_collisions",
+						"event_id": gen_randid(),
+					}
 					asyncio.create_task(self.event_queue.put(hit_event))
-					# asyncio.create_task(self.broadcast_event(hit_event))
 					flame.kill()
-		for flame in list(self.explosion_manager.flames):
-			flame_rect = flame.rect
+					hit_player = True
+					break  # one player hit per flame
+
+			if hit_player:
+				continue  # consumed; skip block check
+
+			# --- killable block collision ---
 			for block in list(self.killable_tiles):
-				block_rect = block.rect
-				if flame_rect.colliderect(block_rect):  # noqa: SIM102
+				if flame_rect.colliderect(block.rect):
 					if random.random() < 0.9:
-						tile_x = block_rect.centerx // self.tile_map.tilewidth
-						tile_y = block_rect.centery // self.tile_map.tileheight
+						tile_x = block.rect.centerx // self.tile_map.tilewidth
+						tile_y = block.rect.centery // self.tile_map.tileheight
 						upgrade_event = {
 							"event_type": "upgrade_spawned",
 							"client_id": self.client_id,
 							"position": (tile_x, tile_y),
-							"upgradetype": random.choice([20, 21, 22]),
+							"upgradetype": random.choice([UPGRADE_HEALTH, UPGRADE_BOMBS, UPGRADE_POWER]),
 							"upgrade_id": gen_randid(),
 							"handled": False,
 							"handledby": "check_flame_collisions",
@@ -527,6 +552,8 @@ class GameState:
 							asyncio.create_task(self.broadcast_event(upgrade_event.copy()))
 						asyncio.create_task(self.event_queue.put(upgrade_event))
 						flame.kill()
+					break  # one block hit per flame
+
 		await asyncio.sleep(0)
 
 	async def check_upgrade_collisions(self):
@@ -885,8 +912,11 @@ class GameState:
 		# Mark handled and schedule broadcast without blocking
 		event["handled"] = True
 		event["handledby"] = "_on_player_update"
+		# Only the server re-broadcasts authoritative player state. Clients must
+		# not re-broadcast player_update events — the server validates that each
+		# connection only reports events for its own bound client_id, so a client
+		# rebroadcasting would either be rejected or create a feedback loop.
 		if self.client_id == "theserver":
-			# IMPORTANT: clients can have stale health; broadcast server-authoritative state.
 			out_event = dict(event)
 			out_event["handled"] = False
 			out_event["handledby"] = "server.authoritative_player_update"
@@ -896,21 +926,7 @@ class GameState:
 			out_event["health"] = ps.health
 			out_event["client_name"] = ps.client_name
 			out_event["bomb_power"] = ps.bomb_power
-			# asyncio.create_task(self.broadcast_event(out_event))
-		else:
-			if self.args.debug_gamestate:
-				pass  # logger.warning(f"{self} skipping broadcast_event for player_update on client.")
-			# asyncio.create_task(self.broadcast_event(event))
-		out_event = dict(event)
-		out_event["handled"] = False
-		out_event["handledby"] = "server.authoritative_player_update"
-		out_event["position"] = ps.position
-		out_event["score"] = ps.score
-		out_event["bombs_left"] = ps.bombs_left
-		out_event['bomb_power'] = ps.bomb_power
-		out_event["health"] = ps.health
-		out_event["client_name"] = ps.client_name
-		asyncio.create_task(self.broadcast_event(out_event))
+			asyncio.create_task(self.broadcast_event(out_event))
 		await asyncio.sleep(0)
 		return True
 
@@ -1006,13 +1022,11 @@ class GameState:
 			if self.client_id == 'theserver':
 				player = self.get_player_sprite_by_id(picker_id)
 				if player:
-					if upgrade.upgradetype == 20:
+					if upgrade.upgradetype == UPGRADE_HEALTH:
 						player.health += 10
-
-					elif upgrade.upgradetype == 21:
+					elif upgrade.upgradetype == UPGRADE_BOMBS:
 						player.bombs_left += 1
-
-					elif upgrade.upgradetype == 22:
+					elif upgrade.upgradetype == UPGRADE_POWER:
 						player.bomb_power += 1
 
 					# Broadcast the update immediately

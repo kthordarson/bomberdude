@@ -4,7 +4,7 @@ import os
 import pygame
 from pygame.math import Vector2 as Vec2d
 
-from constants import BLOCK
+from constants import BLOCK, UPGRADE_HEALTH, UPGRADE_BOMBS, UPGRADE_POWER
 from utils import async_get_cached_image, gen_randid, get_cached_image
 
 
@@ -19,11 +19,11 @@ class Upgrade:
 	"""
 
 	def __init__(self, position, upgrade_id, upgradetype, life=10.0):
-		if upgradetype == 20:
+		if upgradetype == UPGRADE_HEALTH:
 			self.image_name = 'data/heart.png'
-		elif upgradetype == 21:
+		elif upgradetype == UPGRADE_BOMBS:
 			self.image_name = 'data/newbomb2.png'
-		elif upgradetype == 22:
+		elif upgradetype == UPGRADE_POWER:
 			self.image_name = 'data/bombpwr.png'
 		else:
 			self.image_name = 'data/skull.png'

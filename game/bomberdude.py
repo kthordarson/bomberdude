@@ -667,8 +667,6 @@ class Bomberdude:
         """
         cfg = self.config
         player_one = self.game_state.get_playerone()
-        if self.args.debug:
-            logger.debug(f"Applying config changes: {cfg}")
         if player_one and cfg.player_name and player_one.client_name != cfg.player_name:
             player_one.client_name = cfg.player_name
             pygame.display.set_caption(cfg.player_name + ' - ' + self.title)

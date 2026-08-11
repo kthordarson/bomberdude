@@ -478,7 +478,6 @@ async def start_game(bomberdude_main: Bomberdude, args: argparse.Namespace) -> b
 	# 	raise e
 
 	bomberdude_main.client_id = client_id
-	bomberdude_main.client_id = client_id
 	bomberdude_main.game_state.client_id = client_id
 	bomberdude_main.mapname = mapname
 	bomberdude_main.game_state._load_map(mapname)

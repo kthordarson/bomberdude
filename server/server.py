@@ -242,51 +242,36 @@ class BombServer:
 		return web.json_response(resp)
 
 	async def new_start_server(self):
-		# Schedule background tasks on the current running loop
-		# loop = asyncio.get_running_loop()
-		# loop = asyncio.new_event_loop()
+		"""Start the TCP game server and the LAN discovery service.
+
+		HTTP routes (get_tile_map, get_client_id, etc.) are served by ApiServer,
+		which callers create and run alongside this coroutine — see
+		bdude.run_server_process() and bombserver.async_start_server().
+		"""
 		loop = asyncio.get_event_loop()
 		discovery_task = loop.create_task(self.discovery_service.start_discovery_service())
-		"""Start the game server using asyncio's high-level server API"""
-		# Create the server
-		server = await asyncio.start_server(lambda r, w: self.client_connected_callback(r, w), host=self.args.listen, port=self.args.server_port, reuse_address=True,)
 
+		server = await asyncio.start_server(
+			lambda r, w: self.client_connected_callback(r, w),
+			host=self.args.listen,
+			port=self.args.server_port,
+			reuse_address=True,
+		)
 		addr = server.sockets[0].getsockname()
-
-		# Create the HTTP server for map requests
-		app = web.Application()
-		app.router.add_get('/get_tile_map', self.get_tile_map)
-		app.router.add_get('/get_client_id', self.get_client_id)
-		app.router.add_get('/get_map_name', self.get_map_name)
-
-		runner = web.AppRunner(app)
-		await runner.setup()
 		if self.args.debug:
-			logger.debug(f'{self}  {app} {runner} API server runner host {self.args.listen} port {self.args.api_port}')
-		tcp_port = self.args.server_port+1
-		site = web.TCPSite(runner, self.args.listen, tcp_port)
-		try:
-			await site.start()
-			if self.args.debug:
-				logger.info(f'{self} TCPSite started on {self.args.listen}:{tcp_port} serveraddr: {addr}')
-		except Exception as e:
-			logger.error(f'{self} Error starting API server on {self.args.listen}:{tcp_port}: {e} {type(e)}')
-			return
+			logger.info(f'{self} TCP game server listening on {addr}')
 
 		try:
-			# Run the server
 			async with server:
 				await server.serve_forever()
 		except Exception as e:
 			logger.error(f'{self} Server error: {e} {type(e)}')
 		finally:
-			# Clean up
 			discovery_task.cancel()
 			try:
 				await discovery_task
 			except asyncio.CancelledError:
 				pass
-			await runner.cleanup()
 
 	def get_position(self, retas="int"):
 		# Get map dimensions in tiles
