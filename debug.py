@@ -17,10 +17,10 @@ _DEBUG_FONTS: dict[int, pygame.font.Font] = {}
 
 
 def _get_font(size: int) -> pygame.font.Font:
-    font = _DEBUG_FONTS.get(size)
-    if font is None:
-        font = pygame.font.Font(None, size)
-        _DEBUG_FONTS[size] = font
+    # font = _DEBUG_FONTS.get(size)
+    # if font is None:
+    font = pygame.font.Font(None, size)
+    _DEBUG_FONTS[size] = font
     return font
 
 

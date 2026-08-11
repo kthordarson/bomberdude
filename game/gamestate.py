@@ -230,7 +230,6 @@ class GameState:
 			self.tile_cache[new_gid] = self._get_tile_image_safe(new_gid)
 
 		map_update_event = {'event_type': "map_update_event", "position": (tile_x, tile_y), "new_gid": new_gid, "event_time": time.time(), "client_id": self.client_id, "handled": False, 'handledby': 'destroy_block',}
-		# asyncio.create_task(self.broadcast_event(map_update_event))
 		asyncio.create_task(self.event_queue.put(map_update_event))
 
 	def ready(self):
@@ -378,7 +377,6 @@ class GameState:
 			self.modified_tiles[(x, y)] = new_gid
 			map_update_event = {'event_type': "map_update_event", "position": (x, y), "new_gid": new_gid, "event_time": time.time(), "client_id": self.client_id, "handled": False, 'handledby': '_apply_tile_change',}
 			asyncio.create_task(self.broadcast_event(map_update_event))
-			# asyncio.create_task(self.event_queue.put(map_update_event))
 		elif new_gid in [20,21,22,23]:
 			# Create and add an Upgrade object for this tile if not already present (for both server and clients)
 			upgrade_tile = self.tile_cache.get(new_gid)
@@ -444,7 +442,6 @@ class GameState:
 					hit_event = {"event_time": time.time(), 'event_type': "player_hit", "client_id": flame.client_id, "reported_by": self.client_id, "target_id": player_id, "damage": 10, "position": (int(flame_rect.centerx), int(flame_rect.centery)), "handled": False, "handledby": "check_flame_collisions", "event_id": gen_randid(),}
 					# Queue the hit event and remove the flame so it only damages once.
 					asyncio.create_task(self.event_queue.put(hit_event))
-					# asyncio.create_task(self.broadcast_event(hit_event))
 					flame.kill()
 		for flame in list(self.explosion_manager.flames):
 			flame_rect = flame.rect
@@ -524,7 +521,6 @@ class GameState:
 				if bullet.rect.colliderect(player.rect):
 					hit_event = {"event_time": time.time(), 'event_type': "player_hit", "client_id": bullet.owner_id, "reported_by": self.client_id, "target_id": player.client_id, "damage": 10, "position": (bullet.position.x, bullet.position.y), "handled": False, "handledby": "check_bullet_collisions", "event_id": gen_randid()}
 					asyncio.create_task(self.event_queue.put(hit_event))
-					# asyncio.create_task(self.broadcast_event(hit_event))
 					bullet.kill()
 		await asyncio.sleep(0)
 
@@ -681,7 +677,6 @@ class GameState:
 		event["handledby"] = "_on_bullet_fired"
 		# Server should rebroadcast bullet events so other clients can spawn the bullet.
 		asyncio.create_task(self.broadcast_event(event))
-		# asyncio.create_task(self.event_queue.put(event))
 		await asyncio.sleep(0)
 		return True
 
@@ -838,11 +833,9 @@ class GameState:
 			out_event["health"] = ps.health
 			out_event["client_name"] = ps.client_name
 			out_event["bomb_power"] = ps.bomb_power
-			# asyncio.create_task(self.broadcast_event(out_event))
 		else:
 			if self.args.debug_gamestate:
 				pass  # logger.warning(f"{self} skipping broadcast_event for player_update on client.")
-			# asyncio.create_task(self.broadcast_event(event))
 		out_event = dict(event)
 		out_event["handled"] = False
 		out_event["handledby"] = "server.authoritative_player_update"
@@ -1012,10 +1005,8 @@ class GameState:
 				event['handledby'] = f'{self.client_id}_on_upgrade_spawned'
 				out_event = event.copy()
 				out_event['handled'] = False
-				# asyncio.create_task(self.broadcast_event(out_event))
 			else:
 				event['handledby'] = '_on_upgrade_spawned'
-				# asyncio.create_task(self.event_queue.put(event))
 		await asyncio.sleep(0)
 		return True
 
