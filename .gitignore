@@ -80,3 +80,4 @@ pycall*
 # AES keys and the player accounts DB (server/accounts.py, crypto_utils.py)
 *.key
 data/*.db
+tileedit.ini
